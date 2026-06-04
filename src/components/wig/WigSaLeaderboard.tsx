@@ -164,9 +164,9 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   // Merge leads + sales into per-SA rows. Only include names that are currently
   // active SAs OR appear with non-zero activity (we then filter again for active).
   const sortedRows = useMemo(() => {
-    const leadsMap = new Map(leads.rows.map(r => [r.sa, r.count]));
-    const sourcedMap = new Map(sourcedLeads.rows.map(r => [r.sa, r.count]));
-    const salesMap = new Map(sales.rows.map(r => [r.sa, r.count]));
+    const leadsMap = new Map<string, number>(leads.rows.map(r => [r.sa, r.count] as const));
+    const sourcedMap = new Map<string, number>(sourcedLeads.rows.map(r => [r.sa, r.count] as const));
+    const salesMap = new Map<string, number>(sales.rows.map(r => [r.sa, r.count] as const));
     const allNames = new Set<string>([
       ...activeSet,
       ...leads.rows.map(r => r.sa),
