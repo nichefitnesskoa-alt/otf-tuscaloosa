@@ -42,6 +42,9 @@ export function getBookingDayBucket(
  * PLANNING_RESCHEDULE  — member cancelled before class, will rebook
  * UNRESOLVED           — no outcome captured yet (run row is an artifact)
  * VIP_CLASS_INTRO      — VIP event marker, not a real intro run
+ * NOT_INTERESTED       — per studio policy, "Showed Up - Not Interested"
+ *                        does not count as a ran intro for coach/SA
+ *                        performance, WIG ran counts, or close rate.
  *
  * NOTE: PLANNING_2ND_INTRO IS a ran intro — the member showed up,
  * had the class, and decided they want to book a 2nd intro before
@@ -52,6 +55,7 @@ export const NON_RAN_RESULT_CANONS = new Set([
   'PLANNING_RESCHEDULE',
   'UNRESOLVED',
   'VIP_CLASS_INTRO',
+  'NOT_INTERESTED',
 ]);
 
 const NON_RAN_RESULT_DISPLAY = new Set([
@@ -62,6 +66,8 @@ const NON_RAN_RESULT_DISPLAY = new Set([
   'pending',
   '',
   'vip class intro',
+  'not interested',
+  'showed up - not interested',
 ]);
 
 /**
