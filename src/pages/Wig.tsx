@@ -913,6 +913,9 @@ export default function Wig() {
             {renderMetricCard(leadCard, true)}
           </div>
 
+          {/* Self-sourced lead entry — same component used on My Day */}
+          <SelfSourcedLeadEntry />
+
           {/* SA Leaderboard with shifts/streaks/milestones/refs (NEW) */}
           <WigSaLeaderboard dateRange={dateRange} />
 
