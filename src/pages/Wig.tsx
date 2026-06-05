@@ -16,6 +16,7 @@ import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WigSaLeaderboard } from '@/components/wig/WigSaLeaderboard';
+import { SelfSourcedLeadEntry } from '@/features/myDay/SelfSourcedLeadEntry';
 
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
