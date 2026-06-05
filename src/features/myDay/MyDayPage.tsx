@@ -312,7 +312,7 @@ export default function MyDayPage() {
   const greeting = new Date().getHours() < 12 ? 'morning' : 'afternoon';
 
   return (
-    <div className="max-w-full overflow-x-hidden">
+    <div className="max-w-full overflow-x-hidden pb-[calc(7rem_+_env(safe-area-inset-bottom))]">
       <OnboardingOverlay />
       <WhatsChangedDialog />
 
