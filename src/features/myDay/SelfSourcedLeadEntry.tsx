@@ -114,7 +114,7 @@ export function SelfSourcedLeadEntry() {
 
   return (
     <>
-      <Card className="border-primary/30">
+      <Card className="border-2 border-primary bg-primary text-primary-foreground shadow-md">
         <CardContent className="p-3">
           <button
             type="button"
@@ -122,19 +122,20 @@ export function SelfSourcedLeadEntry() {
             className="w-full flex items-center justify-between min-h-[44px] text-left"
           >
             <div className="flex items-center gap-2">
-              <UserPlus className="w-4 h-4 text-primary" />
+              <UserPlus className="w-5 h-5 text-primary-foreground" />
               <div>
-                <p className="text-sm font-semibold">Log a lead you sourced</p>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-sm font-bold text-primary-foreground">Log a lead you sourced</p>
+                <p className="text-[11px] text-primary-foreground/80">
                   Counts toward your Leads column on the leaderboard
                 </p>
               </div>
             </div>
-            {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {open ? <ChevronUp className="w-4 h-4 text-primary-foreground" /> : <ChevronDown className="w-4 h-4 text-primary-foreground" />}
           </button>
 
           {open && (
-            <div className="mt-3 space-y-3 border-t pt-3">
+            <div className="mt-3 space-y-3 border-t border-primary-foreground/20 pt-3 -mx-3 px-3 pb-0 bg-card text-foreground rounded-b-lg">
+
               <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-[11px] leading-snug">
                 <Info className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                 <span>
