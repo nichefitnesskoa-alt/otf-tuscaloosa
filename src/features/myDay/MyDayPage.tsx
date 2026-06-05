@@ -413,7 +413,6 @@ export default function MyDayPage() {
           </TabsContent>
 
           <TabsContent value="leads" className="mt-0 space-y-3">
-            <SelfSourcedLeadEntry />
             <div className="mb-1">
               <h2 className="text-sm font-semibold">New Leads</h2>
               <p className="text-xs text-muted-foreground">Email-parsed leads — speed to contact matters</p>
@@ -423,6 +422,11 @@ export default function MyDayPage() {
         </div>
       </Tabs>
 
+
+      {/* ═══ LOG A LEAD YOU SOURCED ═══ */}
+      <div className="px-[5px] pt-2">
+        <SelfSourcedLeadEntry />
+      </div>
 
       {/* ═══ CLASS MILESTONE CHECKS ═══ */}
       <div className="px-[5px] py-[10px] my-0 pb-0 pr-[5px] pt-0">
