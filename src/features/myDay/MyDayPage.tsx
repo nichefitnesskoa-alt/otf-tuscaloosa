@@ -64,6 +64,7 @@ import { VipClaimBanner } from './VipClaimBanner';
 import { ClassMilestoneChecks } from './ClassMilestoneChecks';
 import { ReferralAskActions } from './ReferralAskActions';
 import { SelfSourcedLeadEntry } from './SelfSourcedLeadEntry';
+import { SourcedLeadsToText } from './SourcedLeadsToText';
 
 export default function MyDayPage() {
   const { user } = useAuth();
@@ -409,6 +410,7 @@ export default function MyDayPage() {
           </TabsContent>
 
           <TabsContent value="followups" className="mt-0 space-y-3">
+            <SourcedLeadsToText compact={false} defaultOpen />
             <FollowUpList onCountChange={setFollowUpsDueCount} onRefresh={fetchMetrics} />
           </TabsContent>
 
@@ -426,6 +428,11 @@ export default function MyDayPage() {
       {/* ═══ LOG A LEAD YOU SOURCED ═══ */}
       <div className="px-[5px] pt-2">
         <SelfSourcedLeadEntry />
+      </div>
+
+      {/* ═══ TEXT YOUR SOURCED LEADS ═══ */}
+      <div className="px-[5px] pt-2">
+        <SourcedLeadsToText />
       </div>
 
       {/* ═══ CLASS MILESTONE CHECKS ═══ */}

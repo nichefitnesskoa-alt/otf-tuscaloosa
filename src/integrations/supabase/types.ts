@@ -2010,6 +2010,8 @@ export type Database = {
           source: string
           sourced_by_sa: string | null
           stage: string
+          text_archived_at: string | null
+          text_archived_reason: string | null
           updated_at: string
         }
         Insert: {
@@ -2029,6 +2031,8 @@ export type Database = {
           source?: string
           sourced_by_sa?: string | null
           stage?: string
+          text_archived_at?: string | null
+          text_archived_reason?: string | null
           updated_at?: string
         }
         Update: {
@@ -2048,6 +2052,8 @@ export type Database = {
           source?: string
           sourced_by_sa?: string | null
           stage?: string
+          text_archived_at?: string | null
+          text_archived_reason?: string | null
           updated_at?: string
         }
         Relationships: []

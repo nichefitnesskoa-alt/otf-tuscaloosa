@@ -17,6 +17,7 @@ import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw } from 'luc
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WigSaLeaderboard } from '@/components/wig/WigSaLeaderboard';
 import { SelfSourcedLeadEntry } from '@/features/myDay/SelfSourcedLeadEntry';
+import { SourcedLeadsToText } from '@/features/myDay/SourcedLeadsToText';
 
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -915,6 +916,9 @@ export default function Wig() {
 
           {/* Self-sourced lead entry — same component used on My Day */}
           <SelfSourcedLeadEntry />
+
+          {/* Text queue for self-sourced leads — same component used on My Day */}
+          <SourcedLeadsToText defaultOpen />
 
           {/* SA Leaderboard with shifts/streaks/milestones/refs (NEW) */}
           <WigSaLeaderboard dateRange={dateRange} />
