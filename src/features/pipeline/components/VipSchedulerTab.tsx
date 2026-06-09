@@ -785,7 +785,7 @@ export function VipSchedulerTab() {
           <h3 className="text-sm font-semibold flex items-center gap-1.5">
             <Clock className="w-4 h-4" /> Recurring Templates
           </h3>
-          <p className="text-xs text-muted-foreground">Slots auto-generated every Monday for 8 weeks ahead. Toggle to pause or resume.</p>
+          <p className="text-xs text-muted-foreground">Slots auto-generated every Monday for 52 weeks ahead (rolling year). Toggle to pause or resume.</p>
         </div>
         {templatesLoading ? (
           <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
