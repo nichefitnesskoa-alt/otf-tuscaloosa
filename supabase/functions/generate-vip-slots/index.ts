@@ -1,6 +1,6 @@
 /**
  * generate-vip-slots — Generates VIP session slots from templates.
- * Looks 8 weeks ahead from current Monday. Skips dates where a session already exists.
+ * Looks 52 weeks ahead from today. Skips dates where a session already exists.
  * Triggered weekly via pg_cron or manually.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     // Start from today
     const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + 56); // 8 weeks
+    endDate.setDate(endDate.getDate() + 364); // 52 weeks (rolling year)
 
     // 3. For each template, find matching dates in the window
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
