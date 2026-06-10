@@ -65,6 +65,7 @@ import { ClassMilestoneChecks } from './ClassMilestoneChecks';
 import { ReferralAskActions } from './ReferralAskActions';
 import { SelfSourcedLeadEntry } from './SelfSourcedLeadEntry';
 import { SourcedLeadsToText } from './SourcedLeadsToText';
+import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 
 export default function MyDayPage() {
   const { user } = useAuth();
@@ -438,6 +439,11 @@ export default function MyDayPage() {
       {/* ═══ CLASS MILESTONE CHECKS ═══ */}
       <div className="px-[5px] py-[10px] my-0 pb-0 pr-[5px] pt-0">
         <ClassMilestoneChecks />
+      </div>
+
+      {/* ═══ MILESTONES & DEPLOY (moved from WIG) ═══ */}
+      <div className="px-[5px] pt-2">
+        <MilestonesDeploySection />
       </div>
 
       {/* ═══ ASK FOR A REFERRAL ═══ */}
