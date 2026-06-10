@@ -386,7 +386,7 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
       notClosedCards,
       coverageCards,
     };
-  }, [cards, ran, range, primary, smoothed]);
+  }, [cards, ran, range, primary, smoothed, closedRootsByBuyDate, extraClosedScorecards]);
 
   return { data, isLoading, refetch: () => { scorecardsQuery.refetch(); ranQuery.refetch(); } };
 }
