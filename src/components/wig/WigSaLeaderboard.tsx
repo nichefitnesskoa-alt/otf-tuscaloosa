@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Users, Pencil, Check } from 'lucide-react';
+import { Loader2, Users, Pencil, Check, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
@@ -14,11 +14,18 @@ import { useSaLeads } from '@/hooks/useSaLeads';
 import { useSaSales } from '@/hooks/useSaSales';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import type { DateRange } from '@/lib/pay-period';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { notifyDataChanged } from '@/lib/data/invalidation';
+import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 import { getNowCentral } from '@/lib/dateUtils';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/pace';
+import {
+  loadMonthlyTargets,
+  saveMonthlyTarget,
+  type MonthlyTargets,
+  type TargetKind,
+} from '@/lib/wig/targets';
 
 interface Props {
   dateRange: DateRange | undefined;
@@ -26,150 +33,132 @@ interface Props {
 
 type DrillBucket = 'leads' | 'sales' | 'sourced';
 
-const DEFAULT_SA_LEADS_TARGET = 16; // per SA per MONTH
-const DEFAULT_SA_SALES_TARGET = 4;  // per SA per MONTH
-
 const VIP_SOURCES = new Set(['VIP Class', 'VIP Class (Friend)']);
+
+/** Tiny inline R/Y/G bar — used in hero (loud) and in mini cells (quiet). */
+function PaceBar({
+  current,
+  target,
+  pace,
+  size = 'sm',
+}: {
+  current: number;
+  target: number | null;
+  pace: number | null;
+  size?: 'sm' | 'lg';
+}) {
+  const status = statusColor(current, pace);
+  const cls = statusClasses(status);
+  const pct = target && target > 0 ? Math.min(100, (current / target) * 100) : 0;
+  return (
+    <div
+      className={cn(
+        'w-full rounded-full bg-secondary overflow-hidden',
+        size === 'lg' ? 'h-3' : 'h-1.5',
+      )}
+    >
+      <div
+        className={cn('h-full rounded-full transition-all', cls.bar)}
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
+}
 
 export function WigSaLeaderboard({ dateRange }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isAdmin = isAdminCheck(user);
   const { salesAssociates: activeSas } = useActiveStaff();
   const rangeStart = dateRange ? format(dateRange.start, 'yyyy-MM-dd') : '2020-01-01';
   const rangeEnd = dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
-  
-  const leads = useSaAllBooked(rangeStart, rangeEnd);
+
+  const booked = useSaAllBooked(rangeStart, rangeEnd);
   const sourcedLeads = useSaLeads(rangeStart, rangeEnd);
   const sales = useSaSales(rangeStart, rangeEnd);
 
   const [drill, setDrill] = useState<{ sa: string | null; bucket: DrillBucket } | null>(null);
   const [journeyBookingId, setJourneyBookingId] = useState<string | null>(null);
 
-  // Per-period targets stored in studio_settings under
-  // `sa_leads_booked_target:YYYY-MM` and `sa_sales_target:YYYY-MM`.
   const yyyymm = useMemo(() => (
     dateRange ? format(dateRange.start, 'yyyy-MM') : format(getNowCentral(), 'yyyy-MM')
   ), [dateRange]);
-  const leadsTargetKey = `sa_leads_booked_target:${yyyymm}`;
-  const salesTargetKey = `sa_sales_target:${yyyymm}`;
 
-  const [leadsTarget, setLeadsTarget] = useState<number>(DEFAULT_SA_LEADS_TARGET);
-  const [salesTarget, setSalesTarget] = useState<number>(DEFAULT_SA_SALES_TARGET);
-  const [editingLeads, setEditingLeads] = useState(false);
-  const [editingSales, setEditingSales] = useState(false);
-  const [leadsInput, setLeadsInput] = useState<string>(String(DEFAULT_SA_LEADS_TARGET));
-  const [salesInput, setSalesInput] = useState<string>(String(DEFAULT_SA_SALES_TARGET));
-  const [leadsSaved, setLeadsSaved] = useState(false);
-  const [salesSaved, setSalesSaved] = useState(false);
+  const [targets, setTargets] = useState<MonthlyTargets>({
+    saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null,
+  });
 
-  const loadTargets = useCallback(async () => {
-    const { data: rows } = await supabase
-      .from('studio_settings')
-      .select('setting_key, setting_value')
-      .in('setting_key', [leadsTargetKey, salesTargetKey]);
-    const map = new Map(((rows as any[]) || []).map(r => [r.setting_key, r.setting_value]));
-    const lt = parseInt(map.get(leadsTargetKey) || '', 10);
-    const st = parseInt(map.get(salesTargetKey) || '', 10);
-    const finalLt = isNaN(lt) ? DEFAULT_SA_LEADS_TARGET : lt;
-    const finalSt = isNaN(st) ? DEFAULT_SA_SALES_TARGET : st;
-    setLeadsTarget(finalLt); setLeadsInput(String(finalLt));
-    setSalesTarget(finalSt); setSalesInput(String(finalSt));
-  }, [leadsTargetKey, salesTargetKey]);
+  const refreshTargets = useCallback(async () => {
+    setTargets(await loadMonthlyTargets(yyyymm));
+  }, [yyyymm]);
+  useEffect(() => { refreshTargets(); }, [refreshTargets]);
 
-  useEffect(() => { loadTargets(); }, [loadTargets]);
+  // Editor state — one slim editor per target.
+  const [editing, setEditing] = useState<TargetKind | null>(null);
+  const [inputVal, setInputVal] = useState<string>('');
+  const [savedFlash, setSavedFlash] = useState<TargetKind | null>(null);
 
-  const saveTarget = async (key: string, value: number, scope: string) => {
-    const { error } = await supabase
-      .from('studio_settings')
-      .upsert(
-        {
-          setting_key: key,
-          setting_value: String(value),
-          updated_by: user?.name || 'unknown',
-          updated_at: new Date().toISOString(),
-        } as any,
-        { onConflict: 'setting_key' },
-      );
-    if (error) { toast.error('Failed to save target'); return false; }
-    notifyDataChanged([scope], `${scope}-edit`);
-    return true;
+  const openEdit = (k: TargetKind, current: number | null) => {
+    setEditing(k);
+    setInputVal(current == null ? '' : String(current));
+  };
+  const saveEdit = async () => {
+    if (!editing) return;
+    const v = parseInt(inputVal, 10);
+    if (isNaN(v) || v < 0) { toast.error('Enter a number ≥ 0'); return; }
+    const { error } = await saveMonthlyTarget(editing, yyyymm, v, user?.name || 'unknown');
+    if (error) { toast.error('Save failed'); return; }
+    setSavedFlash(editing);
+    setEditing(null);
+    setTimeout(() => setSavedFlash(null), 2000);
+    refreshTargets();
   };
 
-  const handleSaveLeads = async () => {
-    const v = parseInt(leadsInput, 10);
-    if (isNaN(v) || v < 0) return;
-    if (await saveTarget(leadsTargetKey, v, 'sa_leads_booked_target')) {
-      setLeadsTarget(v); setEditingLeads(false); setLeadsSaved(true);
-      setTimeout(() => setLeadsSaved(false), 2000);
-      loadTargets();
-    }
-  };
-  const handleSaveSales = async () => {
-    const v = parseInt(salesInput, 10);
-    if (isNaN(v) || v < 0) return;
-    if (await saveTarget(salesTargetKey, v, 'sa_sales_target')) {
-      setSalesTarget(v); setEditingSales(false); setSalesSaved(true);
-      setTimeout(() => setSalesSaved(false), 2000);
-      loadTargets();
-    }
-  };
-
-  const totals = useMemo(() => {
-    return { leads: leads.total, sales: sales.total };
-  }, [leads.total, sales.total]);
-
-  // Period-aware target math.
-  // - Both leads and sales targets are MONTHLY per SA.
-  //   Period goal = round(monthly × days/monthDays). Pro-rata-to-today
-  //   scales linearly across elapsed days in the selected range.
-  const { leadsPeriodGoal, salesPeriodGoal, leadsProRata, salesProRata } = useMemo(() => {
-    if (!dateRange) {
-      return { weeksInPeriod: 1,
-               leadsPeriodGoal: Math.round(leadsTarget / 4),
-               salesPeriodGoal: Math.round(salesTarget / 4),
-               leadsProRata: Math.round(leadsTarget / 4),
-               salesProRata: Math.round(salesTarget / 4),
-               isSingleWeek: true, isFullMonth: false };
-    }
-    const msDay = 86400000;
-    const days = Math.max(1, Math.round((dateRange.end.getTime() - dateRange.start.getTime()) / msDay) + 1);
-    const weeks = Math.max(1, Math.ceil(days / 7));
-    // Days in the calendar month of the range start (CST-safe via UTC math on Y/M).
+  // ── Per-SA pace (uses CST today, scoped to target's calendar month) ──
+  const today = getNowCentral();
+  // The pace anchors to "today in CST" inside the calendar month the user
+  // is looking at. When viewing a past month, we cap to the last day of
+  // that month so pace = full monthly target (period closed).
+  const paceAnchor = useMemo(() => {
+    if (!dateRange) return today;
     const startY = dateRange.start.getFullYear();
     const startM = dateRange.start.getMonth();
-    const monthDays = new Date(startY, startM + 1, 0).getDate();
-    const today = getNowCentral();
-    const cappedToday = today < dateRange.start ? dateRange.start : today > dateRange.end ? dateRange.end : today;
-    const elapsedDays = Math.max(1, Math.round((cappedToday.getTime() - dateRange.start.getTime()) / msDay) + 1);
-    return {
-      weeksInPeriod: weeks,
-      leadsPeriodGoal: Math.max(1, Math.round(leadsTarget * days / monthDays)),
-      salesPeriodGoal: Math.max(1, Math.round(salesTarget * days / monthDays)),
-      leadsProRata: leadsTarget * elapsedDays / monthDays,
-      salesProRata: salesTarget * elapsedDays / monthDays,
-      isSingleWeek: weeks === 1,
-      isFullMonth: days === monthDays,
-    };
-  }, [dateRange, leadsTarget, salesTarget]);
+    const lastDay = new Date(startY, startM + 1, 0);
+    if (today < dateRange.start) return dateRange.start;
+    if (today > lastDay) return lastDay;
+    return today;
+  }, [dateRange, today]);
 
-  // Team rollup targets = per-SA × active SA count (excluding Koa, who is
-  // Admin and not part of the SA leaderboard or team goal denominator).
+  const perSaPace = {
+    sgl: paceToToday(targets.saSgl, paceAnchor),
+    booked: paceToToday(targets.saBooked, paceAnchor),
+    sales: paceToToday(targets.saSales, paceAnchor),
+  };
+
+  // Active SA count (Koa = Admin, not on the SA leaderboard).
   const activeCount = (activeSas || []).filter(n => n !== 'Koa').length;
-  const teamLeadsTarget = leadsPeriodGoal * activeCount;
-  const teamSalesTarget = salesPeriodGoal * activeCount;
+
+  const teamTargets = {
+    sgl: targets.saSgl != null ? targets.saSgl * activeCount : null,
+    booked: targets.saBooked != null ? targets.saBooked * activeCount : null,
+    sales: targets.saSales != null ? targets.saSales * activeCount : null,
+  };
+  const teamPace = {
+    sgl: paceToToday(teamTargets.sgl, paceAnchor),
+    booked: paceToToday(teamTargets.booked, paceAnchor),
+    sales: paceToToday(teamTargets.sales, paceAnchor),
+  };
 
   // Active SA set — used to suppress phantom/inactive names from the leaderboard.
   const activeSet = useMemo(() => new Set(activeSas || []), [activeSas]);
 
-  // Merge leads + sales into per-SA rows. Only include names that are currently
-  // active SAs OR appear with non-zero activity (we then filter again for active).
   const sortedRows = useMemo(() => {
-    const leadsMap = new Map<string, number>(leads.rows.map(r => [r.sa, r.count] as const));
+    const bookedMap = new Map<string, number>(booked.rows.map(r => [r.sa, r.count] as const));
     const sourcedMap = new Map<string, number>(sourcedLeads.rows.map(r => [r.sa, r.count] as const));
     const salesMap = new Map<string, number>(sales.rows.map(r => [r.sa, r.count] as const));
     const allNames = new Set<string>([
       ...activeSet,
-      ...leads.rows.map(r => r.sa),
+      ...booked.rows.map(r => r.sa),
       ...sourcedLeads.rows.map(r => r.sa),
       ...sales.rows.map(r => r.sa),
     ]);
@@ -177,36 +166,39 @@ export function WigSaLeaderboard({ dateRange }: Props) {
       .filter(name => activeSet.has(name) && name !== 'Koa')
       .map(name => ({
         name,
-        sourced: sourcedMap.get(name) ?? 0,
-        leadsBooked: leadsMap.get(name) ?? 0,
+        sgl: sourcedMap.get(name) ?? 0,
+        booked: bookedMap.get(name) ?? 0,
         sales: salesMap.get(name) ?? 0,
       }))
+      // Sort by SGL desc — the lead measure SAs control.
       .sort((a, b) =>
+        b.sgl - a.sgl ||
+        b.booked - a.booked ||
         b.sales - a.sales ||
-        b.sourced - a.sourced ||
-        b.leadsBooked - a.leadsBooked ||
         a.name.localeCompare(b.name),
       );
-  }, [leads.rows, sourcedLeads.rows, sales.rows, activeSet]);
+  }, [booked.rows, sourcedLeads.rows, sales.rows, activeSet]);
+
+  const totals = useMemo(() => ({
+    sgl: sortedRows.reduce((s, r) => s + r.sgl, 0),
+    booked: sortedRows.reduce((s, r) => s + r.booked, 0),
+    sales: sortedRows.reduce((s, r) => s + r.sales, 0),
+  }), [sortedRows]);
 
   const rangeLabel = dateRange
     ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}`
     : 'All time';
+  const monthLabel = format(paceAnchor, 'MMMM');
 
-  // VIP-creator + lead-source breakdown for a given SA (or studio-wide if null).
+  // ── Drilldown plumbing (unchanged) ──
   const leadsBreakdownSubtitle = useMemo(() => {
     if (!drill || drill.bucket !== 'leads') return undefined;
-    const saRows = drill.sa ? leads.rows.filter(r => r.sa === drill.sa) : leads.rows;
+    const saRows = drill.sa ? booked.rows.filter(r => r.sa === drill.sa) : booked.rows;
     const counts = new Map<string, number>();
     for (const r of saRows) {
       for (const b of r.bookings) {
         const src = b.lead_source || 'Unknown';
-        // VIP-class bookings: label with which SA set the VIP up.
-        // The credit SA == sa_setup_name by helper definition, so for a
-        // single-SA drilldown all VIP rows are "set up by drill.sa".
-        const label = VIP_SOURCES.has(src)
-          ? `${src} (set up by ${r.sa})`
-          : src;
+        const label = VIP_SOURCES.has(src) ? `${src} (set up by ${r.sa})` : src;
         counts.set(label, (counts.get(label) || 0) + 1);
       }
     }
@@ -215,7 +207,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
       .sort((a, b) => b[1] - a[1])
       .map(([k, v]) => `${k}: ${v}`)
       .join(' · ');
-  }, [drill, leads.rows]);
+  }, [drill, booked.rows]);
 
   const drillRows: PersonRow[] = useMemo(() => {
     if (!drill) return [];
@@ -227,12 +219,8 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         subtitle: `${run.result_canon || 'SALE'} · closed ${format(parseLocalDate(closeYMD) || new Date(closeYMD), 'MMM d')} · ${r.sa}`,
         rightLabel: run.result_canon || undefined,
         rightTone: 'success' as const,
-        outcomeEdit: run.linked_intro_booked_id
-          ? { bookingId: run.linked_intro_booked_id }
-          : undefined,
-        onClick: run.linked_intro_booked_id
-          ? () => setJourneyBookingId(run.linked_intro_booked_id!)
-          : undefined,
+        outcomeEdit: run.linked_intro_booked_id ? { bookingId: run.linked_intro_booked_id } : undefined,
+        onClick: run.linked_intro_booked_id ? () => setJourneyBookingId(run.linked_intro_booked_id!) : undefined,
       })));
     }
     if (drill.bucket === 'sourced') {
@@ -246,16 +234,11 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         onClick: p.booking_id ? () => setJourneyBookingId(p.booking_id!) : undefined,
       })));
     }
-    // leads (Booked column) — group visually by sorting by lead_source so they cluster.
-    const saRows = drill.sa
-      ? leads.rows.filter(r => r.sa === drill.sa)
-      : leads.rows;
+    const saRows = drill.sa ? booked.rows.filter(r => r.sa === drill.sa) : booked.rows;
     const flat = saRows.flatMap(r =>
       r.bookings.map(b => {
         const src = b.lead_source || 'Unknown';
-        const sourceLabel = VIP_SOURCES.has(src)
-          ? `${src} (set up by ${r.sa})`
-          : src;
+        const sourceLabel = VIP_SOURCES.has(src) ? `${src} (set up by ${r.sa})` : src;
         return {
           id: `lead-${b.id}`,
           name: b.member_name || 'Unknown member',
@@ -268,88 +251,103 @@ export function WigSaLeaderboard({ dateRange }: Props) {
       }),
     );
     return flat.sort((a, b) => a._src.localeCompare(b._src)).map(({ _src, ...row }) => row);
-  }, [drill, leads.rows, sourcedLeads.rows, sales.rows]);
+  }, [drill, booked.rows, sourcedLeads.rows, sales.rows]);
 
   const drillTitle = drill
     ? `${drill.sa ?? 'Studio'} · ${drill.bucket === 'sales' ? 'Sales' : drill.bucket === 'sourced' ? 'Self-sourced leads' : 'Booked intros'}`
     : '';
 
+  // ── HERO: team self-generated leads vs team SGL target ──
+  const heroStatus = statusColor(totals.sgl, teamPace.sgl);
+  const heroCls = statusClasses(heroStatus);
+  const heroTargetUnset = targets.saSgl == null;
+
   return (
     <>
-      {/* Header tile row — 2 tiles (leads + sales) */}
-      <div className="grid grid-cols-2 gap-2">
-        <Card>
-          <CardContent className="p-3 text-center">
-            <button
-              type="button"
-              onClick={() => setDrill({ sa: null, bucket: 'leads' })}
-              disabled={totals.leads === 0}
-              className="w-full min-h-[44px] cursor-pointer hover:bg-muted/40 rounded -m-1 p-1 disabled:cursor-default disabled:hover:bg-transparent"
-            >
-              <p className="text-2xl font-bold text-primary">{totals.leads}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Booked</p>
-              <p className="text-[10px] text-muted-foreground">team goal {teamLeadsTarget} ({rangeLabel})</p>
-            </button>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3 text-center">
-            <button
-              type="button"
-              onClick={() => setDrill({ sa: null, bucket: 'sales' })}
-              disabled={totals.sales === 0}
-              className="w-full min-h-[44px] cursor-pointer hover:bg-muted/40 rounded -m-1 p-1 disabled:cursor-default disabled:hover:bg-transparent"
-            >
-              <p className="text-2xl font-bold text-primary">{totals.sales}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Sales</p>
-              <p className="text-[10px] text-muted-foreground">team goal {teamSalesTarget} ({rangeLabel})</p>
-            </button>
-          </CardContent>
-        </Card>
-      </div>
-
-
-      {/* Per-SA target editors */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        <div className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2">
-          <div className="text-xs">
-            <span className="font-medium">Per-SA leads target: </span>
-            <span className="text-primary font-semibold">{leadsTarget}</span>
-            <span className="text-muted-foreground"> / SA / month</span>
+      {/* ===== HERO — Team Self-Generated Leads ===== */}
+      <Card className={cn('border-2 ring-2 ring-offset-0', heroCls.ring, 'border-' + (heroStatus === 'unset' ? 'border' : heroStatus))}>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Trophy className={cn('w-4 h-4', heroCls.text)} />
+            <span className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">
+              Team self-generated leads · {monthLabel}
+            </span>
           </div>
-          {editingLeads ? (
-            <div className="flex items-center gap-1">
-              <Input type="number" value={leadsInput} onChange={e => setLeadsInput(e.target.value)} className="h-7 w-16 text-xs" min={0} />
-              <Button size="sm" className="h-7 px-2" onClick={handleSaveLeads}>Save</Button>
-              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setEditingLeads(false); setLeadsInput(String(leadsTarget)); }}>Cancel</Button>
-            </div>
-          ) : (
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingLeads(true)}>
-              {leadsSaved ? <><Check className="w-3 h-3 mr-1" />Saved</> : <><Pencil className="w-3 h-3 mr-1" />Edit target</>}
-            </Button>
-          )}
-        </div>
-        <div className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2">
-          <div className="text-xs">
-            <span className="font-medium">Per-SA sales target: </span>
-            <span className="text-primary font-semibold">{salesTarget}</span>
-            <span className="text-muted-foreground"> / SA / month</span>
+          <div className="flex items-baseline gap-3 mb-2">
+            <span className={cn('text-5xl font-black tabular-nums leading-none', heroCls.text)}>
+              {totals.sgl}
+            </span>
+            <span className="text-lg text-muted-foreground">
+              of {teamTargets.sgl ?? <em className="not-italic text-warning">CONFIRM THIS VALUE</em>}
+            </span>
           </div>
-          {editingSales ? (
-            <div className="flex items-center gap-1">
-              <Input type="number" value={salesInput} onChange={e => setSalesInput(e.target.value)} className="h-7 w-16 text-xs" min={0} />
-              <Button size="sm" className="h-7 px-2" onClick={handleSaveSales}>Save</Button>
-              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setEditingSales(false); setSalesInput(String(salesTarget)); }}>Cancel</Button>
-            </div>
-          ) : (
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingSales(true)}>
-              {salesSaved ? <><Check className="w-3 h-3 mr-1" />Saved</> : <><Pencil className="w-3 h-3 mr-1" />Edit target</>}
-            </Button>
-          )}
-        </div>
-      </div>
+          <PaceBar current={totals.sgl} target={teamTargets.sgl} pace={teamPace.sgl} size="lg" />
+          <div className="mt-2 flex items-center justify-between gap-2 flex-wrap text-[11px] text-muted-foreground">
+            <span>
+              Pace today: <span className={cn('font-semibold', heroCls.text)}>{formatPace(teamPace.sgl)}</span>
+              {' · '}
+              {heroStatus === 'green' && 'at or ahead of pace ✓'}
+              {heroStatus === 'yellow' && 'a little behind today'}
+              {heroStatus === 'red' && 'behind today — close the gap'}
+              {heroStatus === 'unset' && 'set per-SA SGL target to start'}
+            </span>
+            <span>
+              Per-SA target: <span className="font-semibold text-foreground">{targets.saSgl ?? '—'}</span>
+              <span className="mx-1">×</span>
+              {activeCount} active SAs
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 ml-2 text-xs"
+                  onClick={() => openEdit('saSgl', targets.saSgl)}
+                >
+                  {savedFlash === 'saSgl' ? <><Check className="w-3 h-3 mr-1" />Saved</> : <><Pencil className="w-3 h-3 mr-1" />Edit</>}
+                </Button>
+              )}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* SA leaderboard */}
+      {/* Per-SA target editors (compact row) */}
+      {isAdmin && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {([
+            ['saSgl', 'Per-SA SGL', targets.saSgl] as const,
+            ['saBooked', 'Per-SA booked', targets.saBooked] as const,
+            ['saSales', 'Per-SA sales', targets.saSales] as const,
+          ]).map(([k, label, val]) => (
+            <div key={k} className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2 text-xs">
+              <span className="text-muted-foreground">{label} ({monthLabel})</span>
+              {editing === k ? (
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number" min={0}
+                    value={inputVal}
+                    onChange={e => setInputVal(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditing(null); }}
+                    className="h-7 w-16 text-xs"
+                    autoFocus
+                  />
+                  <Button size="sm" className="h-7 px-2" onClick={saveEdit}>Save</Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="flex items-center gap-1 font-semibold text-foreground hover:text-primary"
+                  onClick={() => openEdit(k, val)}
+                >
+                  {val == null ? <span className="text-warning">set</span> : val}
+                  {savedFlash === k ? <Check className="w-3 h-3 text-success" /> : <Pencil className="w-3 h-3 opacity-50" />}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ===== SA Leaderboard ===== */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -357,16 +355,16 @@ export function WigSaLeaderboard({ dateRange }: Props) {
             SA Leaderboard
           </CardTitle>
           <p className="text-[11px] text-muted-foreground">
-            Tap a number to drill in. Tap an SA name to open their page.
+            Sorted by Leads. Tap a number to drill in. Tap an SA name to open their page.
           </p>
           <p className="text-[11px] text-muted-foreground mt-1">
-            <strong>Leads</strong> = self-sourced only.{' '}
+            <strong>Leads</strong> = self-sourced.{' '}
             <strong>Booked</strong> = intros booked (inbound + sourced).
             A sourced lead that books counts in both.
           </p>
         </CardHeader>
         <CardContent className="p-0">
-          {(leads.loading || sales.loading) ? (
+          {(booked.loading || sales.loading || sourcedLeads.loading) ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
               <span className="text-xs text-muted-foreground">Loading…</span>
@@ -378,94 +376,108 @@ export function WigSaLeaderboard({ dateRange }: Props) {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="text-xs w-8">#</TableHead>
                     <TableHead className="text-xs">SA</TableHead>
                     <TableHead className="text-xs text-center">
                       Leads
                       <div className="text-[9px] font-normal text-muted-foreground">
-                        self-sourced
+                        of {targets.saSgl ?? '—'} · pace {formatPace(perSaPace.sgl)}
                       </div>
                     </TableHead>
                     <TableHead className="text-xs text-center">
                       Booked
                       <div className="text-[9px] font-normal text-muted-foreground">
-                        goal {leadsPeriodGoal} ({leadsTarget}/mo prorated)
+                        of {targets.saBooked ?? '—'} · pace {formatPace(perSaPace.booked)}
                       </div>
                     </TableHead>
                     <TableHead className="text-xs text-center">
                       Sales
                       <div className="text-[9px] font-normal text-muted-foreground">
-                        goal {salesPeriodGoal} ({salesTarget}/mo prorated)
+                        of {targets.saSales ?? '—'} · pace {formatPace(perSaPace.sales)}
                       </div>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedRows.map(row => {
-                    const leadsOnPace = row.leadsBooked >= leadsProRata;
-                    const salesOnPace = row.sales >= salesProRata;
-                    const leadsHit = row.leadsBooked >= leadsPeriodGoal;
-                    const salesHit = row.sales >= salesPeriodGoal;
+                  {sortedRows.map((row, idx) => {
+                    const sglS = statusColor(row.sgl, perSaPace.sgl);
+                    const bkS = statusColor(row.booked, perSaPace.booked);
+                    const slS = statusColor(row.sales, perSaPace.sales);
                     return (
-                    <TableRow
-                      key={row.name}
-                      className="cursor-pointer hover:bg-muted/40"
-                      onClick={() => navigate(`/sas/${encodeURIComponent(row.name)}`)}
-                    >
-                      <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
-                      <TableCell className="text-sm text-center p-0">
-                        <button
-                          type="button"
-                          disabled={row.sourced === 0}
-                          onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'sourced' }); }}
-                          className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
-                        >
-                          <div className="text-foreground font-medium">
-                            {row.sourced}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">
-                            sourced
-                          </div>
-                        </button>
-                      </TableCell>
-                      <TableCell className="text-sm text-center p-0">
-                        <button
-                          type="button"
-                          disabled={row.leadsBooked === 0}
-                          onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'leads' }); }}
-                          className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
-                        >
-                          <div className={leadsHit ? 'text-success font-semibold' : leadsOnPace ? 'text-foreground font-medium' : 'text-warning'}>
-                            {row.leadsBooked} <span className="text-muted-foreground font-normal">of {leadsPeriodGoal}</span>
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {leadsHit ? 'goal hit ✓' : leadsOnPace ? 'on pace ✓' : 'behind pace'}
-                          </div>
-                        </button>
-                      </TableCell>
-                      <TableCell className="text-sm text-center p-0">
-                        <button
-                          type="button"
-                          disabled={row.sales === 0}
-                          onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'sales' }); }}
-                          className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
-                        >
-                          <div className={salesHit ? 'text-success font-semibold' : salesOnPace ? 'text-foreground font-medium' : 'text-warning'}>
-                            {row.sales} <span className="text-muted-foreground font-normal">of {salesPeriodGoal}</span>
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {salesHit ? 'goal hit ✓' : salesOnPace ? 'on pace ✓' : 'behind pace'}
-                          </div>
-                        </button>
-                      </TableCell>
-                    </TableRow>
-                  );})}
+                      <TableRow
+                        key={row.name}
+                        className="cursor-pointer hover:bg-muted/40"
+                        onClick={() => navigate(`/sas/${encodeURIComponent(row.name)}`)}
+                      >
+                        <TableCell className="text-xs text-muted-foreground tabular-nums">{idx + 1}</TableCell>
+                        <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
+                        <TableCell className="text-sm text-center p-0">
+                          <button
+                            type="button"
+                            disabled={row.sgl === 0}
+                            onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'sourced' }); }}
+                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
+                          >
+                            <div className={cn('font-semibold tabular-nums', statusClasses(sglS).text)}>
+                              {row.sgl}
+                            </div>
+                            <div className="mt-1 px-2">
+                              <PaceBar current={row.sgl} target={targets.saSgl} pace={perSaPace.sgl} />
+                            </div>
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-sm text-center p-0">
+                          <button
+                            type="button"
+                            disabled={row.booked === 0}
+                            onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'leads' }); }}
+                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
+                          >
+                            <div className={cn('font-medium tabular-nums', statusClasses(bkS).text)}>
+                              {row.booked}
+                            </div>
+                            <div className="mt-1 px-2">
+                              <PaceBar current={row.booked} target={targets.saBooked} pace={perSaPace.booked} />
+                            </div>
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-sm text-center p-0">
+                          <button
+                            type="button"
+                            disabled={row.sales === 0}
+                            onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'sales' }); }}
+                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
+                          >
+                            <div className={cn('font-medium tabular-nums', statusClasses(slS).text)}>
+                              {row.sales}
+                            </div>
+                            <div className="mt-1 px-2">
+                              <PaceBar current={row.sales} target={targets.saSales} pace={perSaPace.sales} />
+                            </div>
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
+                    <TableCell />
+                    <TableCell className="text-sm font-bold">Team</TableCell>
+                    <TableCell className="text-sm text-center font-bold tabular-nums">
+                      {totals.sgl} <span className="text-muted-foreground font-normal text-xs">/ {teamTargets.sgl ?? '—'}</span>
+                    </TableCell>
+                    <TableCell className="text-sm text-center font-bold tabular-nums">
+                      {totals.booked} <span className="text-muted-foreground font-normal text-xs">/ {teamTargets.booked ?? '—'}</span>
+                    </TableCell>
+                    <TableCell className="text-sm text-center font-bold tabular-nums">
+                      {totals.sales} <span className="text-muted-foreground font-normal text-xs">/ {teamTargets.sales ?? '—'}</span>
+                    </TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             </div>
           )}
         </CardContent>
       </Card>
-
 
       <PersonListDrillDown
         open={!!drill}
