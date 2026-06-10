@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useScorecards } from '@/hooks/useScorecards';
+import { useFvTrendData } from '@/hooks/useFvTrendData';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { parseLocalDate, formatScorecardDate } from '@/lib/dateUtils';
 import { ComparisonView } from './ComparisonView';
+import { UnscoredDrillDown } from './UnscoredDrillDown';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RTooltip } from 'recharts';
 import {
   getCadenceForDate,
@@ -36,6 +38,17 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
     evaluatee: selected,
   });
   const [openId, setOpenId] = useState<string | null>(null);
+  const [openUnscored, setOpenUnscored] = useState(false);
+
+  // Ran first-intros this month, with unscored breakdown by coach.
+  const fv = useFvTrendData({ start: monthStart, end: monthEnd }, 'self', false);
+  const ranThisMonth = fv.data?.ranByCoach.get(selected) ?? 0;
+  const unscoredForCoach = useMemo(
+    () => (fv.data?.unscoredIntros ?? []).filter(i => i.coach === selected),
+    [fv.data, selected]
+  );
+  const unscoredCount = unscoredForCoach.length;
+  const scoredCount = Math.max(ranThisMonth - unscoredCount, 0);
 
   const submitted = scorecards.filter(s => !!s.submitted_at);
   const selfCount = submitted.filter(s => s.eval_type === 'self_eval').length;
@@ -121,18 +134,32 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
           <p className="text-3xl font-black tabular-nums">{avgScore}<span className="text-base text-muted-foreground">/30</span></p>
         </Card>
         <Card className="p-4">
-          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Total this month</p>
-          <p className="text-3xl font-black tabular-nums">{submitted.length}</p>
+          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Scored this month</p>
+          <p className="text-3xl font-black tabular-nums">
+            {scoredCount}<span className="text-base text-muted-foreground">/{ranThisMonth}</span>
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-1">of ran 1st intros</p>
         </Card>
+        <button
+          type="button"
+          onClick={() => unscoredCount > 0 && setOpenUnscored(true)}
+          disabled={unscoredCount === 0}
+          className="text-left"
+        >
+          <Card className={`p-4 h-full ${unscoredCount > 0 ? 'border-primary/40 bg-primary/5 hover:bg-primary/10 cursor-pointer' : ''}`}>
+            <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Unscored</p>
+            <p className={`text-3xl font-black tabular-nums ${unscoredCount > 0 ? 'text-primary' : ''}`}>{unscoredCount}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {unscoredCount > 0 ? 'Tap to score →' : 'All caught up'}
+            </p>
+          </Card>
+        </button>
         <Card className="p-4">
-          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Self this month</p>
-          <p className="text-3xl font-black tabular-nums">{selfCount}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Formal this month</p>
-          <p className="text-3xl font-black tabular-nums">{formalCount}</p>
+          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Self · Formal</p>
+          <p className="text-3xl font-black tabular-nums">{selfCount}<span className="text-base text-muted-foreground"> · {formalCount}</span></p>
         </Card>
       </div>
+
 
       {/* Trend */}
       <Card className="p-4">
@@ -190,6 +217,13 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
       </Card>
 
       <ComparisonView scorecardId={openId} open={!!openId} onOpenChange={(o) => { if (!o) setOpenId(null); }} />
+      <UnscoredDrillDown
+        open={openUnscored}
+        onOpenChange={setOpenUnscored}
+        coach={selected}
+        intros={unscoredForCoach}
+      />
+
     </div>
   );
 }
