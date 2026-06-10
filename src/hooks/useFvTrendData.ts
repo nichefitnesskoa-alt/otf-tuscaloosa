@@ -152,9 +152,77 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
     },
   });
 
+  // Buy-date-anchored back-fill for "Avg Score · Closed":
+  // any 1st-intro whose chain produced a SALE with buy_date in range,
+  // regardless of whether the 1st intro's class_date sits inside range.
+  const closedByBuyDateQuery = useQuery({
+    queryKey: ['fv_trend_closed_by_buy_date', from, to],
+    queryFn: async () => {
+      const { data: saleRuns } = await supabase
+        .from('intros_run')
+        .select('linked_intro_booked_id')
+        .gte('buy_date', from)
+        .lte('buy_date', to)
+        .in('result_canon', ['SALE', 'PREMIER', 'PREMIER_OTBEAT', 'ELITE', 'BASIC']);
+      const ids = Array.from(new Set((saleRuns || []).map((r: any) => r.linked_intro_booked_id).filter(Boolean)));
+      if (ids.length === 0) return new Set<string>();
+
+      const known = new Map<string, any>();
+      let frontier = ids;
+      while (frontier.length) {
+        const missing = frontier.filter(id => !known.has(id));
+        if (!missing.length) break;
+        const { data: rows } = await supabase
+          .from('intros_booked')
+          .select('id, originating_booking_id, is_vip, ignore_from_metrics, booking_status_canon, deleted_at')
+          .in('id', missing);
+        (rows || []).forEach((r: any) => known.set(r.id, r));
+        frontier = (rows || []).map((r: any) => r.originating_booking_id).filter(Boolean);
+      }
+
+      const roots = new Set<string>();
+      const findRoot = (id: string): any => {
+        let cur = known.get(id);
+        while (cur && cur.originating_booking_id && known.has(cur.originating_booking_id)) {
+          cur = known.get(cur.originating_booking_id);
+        }
+        return cur;
+      };
+      ids.forEach(id => {
+        const root = findRoot(id);
+        if (!root) return;
+        if (root.deleted_at) return;
+        if (root.ignore_from_metrics) return;
+        if ((root.booking_status_canon || '').toUpperCase() === 'DELETED_SOFT') return;
+        roots.add(root.id);
+      });
+      return roots;
+    },
+  });
+
+  // Extra scorecards for buy-date-anchored closed bookings whose class_date
+  // sits outside the active range — needed so "Avg Score · Closed" reflects them.
+  const extraIds = useMemo(
+    () => Array.from(closedByBuyDateQuery.data || new Set<string>()),
+    [closedByBuyDateQuery.data]
+  );
+  const extraClosedScorecardsQuery = useQuery({
+    queryKey: ['fv_trend_extra_closed_scorecards', extraIds.sort().join(',')],
+    enabled: extraIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('fv_scorecards' as any)
+        .select('*')
+        .in('first_timer_id', extraIds);
+      return (data || []) as unknown as FvScorecard[];
+    },
+  });
+
   const isLoading = scorecardsQuery.isLoading || ranQuery.isLoading;
   const cards = scorecardsQuery.data || [];
   const ran = ranQuery.data || [];
+  const closedRootsByBuyDate = closedByBuyDateQuery.data || new Set<string>();
+  const extraClosedScorecards = extraClosedScorecardsQuery.data || [];
 
   const data = useMemo<FvTrendData>(() => {
     const primaryCards = pickPrimaryScorecards(cards, primary);
@@ -257,6 +325,28 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
       });
     });
 
+    // Buy-date back-fill: include scored 1st intros whose chain closed in range
+    // even if the 1st intro's class_date (and its scorecard) is outside range.
+    const alreadyClosedIds = new Set(closedCards.map(c => c.first_timer_id).filter(Boolean) as string[]);
+    const extraByTimer = new Map<string, FvScorecard[]>();
+    extraClosedScorecards.forEach(c => {
+      if (!c.first_timer_id || !c.submitted_at) return;
+      const arr = extraByTimer.get(c.first_timer_id) || [];
+      arr.push(c);
+      extraByTimer.set(c.first_timer_id, arr);
+    });
+    closedRootsByBuyDate.forEach(rootId => {
+      if (alreadyClosedIds.has(rootId)) return;
+      const all = extraByTimer.get(rootId) || [];
+      if (all.length === 0) return;
+      const picked = pickPrimaryScorecards(all, primary);
+      const card = picked[0];
+      if (!card) return;
+      closedSum += card.total_score;
+      closedN++;
+      closedCards.push(card);
+    });
+
     const closingTiles: ClosingTile = {
       avgClosed: closedN ? closedSum / closedN : null,
       closedCount: closedN,
@@ -296,7 +386,7 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
       notClosedCards,
       coverageCards,
     };
-  }, [cards, ran, range, primary, smoothed]);
+  }, [cards, ran, range, primary, smoothed, closedRootsByBuyDate, extraClosedScorecards]);
 
   return { data, isLoading, refetch: () => { scorecardsQuery.refetch(); ranQuery.refetch(); } };
 }
