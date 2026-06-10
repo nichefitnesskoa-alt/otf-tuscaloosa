@@ -1061,7 +1061,7 @@ export default function Wig() {
                             <TableCell />
                             <TableCell className="text-base font-bold whitespace-nowrap">Total</TableCell>
                             <TableCell className="text-base text-center font-bold tabular-nums">{totalCoached}</TableCell>
-                            <TableCell className="text-sm text-center font-bold tabular-nums">{totalScored}/{totalCoached}</TableCell>
+                            <TableCell className={cn('text-sm text-center font-bold tabular-nums', statusClasses(scoredStatus(totalScored, totalCoached)).text)}>{totalScored}/{totalCoached}</TableCell>
                             <TableCell className="text-base text-center font-bold text-muted-foreground">—</TableCell>
                             <TableCell className="text-base text-center font-bold text-success tabular-nums">{totalCloses}</TableCell>
                             <TableCell className="text-lg text-center font-bold">
