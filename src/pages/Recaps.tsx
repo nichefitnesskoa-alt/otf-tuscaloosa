@@ -31,6 +31,7 @@ import PayPeriodCommission from '@/components/PayPeriodCommission';
 import { VipClassPerformanceTable } from '@/components/admin/VipClassPerformanceTable';
 import { MetricsConsistencyAlert } from '@/components/dashboard/MetricsConsistencyAlert';
 import { DuplicateRunsAlert } from '@/components/dashboard/DuplicateRunsAlert';
+import { WigFirstVisitSection } from '@/components/scorecard/WigFirstVisitSection';
 
 
 export default function Recaps() {
