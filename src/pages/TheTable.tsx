@@ -78,6 +78,41 @@ export default function TheTable() {
   const { data: closeRow } = useTableClose(meeting?.id);
   const laneHealth = useLaneHealth(meeting?.id, meeting?.meeting_date);
   useTableRealtime(meeting?.id);
+  const { staff: allStaff, salesAssociates } = useActiveStaff();
+
+  // Live WIG label for the "How this serves the WIG" prompt — reads the same
+  // monthly studio target as the WIG tab, and computes team SGL as
+  // per-SA SGL target × active SA count. Falls back to a neutral label if
+  // either value is unset so we never display a stale hardcoded number.
+  const [wigSuffix, setWigSuffix] = useState<string>('');
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { loadMonthlyTargets } = await import('@/lib/wig/targets');
+      const yyyymm = (meeting?.meeting_date ?? weekDate).slice(0, 7);
+      const t = await loadMonthlyTargets(yyyymm);
+      if (cancelled) return;
+      const teamSgl = t.saSgl != null && salesAssociates.length > 0
+        ? t.saSgl * salesAssociates.length : null;
+      if (t.studioLeads != null && teamSgl != null) {
+        setWigSuffix(` (${t.studioLeads} leads, ${teamSgl} self-generated)`);
+      } else if (t.studioLeads != null) {
+        setWigSuffix(` (${t.studioLeads} leads this month)`);
+      } else {
+        setWigSuffix('');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [meeting?.meeting_date, weekDate, salesAssociates.length]);
+
+  // Coach-owned lanes get a close-rate example in the WIG-connection prompt;
+  // other lanes keep the neutral leads-funnel example.
+  const coachStaffIds = useMemo(
+    () => new Set(allStaff.filter(s => ['Coach', 'Both', 'Admin'].includes(s.role)).map(s => s.id)),
+    [allStaff],
+  );
+
+
 
   const [manageOpen, setManageOpen] = useState(false);
   const [winOpen, setWinOpen] = useState(false);
