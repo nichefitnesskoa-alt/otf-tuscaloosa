@@ -342,59 +342,36 @@ export function WigSaLeaderboard({ dateRange }: Props) {
       {/* ===== SA Leaderboard ===== */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Users className="w-4 h-4 text-primary" />
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
             SA Leaderboard
           </CardTitle>
-          <p className="text-[11px] text-muted-foreground">
-            Sorted by Leads. Tap a number to drill in. Tap an SA name to open their page.
-          </p>
-          <p className="text-[11px] text-muted-foreground mt-1">
-            <strong>Leads</strong> = self-sourced.{' '}
-            <strong>Booked</strong> = intros booked (inbound + sourced).
-            A sourced lead that books counts in both.
+          <p className="text-sm text-muted-foreground">
+            Self-generated leads — the one number SAs control. Tap an SA to open their page; tap a number to see who.
           </p>
         </CardHeader>
         <CardContent className="p-0">
           {(booked.loading || sales.loading || sourcedLeads.loading) ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
-              <span className="text-xs text-muted-foreground">Loading…</span>
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground mr-2" />
+              <span className="text-sm text-muted-foreground">Loading…</span>
             </div>
           ) : sortedRows.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">No SA activity for this period.</p>
+            <p className="text-sm text-muted-foreground text-center py-6">No SA activity for this period.</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs w-8">#</TableHead>
-                    <TableHead className="text-xs">SA</TableHead>
-                    <TableHead className="text-xs text-center">
+                    <TableHead className="text-sm w-10">#</TableHead>
+                    <TableHead className="text-sm">SA</TableHead>
+                    <TableHead className="text-sm text-center">
                       Leads
-                      <div className="text-[10px] font-semibold text-foreground">
+                      <div className="text-sm font-semibold text-foreground">
                         need {formatPace(perSaPace.sgl)} today
                       </div>
-                      <div className="text-[9px] font-normal text-muted-foreground">
+                      <div className="text-xs font-normal text-muted-foreground">
                         of {targets.saSgl ?? '—'} this month
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-xs text-center">
-                      Booked
-                      <div className="text-[10px] font-semibold text-foreground">
-                        need {formatPace(perSaPace.booked)} today
-                      </div>
-                      <div className="text-[9px] font-normal text-muted-foreground">
-                        of {targets.saBooked ?? '—'} this month
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-xs text-center">
-                      Sales
-                      <div className="text-[10px] font-semibold text-foreground">
-                        need {formatPace(perSaPace.sales)} today
-                      </div>
-                      <div className="text-[9px] font-normal text-muted-foreground">
-                        of {targets.saSales ?? '—'} this month
                       </div>
                     </TableHead>
                   </TableRow>
@@ -402,61 +379,27 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                 <TableBody>
                   {sortedRows.map((row, idx) => {
                     const sglS = statusColor(row.sgl, perSaPace.sgl);
-                    const bkS = statusColor(row.booked, perSaPace.booked);
-                    const slS = statusColor(row.sales, perSaPace.sales);
                     return (
                       <TableRow
                         key={row.name}
                         className="cursor-pointer hover:bg-muted/40"
                         onClick={() => navigate(`/sas/${encodeURIComponent(row.name)}`)}
                       >
-                        <TableCell className="text-xs text-muted-foreground tabular-nums">{idx + 1}</TableCell>
-                        <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
-                        <TableCell className="text-sm text-center p-0">
+                        <TableCell className="text-sm text-muted-foreground tabular-nums">{idx + 1}</TableCell>
+                        <TableCell className="text-base font-medium whitespace-nowrap">{row.name}</TableCell>
+                        <TableCell className="text-base text-center p-0">
                           <button
                             type="button"
                             disabled={row.sgl === 0}
                             onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'sourced' }); }}
-                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
+                            className="w-full min-h-[48px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
                           >
-                            <div className={cn('font-semibold tabular-nums', statusClasses(sglS).text)}>
+                            <div className={cn('text-2xl font-bold tabular-nums', statusClasses(sglS).text)}>
                               {row.sgl}
-                              <span className="ml-1 text-[10px] font-normal text-muted-foreground">/ {formatPace(perSaPace.sgl)}</span>
+                              <span className="ml-1 text-xs font-normal text-muted-foreground">/ {formatPace(perSaPace.sgl)}</span>
                             </div>
                             <div className="mt-1 px-2">
                               <PaceBar current={row.sgl} target={targets.saSgl} pace={perSaPace.sgl} />
-                            </div>
-                          </button>
-                        </TableCell>
-                        <TableCell className="text-sm text-center p-0">
-                          <button
-                            type="button"
-                            disabled={row.booked === 0}
-                            onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'leads' }); }}
-                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
-                          >
-                            <div className={cn('font-medium tabular-nums', statusClasses(bkS).text)}>
-                              {row.booked}
-                              <span className="ml-1 text-[10px] font-normal text-muted-foreground">/ {formatPace(perSaPace.booked)}</span>
-                            </div>
-                            <div className="mt-1 px-2">
-                              <PaceBar current={row.booked} target={targets.saBooked} pace={perSaPace.booked} />
-                            </div>
-                          </button>
-                        </TableCell>
-                        <TableCell className="text-sm text-center p-0">
-                          <button
-                            type="button"
-                            disabled={row.sales === 0}
-                            onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'sales' }); }}
-                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
-                          >
-                            <div className={cn('font-medium tabular-nums', statusClasses(slS).text)}>
-                              {row.sales}
-                              <span className="ml-1 text-[10px] font-normal text-muted-foreground">/ {formatPace(perSaPace.sales)}</span>
-                            </div>
-                            <div className="mt-1 px-2">
-                              <PaceBar current={row.sales} target={targets.saSales} pace={perSaPace.sales} />
                             </div>
                           </button>
                         </TableCell>
@@ -465,15 +408,9 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                   })}
                   <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
                     <TableCell />
-                    <TableCell className="text-sm font-bold">Team</TableCell>
-                    <TableCell className="text-sm text-center font-bold tabular-nums">
-                      {totals.sgl} <span className="text-muted-foreground font-normal text-xs">/ {teamTargets.sgl ?? '—'}</span>
-                    </TableCell>
-                    <TableCell className="text-sm text-center font-bold tabular-nums">
-                      {totals.booked} <span className="text-muted-foreground font-normal text-xs">/ {teamTargets.booked ?? '—'}</span>
-                    </TableCell>
-                    <TableCell className="text-sm text-center font-bold tabular-nums">
-                      {totals.sales} <span className="text-muted-foreground font-normal text-xs">/ {teamTargets.sales ?? '—'}</span>
+                    <TableCell className="text-base font-bold">Team</TableCell>
+                    <TableCell className="text-base text-center font-bold tabular-nums">
+                      {totals.sgl} <span className="text-muted-foreground font-normal text-sm">/ {teamTargets.sgl ?? '—'}</span>
                     </TableCell>
                   </TableRow>
                 </TableBody>
