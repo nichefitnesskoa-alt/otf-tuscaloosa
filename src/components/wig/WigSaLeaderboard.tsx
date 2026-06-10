@@ -265,7 +265,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   return (
     <>
       {/* ===== HERO — Team Self-Generated Leads ===== */}
-      <Card className={cn('border-2 ring-2 ring-offset-0', heroCls.ring, 'border-' + (heroStatus === 'unset' ? 'border' : heroStatus))}>
+      <Card className={cn('border-2 ring-2 ring-offset-0', heroCls.ring)}>
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-1">
             <Trophy className={cn('w-4 h-4', heroCls.text)} />
