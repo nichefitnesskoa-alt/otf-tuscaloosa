@@ -18,6 +18,7 @@
  *     only archiving from the to-text queue).
  */
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -36,6 +37,7 @@ import { fullName, daysSinceLogged, type SourcedLeadRow } from '@/lib/sa/sourced
 import { stripCountryCode, formatPhoneDisplay } from '@/lib/parsing/phone';
 import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
+import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { notifyDataChanged } from '@/lib/data/invalidation';
 import type { Tables } from '@/integrations/supabase/types';
 
