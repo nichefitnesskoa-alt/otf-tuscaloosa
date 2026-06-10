@@ -652,9 +652,17 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
     onChangeRef.current();
   };
 
-  const fields: { key: keyof OwnerEntry; label: string }[] = [
-    { key: 'last_week_update', label: 'What happened in your lane last week?' },
-    { key: 'this_week_focus', label: 'What are you focused on this week?' },
+  const fields: { key: keyof OwnerEntry; label: string; placeholder?: string }[] = [
+    {
+      key: 'commitment',
+      label: 'What I commit to this week',
+      placeholder: 'I commit to [action] by [day] to create [result]',
+    },
+    {
+      key: 'serves_wig',
+      label: 'How this serves the WIG (182 leads, 91 self-generated)',
+      placeholder: 'e.g. pickleball event → 30 locals in studio → VIP passes → leads',
+    },
     { key: 'ideas', label: 'Any ideas on your mind?' },
     { key: 'ask', label: 'What do you need from someone in this room?' },
   ];
@@ -675,6 +683,7 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
               defaultValue={val}
               resetKey={resetKey}
               disabled={locked}
+              placeholder={f.placeholder}
               className={cn(
                 'min-h-[70px] border-2',
                 filled ? 'border-success/40' : 'border-warning/40',
