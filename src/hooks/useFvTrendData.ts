@@ -200,10 +200,29 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
     },
   });
 
+  // Extra scorecards for buy-date-anchored closed bookings whose class_date
+  // sits outside the active range — needed so "Avg Score · Closed" reflects them.
+  const extraIds = useMemo(
+    () => Array.from(closedByBuyDateQuery.data || new Set<string>()),
+    [closedByBuyDateQuery.data]
+  );
+  const extraClosedScorecardsQuery = useQuery({
+    queryKey: ['fv_trend_extra_closed_scorecards', extraIds.sort().join(',')],
+    enabled: extraIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('fv_scorecards' as any)
+        .select('*')
+        .in('first_timer_id', extraIds);
+      return (data || []) as unknown as FvScorecard[];
+    },
+  });
+
   const isLoading = scorecardsQuery.isLoading || ranQuery.isLoading;
   const cards = scorecardsQuery.data || [];
   const ran = ranQuery.data || [];
   const closedRootsByBuyDate = closedByBuyDateQuery.data || new Set<string>();
+  const extraClosedScorecards = extraClosedScorecardsQuery.data || [];
 
   const data = useMemo<FvTrendData>(() => {
     const primaryCards = pickPrimaryScorecards(cards, primary);
