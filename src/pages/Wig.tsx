@@ -749,6 +749,22 @@ export default function Wig() {
   const coachHeroCls = statusClasses(coachHeroStatus);
   const studioHeroCls = statusClasses(studioLeadsStatus);
 
+  // R/Y/G thresholds for the Coach Stats lead-measure columns.
+  // Scored: 100% green, 75%+ yellow, else red. Avg score: 21+ green, 11-20 yellow, else red.
+  const scoredStatus = (scored: number, coached: number): import('@/lib/wig/pace').WigStatus => {
+    if (coached <= 0) return 'unset';
+    const pct = (scored / coached) * 100;
+    if (pct >= 100) return 'green';
+    if (pct >= 75) return 'yellow';
+    return 'red';
+  };
+  const avgScoreStatus = (avg: number | null | undefined): import('@/lib/wig/pace').WigStatus => {
+    if (avg == null) return 'unset';
+    if (avg >= 21) return 'green';
+    if (avg >= 11) return 'yellow';
+    return 'red';
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -1002,12 +1018,14 @@ export default function Wig() {
                               </button>
                             </TableCell>
                             <TableCell className="text-sm text-center tabular-nums">
-                              <span className={cn(unscored > 0 && row.coached > 0 ? 'text-warning font-semibold' : 'text-foreground')}>
+                              <span className={cn('font-semibold', statusClasses(scoredStatus(scored, row.coached)).text)}>
                                 {scored}/{row.coached}
                               </span>
                             </TableCell>
                             <TableCell className="text-base text-center font-semibold tabular-nums">
-                              {avgVal != null ? avgVal.toFixed(1) : <span className="text-muted-foreground font-normal">—</span>}
+                              {avgVal != null
+                                ? <span className={statusClasses(avgScoreStatus(avgVal)).text}>{avgVal.toFixed(1)}</span>
+                                : <span className="text-muted-foreground font-normal">—</span>}
                             </TableCell>
                             <TableCell className="text-base text-center font-semibold text-success p-0">
                               <button
@@ -1043,7 +1061,7 @@ export default function Wig() {
                             <TableCell />
                             <TableCell className="text-base font-bold whitespace-nowrap">Total</TableCell>
                             <TableCell className="text-base text-center font-bold tabular-nums">{totalCoached}</TableCell>
-                            <TableCell className="text-sm text-center font-bold tabular-nums">{totalScored}/{totalCoached}</TableCell>
+                            <TableCell className={cn('text-sm text-center font-bold tabular-nums', statusClasses(scoredStatus(totalScored, totalCoached)).text)}>{totalScored}/{totalCoached}</TableCell>
                             <TableCell className="text-base text-center font-bold text-muted-foreground">—</TableCell>
                             <TableCell className="text-base text-center font-bold text-success tabular-nums">{totalCloses}</TableCell>
                             <TableCell className="text-lg text-center font-bold">
