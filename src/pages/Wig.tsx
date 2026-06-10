@@ -796,32 +796,49 @@ export default function Wig() {
           {/* SA Leaderboard renders its own hero (team SGL) + table */}
           <WigSaLeaderboard dateRange={dateRange} />
 
-          {/* Studio total leads — small context card under the leaderboard */}
-          <Card>
-            <CardContent className="p-3 space-y-2">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="text-xs">
-                  <span className="font-medium">Studio leads {selectedMonthLabel}:</span>{' '}
-                  <span className={cn('font-bold tabular-nums', studioHeroCls.text)}>{totalLeads}</span>
-                  <span className="text-muted-foreground">
-                    {' / '}
-                    {targets.studioLeads ?? <em className="not-italic text-warning">CONFIRM THIS VALUE</em>}
-                  </span>
-                  <span className="text-muted-foreground"> (about half paid)</span>
-                </div>
-                <div className="text-[11px] text-muted-foreground">
-                  Pace today: <span className={cn('font-semibold', studioHeroCls.text)}>{formatPace(studioLeadsPace)}</span>
-                </div>
+          {/* Studio total leads — BIG hero card with pace-to-today */}
+          <Card className={cn('border-2 ring-2 ring-offset-0', studioHeroCls.ring)}>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Target className={cn('w-4 h-4', studioHeroCls.text)} />
+                <span className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">
+                  Studio leads · {selectedMonthLabel}
+                </span>
               </div>
-              <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <span className={cn('text-5xl font-black tabular-nums leading-none', studioHeroCls.text)}>
+                  {totalLeads}
+                </span>
+                <span className="text-lg text-muted-foreground">
+                  of {targets.studioLeads ?? <em className="not-italic text-warning">CONFIRM THIS VALUE</em>} target
+                </span>
+              </div>
+              <div className={cn(
+                'rounded-md px-3 py-2 text-sm font-semibold',
+                studioLeadsStatus === 'green' && 'bg-success/15 text-success',
+                studioLeadsStatus === 'yellow' && 'bg-warning/15 text-warning',
+                studioLeadsStatus === 'red' && 'bg-destructive/15 text-destructive',
+                studioLeadsStatus === 'unset' && 'bg-muted text-muted-foreground',
+              )}>
+                {studioLeadsPace != null ? (
+                  <>
+                    Should be at <span className="text-2xl font-black tabular-nums">{formatPace(studioLeadsPace)}</span> by today
+                    {' · '}
+                    {totalLeads >= studioLeadsPace
+                      ? <span>you're +{totalLeads - studioLeadsPace} ahead ✓</span>
+                      : <span>{studioLeadsPace - totalLeads} behind pace</span>}
+                  </>
+                ) : 'Set a monthly target to see today\'s pace'}
+              </div>
+              <div className="w-full h-3 rounded-full bg-secondary overflow-hidden">
                 <div
                   className={cn('h-full rounded-full transition-all', studioHeroCls.bar)}
                   style={{ width: `${targets.studioLeads ? Math.min(100, (totalLeads / targets.studioLeads) * 100) : 0}%` }}
                 />
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap pt-1">
                 <label className="text-[11px] text-muted-foreground">
-                  Studio total leads for {selectedMonthLabel} (from OTF report)
+                  Update total leads for {selectedMonthLabel} (from OTF report)
                 </label>
                 <Input
                   type="number"
@@ -860,11 +877,6 @@ export default function Wig() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Below the fold: actions, queue, milestones */}
-          <SelfSourcedLeadEntry />
-          <SourcedLeadsToText defaultOpen />
-          <MilestonesDeploySection dateRange={dateRange} />
         </TabsContent>
 
         {/* ===== COACH TAB ===== */}
