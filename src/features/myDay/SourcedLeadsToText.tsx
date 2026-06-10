@@ -126,7 +126,12 @@ export function SourcedLeadsToText({ compact = true, defaultOpen = false }: Prop
         key={lead.id}
         className="flex items-center gap-2 rounded-md border border-border bg-card p-2"
       >
-        <div className="flex-1 min-w-0">
+        <button
+          type="button"
+          onClick={() => setDetailLeadId(lead.id)}
+          className="flex-1 min-w-0 text-left rounded hover:bg-muted/40 -m-1 p-1 min-h-[44px]"
+          aria-label={`View ${fullName(lead)} details`}
+        >
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold truncate">{fullName(lead)}</p>
             <Badge className={`${ageColor} text-[10px] px-1.5 py-0`}>
@@ -138,7 +143,7 @@ export function SourcedLeadsToText({ compact = true, defaultOpen = false }: Prop
             {lead.source ? ` · ${lead.source}` : ''}
             {lead.sourced_by_sa ? ` · by ${lead.sourced_by_sa}` : ''}
           </p>
-        </div>
+        </button>
         {phoneClean && (
           <a
             href={`tel:${phoneClean}`}
