@@ -18,6 +18,7 @@
  *     only archiving from the to-text queue).
  */
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -36,6 +37,7 @@ import { fullName, daysSinceLogged, type SourcedLeadRow } from '@/lib/sa/sourced
 import { stripCountryCode, formatPhoneDisplay } from '@/lib/parsing/phone';
 import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
+import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { notifyDataChanged } from '@/lib/data/invalidation';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -53,6 +55,35 @@ export function SourcedLeadsToText({ compact = true, defaultOpen = false }: Prop
   const [open, setOpen] = useState(defaultOpen);
   const [textingLead, setTextingLead] = useState<SourcedLeadRow | null>(null);
   const [bookingLead, setBookingLead] = useState<SourcedLeadRow | null>(null);
+  const [detailLeadId, setDetailLeadId] = useState<string | null>(null);
+
+  const { data: detailLead = null } = useQuery({
+    queryKey: ['leads', 'detail', detailLeadId],
+    enabled: !!detailLeadId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', detailLeadId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data as Tables<'leads'> | null;
+    },
+  });
+
+  const { data: detailActivities = [] } = useQuery({
+    queryKey: ['lead_activities', detailLeadId],
+    enabled: !!detailLeadId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('lead_activities')
+        .select('*')
+        .eq('lead_id', detailLeadId!)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as Tables<'lead_activities'>[];
+    },
+  });
 
   const empty = !loading && total === 0;
 
@@ -95,7 +126,12 @@ export function SourcedLeadsToText({ compact = true, defaultOpen = false }: Prop
         key={lead.id}
         className="flex items-center gap-2 rounded-md border border-border bg-card p-2"
       >
-        <div className="flex-1 min-w-0">
+        <button
+          type="button"
+          onClick={() => setDetailLeadId(lead.id)}
+          className="flex-1 min-w-0 text-left rounded hover:bg-muted/40 -m-1 p-1 min-h-[44px]"
+          aria-label={`View ${fullName(lead)} details`}
+        >
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold truncate">{fullName(lead)}</p>
             <Badge className={`${ageColor} text-[10px] px-1.5 py-0`}>
@@ -107,7 +143,7 @@ export function SourcedLeadsToText({ compact = true, defaultOpen = false }: Prop
             {lead.source ? ` · ${lead.source}` : ''}
             {lead.sourced_by_sa ? ` · by ${lead.sourced_by_sa}` : ''}
           </p>
-        </div>
+        </button>
         {phoneClean && (
           <a
             href={`tel:${phoneClean}`}
@@ -230,6 +266,14 @@ export function SourcedLeadsToText({ compact = true, defaultOpen = false }: Prop
           }}
         />
       )}
+
+      <LeadDetailSheet
+        lead={detailLead}
+        activities={detailActivities}
+        open={!!detailLeadId}
+        onOpenChange={(o) => { if (!o) setDetailLeadId(null); }}
+        onRefresh={() => notifyDataChanged(['leads', 'sa-leads'])}
+      />
     </>
   );
 }
