@@ -1,15 +1,18 @@
 /**
- * SA Weekly Goals — Own It view of the two SA WIG numbers for the SELECTED
- * meeting week (driven by parent `weekStart` prop, not "now").
+ * SA Weekly Goals — Own It view of the SA WIG numbers for the SELECTED
+ * meeting week (driven by parent `weekStart` prop).
  *
- * Reads the SAME canonical helpers as WIG so the numbers can never disagree:
- *   - useSaLeadsBooked  (target now monthly: studio_settings sa_leads_booked_target:YYYY-MM, default 16)
- *   - useSaSales        (weekly target: studio_settings sa_sales_target:YYYY-MM, default 1)
+ * Single source of truth: shares the SAME canonical helpers as WIG so the
+ * numbers and color can never disagree.
+ *   - useSaLeads        → self-generated leads (SGL)
+ *   - useSaLeadsBooked  → booked intros (SGL-only path)
+ *   - useSaSales        → sales
+ *   - targets via src/lib/wig/targets.ts (monthly, adjustable)
+ *   - pace/color via src/lib/wig/pace.ts
  *
- * Leads tile shows weekly slice of monthly goal: count vs round(monthly/4).
- * Sales tile remains weekly: count vs weeklyTarget.
- *
- * Vision line: studio_settings key `sa_wig_vision:YYYY-MM`, editable by Admin.
+ * All three tiles are MONTHLY. No weekly slicing. The displayed count is
+ * the SA's progress in the current calendar month at this moment; the
+ * goal is the monthly target; pace + color score against pace-to-today.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
@@ -19,21 +22,18 @@ import { Pencil, Check, Flag } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { isAdmin as isAdminCheck, isSALike } from '@/lib/auth/roles';
+import { useSaLeads } from '@/hooks/useSaLeads';
 import { useSaLeadsBooked } from '@/hooks/useSaLeadsBooked';
 import { useSaSales } from '@/hooks/useSaSales';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { notifyDataChanged } from '@/lib/data/invalidation';
 import { toast } from 'sonner';
+import { loadMonthlyTargets, type MonthlyTargets } from '@/lib/wig/targets';
+import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/pace';
+import { parseLocalDate, getNowCentral } from '@/lib/dateUtils';
+import { cn } from '@/lib/utils';
 
-const DEFAULT_LEADS_TARGET_MONTHLY = 16;
-const DEFAULT_SALES_TARGET_WEEKLY = 1;
 const DEFAULT_VISION = "Double last June's leads. 182 total.";
-
-function shiftYMD(ymd: string, days: number): string {
-  const [y, m, d] = ymd.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d + days));
-  return dt.toISOString().slice(0, 10);
-}
 
 interface Props {
   /** Monday YYYY-MM-DD for the selected meeting week (from TheTable). */
@@ -45,36 +45,34 @@ export function SaWeeklyGoals({ weekStart }: Props) {
   const isAdmin = isAdminCheck(user);
   const showForUser = isAdmin || isSALike(user);
 
-  const weekEnd = useMemo(() => shiftYMD(weekStart, 6), [weekStart]);
-  // Target settings keyed to the MONTH of the selected week's Monday.
-  const yyyymm = useMemo(() => weekStart.slice(0, 7), [weekStart]);
+  // Anchor goals to the calendar month of the selected week's Monday.
+  const monthAnchor = useMemo(() => parseLocalDate(weekStart) || getNowCentral(), [weekStart]);
+  const monthStartYMD = useMemo(() => format(startOfMonth(monthAnchor), 'yyyy-MM-dd'), [monthAnchor]);
+  const monthEndYMD = useMemo(() => format(endOfMonth(monthAnchor), 'yyyy-MM-dd'), [monthAnchor]);
+  const yyyymm = useMemo(() => format(monthAnchor, 'yyyy-MM'), [monthAnchor]);
+  const monthLabel = format(monthAnchor, 'MMMM');
 
-  const leads = useSaLeadsBooked(weekStart, weekEnd);
-  const sales = useSaSales(weekStart, weekEnd);
+  const sgl = useSaLeads(monthStartYMD, monthEndYMD);
+  const booked = useSaLeadsBooked(monthStartYMD, monthEndYMD);
+  const sales = useSaSales(monthStartYMD, monthEndYMD);
 
-  const [monthlyLeadsTarget, setMonthlyLeadsTarget] = useState(DEFAULT_LEADS_TARGET_MONTHLY);
-  const [salesTarget, setSalesTarget] = useState(DEFAULT_SALES_TARGET_WEEKLY);
+  const [targets, setTargets] = useState<MonthlyTargets>({
+    saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null,
+  });
   const [vision, setVision] = useState(DEFAULT_VISION);
   const [editingVision, setEditingVision] = useState(false);
   const [visionInput, setVisionInput] = useState(DEFAULT_VISION);
   const [visionSaved, setVisionSaved] = useState(false);
 
   const loadSettings = useCallback(async () => {
-    const keys = [
-      `sa_leads_booked_target:${yyyymm}`,
-      `sa_sales_target:${yyyymm}`,
-      `sa_wig_vision:${yyyymm}`,
-    ];
-    const { data: rows } = await supabase
+    const t = await loadMonthlyTargets(yyyymm);
+    setTargets(t);
+    const { data } = await supabase
       .from('studio_settings')
-      .select('setting_key, setting_value')
-      .in('setting_key', keys);
-    const map = new Map(((rows as any[]) || []).map(r => [r.setting_key, r.setting_value]));
-    const lt = parseInt(map.get(keys[0]) || '', 10);
-    const st = parseInt(map.get(keys[1]) || '', 10);
-    setMonthlyLeadsTarget(isNaN(lt) ? DEFAULT_LEADS_TARGET_MONTHLY : lt);
-    setSalesTarget(isNaN(st) ? DEFAULT_SALES_TARGET_WEEKLY : st);
-    const v = map.get(keys[2]) || DEFAULT_VISION;
+      .select('setting_value')
+      .eq('setting_key', `sa_wig_vision:${yyyymm}`)
+      .maybeSingle();
+    const v = (data as any)?.setting_value || DEFAULT_VISION;
     setVision(v); setVisionInput(v);
   }, [yyyymm]);
 
@@ -102,14 +100,29 @@ export function SaWeeklyGoals({ weekStart }: Props) {
 
   if (!showForUser || !user?.name) return null;
 
-  const myLeads = leads.rows.find(r => r.sa === user.name)?.count ?? 0;
+  const mySgl = sgl.rows.find(r => r.sa === user.name)?.count ?? 0;
+  const myBooked = booked.rows.find(r => r.sa === user.name)?.count ?? 0;
   const mySales = sales.rows.find(r => r.sa === user.name)?.count ?? 0;
-  // Weekly slice of monthly leads goal (4-week month assumption — matches WIG editor framing).
-  const weeklyLeadsSlice = Math.max(1, Math.round(monthlyLeadsTarget / 4));
-  const leadsHit = myLeads >= weeklyLeadsSlice;
-  const salesHit = mySales >= salesTarget;
 
-  const weekLabel = `Week of ${format(new Date(weekStart + 'T12:00:00'), 'M/d')}`;
+  // Pace anchors to "today in CST" inside the target month. For past months
+  // the cap clamps pace to the full monthly target.
+  const today = getNowCentral();
+  const paceAnchor =
+    today < startOfMonth(monthAnchor) ? startOfMonth(monthAnchor)
+    : today > endOfMonth(monthAnchor) ? endOfMonth(monthAnchor)
+    : today;
+
+  const pace = {
+    sgl: paceToToday(targets.saSgl, paceAnchor),
+    booked: paceToToday(targets.saBooked, paceAnchor),
+    sales: paceToToday(targets.saSales, paceAnchor),
+  };
+
+  const tiles = [
+    { label: 'Leads (self-sourced)', current: mySgl, target: targets.saSgl, pace: pace.sgl },
+    { label: 'Booked intros', current: myBooked, target: targets.saBooked, pace: pace.booked },
+    { label: 'Sales', current: mySales, target: targets.saSales, pace: pace.sales },
+  ];
 
   return (
     <Card className="p-4 mb-4 border-brand/40 bg-gradient-to-br from-brand/5 to-transparent">
@@ -141,27 +154,33 @@ export function SaWeeklyGoals({ weekStart }: Props) {
       </div>
 
       <div className="text-[11px] text-muted-foreground mb-2">
-        Your two numbers this week · {weekLabel}
+        Your numbers this month · {monthLabel}
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-md border bg-card p-3">
-          <p className="text-[11px] text-muted-foreground">Leads booked</p>
-          <p className="mt-0.5">
-            <span className={`text-2xl font-bold ${leadsHit ? 'text-success' : 'text-foreground'}`}>{myLeads}</span>
-            <span className="text-sm text-muted-foreground"> of {weeklyLeadsSlice}</span>
-          </p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            weekly slice · monthly goal {monthlyLeadsTarget}
-          </p>
-        </div>
-        <div className="rounded-md border bg-card p-3">
-          <p className="text-[11px] text-muted-foreground">Sales</p>
-          <p className="mt-0.5">
-            <span className={`text-2xl font-bold ${salesHit ? 'text-success' : 'text-foreground'}`}>{mySales}</span>
-            <span className="text-sm text-muted-foreground"> of {salesTarget}</span>
-          </p>
-        </div>
+      <div className="grid grid-cols-3 gap-2">
+        {tiles.map(t => {
+          const s = statusColor(t.current, t.pace);
+          const sCls = statusClasses(s);
+          const pct = t.target && t.target > 0 ? Math.min(100, (t.current / t.target) * 100) : 0;
+          return (
+            <div key={t.label} className="rounded-md border bg-card p-3">
+              <p className="text-[11px] text-muted-foreground">{t.label}</p>
+              <p className="mt-0.5">
+                <span className={cn('text-2xl font-bold tabular-nums', sCls.text)}>{t.current}</span>
+                <span className="text-sm text-muted-foreground">
+                  {' of '}
+                  {t.target ?? <em className="not-italic text-warning text-xs">set</em>}
+                </span>
+              </p>
+              <div className="mt-1 w-full h-1.5 rounded-full bg-secondary overflow-hidden">
+                <div className={cn('h-full rounded-full', sCls.bar)} style={{ width: `${pct}%` }} />
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                pace today {formatPace(t.pace)}
+              </p>
+            </div>
+          );
+        })}
       </div>
     </Card>
   );
