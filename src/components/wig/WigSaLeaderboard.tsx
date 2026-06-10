@@ -394,7 +394,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                             onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'sourced' }); }}
                             className="w-full min-h-[48px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
                           >
-                            <div className={cn('text-2xl font-bold tabular-nums', statusClasses(sglS).text)}>
+                            <div className={cn('text-3xl font-black tabular-nums', statusClasses(sglS).text)}>
                               {row.sgl}
                               <span className="ml-1 text-xs font-normal text-muted-foreground">/ {formatPace(perSaPace.sgl)}</span>
                             </div>
@@ -409,7 +409,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                   <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
                     <TableCell />
                     <TableCell className="text-base font-bold">Team</TableCell>
-                    <TableCell className="text-base text-center font-bold tabular-nums">
+                    <TableCell className="text-2xl text-center font-black tabular-nums">
                       {totals.sgl} <span className="text-muted-foreground font-normal text-sm">/ {teamTargets.sgl ?? '—'}</span>
                     </TableCell>
                   </TableRow>
