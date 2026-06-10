@@ -70,9 +70,9 @@ function ProtectedRoute({ children, requireAdmin, blockCoach }: { children: Reac
     return <Navigate to="/login" replace />;
   }
 
-  // Coach role can only access /coach-view
+  // Coach role can only access /coach-view; bounce them to WIG (the default).
   if (blockCoach && user?.role === 'Coach') {
-    return <Navigate to="/coach-view" replace />;
+    return <Navigate to="/wig" replace />;
   }
 
   if (requireAdmin && !canAccessAdmin) {
@@ -84,8 +84,8 @@ function ProtectedRoute({ children, requireAdmin, blockCoach }: { children: Reac
 
 function AppRoutes() {
   const { isAuthenticated, user } = useAuth();
-  const isCoach = user?.role === 'Coach';
-  const defaultRoute = isCoach ? '/coach-view' : '/my-day';
+  // WIG is the front door for everyone — the studio scoreboard.
+  const defaultRoute = '/wig';
 
   return (
     <Routes>
