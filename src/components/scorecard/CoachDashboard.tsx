@@ -102,30 +102,41 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
         </div>
       )}
 
-      {/* Cadence panel — replaces 6/month + 2-formal-floor */}
-      <Card className={`p-4 border-2 ${met ? 'border-success/50 bg-success/5' : 'border-primary/40 bg-primary/5'}`}>
+      {/* Lead measure: self-eval every ran intro this month. */}
+      <Card className={`p-4 border-2 ${unscoredCount === 0 && ranThisMonth > 0 ? 'border-success/50 bg-success/5' : unscoredCount > 0 ? 'border-primary/40 bg-primary/5' : 'border-border'}`}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">This week you owe</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Lead measure</p>
             <p className="text-xl font-black mt-0.5">
-              {cadence.type === 'self' ? 'Self-eval' : 'Formal eval'}
-              {met && <Badge className="ml-2 bg-success text-success-foreground text-[10px]">Met</Badge>}
+              Self-eval every intro you run
+              {unscoredCount === 0 && ranThisMonth > 0 && (
+                <Badge className="ml-2 bg-success text-success-foreground text-[10px]">Caught up</Badge>
+              )}
             </p>
             <p className="text-[11px] text-muted-foreground mt-1">
-              Week of {format(cadence.weekStart, 'MMM d')} — {format(cadence.weekEnd, 'MMM d')}. Studio cadence alternates weekly.
+              {ranThisMonth === 0
+                ? 'No ran intros this month yet.'
+                : unscoredCount === 0
+                  ? `All ${ranThisMonth} ran intros scored this month. That's the standard.`
+                  : `${unscoredCount} of ${ranThisMonth} ran intros still need a self-eval.`}
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Streak</p>
-            <p className="text-2xl font-black tabular-nums text-primary">{streak}<span className="text-xs text-muted-foreground"> wk</span></p>
-          </div>
+          {unscoredCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setOpenUnscored(true)}
+              className="shrink-0 px-3 py-2 rounded-md bg-primary text-primary-foreground text-xs font-bold min-h-[44px]"
+            >
+              Score now →
+            </button>
+          )}
         </div>
-        {exceedsStandard && (
-          <p className="text-[11px] mt-2 pt-2 border-t border-success/30 text-success font-semibold">
-            You're self-evaluating every week. That's the standard.
-          </p>
-        )}
+        <p className="text-[10px] text-muted-foreground mt-2 pt-2 border-t">
+          Streak (alt-week cadence): <span className="font-bold text-primary">{streak} wk</span>
+          {exceedsStandard && <span className="ml-2 text-success font-semibold">· Self-eval every week</span>}
+        </p>
       </Card>
+
 
       {/* Tiles */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
