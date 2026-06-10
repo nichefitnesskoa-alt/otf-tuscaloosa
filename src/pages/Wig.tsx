@@ -248,11 +248,8 @@ export default function Wig() {
   );
   const studioLeadsStatus = statusColor(totalLeads, studioLeadsPace);
 
-  // Coach close-rate target is a flat % — pace is the target itself.
-  const closeRateStatus = useMemo(
-    () => statusColor(0, null),
-    [],
-  );
+
+
 
 
   // Date range boundaries for lead measures
