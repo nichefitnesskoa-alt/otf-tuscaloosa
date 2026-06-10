@@ -73,73 +73,52 @@ export default function Wig() {
   const [leadSaving, setLeadSaving] = useState(false);
   const [leadSaved, setLeadSaved] = useState(false);
 
-  // Editable lead target — persisted per month in studio_settings.
-  // Key pattern: `wig_lead_target:YYYY-MM`. Legacy global key
-  // `wig_lead_target` is a one-time fallback when a month has no override.
-  const DEFAULT_LEAD_TARGET = 240;
-  const [leadTarget, setLeadTarget] = useState<number>(DEFAULT_LEAD_TARGET);
-  const [editingTarget, setEditingTarget] = useState(false);
-  const [targetInput, setTargetInput] = useState<string>(String(DEFAULT_LEAD_TARGET));
-  const [targetSaved, setTargetSaved] = useState(false);
+  // Monthly targets — single source of truth from src/lib/wig/targets.ts.
+  // Nothing on this page carries a hardcoded target fallback.
+  const [targets, setTargets] = useState<MonthlyTargets>({
+    saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null,
+  });
+  const [editingStudioTarget, setEditingStudioTarget] = useState(false);
+  const [editingCloseTarget, setEditingCloseTarget] = useState(false);
+  const [studioTargetInput, setStudioTargetInput] = useState<string>('');
+  const [closeTargetInput, setCloseTargetInput] = useState<string>('');
+  const [studioTargetSaved, setStudioTargetSaved] = useState(false);
+  const [closeTargetSaved, setCloseTargetSaved] = useState(false);
+  const isAdmin = isAdminCheck(user);
 
-  const targetMonthKey = useMemo(() => {
-    const ym = dateRange ? format(dateRange.start, 'yyyy-MM') : format(getNowCentral(), 'yyyy-MM');
-    return `wig_lead_target:${ym}`;
+  const targetMonthYM = useMemo(() => {
+    return dateRange ? format(dateRange.start, 'yyyy-MM') : format(getNowCentral(), 'yyyy-MM');
   }, [dateRange]);
 
-  const loadLeadTarget = useCallback(async () => {
-    const { data: monthRow } = await supabase
-      .from('studio_settings')
-      .select('setting_value')
-      .eq('setting_key', targetMonthKey)
-      .maybeSingle();
-    let val: number | null = null;
-    if (monthRow) {
-      const n = parseInt((monthRow as any).setting_value, 10);
-      if (!isNaN(n)) val = n;
-    }
-    if (val === null) {
-      const { data: globalRow } = await supabase
-        .from('studio_settings')
-        .select('setting_value')
-        .eq('setting_key', 'wig_lead_target')
-        .maybeSingle();
-      if (globalRow) {
-        const n = parseInt((globalRow as any).setting_value, 10);
-        if (!isNaN(n)) val = n;
-      }
-    }
-    const final = val ?? DEFAULT_LEAD_TARGET;
-    setLeadTarget(final);
-    setTargetInput(String(final));
-  }, [targetMonthKey]);
+  const refreshTargets = useCallback(async () => {
+    const t = await loadMonthlyTargets(targetMonthYM);
+    setTargets(t);
+    setStudioTargetInput(t.studioLeads == null ? '' : String(t.studioLeads));
+    setCloseTargetInput(t.coachClose == null ? '' : String(t.coachClose));
+  }, [targetMonthYM]);
 
-  useEffect(() => { loadLeadTarget(); }, [loadLeadTarget]);
+  useEffect(() => { refreshTargets(); }, [refreshTargets]);
 
-  const handleSaveTarget = async () => {
-    const val = parseInt(targetInput, 10);
-    if (isNaN(val) || val < 0) return;
-    const { error } = await supabase
-      .from('studio_settings')
-      .upsert(
-        {
-          setting_key: targetMonthKey,
-          setting_value: String(val),
-          updated_by: user?.name || 'unknown',
-          updated_at: new Date().toISOString(),
-        } as any,
-        { onConflict: 'setting_key' },
-      );
-    if (!error) {
-      setLeadTarget(val);
-      setEditingTarget(false);
-      setTargetSaved(true);
-      setTimeout(() => setTargetSaved(false), 2000);
-      notifyDataChanged(['wig_lead_target'], 'wig-lead-target-edit');
-      loadLeadTarget();
-    } else {
-      toast.error('Failed to save target');
-    }
+  const handleSaveStudioTarget = async () => {
+    const val = parseInt(studioTargetInput, 10);
+    if (isNaN(val) || val < 0) { toast.error('Enter a number ≥ 0'); return; }
+    const { error } = await saveMonthlyTarget('studioLeads', targetMonthYM, val, user?.name || 'unknown');
+    if (error) { toast.error('Save failed'); return; }
+    setEditingStudioTarget(false);
+    setStudioTargetSaved(true);
+    setTimeout(() => setStudioTargetSaved(false), 2000);
+    refreshTargets();
+  };
+
+  const handleSaveCloseTarget = async () => {
+    const val = parseInt(closeTargetInput, 10);
+    if (isNaN(val) || val < 0 || val > 100) { toast.error('Enter 0–100'); return; }
+    const { error } = await saveMonthlyTarget('coachClose', targetMonthYM, val, user?.name || 'unknown');
+    if (error) { toast.error('Save failed'); return; }
+    setEditingCloseTarget(false);
+    setCloseTargetSaved(true);
+    setTimeout(() => setCloseTargetSaved(false), 2000);
+    refreshTargets();
   };
 
   // Monthly lead totals data
