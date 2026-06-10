@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
-import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 
 import { WigFirstVisitSection } from '@/components/scorecard/WigFirstVisitSection';
 import { CoachDashboard } from '@/components/scorecard/CoachDashboard';
@@ -16,8 +15,6 @@ import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw, Pencil } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WigSaLeaderboard } from '@/components/wig/WigSaLeaderboard';
-import { SelfSourcedLeadEntry } from '@/features/myDay/SelfSourcedLeadEntry';
-import { SourcedLeadsToText } from '@/features/myDay/SourcedLeadsToText';
 
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
