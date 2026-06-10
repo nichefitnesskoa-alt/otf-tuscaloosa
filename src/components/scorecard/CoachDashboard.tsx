@@ -134,18 +134,32 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
           <p className="text-3xl font-black tabular-nums">{avgScore}<span className="text-base text-muted-foreground">/30</span></p>
         </Card>
         <Card className="p-4">
-          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Total this month</p>
-          <p className="text-3xl font-black tabular-nums">{submitted.length}</p>
+          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Scored this month</p>
+          <p className="text-3xl font-black tabular-nums">
+            {scoredCount}<span className="text-base text-muted-foreground">/{ranThisMonth}</span>
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-1">of ran 1st intros</p>
         </Card>
+        <button
+          type="button"
+          onClick={() => unscoredCount > 0 && setOpenUnscored(true)}
+          disabled={unscoredCount === 0}
+          className="text-left"
+        >
+          <Card className={`p-4 h-full ${unscoredCount > 0 ? 'border-primary/40 bg-primary/5 hover:bg-primary/10 cursor-pointer' : ''}`}>
+            <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Unscored</p>
+            <p className={`text-3xl font-black tabular-nums ${unscoredCount > 0 ? 'text-primary' : ''}`}>{unscoredCount}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {unscoredCount > 0 ? 'Tap to score →' : 'All caught up'}
+            </p>
+          </Card>
+        </button>
         <Card className="p-4">
-          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Self this month</p>
-          <p className="text-3xl font-black tabular-nums">{selfCount}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Formal this month</p>
-          <p className="text-3xl font-black tabular-nums">{formalCount}</p>
+          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Self · Formal</p>
+          <p className="text-3xl font-black tabular-nums">{selfCount}<span className="text-base text-muted-foreground"> · {formalCount}</span></p>
         </Card>
       </div>
+
 
       {/* Trend */}
       <Card className="p-4">
