@@ -241,50 +241,19 @@ export default function Wig() {
   // Close rate is computed below from coachTableTotals (declared lower in this component).
   // See `closeRate` after coachTableTotals state.
 
-  const getStatusColor = (current: number, target: number) => {
-    const ratio = current / target;
-    if (ratio >= 0.8) return 'text-success';
-    if (ratio >= 0.5) return 'text-warning';
-    return 'text-destructive';
-  };
+  // Studio leads target = monthly setting. Pace + color from shared helpers.
+  const studioLeadsPace = useMemo(
+    () => paceToToday(targets.studioLeads),
+    [targets.studioLeads],
+  );
+  const studioLeadsStatus = statusColor(totalLeads, studioLeadsPace);
 
-  const getBarColor = (current: number, target: number) => {
-    const ratio = current / target;
-    if (ratio >= 0.8) return 'bg-success';
-    if (ratio >= 0.5) return 'bg-warning';
-    return 'bg-destructive';
-  };
+  // Coach close-rate target is a flat % — pace is the target itself.
+  const closeRateStatus = useMemo(
+    () => statusColor(0, null),
+    [],
+  );
 
-  // Pacing indicator for leads card
-  const pacingInfo = useMemo(() => {
-    if (!datePreset || !['this_month', 'this_quarter'].includes(datePreset)) return null;
-    if (totalLeads === 0 || leadTarget === 0) return null;
-
-    const today = getNowCentral();
-    let periodStart: Date;
-    let periodEnd: Date;
-
-    if (datePreset === 'this_month') {
-      periodStart = startOfMonth(today);
-      periodEnd = endOfMonth(today);
-    } else {
-      periodStart = startOfQuarter(today);
-      periodEnd = endOfQuarter(today);
-    }
-
-    const daysElapsed = differenceInDays(today, periodStart) + 1;
-    const totalDays = differenceInDays(periodEnd, periodStart) + 1;
-    if (daysElapsed <= 0) return null;
-
-    const projected = Math.round((totalLeads / daysElapsed) * totalDays);
-    const color = projected >= leadTarget
-      ? 'text-success'
-      : projected >= leadTarget * 0.8
-        ? 'text-warning'
-        : 'text-destructive';
-
-    return { projected, color };
-  }, [datePreset, totalLeads, leadTarget]);
 
   // Date range boundaries for lead measures
   const rangeStartYMD = useMemo(() => dateRange ? format(dateRange.start, 'yyyy-MM-dd') : format(getNowCentral(), 'yyyy-MM-01'), [dateRange]);
