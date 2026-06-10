@@ -325,6 +325,28 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
       });
     });
 
+    // Buy-date back-fill: include scored 1st intros whose chain closed in range
+    // even if the 1st intro's class_date (and its scorecard) is outside range.
+    const alreadyClosedIds = new Set(closedCards.map(c => c.first_timer_id).filter(Boolean) as string[]);
+    const extraByTimer = new Map<string, FvScorecard[]>();
+    extraClosedScorecards.forEach(c => {
+      if (!c.first_timer_id || !c.submitted_at) return;
+      const arr = extraByTimer.get(c.first_timer_id) || [];
+      arr.push(c);
+      extraByTimer.set(c.first_timer_id, arr);
+    });
+    closedRootsByBuyDate.forEach(rootId => {
+      if (alreadyClosedIds.has(rootId)) return;
+      const all = extraByTimer.get(rootId) || [];
+      if (all.length === 0) return;
+      const picked = pickPrimaryScorecards(all, primary);
+      const card = picked[0];
+      if (!card) return;
+      closedSum += card.total_score;
+      closedN++;
+      closedCards.push(card);
+    });
+
     const closingTiles: ClosingTile = {
       avgClosed: closedN ? closedSum / closedN : null,
       closedCount: closedN,
