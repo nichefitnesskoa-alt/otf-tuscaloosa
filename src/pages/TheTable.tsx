@@ -70,6 +70,7 @@ export default function TheTable() {
   const { data: owners = [] } = useActiveOwners();
   const { data: architect } = useArchitect();
   const { data: entries = [] } = useOwnerEntries(meeting?.id);
+  const { data: priorEntries = [] } = usePriorOwnerEntries(meeting?.meeting_date);
   
   const { data: actions = [] } = useActionItems(meeting?.id);
   const { data: carryForward = [] } = useOpenCarryForward(meeting?.id);
