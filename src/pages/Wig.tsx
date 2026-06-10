@@ -1060,11 +1060,11 @@ export default function Wig() {
                           <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
                             <TableCell />
                             <TableCell className="text-base font-bold whitespace-nowrap">Total</TableCell>
-                            <TableCell className="text-base text-center font-bold tabular-nums">{totalCoached}</TableCell>
-                            <TableCell className={cn('text-sm text-center font-bold tabular-nums', statusClasses(scoredStatus(totalScored, totalCoached)).text)}>{totalScored}/{totalCoached}</TableCell>
-                            <TableCell className="text-base text-center font-bold text-muted-foreground">—</TableCell>
-                            <TableCell className="text-base text-center font-bold text-success tabular-nums">{totalCloses}</TableCell>
-                            <TableCell className="text-lg text-center font-bold">
+                            <TableCell className="text-2xl text-center font-black tabular-nums">{totalCoached}</TableCell>
+                            <TableCell className={cn('text-2xl text-center font-black tabular-nums', statusClasses(scoredStatus(totalScored, totalCoached)).text)}>{totalScored}/{totalCoached}</TableCell>
+                            <TableCell className="text-2xl text-center font-black text-muted-foreground">—</TableCell>
+                            <TableCell className="text-2xl text-center font-black text-success tabular-nums">{totalCloses}</TableCell>
+                            <TableCell className="text-2xl text-center font-black">
                               <span className={wrsCls.text}>{weightedRate.toFixed(0)}%</span>
                             </TableCell>
                           </TableRow>
