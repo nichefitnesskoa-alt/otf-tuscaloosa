@@ -38,6 +38,17 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
     evaluatee: selected,
   });
   const [openId, setOpenId] = useState<string | null>(null);
+  const [openUnscored, setOpenUnscored] = useState(false);
+
+  // Ran first-intros this month, with unscored breakdown by coach.
+  const fv = useFvTrendData({ start: monthStart, end: monthEnd }, 'self', false);
+  const ranThisMonth = fv.data?.ranByCoach.get(selected) ?? 0;
+  const unscoredForCoach = useMemo(
+    () => (fv.data?.unscoredIntros ?? []).filter(i => i.coach === selected),
+    [fv.data, selected]
+  );
+  const unscoredCount = unscoredForCoach.length;
+  const scoredCount = Math.max(ranThisMonth - unscoredCount, 0);
 
   const submitted = scorecards.filter(s => !!s.submitted_at);
   const selfCount = submitted.filter(s => s.eval_type === 'self_eval').length;
