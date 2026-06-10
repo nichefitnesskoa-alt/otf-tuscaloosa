@@ -15,6 +15,7 @@ import { parseLocalDate } from '@/lib/dateUtils';
 import {
   useCurrentMeeting, useActiveOwners, useArchitect, useOwnerEntries, useActionItems,
   useOpenCarryForward, useCurrentWeekWins, useTableClose, useLaneHealth, useTableRealtime,
+  usePriorOwnerEntries,
   nextMondayCT,
   type OwnerEntry, type TableOwner,
 } from '@/hooks/useTheTable';
