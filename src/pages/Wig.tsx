@@ -798,23 +798,23 @@ export default function Wig() {
 
           {/* Studio total leads — BIG hero card with pace-to-today */}
           <Card className={cn('border-2 ring-2 ring-offset-0', studioHeroCls.ring)}>
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-5 space-y-3">
               <div className="flex items-center gap-2">
-                <Target className={cn('w-4 h-4', studioHeroCls.text)} />
-                <span className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">
+                <Target className={cn('w-5 h-5', studioHeroCls.text)} />
+                <span className="text-sm uppercase tracking-wide font-bold text-muted-foreground">
                   Studio leads · {selectedMonthLabel}
                 </span>
               </div>
               <div className="flex items-baseline gap-3 flex-wrap">
-                <span className={cn('text-5xl font-black tabular-nums leading-none', studioHeroCls.text)}>
+                <span className={cn('text-6xl font-black tabular-nums leading-none', studioHeroCls.text)}>
                   {totalLeads}
                 </span>
-                <span className="text-lg text-muted-foreground">
-                  of {targets.studioLeads ?? <em className="not-italic text-warning">CONFIRM THIS VALUE</em>} target
+                <span className="text-xl text-muted-foreground">
+                  of {targets.studioLeads ?? <em className="not-italic text-warning">CONFIRM</em>} target
                 </span>
               </div>
               <div className={cn(
-                'rounded-md px-3 py-2 text-sm font-semibold',
+                'rounded-md px-4 py-3 text-base font-semibold',
                 studioLeadsStatus === 'green' && 'bg-success/15 text-success',
                 studioLeadsStatus === 'yellow' && 'bg-warning/15 text-warning',
                 studioLeadsStatus === 'red' && 'bg-destructive/15 text-destructive',
@@ -822,11 +822,12 @@ export default function Wig() {
               )}>
                 {studioLeadsPace != null ? (
                   <>
-                    Should be at <span className="text-2xl font-black tabular-nums">{formatPace(studioLeadsPace)}</span> by today
-                    {' · '}
-                    {totalLeads >= studioLeadsPace
-                      ? <span>you're +{totalLeads - studioLeadsPace} ahead ✓</span>
-                      : <span>{studioLeadsPace - totalLeads} behind pace</span>}
+                    Should be at <span className="text-3xl font-black tabular-nums">{formatPace(studioLeadsPace)}</span> by today
+                    <div className="mt-1 text-sm font-medium">
+                      {totalLeads >= studioLeadsPace
+                        ? <>You're <span className="font-bold">+{totalLeads - studioLeadsPace} ahead ✓</span></>
+                        : <>You're <span className="font-bold">{studioLeadsPace - totalLeads} behind pace</span></>}
+                    </div>
                   </>
                 ) : 'Set a monthly target to see today\'s pace'}
               </div>
