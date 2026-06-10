@@ -65,6 +65,7 @@ import { ClassMilestoneChecks } from './ClassMilestoneChecks';
 import { ReferralAskActions } from './ReferralAskActions';
 import { SelfSourcedLeadEntry } from './SelfSourcedLeadEntry';
 import { SourcedLeadsToText } from './SourcedLeadsToText';
+import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 
 export default function MyDayPage() {
   const { user } = useAuth();
