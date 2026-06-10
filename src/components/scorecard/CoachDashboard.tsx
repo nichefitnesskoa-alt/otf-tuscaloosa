@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useScorecards } from '@/hooks/useScorecards';
+import { useFvTrendData } from '@/hooks/useFvTrendData';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { parseLocalDate, formatScorecardDate } from '@/lib/dateUtils';
 import { ComparisonView } from './ComparisonView';
+import { UnscoredDrillDown } from './UnscoredDrillDown';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RTooltip } from 'recharts';
 import {
   getCadenceForDate,
