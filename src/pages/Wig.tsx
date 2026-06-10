@@ -747,58 +747,17 @@ export default function Wig() {
     );
   }
 
-  const leadCard = { label: `Studio goal: leads ${selectedMonthLabel}`, current: totalLeads, target: leadTarget, isPercent: false };
-  const closeRateCard = { label: 'Close rate', current: closeRate, target: 40, isPercent: true };
-  const renderMetricCard = (card: typeof leadCard, isLeadCard: boolean) => {
-    const progressValue = Math.min((card.current / card.target) * 100, 100);
-    return (
-      <Card key={card.label}>
-        <CardContent className="p-3 text-center space-y-1">
-          <p className={cn('text-2xl font-bold', getStatusColor(card.current, card.target))}>
-            {card.isPercent ? `${card.current.toFixed(0)}%` : card.current}
-          </p>
-          {isLeadCard && editingTarget ? (
-            <div className="flex items-center justify-center gap-1">
-              <span className="text-[10px] text-muted-foreground">Target:</span>
-              <Input
-                type="number"
-                min={0}
-                value={targetInput}
-                onChange={e => setTargetInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleSaveTarget(); if (e.key === 'Escape') { setEditingTarget(false); setTargetInput(String(leadTarget)); } }}
-                className="w-16 h-5 text-[10px] px-1 text-center"
-                autoFocus
-              />
-              <Button size="sm" variant="ghost" className="h-5 px-1" onClick={handleSaveTarget}>
-                <Check className="w-3 h-3" />
-              </Button>
-            </div>
-          ) : (
-            <p
-              className={cn('text-[10px] text-muted-foreground', isLeadCard && 'cursor-pointer hover:text-foreground hover:underline')}
-              onClick={isLeadCard ? () => { setTargetInput(String(leadTarget)); setEditingTarget(true); } : undefined}
-              title={isLeadCard ? 'Tap to edit target' : undefined}
-            >
-              Target: {card.isPercent ? `${card.target}%` : card.target}
-              {isLeadCard && targetSaved && <span className="ml-1 text-success">Saved</span>}
-            </p>
-          )}
-          <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
-            <div
-              className={cn('h-full rounded-full transition-all', getBarColor(card.current, card.target))}
-              style={{ width: `${progressValue}%` }}
-            />
-          </div>
-          <p className="text-[10px] text-muted-foreground">{card.label}</p>
-          {isLeadCard && pacingInfo && (
-            <p className={cn('text-[10px] font-medium', pacingInfo.color)}>
-              On pace for ~{pacingInfo.projected} {pacingInfo.projected >= leadTarget ? '✓' : ''}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-    );
-  };
+  // Coach close-rate status (target is a flat % — pace == target, no proration).
+  const sortedCoachRows = useMemo(
+    () => [...coachLeadMeasures].sort((a, b) => b.closeRate - a.closeRate || b.closes - a.closes),
+    [coachLeadMeasures],
+  );
+  const coachTotalCoached = sortedCoachRows.reduce((s, r) => s + (r.coached || 0), 0);
+  const coachTotalCloses = sortedCoachRows.reduce((s, r) => s + (r.closes || 0), 0);
+  const coachWeightedRate = coachTotalCoached > 0 ? (coachTotalCloses / coachTotalCoached) * 100 : 0;
+  const coachHeroStatus = statusColor(closeRate, targets.coachClose);
+  const coachHeroCls = statusClasses(coachHeroStatus);
+  const studioHeroCls = statusClasses(studioLeadsStatus);
 
   return (
     <div className="p-4 space-y-4">
@@ -808,7 +767,7 @@ export default function Wig() {
             <Trophy className="w-5 h-5" />
             WIG
           </h1>
-          <p className="text-xs text-muted-foreground">The scoreboard. Your lead measures and the studio's quarterly targets.</p>
+          <p className="text-xs text-muted-foreground">The scoreboard. Pace tells you if you're winning today.</p>
           <Button variant="ghost" size="sm" onClick={handleManualRefresh} disabled={isRefreshing} className="h-8 px-2">
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
@@ -835,13 +794,36 @@ export default function Wig() {
           <TabsTrigger value="coach">Coach</TabsTrigger>
         </TabsList>
 
-        {/* ===== SA TAB ===== */}
+        {/* ===== SA TAB — Hero + Leaderboard above the fold, actions below ===== */}
         <TabsContent value="sa" className="space-y-4">
-          {/* Monthly lead input */}
+          {/* SA Leaderboard renders its own hero (team SGL) + table */}
+          <WigSaLeaderboard dateRange={dateRange} />
+
+          {/* Studio total leads — small context card under the leaderboard */}
           <Card>
-            <CardContent className="p-3">
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground whitespace-nowrap">
+            <CardContent className="p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="text-xs">
+                  <span className="font-medium">Studio leads {selectedMonthLabel}:</span>{' '}
+                  <span className={cn('font-bold tabular-nums', studioHeroCls.text)}>{totalLeads}</span>
+                  <span className="text-muted-foreground">
+                    {' / '}
+                    {targets.studioLeads ?? <em className="not-italic text-warning">CONFIRM THIS VALUE</em>}
+                  </span>
+                  <span className="text-muted-foreground"> (about half paid)</span>
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  Pace today: <span className={cn('font-semibold', studioHeroCls.text)}>{formatPace(studioLeadsPace)}</span>
+                </div>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
+                <div
+                  className={cn('h-full rounded-full transition-all', studioHeroCls.bar)}
+                  style={{ width: `${targets.studioLeads ? Math.min(100, (totalLeads / targets.studioLeads) * 100) : 0}%` }}
+                />
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <label className="text-[11px] text-muted-foreground">
                   Studio total leads for {selectedMonthLabel} (from OTF report)
                 </label>
                 <Input
@@ -849,41 +831,101 @@ export default function Wig() {
                   min={0}
                   value={leadCount}
                   onChange={e => setLeadCount(e.target.value)}
-                  className="w-24 h-8 text-sm"
+                  className="w-24 h-7 text-xs"
                   placeholder="0"
                 />
-                <Button size="sm" className="h-8 text-xs" onClick={handleSaveLead} disabled={leadSaving}>
+                <Button size="sm" className="h-7 text-xs" onClick={handleSaveLead} disabled={leadSaving}>
                   {leadSaved ? <Check className="w-3.5 h-3.5" /> : 'Update'}
                 </Button>
-                {leadSaved && <span className="text-xs text-success">Saved</span>}
+                {isAdmin && (
+                  editingStudioTarget ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-muted-foreground">Target:</span>
+                      <Input
+                        type="number" min={0}
+                        value={studioTargetInput}
+                        onChange={e => setStudioTargetInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSaveStudioTarget(); if (e.key === 'Escape') setEditingStudioTarget(false); }}
+                        className="w-20 h-7 text-xs"
+                        autoFocus
+                      />
+                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleSaveStudioTarget}>
+                        <Check className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                      onClick={() => { setStudioTargetInput(targets.studioLeads == null ? '' : String(targets.studioLeads)); setEditingStudioTarget(true); }}>
+                      {studioTargetSaved ? <><Check className="w-3 h-3 mr-1 text-success" />Saved</> : 'Edit target'}
+                    </Button>
+                  )
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Leads scoreboard tile */}
-          <div className="grid grid-cols-1 gap-2">
-            {renderMetricCard(leadCard, true)}
-          </div>
-
-          {/* Self-sourced lead entry — same component used on My Day */}
+          {/* Below the fold: actions, queue, milestones */}
           <SelfSourcedLeadEntry />
-
-          {/* Text queue for self-sourced leads — same component used on My Day */}
           <SourcedLeadsToText defaultOpen />
-
-          {/* SA Leaderboard with shifts/streaks/milestones/refs (NEW) */}
-          <WigSaLeaderboard dateRange={dateRange} />
-
-          {/* Milestones & Deploy */}
           <MilestonesDeploySection dateRange={dateRange} />
         </TabsContent>
 
         {/* ===== COACH TAB ===== */}
         <TabsContent value="coach" className="space-y-4">
-          {/* Close rate scoreboard tile */}
-          <div className="grid grid-cols-1 gap-2">
-            {renderMetricCard(closeRateCard, false)}
-          </div>
+          {/* Coach close-rate HERO — R/Y/G vs adjustable monthly close-% target */}
+          <Card className={cn('border-2 ring-2 ring-offset-0', coachHeroCls.ring)}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <UserCheck className={cn('w-4 h-4', coachHeroCls.text)} />
+                <span className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">
+                  Studio close rate · {selectedMonthLabel}
+                </span>
+              </div>
+              <div className="flex items-baseline gap-3 mb-2">
+                <span className={cn('text-5xl font-black tabular-nums leading-none', coachHeroCls.text)}>
+                  {closeRate.toFixed(0)}%
+                </span>
+                <span className="text-lg text-muted-foreground">
+                  target {targets.coachClose != null ? `${targets.coachClose}%` : <em className="not-italic text-warning">CONFIRM THIS VALUE</em>}
+                </span>
+              </div>
+              <div className="w-full h-3 rounded-full bg-secondary overflow-hidden">
+                <div
+                  className={cn('h-full rounded-full transition-all', coachHeroCls.bar)}
+                  style={{ width: `${targets.coachClose ? Math.min(100, (closeRate / targets.coachClose) * 100) : 0}%` }}
+                />
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-2 flex-wrap text-[11px] text-muted-foreground">
+                <span>
+                  {coachHeroStatus === 'green' && 'at or above target ✓'}
+                  {coachHeroStatus === 'yellow' && 'a little under target'}
+                  {coachHeroStatus === 'red' && 'under target — pair coaches with closes'}
+                  {coachHeroStatus === 'unset' && 'set target to start'}
+                </span>
+                {isAdmin && (
+                  editingCloseTarget ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number" min={0} max={100}
+                        value={closeTargetInput}
+                        onChange={e => setCloseTargetInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSaveCloseTarget(); if (e.key === 'Escape') setEditingCloseTarget(false); }}
+                        className="w-16 h-7 text-xs"
+                        autoFocus
+                      />
+                      <span className="text-xs">%</span>
+                      <Button size="sm" className="h-7 px-2" onClick={handleSaveCloseTarget}>Save</Button>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs"
+                      onClick={() => { setCloseTargetInput(targets.coachClose == null ? '' : String(targets.coachClose)); setEditingCloseTarget(true); }}>
+                      {closeTargetSaved ? <><Check className="w-3 h-3 mr-1 text-success" />Saved</> : <><Pencil className="w-3 h-3 mr-1" />Edit target</>}
+                    </Button>
+                  )
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Coach — Coached & Closes table */}
           <Card>
@@ -892,7 +934,7 @@ export default function Wig() {
                 <UserCheck className="w-4 h-4 text-primary" />
                 Coach Stats
               </CardTitle>
-              <p className="text-[11px] text-muted-foreground">Tap a number to see who.</p>
+              <p className="text-[11px] text-muted-foreground">Sorted by close %. Tap a number to see who.</p>
               <p className="text-[11px] text-muted-foreground mt-1">
                 Close rate is total journey. A coach is credited for a sale anywhere in a member's intro chain, even when the 2nd intro that closed it is not counted in intros ran. That is why a coach can show more closes than intros ran.
               </p>
@@ -903,64 +945,79 @@ export default function Wig() {
                   <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
                   <span className="text-xs text-muted-foreground">Loading…</span>
                 </div>
-              ) : coachLeadMeasures.length === 0 ? (
+              ) : sortedCoachRows.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-4">No data for this period.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="text-xs w-8">#</TableHead>
                         <TableHead className="text-xs">Coach</TableHead>
                         <TableHead className="text-xs text-center">Coached</TableHead>
                         <TableHead className="text-xs text-center">Closes</TableHead>
-                        <TableHead className="text-xs text-center">Close %</TableHead>
+                        <TableHead className="text-xs text-center">
+                          Close %
+                          <div className="text-[9px] font-normal text-muted-foreground">
+                            target {targets.coachClose != null ? `${targets.coachClose}%` : '—'}
+                          </div>
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {coachLeadMeasures.map(row => (
-                        <TableRow key={row.name}>
-                          <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
-                          <TableCell className="text-sm text-center p-0">
-                            <button
-                              type="button"
-                              disabled={row.coached === 0}
-                              onClick={() => setDrill({ coach: row.name, metric: 'coached' })}
-                              className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
-                            >
-                              {row.coached}
-                            </button>
-                          </TableCell>
-                          <TableCell className="text-sm text-center font-medium text-success p-0">
-                            <button
-                              type="button"
-                              disabled={row.closes === 0}
-                              onClick={() => setDrill({ coach: row.name, metric: 'closes' })}
-                              className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
-                            >
-                              {row.closes}
-                            </button>
-                          </TableCell>
-                          <TableCell className="text-sm text-center">
-                            <span className={row.closeRate >= 40 ? 'text-success' : row.closeRate >= 30 ? 'text-warning' : 'text-destructive'}>
-                              {row.closeRate.toFixed(0)}%
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {/* Totals row — weighted close% (sum closes / sum coached) */}
+                      {sortedCoachRows.map((row, idx) => {
+                        const rs = statusColor(row.closeRate, targets.coachClose);
+                        const rsCls = statusClasses(rs);
+                        const pct = targets.coachClose ? Math.min(100, (row.closeRate / targets.coachClose) * 100) : 0;
+                        return (
+                          <TableRow key={row.name} className={cn(rs === 'green' && 'bg-success/5')}>
+                            <TableCell className="text-xs text-muted-foreground tabular-nums">{idx + 1}</TableCell>
+                            <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
+                            <TableCell className="text-sm text-center p-0">
+                              <button
+                                type="button"
+                                disabled={row.coached === 0}
+                                onClick={() => setDrill({ coach: row.name, metric: 'coached' })}
+                                className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                              >
+                                {row.coached}
+                              </button>
+                            </TableCell>
+                            <TableCell className="text-sm text-center font-medium text-success p-0">
+                              <button
+                                type="button"
+                                disabled={row.closes === 0}
+                                onClick={() => setDrill({ coach: row.name, metric: 'closes' })}
+                                className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                              >
+                                {row.closes}
+                              </button>
+                            </TableCell>
+                            <TableCell className="text-sm text-center px-2">
+                              <div className={cn('font-semibold tabular-nums', rsCls.text)}>
+                                {row.closeRate.toFixed(0)}%
+                              </div>
+                              <div className="mt-1 w-full h-1.5 rounded-full bg-secondary overflow-hidden">
+                                <div className={cn('h-full rounded-full', rsCls.bar)} style={{ width: `${pct}%` }} />
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                       {(() => {
-                        const totalCoached = coachLeadMeasures.reduce((s, r) => s + (r.coached || 0), 0);
-                        const totalCloses = coachLeadMeasures.reduce((s, r) => s + (r.closes || 0), 0);
-                        const weightedRate = totalCoached > 0 ? (totalCloses / totalCoached) * 100 : 0;
+                        const totalCoached = coachTotalCoached;
+                        const totalCloses = coachTotalCloses;
+                        const weightedRate = coachWeightedRate;
+                        const wrs = statusColor(weightedRate, targets.coachClose);
+                        const wrsCls = statusClasses(wrs);
                         return (
                           <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
+                            <TableCell />
                             <TableCell className="text-sm font-bold whitespace-nowrap">Total</TableCell>
                             <TableCell className="text-sm text-center font-bold tabular-nums">{totalCoached}</TableCell>
                             <TableCell className="text-sm text-center font-bold text-success tabular-nums">{totalCloses}</TableCell>
                             <TableCell className="text-sm text-center font-bold">
-                              <span className={weightedRate >= 40 ? 'text-success' : weightedRate >= 30 ? 'text-warning' : 'text-destructive'}>
-                                {weightedRate.toFixed(0)}%
-                              </span>
+                              <span className={wrsCls.text}>{weightedRate.toFixed(0)}%</span>
                             </TableCell>
                           </TableRow>
                         );
@@ -971,6 +1028,7 @@ export default function Wig() {
               )}
             </CardContent>
           </Card>
+
 
           {/* First Visit Experience scorecard system */}
           <WigFirstVisitSection dateRange={dateRange} />
