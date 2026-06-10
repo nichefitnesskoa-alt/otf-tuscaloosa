@@ -749,6 +749,22 @@ export default function Wig() {
   const coachHeroCls = statusClasses(coachHeroStatus);
   const studioHeroCls = statusClasses(studioLeadsStatus);
 
+  // R/Y/G thresholds for the Coach Stats lead-measure columns.
+  // Scored: 100% green, 75%+ yellow, else red. Avg score: 21+ green, 11-20 yellow, else red.
+  const scoredStatus = (scored: number, coached: number): import('@/lib/wig/pace').WigStatus => {
+    if (coached <= 0) return 'unset';
+    const pct = (scored / coached) * 100;
+    if (pct >= 100) return 'green';
+    if (pct >= 75) return 'yellow';
+    return 'red';
+  };
+  const avgScoreStatus = (avg: number | null | undefined): import('@/lib/wig/pace').WigStatus => {
+    if (avg == null) return 'unset';
+    if (avg >= 21) return 'green';
+    if (avg >= 11) return 'yellow';
+    return 'red';
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
