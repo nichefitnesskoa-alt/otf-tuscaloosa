@@ -939,35 +939,36 @@ export default function Wig() {
           {/* Coach — Coached & Closes table */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-primary" />
+              <CardTitle className="text-lg flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-primary" />
                 Coach Stats
               </CardTitle>
-              <p className="text-[11px] text-muted-foreground">Sorted by close %. Tap a number to see who.</p>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Close rate is total journey. A coach is credited for a sale anywhere in a member's intro chain, even when the 2nd intro that closed it is not counted in intros ran. That is why a coach can show more closes than intros ran.
+              <p className="text-sm text-muted-foreground">
+                Lead measure: self-eval every intro you run. Tap a number to drill in.
               </p>
             </CardHeader>
             <CardContent className="p-0">
               {measuresLoading ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
-                  <span className="text-xs text-muted-foreground">Loading…</span>
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground mr-2" />
+                  <span className="text-sm text-muted-foreground">Loading…</span>
                 </div>
               ) : sortedCoachRows.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">No data for this period.</p>
+                <p className="text-sm text-muted-foreground text-center py-6">No data for this period.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-xs w-8">#</TableHead>
-                        <TableHead className="text-xs">Coach</TableHead>
-                        <TableHead className="text-xs text-center">Coached</TableHead>
-                        <TableHead className="text-xs text-center">Closes</TableHead>
-                        <TableHead className="text-xs text-center">
+                        <TableHead className="text-sm w-10">#</TableHead>
+                        <TableHead className="text-sm">Coach</TableHead>
+                        <TableHead className="text-sm text-center">Coached</TableHead>
+                        <TableHead className="text-sm text-center">Scored</TableHead>
+                        <TableHead className="text-sm text-center">Avg score</TableHead>
+                        <TableHead className="text-sm text-center">Closes</TableHead>
+                        <TableHead className="text-sm text-center">
                           Close %
-                          <div className="text-[9px] font-normal text-muted-foreground">
+                          <div className="text-xs font-normal text-muted-foreground">
                             target {targets.coachClose != null ? `${targets.coachClose}%` : '—'}
                           </div>
                         </TableHead>
@@ -978,32 +979,46 @@ export default function Wig() {
                         const rs = statusColor(row.closeRate, targets.coachClose);
                         const rsCls = statusClasses(rs);
                         const pct = targets.coachClose ? Math.min(100, (row.closeRate / targets.coachClose) * 100) : 0;
+                        const unscored = fv.data?.unscoredByCoach?.get(row.name) ?? 0;
+                        const scored = Math.max(0, row.coached - unscored);
+                        const selfAvg = fv.data?.selfByCoach?.get(row.name);
+                        const formalAvg = fv.data?.formalByCoach?.get(row.name);
+                        // Prefer self-eval (the lead measure); fall back to formal.
+                        const avgVal = selfAvg?.avg ?? formalAvg?.avg ?? null;
                         return (
                           <TableRow key={row.name} className={cn(rs === 'green' && 'bg-success/5')}>
-                            <TableCell className="text-xs text-muted-foreground tabular-nums">{idx + 1}</TableCell>
-                            <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
-                            <TableCell className="text-sm text-center p-0">
+                            <TableCell className="text-sm text-muted-foreground tabular-nums">{idx + 1}</TableCell>
+                            <TableCell className="text-base font-medium whitespace-nowrap">{row.name}</TableCell>
+                            <TableCell className="text-base text-center p-0">
                               <button
                                 type="button"
                                 disabled={row.coached === 0}
                                 onClick={() => setDrill({ coach: row.name, metric: 'coached' })}
-                                className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                                className="w-full min-h-[48px] px-3 font-semibold tabular-nums cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
                               >
                                 {row.coached}
                               </button>
                             </TableCell>
-                            <TableCell className="text-sm text-center font-medium text-success p-0">
+                            <TableCell className="text-sm text-center tabular-nums">
+                              <span className={cn(unscored > 0 && row.coached > 0 ? 'text-warning font-semibold' : 'text-foreground')}>
+                                {scored}/{row.coached}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-base text-center font-semibold tabular-nums">
+                              {avgVal != null ? avgVal.toFixed(1) : <span className="text-muted-foreground font-normal">—</span>}
+                            </TableCell>
+                            <TableCell className="text-base text-center font-semibold text-success p-0">
                               <button
                                 type="button"
                                 disabled={row.closes === 0}
                                 onClick={() => setDrill({ coach: row.name, metric: 'closes' })}
-                                className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                                className="w-full min-h-[48px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
                               >
                                 {row.closes}
                               </button>
                             </TableCell>
-                            <TableCell className="text-sm text-center px-2">
-                              <div className={cn('font-semibold tabular-nums', rsCls.text)}>
+                            <TableCell className="text-base text-center px-2">
+                              <div className={cn('font-bold text-lg tabular-nums', rsCls.text)}>
                                 {row.closeRate.toFixed(0)}%
                               </div>
                               <div className="mt-1 w-full h-1.5 rounded-full bg-secondary overflow-hidden">
@@ -1017,15 +1032,19 @@ export default function Wig() {
                         const totalCoached = coachTotalCoached;
                         const totalCloses = coachTotalCloses;
                         const weightedRate = coachWeightedRate;
+                        const totalUnscored = sortedCoachRows.reduce((s, r) => s + (fv.data?.unscoredByCoach?.get(r.name) ?? 0), 0);
+                        const totalScored = Math.max(0, totalCoached - totalUnscored);
                         const wrs = statusColor(weightedRate, targets.coachClose);
                         const wrsCls = statusClasses(wrs);
                         return (
                           <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
                             <TableCell />
-                            <TableCell className="text-sm font-bold whitespace-nowrap">Total</TableCell>
-                            <TableCell className="text-sm text-center font-bold tabular-nums">{totalCoached}</TableCell>
-                            <TableCell className="text-sm text-center font-bold text-success tabular-nums">{totalCloses}</TableCell>
-                            <TableCell className="text-sm text-center font-bold">
+                            <TableCell className="text-base font-bold whitespace-nowrap">Total</TableCell>
+                            <TableCell className="text-base text-center font-bold tabular-nums">{totalCoached}</TableCell>
+                            <TableCell className="text-sm text-center font-bold tabular-nums">{totalScored}/{totalCoached}</TableCell>
+                            <TableCell className="text-base text-center font-bold text-muted-foreground">—</TableCell>
+                            <TableCell className="text-base text-center font-bold text-success tabular-nums">{totalCloses}</TableCell>
+                            <TableCell className="text-lg text-center font-bold">
                               <span className={wrsCls.text}>{weightedRate.toFixed(0)}%</span>
                             </TableCell>
                           </TableRow>
@@ -1037,41 +1056,9 @@ export default function Wig() {
               )}
             </CardContent>
           </Card>
-
-
-          {/* First Visit Experience scorecard system */}
-          <WigFirstVisitSection dateRange={dateRange} />
-
-          {/* My Scorecards — visible to logged-in coach (own only). Koa gets a coach picker. "Both" role staff also get the picker. */}
-          {(() => {
-            const isKoa = user?.name === 'Koa';
-            const isCoach = user?.role === 'Coach';
-            const isBoth = user?.role === 'Both';
-            if (!isKoa && !isCoach && !isBoth) return null;
-            const allowPicker = isKoa || isBoth;
-            return (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <UserCheck className="w-4 h-4 text-primary" />
-                    {allowPicker ? 'Scorecards' : 'My Scorecards'}
-                  </CardTitle>
-                  <p className="text-[11px] text-muted-foreground">
-                    {allowPicker ? 'Pick any coach to view their scorecards.' : 'Only you see this section.'}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <CoachDashboard
-                    coachName={allowPicker ? (activeCoaches[0] || '') : (user?.name || '')}
-                    allowPicker={allowPicker}
-                    coaches={activeCoaches}
-                  />
-                </CardContent>
-              </Card>
-            );
-          })()}
         </TabsContent>
       </Tabs>
+
 
       <CoachAttributionDrillDown
         open={!!drill}
