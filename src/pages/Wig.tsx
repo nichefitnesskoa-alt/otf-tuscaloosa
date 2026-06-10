@@ -786,9 +786,9 @@ export default function Wig() {
       </div>
 
       <Tabs defaultValue="sa" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-3">
-          <TabsTrigger value="sa">SA</TabsTrigger>
-          <TabsTrigger value="coach">Coach</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 mb-3 h-11">
+          <TabsTrigger value="sa" className="text-base font-semibold">SA</TabsTrigger>
+          <TabsTrigger value="coach" className="text-base font-semibold">Coach</TabsTrigger>
         </TabsList>
 
         {/* ===== SA TAB — Hero + Leaderboard above the fold, actions below ===== */}
