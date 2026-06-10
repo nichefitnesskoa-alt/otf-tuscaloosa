@@ -13,7 +13,7 @@ import { WigFirstVisitSection } from '@/components/scorecard/WigFirstVisitSectio
 import { CoachDashboard } from '@/components/scorecard/CoachDashboard';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
-import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
+import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw, Pencil } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WigSaLeaderboard } from '@/components/wig/WigSaLeaderboard';
 import { SelfSourcedLeadEntry } from '@/features/myDay/SelfSourcedLeadEntry';
