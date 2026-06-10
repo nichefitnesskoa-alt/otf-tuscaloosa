@@ -84,8 +84,8 @@ function ProtectedRoute({ children, requireAdmin, blockCoach }: { children: Reac
 
 function AppRoutes() {
   const { isAuthenticated, user } = useAuth();
-  const isCoach = user?.role === 'Coach';
-  const defaultRoute = isCoach ? '/coach-view' : '/my-day';
+  // WIG is the front door for everyone — the studio scoreboard.
+  const defaultRoute = '/wig';
 
   return (
     <Routes>
