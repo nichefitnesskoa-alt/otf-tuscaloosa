@@ -217,6 +217,13 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
       </Card>
 
       <ComparisonView scorecardId={openId} open={!!openId} onOpenChange={(o) => { if (!o) setOpenId(null); }} />
+      <UnscoredDrillDown
+        open={openUnscored}
+        onOpenChange={setOpenUnscored}
+        coach={selected}
+        intros={unscoredForCoach}
+      />
+
     </div>
   );
 }
