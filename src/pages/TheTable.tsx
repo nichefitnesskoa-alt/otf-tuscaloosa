@@ -15,6 +15,7 @@ import { parseLocalDate } from '@/lib/dateUtils';
 import {
   useCurrentMeeting, useActiveOwners, useArchitect, useOwnerEntries, useActionItems,
   useOpenCarryForward, useCurrentWeekWins, useTableClose, useLaneHealth, useTableRealtime,
+  usePriorOwnerEntries,
   nextMondayCT,
   type OwnerEntry, type TableOwner,
 } from '@/hooks/useTheTable';
@@ -69,6 +70,7 @@ export default function TheTable() {
   const { data: owners = [] } = useActiveOwners();
   const { data: architect } = useArchitect();
   const { data: entries = [] } = useOwnerEntries(meeting?.id);
+  const { data: priorEntries = [] } = usePriorOwnerEntries(meeting?.meeting_date);
   
   const { data: actions = [] } = useActionItems(meeting?.id);
   const { data: carryForward = [] } = useOpenCarryForward(meeting?.id);
@@ -311,9 +313,26 @@ export default function TheTable() {
   return (
     <div className="p-4 max-w-4xl mx-auto pb-24">
       {header}
-      <SaWeeklyGoals weekStart={weekDate} />
       <OwnItMentionsCard variant="banner" />
+
+      {/* ───── BEAT 1 — ACCOUNT ───── */}
+      <BeatHeader num={1} title="Account" subtitle="Last week's commitments. Kept or broken — no shame, just the result." />
+      <AccountBeat
+        owners={owners}
+        priorEntries={priorEntries}
+        currentEntries={entries}
+        meetingId={meeting.id}
+        myOwnerIds={myOwners.map(o => o.id)}
+        onChanged={onEntryChange}
+      />
       {carryBlock}
+
+      {/* ───── BEAT 2 — SCOREBOARD ───── */}
+      <BeatHeader num={2} title="Scoreboard" subtitle="Where the WIG stands right now." />
+      <SaWeeklyGoals weekStart={weekDate} />
+
+      {/* ───── BEAT 3 — PLAN / COMMIT ───── */}
+      <BeatHeader num={3} title="Commit" subtitle="What you commit to this week, and how it serves the WIG." />
       <div className="mb-3 flex justify-between items-center">
         {winButton}
         <div className="text-xs text-muted-foreground">{wins.length} wins this week</div>
@@ -652,9 +671,17 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
     onChangeRef.current();
   };
 
-  const fields: { key: keyof OwnerEntry; label: string }[] = [
-    { key: 'last_week_update', label: 'What happened in your lane last week?' },
-    { key: 'this_week_focus', label: 'What are you focused on this week?' },
+  const fields: { key: keyof OwnerEntry; label: string; placeholder?: string }[] = [
+    {
+      key: 'commitment',
+      label: 'What I commit to this week',
+      placeholder: 'I commit to [action] by [day] to create [result]',
+    },
+    {
+      key: 'serves_wig',
+      label: 'How this serves the WIG (182 leads, 91 self-generated)',
+      placeholder: 'e.g. pickleball event → 30 locals in studio → VIP passes → leads',
+    },
     { key: 'ideas', label: 'Any ideas on your mind?' },
     { key: 'ask', label: 'What do you need from someone in this room?' },
   ];
@@ -675,6 +702,7 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
               defaultValue={val}
               resetKey={resetKey}
               disabled={locked}
+              placeholder={f.placeholder}
               className={cn(
                 'min-h-[70px] border-2',
                 filled ? 'border-success/40' : 'border-warning/40',
@@ -943,3 +971,178 @@ function CollapsibleUpdateCard({ laneName, locked, children }: {
   );
 }
 
+
+// ───── Three-beat helpers ─────
+
+function BeatHeader({ num, title, subtitle }: { num: 1 | 2 | 3; title: string; subtitle: string }) {
+  return (
+    <div className="mt-2 mb-3 flex items-baseline gap-3">
+      <div className="text-[10px] uppercase tracking-wider font-bold text-brand">Beat {num}</div>
+      <div>
+        <div className="text-lg font-bold leading-tight">{title}</div>
+        <div className="text-xs text-muted-foreground">{subtitle}</div>
+      </div>
+    </div>
+  );
+}
+
+// Beat 1 — Account. For each owner, show their LAST WEEK commitment with a
+// kept/broken marker + result. Editable only for the current user's own lanes.
+// Saves to the CURRENT week's table_owner_entries row (prior_status / prior_result)
+// — never mutates the prior week's row.
+function AccountBeat({
+  owners, priorEntries, currentEntries, meetingId, myOwnerIds, onChanged,
+}: {
+  owners: TableOwner[];
+  priorEntries: OwnerEntry[];
+  currentEntries: OwnerEntry[];
+  meetingId: string;
+  myOwnerIds: string[];
+  onChanged: () => void;
+}) {
+  const accountable = owners
+    .map(o => ({
+      owner: o,
+      prior: priorEntries.find(e => e.owner_id === o.id),
+      current: currentEntries.find(e => e.owner_id === o.id),
+    }))
+    .filter(r => (r.prior?.commitment ?? '').trim().length > 0);
+
+  if (accountable.length === 0) {
+    return (
+      <Card className="p-4 mb-4 text-sm text-muted-foreground">
+        No commitments from last week yet. They'll show up here next week.
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-4 mb-4 space-y-3">
+      {accountable.map(({ owner, prior, current }) => {
+        const isMine = myOwnerIds.includes(owner.id);
+        return (
+          <AccountRow
+            key={owner.id}
+            owner={owner}
+            priorCommitment={prior!.commitment ?? ''}
+            status={current?.prior_status ?? null}
+            result={current?.prior_result ?? ''}
+            canEdit={isMine}
+            meetingId={meetingId}
+            ownerId={owner.id}
+            onChanged={onChanged}
+          />
+        );
+      })}
+    </Card>
+  );
+}
+
+function AccountRow({
+  owner, priorCommitment, status, result, canEdit, meetingId, ownerId, onChanged,
+}: {
+  owner: TableOwner;
+  priorCommitment: string;
+  status: 'kept' | 'broken' | null;
+  result: string;
+  canEdit: boolean;
+  meetingId: string;
+  ownerId: string;
+  onChanged: () => void;
+}) {
+  const [resultDraft, setResultDraft] = useState(result);
+  const [showGrowth, setShowGrowth] = useState(false);
+  useEffect(() => { setResultDraft(result); }, [result]);
+
+  const saveStatus = async (next: 'kept' | 'broken') => {
+    const { error } = await supabase
+      .from('table_owner_entries')
+      .upsert(
+        { meeting_id: meetingId, owner_id: ownerId, prior_status: next, created_by: 'owner' },
+        { onConflict: 'meeting_id,owner_id', ignoreDuplicates: false },
+      );
+    if (error) { toast.error(error.message); return; }
+    onChanged();
+  };
+
+  const saveResult = async (val: string) => {
+    if (val === result) return;
+    const { error } = await supabase
+      .from('table_owner_entries')
+      .upsert(
+        { meeting_id: meetingId, owner_id: ownerId, prior_result: val, created_by: 'owner' },
+        { onConflict: 'meeting_id,owner_id', ignoreDuplicates: false },
+      );
+    if (error) { toast.error(error.message); return; }
+    onChanged();
+  };
+
+  const statusBadge = status === 'kept'
+    ? <Badge className="bg-success text-[10px]">Kept</Badge>
+    : status === 'broken'
+      ? <Badge className="bg-muted text-foreground text-[10px] border border-warning/60">Broken</Badge>
+      : <Badge variant="outline" className="text-[10px]">Not marked yet</Badge>;
+
+  return (
+    <div className="border rounded-md p-3">
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="font-medium text-sm">{owner.display_name} · {owner.lane_name || '—'}</div>
+        {statusBadge}
+      </div>
+      <div className="text-xs text-muted-foreground mb-1">Last week's commitment:</div>
+      <div className="text-sm whitespace-pre-wrap mb-2"><MentionText text={priorCommitment} /></div>
+
+      {canEdit ? (
+        <>
+          <div className="flex gap-2 mb-2">
+            <Button
+              size="sm"
+              variant={status === 'kept' ? 'default' : 'outline'}
+              className={status === 'kept' ? 'bg-success hover:bg-success/90' : ''}
+              onClick={() => saveStatus('kept')}
+            >
+              <Check className="w-3 h-3 mr-1" /> Kept
+            </Button>
+            <Button
+              size="sm"
+              variant={status === 'broken' ? 'default' : 'outline'}
+              onClick={() => saveStatus('broken')}
+            >
+              Broken
+            </Button>
+          </div>
+          <label className="text-xs font-medium block mb-1">What happened?</label>
+          <Textarea
+            value={resultDraft}
+            onChange={(e) => setResultDraft(e.target.value)}
+            onBlur={() => saveResult(resultDraft)}
+            placeholder="One or two lines is enough."
+            className="text-sm min-h-[60px]"
+          />
+          {status === 'broken' && (
+            <button
+              type="button"
+              onClick={() => setShowGrowth(v => !v)}
+              className="text-[11px] text-brand underline mt-2"
+            >
+              {showGrowth ? 'Hide' : 'Growth process (optional)'}
+            </button>
+          )}
+          {status === 'broken' && showGrowth && (
+            <p className="text-[11px] text-muted-foreground mt-1">
+              What got in the way? What would you do different next time? Put it in the result above — no shame, just clear eyes.
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          {result ? (
+            <div className="text-xs text-muted-foreground italic whitespace-pre-wrap">Result: {result}</div>
+          ) : (
+            <div className="text-xs text-muted-foreground italic">Waiting on result…</div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

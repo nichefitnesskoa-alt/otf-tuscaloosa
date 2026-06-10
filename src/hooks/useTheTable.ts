@@ -36,6 +36,8 @@ export interface OwnerEntry {
   id: string; meeting_id: string; owner_id: string;
   last_week_update: string | null; this_week_focus: string | null;
   ideas: string | null; ask: string | null; submitted_at: string | null;
+  commitment: string | null; serves_wig: string | null;
+  prior_status: 'kept' | 'broken' | null; prior_result: string | null;
 }
 export interface TableResponse {
   id: string; meeting_id: string; owner_entry_id: string;
@@ -139,6 +141,27 @@ export function useOwnerEntries(meetingId?: string) {
     enabled: !!meetingId,
     queryFn: async () => {
       const { data } = await supabase.from('table_owner_entries').select('*').eq('meeting_id', meetingId);
+      return (data || []) as OwnerEntry[];
+    },
+  });
+}
+
+// Prior week's owner entries — for the Account beat (kept/broken on last
+// week's commitments). Shifts the meeting_date back 7 days (Monday CST) and
+// loads the prior meeting + every owner_entry from it. Returns [] if the prior
+// week had no meeting row.
+export function usePriorOwnerEntries(currentMeetingDate?: string) {
+  return useQuery({
+    queryKey: ['table-entries-prior', currentMeetingDate],
+    enabled: !!currentMeetingDate,
+    queryFn: async () => {
+      const [y, m, d] = currentMeetingDate!.split('-').map(Number);
+      const prior = new Date(Date.UTC(y, m - 1, d - 7)).toISOString().slice(0, 10);
+      const { data: meetingRow } = await supabase
+        .from('table_meetings').select('id').eq('meeting_date', prior).maybeSingle();
+      if (!meetingRow) return [] as OwnerEntry[];
+      const { data } = await supabase
+        .from('table_owner_entries').select('*').eq('meeting_id', meetingRow.id);
       return (data || []) as OwnerEntry[];
     },
   });

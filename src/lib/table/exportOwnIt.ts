@@ -85,16 +85,23 @@ export function buildOwnItExport(args: {
       out.push(`── ${owner.display_name} — ${lane}`);
       out.push(`Submitted: ${fmtSubmittedCT(entry.submitted_at!)}`);
       out.push('');
-      out.push('1. What happened in your lane last week?');
-      out.push(ANSWER(entry.last_week_update));
+      out.push('ACCOUNT — Last week:');
+      const status = entry.prior_status
+        ? (entry.prior_status === 'kept' ? 'KEPT' : 'BROKEN')
+        : 'Not marked';
+      out.push(`Status: ${status}`);
+      out.push(`Result: ${ANSWER(entry.prior_result)}`);
       out.push('');
-      out.push('2. What are you focused on this week?');
-      out.push(ANSWER(entry.this_week_focus));
+      out.push('COMMIT — This week:');
+      out.push(ANSWER(entry.commitment));
       out.push('');
-      out.push('3. Any ideas on your mind?');
+      out.push('How this serves the WIG:');
+      out.push(ANSWER(entry.serves_wig));
+      out.push('');
+      out.push('Ideas:');
       out.push(ANSWER(entry.ideas));
       out.push('');
-      out.push('4. What do you need from someone in this room?');
+      out.push('Ask:');
       out.push(ANSWER(entry.ask));
       out.push('');
     }

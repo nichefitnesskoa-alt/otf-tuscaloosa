@@ -3437,6 +3437,7 @@ export type Database = {
       table_owner_entries: {
         Row: {
           ask: string | null
+          commitment: string | null
           created_at: string
           created_by: string
           id: string
@@ -3444,12 +3445,16 @@ export type Database = {
           last_week_update: string | null
           meeting_id: string
           owner_id: string
+          prior_result: string | null
+          prior_status: string | null
+          serves_wig: string | null
           submitted_at: string | null
           this_week_focus: string | null
           updated_at: string
         }
         Insert: {
           ask?: string | null
+          commitment?: string | null
           created_at?: string
           created_by?: string
           id?: string
@@ -3457,12 +3462,16 @@ export type Database = {
           last_week_update?: string | null
           meeting_id: string
           owner_id: string
+          prior_result?: string | null
+          prior_status?: string | null
+          serves_wig?: string | null
           submitted_at?: string | null
           this_week_focus?: string | null
           updated_at?: string
         }
         Update: {
           ask?: string | null
+          commitment?: string | null
           created_at?: string
           created_by?: string
           id?: string
@@ -3470,6 +3479,9 @@ export type Database = {
           last_week_update?: string | null
           meeting_id?: string
           owner_id?: string
+          prior_result?: string | null
+          prior_status?: string | null
+          serves_wig?: string | null
           submitted_at?: string | null
           this_week_focus?: string | null
           updated_at?: string
