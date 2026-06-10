@@ -1007,38 +1007,38 @@ export default function Wig() {
                           <TableRow key={row.name} className={cn(rs === 'green' && 'bg-success/5')}>
                             <TableCell className="text-sm text-muted-foreground tabular-nums">{idx + 1}</TableCell>
                             <TableCell className="text-base font-medium whitespace-nowrap">{row.name}</TableCell>
-                            <TableCell className="text-base text-center p-0">
+                            <TableCell className="text-center p-0">
                               <button
                                 type="button"
                                 disabled={row.coached === 0}
                                 onClick={() => setDrill({ coach: row.name, metric: 'coached' })}
-                                className="w-full min-h-[48px] px-3 font-semibold tabular-nums cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                                className="w-full min-h-[48px] px-3 text-3xl font-black tabular-nums cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
                               >
                                 {row.coached}
                               </button>
                             </TableCell>
-                            <TableCell className="text-sm text-center tabular-nums">
-                              <span className={cn('font-semibold', statusClasses(scoredStatus(scored, row.coached)).text)}>
+                            <TableCell className="text-center tabular-nums">
+                              <span className={cn('text-3xl font-black', statusClasses(scoredStatus(scored, row.coached)).text)}>
                                 {scored}/{row.coached}
                               </span>
                             </TableCell>
-                            <TableCell className="text-base text-center font-semibold tabular-nums">
+                            <TableCell className="text-center tabular-nums">
                               {avgVal != null
-                                ? <span className={statusClasses(avgScoreStatus(avgVal)).text}>{avgVal.toFixed(1)}</span>
-                                : <span className="text-muted-foreground font-normal">—</span>}
+                                ? <span className={cn('text-3xl font-black', statusClasses(avgScoreStatus(avgVal)).text)}>{avgVal.toFixed(1)}</span>
+                                : <span className="text-muted-foreground font-normal text-2xl">—</span>}
                             </TableCell>
-                            <TableCell className="text-base text-center font-semibold text-success p-0">
+                            <TableCell className="text-center p-0">
                               <button
                                 type="button"
                                 disabled={row.closes === 0}
                                 onClick={() => setDrill({ coach: row.name, metric: 'closes' })}
-                                className="w-full min-h-[48px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                                className="w-full min-h-[48px] px-3 text-3xl font-black tabular-nums text-success cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
                               >
                                 {row.closes}
                               </button>
                             </TableCell>
-                            <TableCell className="text-base text-center px-2">
-                              <div className={cn('font-bold text-lg tabular-nums', rsCls.text)}>
+                            <TableCell className="text-center px-2">
+                              <div className={cn('font-black text-3xl tabular-nums', rsCls.text)}>
                                 {row.closeRate.toFixed(0)}%
                               </div>
                               <div className="mt-1 w-full h-1.5 rounded-full bg-secondary overflow-hidden">
@@ -1060,11 +1060,11 @@ export default function Wig() {
                           <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
                             <TableCell />
                             <TableCell className="text-base font-bold whitespace-nowrap">Total</TableCell>
-                            <TableCell className="text-base text-center font-bold tabular-nums">{totalCoached}</TableCell>
-                            <TableCell className={cn('text-sm text-center font-bold tabular-nums', statusClasses(scoredStatus(totalScored, totalCoached)).text)}>{totalScored}/{totalCoached}</TableCell>
-                            <TableCell className="text-base text-center font-bold text-muted-foreground">—</TableCell>
-                            <TableCell className="text-base text-center font-bold text-success tabular-nums">{totalCloses}</TableCell>
-                            <TableCell className="text-lg text-center font-bold">
+                            <TableCell className="text-2xl text-center font-black tabular-nums">{totalCoached}</TableCell>
+                            <TableCell className={cn('text-2xl text-center font-black tabular-nums', statusClasses(scoredStatus(totalScored, totalCoached)).text)}>{totalScored}/{totalCoached}</TableCell>
+                            <TableCell className="text-2xl text-center font-black text-muted-foreground">—</TableCell>
+                            <TableCell className="text-2xl text-center font-black text-success tabular-nums">{totalCloses}</TableCell>
+                            <TableCell className="text-2xl text-center font-black">
                               <span className={wrsCls.text}>{weightedRate.toFixed(0)}%</span>
                             </TableCell>
                           </TableRow>
