@@ -266,6 +266,10 @@ export default function Wig() {
   const effectiveShowed = Math.max(coachTableTotals.coached, coachTableTotals.closes);
   const closeRate = effectiveShowed > 0 ? (coachTableTotals.closes / effectiveShowed) * 100 : 0;
 
+  // FV scorecard data — feeds per-coach "Scored" + "Avg score" columns on the Coach tab.
+  const fvRange = dateRange || { start: getNowCentral(), end: getNowCentral() };
+  const fv = useFvTrendData(fvRange, 'self', false);
+
   const loadLeadMeasures = useCallback(async () => {
     setMeasuresLoading(true);
     try {
