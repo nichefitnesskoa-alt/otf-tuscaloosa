@@ -278,13 +278,16 @@ export default function TheTable() {
             laneName={mine.lane_name}
             locked={!!myEntry?.submitted_at}
           >
-            <p className="text-xs text-muted-foreground mb-3">Say the thing you'd normally soften.</p>
+            <p className="text-xs text-muted-foreground mb-3">This is your WIG update. Be specific and real.</p>
             <OwnerEntryForm
               meetingId={meeting.id}
               ownerId={mine.id}
               entry={myEntry}
               onChange={onEntryChange}
+              wigSuffix={wigSuffix}
+              isCoachLane={coachStaffIds.has(mine.staff_id)}
             />
+
           </CollapsibleUpdateCard>
         );
       })}
