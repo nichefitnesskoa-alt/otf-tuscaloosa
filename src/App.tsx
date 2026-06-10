@@ -70,9 +70,9 @@ function ProtectedRoute({ children, requireAdmin, blockCoach }: { children: Reac
     return <Navigate to="/login" replace />;
   }
 
-  // Coach role can only access /coach-view
+  // Coach role can only access /coach-view; bounce them to WIG (the default).
   if (blockCoach && user?.role === 'Coach') {
-    return <Navigate to="/coach-view" replace />;
+    return <Navigate to="/wig" replace />;
   }
 
   if (requireAdmin && !canAccessAdmin) {
