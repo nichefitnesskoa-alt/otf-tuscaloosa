@@ -1018,12 +1018,14 @@ export default function Wig() {
                               </button>
                             </TableCell>
                             <TableCell className="text-sm text-center tabular-nums">
-                              <span className={cn(unscored > 0 && row.coached > 0 ? 'text-warning font-semibold' : 'text-foreground')}>
+                              <span className={cn('font-semibold', statusClasses(scoredStatus(scored, row.coached)).text)}>
                                 {scored}/{row.coached}
                               </span>
                             </TableCell>
                             <TableCell className="text-base text-center font-semibold tabular-nums">
-                              {avgVal != null ? avgVal.toFixed(1) : <span className="text-muted-foreground font-normal">—</span>}
+                              {avgVal != null
+                                ? <span className={statusClasses(avgScoreStatus(avgVal)).text}>{avgVal.toFixed(1)}</span>
+                                : <span className="text-muted-foreground font-normal">—</span>}
                             </TableCell>
                             <TableCell className="text-base text-center font-semibold text-success p-0">
                               <button
