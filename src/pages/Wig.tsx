@@ -11,7 +11,7 @@ import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { useFvTrendData } from '@/hooks/useFvTrendData';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
-import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw, Pencil } from 'lucide-react';
+import { Target, Trophy, UserCheck, Check, Loader2, RefreshCw, Pencil } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WigSaLeaderboard } from '@/components/wig/WigSaLeaderboard';
 
