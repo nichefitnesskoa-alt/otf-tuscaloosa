@@ -313,9 +313,26 @@ export default function TheTable() {
   return (
     <div className="p-4 max-w-4xl mx-auto pb-24">
       {header}
-      <SaWeeklyGoals weekStart={weekDate} />
       <OwnItMentionsCard variant="banner" />
+
+      {/* ───── BEAT 1 — ACCOUNT ───── */}
+      <BeatHeader num={1} title="Account" subtitle="Last week's commitments. Kept or broken — no shame, just the result." />
+      <AccountBeat
+        owners={owners}
+        priorEntries={priorEntries}
+        currentEntries={entries}
+        meetingId={meeting.id}
+        myOwnerIds={myOwners.map(o => o.id)}
+        onChanged={onEntryChange}
+      />
       {carryBlock}
+
+      {/* ───── BEAT 2 — SCOREBOARD ───── */}
+      <BeatHeader num={2} title="Scoreboard" subtitle="Where the WIG stands right now." />
+      <SaWeeklyGoals weekStart={weekDate} />
+
+      {/* ───── BEAT 3 — PLAN / COMMIT ───── */}
+      <BeatHeader num={3} title="Commit" subtitle="What you commit to this week, and how it serves the WIG." />
       <div className="mb-3 flex justify-between items-center">
         {winButton}
         <div className="text-xs text-muted-foreground">{wins.length} wins this week</div>
