@@ -884,19 +884,19 @@ export default function Wig() {
         <TabsContent value="coach" className="space-y-4">
           {/* Coach close-rate HERO — R/Y/G vs adjustable monthly close-% target */}
           <Card className={cn('border-2 ring-2 ring-offset-0', coachHeroCls.ring)}>
-            <CardContent className="p-4">
+            <CardContent className="p-5">
               <div className="flex items-center gap-2 mb-1">
-                <UserCheck className={cn('w-4 h-4', coachHeroCls.text)} />
-                <span className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">
+                <UserCheck className={cn('w-5 h-5', coachHeroCls.text)} />
+                <span className="text-sm uppercase tracking-wide font-bold text-muted-foreground">
                   Studio close rate · {selectedMonthLabel}
                 </span>
               </div>
-              <div className="flex items-baseline gap-3 mb-2">
-                <span className={cn('text-5xl font-black tabular-nums leading-none', coachHeroCls.text)}>
+              <div className="flex items-baseline gap-3 mb-3">
+                <span className={cn('text-6xl font-black tabular-nums leading-none', coachHeroCls.text)}>
                   {closeRate.toFixed(0)}%
                 </span>
-                <span className="text-lg text-muted-foreground">
-                  target {targets.coachClose != null ? `${targets.coachClose}%` : <em className="not-italic text-warning">CONFIRM THIS VALUE</em>}
+                <span className="text-xl text-muted-foreground">
+                  target {targets.coachClose != null ? `${targets.coachClose}%` : <em className="not-italic text-warning">CONFIRM</em>}
                 </span>
               </div>
               <div className="w-full h-3 rounded-full bg-secondary overflow-hidden">
