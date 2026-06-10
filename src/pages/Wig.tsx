@@ -736,15 +736,8 @@ export default function Wig() {
     setIsRefreshing(false);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   // Coach close-rate status (target is a flat % — pace == target, no proration).
+  // NOTE: All hooks must run before any early return to keep hook order stable.
   const sortedCoachRows = useMemo(
     () => [...coachLeadMeasures].sort((a, b) => b.closeRate - a.closeRate || b.closes - a.closes),
     [coachLeadMeasures],
@@ -755,6 +748,14 @@ export default function Wig() {
   const coachHeroStatus = statusColor(closeRate, targets.coachClose);
   const coachHeroCls = statusClasses(coachHeroStatus);
   const studioHeroCls = statusClasses(studioLeadsStatus);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-4">
