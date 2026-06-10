@@ -760,11 +760,11 @@ export default function Wig() {
     <div className="p-4 space-y-4">
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1">
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <Trophy className="w-5 h-5" />
+          <h1 className="text-2xl font-black flex items-center gap-2">
+            <Trophy className="w-6 h-6 text-primary" />
             WIG
           </h1>
-          <p className="text-xs text-muted-foreground">The scoreboard. Pace tells you if you're winning today.</p>
+          <p className="text-sm text-muted-foreground hidden sm:block">The scoreboard. Pace tells you if you're winning today.</p>
           <Button variant="ghost" size="sm" onClick={handleManualRefresh} disabled={isRefreshing} className="h-8 px-2">
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
