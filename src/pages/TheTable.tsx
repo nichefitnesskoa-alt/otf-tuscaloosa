@@ -653,8 +653,9 @@ function PeerEntry({ entry }: { entry: OwnerEntry }) {
 }
 
 
-function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
+function OwnerEntryForm({ meetingId, ownerId, entry, onChange, wigSuffix = '', isCoachLane = false }: {
   meetingId: string; ownerId: string; entry?: OwnerEntry; onChange: () => void;
+  wigSuffix?: string; isCoachLane?: boolean;
 }) {
   const [savedField, setSavedField] = useState<string | null>(null);
   const [entryId, setEntryId] = useState<string | undefined>(entry?.id);
@@ -709,6 +710,12 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
     onChangeRef.current();
   };
 
+  // Coach lanes are graded on close %, so their pressure-test example
+  // points there. Everyone else keeps the leads-funnel example.
+  const servesPlaceholder = isCoachLane
+    ? 'e.g. tighter post-class debriefs → more SALE outcomes → close % up'
+    : 'e.g. pickleball event → 30 locals in studio → VIP passes → leads';
+
   const fields: { key: keyof OwnerEntry; label: string; placeholder?: string }[] = [
     {
       key: 'commitment',
@@ -717,12 +724,12 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
     },
     {
       key: 'serves_wig',
-      label: 'How this serves the WIG (182 leads, 91 self-generated)',
-      placeholder: 'e.g. pickleball event → 30 locals in studio → VIP passes → leads',
+      label: `How this serves the WIG${wigSuffix}`,
+      placeholder: servesPlaceholder,
     },
-    { key: 'ideas', label: 'Any ideas on your mind?' },
-    { key: 'ask', label: 'What do you need from someone in this room?' },
+    { key: 'ask', label: 'Where do you need the path cleared?' },
   ];
+
 
   // resetKey ties the input's seeded text to the entry row id. Once the row
   // exists, re-renders from realtime invalidations no longer reset typed text.
