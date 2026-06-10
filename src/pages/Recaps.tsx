@@ -270,6 +270,9 @@ export default function Recaps() {
 
           <PerCoachTable dateRange={dateRange} />
 
+          {/* Coach scorecard system — moved from WIG so the scoreboard stays simple */}
+          <WigFirstVisitSection />
+
           {/* VIP Class Performance */}
           <VipClassPerformanceTable />
         </TabsContent>
