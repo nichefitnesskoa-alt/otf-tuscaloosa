@@ -380,20 +380,29 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                     <TableHead className="text-xs">SA</TableHead>
                     <TableHead className="text-xs text-center">
                       Leads
+                      <div className="text-[10px] font-semibold text-foreground">
+                        need {formatPace(perSaPace.sgl)} today
+                      </div>
                       <div className="text-[9px] font-normal text-muted-foreground">
-                        of {targets.saSgl ?? '—'} · pace {formatPace(perSaPace.sgl)}
+                        of {targets.saSgl ?? '—'} this month
                       </div>
                     </TableHead>
                     <TableHead className="text-xs text-center">
                       Booked
+                      <div className="text-[10px] font-semibold text-foreground">
+                        need {formatPace(perSaPace.booked)} today
+                      </div>
                       <div className="text-[9px] font-normal text-muted-foreground">
-                        of {targets.saBooked ?? '—'} · pace {formatPace(perSaPace.booked)}
+                        of {targets.saBooked ?? '—'} this month
                       </div>
                     </TableHead>
                     <TableHead className="text-xs text-center">
                       Sales
+                      <div className="text-[10px] font-semibold text-foreground">
+                        need {formatPace(perSaPace.sales)} today
+                      </div>
                       <div className="text-[9px] font-normal text-muted-foreground">
-                        of {targets.saSales ?? '—'} · pace {formatPace(perSaPace.sales)}
+                        of {targets.saSales ?? '—'} this month
                       </div>
                     </TableHead>
                   </TableRow>
@@ -420,6 +429,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                           >
                             <div className={cn('font-semibold tabular-nums', statusClasses(sglS).text)}>
                               {row.sgl}
+                              <span className="ml-1 text-[10px] font-normal text-muted-foreground">/ {formatPace(perSaPace.sgl)}</span>
                             </div>
                             <div className="mt-1 px-2">
                               <PaceBar current={row.sgl} target={targets.saSgl} pace={perSaPace.sgl} />
@@ -435,6 +445,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                           >
                             <div className={cn('font-medium tabular-nums', statusClasses(bkS).text)}>
                               {row.booked}
+                              <span className="ml-1 text-[10px] font-normal text-muted-foreground">/ {formatPace(perSaPace.booked)}</span>
                             </div>
                             <div className="mt-1 px-2">
                               <PaceBar current={row.booked} target={targets.saBooked} pace={perSaPace.booked} />
@@ -450,6 +461,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                           >
                             <div className={cn('font-medium tabular-nums', statusClasses(slS).text)}>
                               {row.sales}
+                              <span className="ml-1 text-[10px] font-normal text-muted-foreground">/ {formatPace(perSaPace.sales)}</span>
                             </div>
                             <div className="mt-1 px-2">
                               <PaceBar current={row.sales} target={targets.saSales} pace={perSaPace.sales} />
