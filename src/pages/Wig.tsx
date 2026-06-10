@@ -8,8 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 
-import { WigFirstVisitSection } from '@/components/scorecard/WigFirstVisitSection';
-import { CoachDashboard } from '@/components/scorecard/CoachDashboard';
+import { useFvTrendData } from '@/hooks/useFvTrendData';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw, Pencil } from 'lucide-react';
