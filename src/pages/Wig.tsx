@@ -21,7 +21,7 @@ import { SourcedLeadsToText } from '@/features/myDay/SourcedLeadsToText';
 
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { format, isWithinInterval, startOfMonth, endOfMonth, differenceInDays, startOfQuarter, endOfQuarter } from 'date-fns';
+import { format, isWithinInterval } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { isSaleInRange, isRunInRange } from '@/lib/sales-detection';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
@@ -32,6 +32,9 @@ import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/Pers
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
 import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
 import { notifyDataChanged } from '@/lib/data/invalidation';
+import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/pace';
+import { loadMonthlyTargets, saveMonthlyTarget, type MonthlyTargets } from '@/lib/wig/targets';
+import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 
 export default function Wig() {
   const { user } = useAuth();
