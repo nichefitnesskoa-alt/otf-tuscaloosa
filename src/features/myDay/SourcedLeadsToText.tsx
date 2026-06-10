@@ -55,6 +55,35 @@ export function SourcedLeadsToText({ compact = true, defaultOpen = false }: Prop
   const [open, setOpen] = useState(defaultOpen);
   const [textingLead, setTextingLead] = useState<SourcedLeadRow | null>(null);
   const [bookingLead, setBookingLead] = useState<SourcedLeadRow | null>(null);
+  const [detailLeadId, setDetailLeadId] = useState<string | null>(null);
+
+  const { data: detailLead = null } = useQuery({
+    queryKey: ['leads', 'detail', detailLeadId],
+    enabled: !!detailLeadId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', detailLeadId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data as Tables<'leads'> | null;
+    },
+  });
+
+  const { data: detailActivities = [] } = useQuery({
+    queryKey: ['lead_activities', detailLeadId],
+    enabled: !!detailLeadId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('lead_activities')
+        .select('*')
+        .eq('lead_id', detailLeadId!)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as Tables<'lead_activities'>[];
+    },
+  });
 
   const empty = !loading && total === 0;
 
