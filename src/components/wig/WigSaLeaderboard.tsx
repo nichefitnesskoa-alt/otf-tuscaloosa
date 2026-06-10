@@ -461,6 +461,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                           >
                             <div className={cn('font-medium tabular-nums', statusClasses(slS).text)}>
                               {row.sales}
+                              <span className="ml-1 text-[10px] font-normal text-muted-foreground">/ {formatPace(perSaPace.sales)}</span>
                             </div>
                             <div className="mt-1 px-2">
                               <PaceBar current={row.sales} target={targets.saSales} pace={perSaPace.sales} />
