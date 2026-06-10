@@ -266,6 +266,14 @@ export function SourcedLeadsToText({ compact = true, defaultOpen = false }: Prop
           }}
         />
       )}
+
+      <LeadDetailSheet
+        lead={detailLead}
+        activities={detailActivities}
+        open={!!detailLeadId}
+        onOpenChange={(o) => { if (!o) setDetailLeadId(null); }}
+        onRefresh={() => notifyDataChanged(['leads', 'sa-leads'])}
+      />
     </>
   );
 }
