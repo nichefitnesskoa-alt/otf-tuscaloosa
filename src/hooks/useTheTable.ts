@@ -36,6 +36,8 @@ export interface OwnerEntry {
   id: string; meeting_id: string; owner_id: string;
   last_week_update: string | null; this_week_focus: string | null;
   ideas: string | null; ask: string | null; submitted_at: string | null;
+  commitment: string | null; serves_wig: string | null;
+  prior_status: 'kept' | 'broken' | null; prior_result: string | null;
 }
 export interface TableResponse {
   id: string; meeting_id: string; owner_entry_id: string;
