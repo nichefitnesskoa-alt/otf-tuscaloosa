@@ -462,37 +462,43 @@ function UploadForm({ onSuccess }: { onSuccess: () => void }) {
 
       {items.length > 0 && (
         <div className="space-y-1.5 max-h-64 overflow-auto border border-border rounded-md p-2">
-          {items.map(({ file, parsed }, idx) => (
-            <div
-              key={idx}
-              className="flex items-center gap-2 text-xs py-1 px-1.5 rounded"
-            >
-              {parsed ? (
-                <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
-              ) : (
-                <XCircle className="w-4 h-4 text-destructive shrink-0" />
-              )}
-              <span className="truncate flex-1 text-muted-foreground">
-                {file.name}
-              </span>
-              {parsed ? (
-                <span className="font-medium shrink-0">{parsed.title}</span>
-              ) : (
-                <span className="text-destructive shrink-0">can't parse</span>
-              )}
-            </div>
-          ))}
+          {items.map(({ file, parsed }, idx) => {
+            const past = parsed ? isPastDate(parsed.date) : false;
+            const ok = parsed && !past;
+            return (
+              <div
+                key={idx}
+                className="flex items-center gap-2 text-xs py-1 px-1.5 rounded"
+              >
+                {ok ? (
+                  <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-destructive shrink-0" />
+                )}
+                <span className="truncate flex-1 text-muted-foreground">
+                  {file.name}
+                </span>
+                {!parsed ? (
+                  <span className="text-destructive shrink-0">can't parse</span>
+                ) : past ? (
+                  <span className="text-destructive shrink-0">past — skipped</span>
+                ) : (
+                  <span className="font-medium shrink-0">{parsed.title}</span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
       <Button
         type="submit"
-        disabled={uploading || items.length === 0}
+        disabled={uploading || items.filter((i) => i.parsed && !isPastDate(i.parsed.date)).length === 0}
         className="w-full"
       >
         {uploading
           ? 'Uploading...'
-          : `Upload ${items.filter((i) => i.parsed).length || ''}`.trim()}
+          : `Upload ${items.filter((i) => i.parsed && !isPastDate(i.parsed!.date)).length || ''}`.trim()}
       </Button>
     </form>
   );
