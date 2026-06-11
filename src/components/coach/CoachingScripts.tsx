@@ -427,16 +427,17 @@ function UploadForm({ onSuccess }: { onSuccess: () => void }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label>Documents (PDF or Word)</Label>
+        <Label>Documents (PDF, Word, or ZIP)</Label>
         <Input
           type="file"
           multiple
-          accept=".docx,.pdf"
+          accept=".docx,.pdf,.zip,application/zip,application/x-zip-compressed"
           onChange={(e) => handleFiles(e.target.files)}
         />
         <p className="text-xs text-muted-foreground mt-1.5">
-          Filename auto-detects format and date. Example: <code>May09_2G.docx</code>
+          Drop a ZIP and we'll pull every .docx/.pdf inside. Filename auto-detects format and date. Example: <code>May09_2G.docx</code>
         </p>
+        {extracting && <p className="text-xs text-muted-foreground mt-1">Extracting ZIP…</p>}
       </div>
 
       {items.length > 0 && (
