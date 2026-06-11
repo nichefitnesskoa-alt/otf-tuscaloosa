@@ -366,11 +366,25 @@ function UploadForm({ onSuccess }: { onSuccess: () => void }) {
     }
   };
 
+  // Today in America/Chicago as YYYY-MM-DD
+  const todayCentral = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Chicago',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
+
+  const isPastDate = (d: Date) => format(d, 'yyyy-MM-dd') < todayCentral;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const valid = items.filter((i) => i.parsed);
+    const parseable = items.filter((i) => i.parsed);
+    const valid = parseable.filter((i) => !isPastDate(i.parsed!.date));
+    const pastCount = parseable.length - valid.length;
     if (valid.length === 0) {
-      toast.error('No valid filenames. Use names like "May09_2G".');
+      toast.error(
+        pastCount > 0
+          ? `All ${pastCount} file${pastCount === 1 ? '' : 's'} are dated before today — skipped.`
+          : 'No valid filenames. Use names like "May09_2G".',
+      );
       return;
     }
 
@@ -410,12 +424,18 @@ function UploadForm({ onSuccess }: { onSuccess: () => void }) {
       })
     );
 
-    const skipped = items.length - valid.length;
+    // Sweep any past-dated rows (existing or just-inserted edge cases)
+    try {
+      await supabase.functions.invoke('cleanup-coaching-scripts');
+    } catch { /* non-fatal */ }
+
+    const unparseable = items.length - parseable.length;
     setUploading(false);
     if (uploaded > 0) {
       toast.success(
         `Uploaded ${uploaded} script${uploaded === 1 ? '' : 's'}` +
-          (skipped > 0 ? ` · skipped ${skipped} unparseable` : '') +
+          (pastCount > 0 ? ` · skipped ${pastCount} past-dated` : '') +
+          (unparseable > 0 ? ` · skipped ${unparseable} unparseable` : '') +
           (failed > 0 ? ` · ${failed} failed` : '')
       );
       onSuccess();
@@ -442,37 +462,43 @@ function UploadForm({ onSuccess }: { onSuccess: () => void }) {
 
       {items.length > 0 && (
         <div className="space-y-1.5 max-h-64 overflow-auto border border-border rounded-md p-2">
-          {items.map(({ file, parsed }, idx) => (
-            <div
-              key={idx}
-              className="flex items-center gap-2 text-xs py-1 px-1.5 rounded"
-            >
-              {parsed ? (
-                <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
-              ) : (
-                <XCircle className="w-4 h-4 text-destructive shrink-0" />
-              )}
-              <span className="truncate flex-1 text-muted-foreground">
-                {file.name}
-              </span>
-              {parsed ? (
-                <span className="font-medium shrink-0">{parsed.title}</span>
-              ) : (
-                <span className="text-destructive shrink-0">can't parse</span>
-              )}
-            </div>
-          ))}
+          {items.map(({ file, parsed }, idx) => {
+            const past = parsed ? isPastDate(parsed.date) : false;
+            const ok = parsed && !past;
+            return (
+              <div
+                key={idx}
+                className="flex items-center gap-2 text-xs py-1 px-1.5 rounded"
+              >
+                {ok ? (
+                  <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-destructive shrink-0" />
+                )}
+                <span className="truncate flex-1 text-muted-foreground">
+                  {file.name}
+                </span>
+                {!parsed ? (
+                  <span className="text-destructive shrink-0">can't parse</span>
+                ) : past ? (
+                  <span className="text-destructive shrink-0">past — skipped</span>
+                ) : (
+                  <span className="font-medium shrink-0">{parsed.title}</span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
       <Button
         type="submit"
-        disabled={uploading || items.length === 0}
+        disabled={uploading || items.filter((i) => i.parsed && !isPastDate(i.parsed.date)).length === 0}
         className="w-full"
       >
         {uploading
           ? 'Uploading...'
-          : `Upload ${items.filter((i) => i.parsed).length || ''}`.trim()}
+          : `Upload ${items.filter((i) => i.parsed && !isPastDate(i.parsed!.date)).length || ''}`.trim()}
       </Button>
     </form>
   );
