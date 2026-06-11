@@ -272,6 +272,7 @@ export default function TheTable() {
       {/* Owner self-entry — one collapsible card per lane the user owns */}
       {myOwners.map(mine => {
         const myEntry = entries.find(e => e.owner_id === mine.id);
+        const myPrior = priorEntries.find(e => e.owner_id === mine.id);
         return (
           <CollapsibleUpdateCard
             key={mine.id}
@@ -283,6 +284,7 @@ export default function TheTable() {
               meetingId={meeting.id}
               ownerId={mine.id}
               entry={myEntry}
+              priorEntry={myPrior}
               onChange={onEntryChange}
               wigSuffix={wigSuffix}
               isCoachLane={coachStaffIds.has(mine.staff_id)}
@@ -353,24 +355,14 @@ export default function TheTable() {
       {header}
       <OwnItMentionsCard variant="banner" />
 
-      {/* ───── BEAT 1 — ACCOUNT ───── */}
-      <BeatHeader num={1} title="Account" subtitle="Last week's commitments. Kept or broken — no shame, just the result." />
-      <AccountBeat
-        owners={owners}
-        priorEntries={priorEntries}
-        currentEntries={entries}
-        meetingId={meeting.id}
-        myOwnerIds={myOwners.map(o => o.id)}
-        onChanged={onEntryChange}
-      />
       {carryBlock}
 
-      {/* ───── BEAT 2 — SCOREBOARD ───── */}
-      <BeatHeader num={2} title="Scoreboard" subtitle="Where the WIG stands right now." />
+      {/* ───── BEAT 1 — SCOREBOARD ───── */}
+      <BeatHeader num={1} title="Scoreboard" subtitle="Where the WIG stands right now." />
       <SaWeeklyGoals weekStart={weekDate} />
 
-      {/* ───── BEAT 3 — PLAN / COMMIT ───── */}
-      <BeatHeader num={3} title="Commit" subtitle="What you commit to this week, and how it serves the WIG." />
+      {/* ───── BEAT 2 — PLAN / COMMIT ───── */}
+      <BeatHeader num={2} title="Commit" subtitle="Account for last week, then commit to this week." />
       <div className="mb-3 flex justify-between items-center">
         {winButton}
         <div className="text-xs text-muted-foreground">{wins.length} wins this week</div>
@@ -642,19 +634,26 @@ function EntryField({ label, value }: { label: string; value: string | null }) {
 }
 
 function PeerEntry({ entry }: { entry: OwnerEntry }) {
+  const statusLabel = entry.prior_status === 'kept' ? 'Kept' : entry.prior_status === 'broken' ? 'Broken' : null;
   return (
     <div className="space-y-1 text-xs">
-      {entry.last_week_update && <div><b>Last week:</b> <MentionText text={entry.last_week_update} /></div>}
-      {entry.this_week_focus && <div><b>This week:</b> <MentionText text={entry.this_week_focus} /></div>}
+      {statusLabel && <div><b>Last week:</b> {statusLabel}</div>}
+      {entry.prior_result && <div><b>Result:</b> <MentionText text={entry.prior_result} /></div>}
+      {entry.prior_learning && <div><b>Learned:</b> <MentionText text={entry.prior_learning} /></div>}
+      {entry.commitment && <div><b>This week:</b> <MentionText text={entry.commitment} /></div>}
+      {entry.serves_wig && <div><b>Serves WIG:</b> <MentionText text={entry.serves_wig} /></div>}
+      {entry.ask && <div><b>Needs:</b> <MentionText text={entry.ask} /></div>}
+      {/* Legacy fields, kept for historical entries */}
+      {entry.last_week_update && <div><b>Last week (legacy):</b> <MentionText text={entry.last_week_update} /></div>}
+      {entry.this_week_focus && !entry.commitment && <div><b>This week:</b> <MentionText text={entry.this_week_focus} /></div>}
       {entry.ideas && <div><b>Ideas:</b> <MentionText text={entry.ideas} /></div>}
-      {entry.ask && <div><b>Ask:</b> <MentionText text={entry.ask} /></div>}
     </div>
   );
 }
 
 
-function OwnerEntryForm({ meetingId, ownerId, entry, onChange, wigSuffix = '', isCoachLane = false }: {
-  meetingId: string; ownerId: string; entry?: OwnerEntry; onChange: () => void;
+function OwnerEntryForm({ meetingId, ownerId, entry, priorEntry, onChange, wigSuffix = '', isCoachLane = false }: {
+  meetingId: string; ownerId: string; entry?: OwnerEntry; priorEntry?: OwnerEntry; onChange: () => void;
   wigSuffix?: string; isCoachLane?: boolean;
 }) {
   const [savedField, setSavedField] = useState<string | null>(null);
@@ -710,6 +709,19 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange, wigSuffix = '', i
     onChangeRef.current();
   };
 
+  const saveStatus = async (next: 'kept' | 'broken') => {
+    const { error } = await supabase
+      .from('table_owner_entries')
+      .upsert(
+        { meeting_id: meetingId, owner_id: ownerId, prior_status: next, created_by: 'owner' },
+        { onConflict: 'meeting_id,owner_id', ignoreDuplicates: false },
+      );
+    if (error) { toast.error(error.message); return; }
+    setSavedField('prior_status');
+    setTimeout(() => setSavedField(null), 2000);
+    onChangeRef.current();
+  };
+
   // Coach lanes are graded on close %, so their pressure-test example
   // points there. Everyone else keeps the leads-funnel example.
   const servesPlaceholder = isCoachLane
@@ -727,7 +739,10 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange, wigSuffix = '', i
       label: `How this serves the WIG${wigSuffix}`,
       placeholder: servesPlaceholder,
     },
-    { key: 'ask', label: 'Where do you need the path cleared?' },
+    {
+      key: 'ask',
+      label: 'What do you need to be successful in your commitment, and who can help?',
+    },
   ];
 
 
@@ -735,8 +750,78 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange, wigSuffix = '', i
   // exists, re-renders from realtime invalidations no longer reset typed text.
   const resetKey = entry?.id ?? entryId ?? 'pending';
 
+  const priorCommitment = (priorEntry?.commitment ?? '').trim();
+  const priorStatus = entry?.prior_status ?? null;
+
   return (
     <div className="space-y-3">
+      {/* Account beat — last week's commitment, what happened, what we learned */}
+      <div className="rounded-md border-2 border-brand/30 bg-brand/5 p-3 space-y-3">
+        <div className="text-[11px] uppercase tracking-wider text-brand font-bold">Account for last week</div>
+
+        <div>
+          <label className="text-xs font-medium block mb-1">Last week you committed to</label>
+          {priorCommitment ? (
+            <div className="text-sm whitespace-pre-wrap rounded-md bg-background/60 border p-2">
+              <MentionText text={priorCommitment} />
+            </div>
+          ) : (
+            <div className="text-xs italic text-muted-foreground rounded-md bg-background/40 border border-dashed p-2">
+              No commitment from last week yet. This will auto-fill once you lock one in.
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="text-xs font-medium block mb-1">What was the result?</label>
+          <MentionInput
+            defaultValue={entry?.prior_result ?? ''}
+            resetKey={resetKey}
+            disabled={locked}
+            placeholder="What actually happened. The number, the outcome, the real story."
+            className="min-h-[60px] border-2"
+            onBlur={(e: any) => e.target.value !== (entry?.prior_result ?? '') && save('prior_result', e.target.value)}
+          />
+          <div className="flex gap-2 mt-2 items-center">
+            <span className="text-[11px] text-muted-foreground">Kept or broken?</span>
+            <Button
+              type="button"
+              size="sm"
+              variant={priorStatus === 'kept' ? 'default' : 'outline'}
+              className={cn('h-7 text-xs', priorStatus === 'kept' && 'bg-success hover:bg-success/90')}
+              disabled={locked}
+              onClick={() => saveStatus('kept')}
+            >
+              <Check className="w-3 h-3 mr-1" /> Kept
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={priorStatus === 'broken' ? 'default' : 'outline'}
+              className="h-7 text-xs"
+              disabled={locked}
+              onClick={() => saveStatus('broken')}
+            >
+              Broken
+            </Button>
+            {savedField === 'prior_status' && <span className="text-[11px] text-success">Saved</span>}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-medium block mb-1">What did you learn, good or bad?</label>
+          <MentionInput
+            defaultValue={entry?.prior_learning ?? ''}
+            resetKey={resetKey}
+            disabled={locked}
+            placeholder="What worked, what didn't, and how it helps the team do it better. No wrong answers here."
+            className="min-h-[60px] border-2"
+            onBlur={(e: any) => e.target.value !== (entry?.prior_learning ?? '') && save('prior_learning', e.target.value)}
+          />
+          {savedField === 'prior_learning' && <span className="text-xs text-success">Saved</span>}
+        </div>
+      </div>
+
       {fields.map(f => {
         const val = (entry?.[f.key] as string) || '';
         const filled = val.trim().length > 0;
