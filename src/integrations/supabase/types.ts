@@ -3445,6 +3445,7 @@ export type Database = {
           last_week_update: string | null
           meeting_id: string
           owner_id: string
+          prior_learning: string | null
           prior_result: string | null
           prior_status: string | null
           serves_wig: string | null
@@ -3462,6 +3463,7 @@ export type Database = {
           last_week_update?: string | null
           meeting_id: string
           owner_id: string
+          prior_learning?: string | null
           prior_result?: string | null
           prior_status?: string | null
           serves_wig?: string | null
@@ -3479,6 +3481,7 @@ export type Database = {
           last_week_update?: string | null
           meeting_id?: string
           owner_id?: string
+          prior_learning?: string | null
           prior_result?: string | null
           prior_status?: string | null
           serves_wig?: string | null

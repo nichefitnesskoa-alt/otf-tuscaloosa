@@ -1,0 +1,1 @@
+ALTER TABLE public.table_owner_entries ADD COLUMN IF NOT EXISTS prior_learning text;
