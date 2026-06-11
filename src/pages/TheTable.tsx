@@ -355,24 +355,14 @@ export default function TheTable() {
       {header}
       <OwnItMentionsCard variant="banner" />
 
-      {/* ───── BEAT 1 — ACCOUNT ───── */}
-      <BeatHeader num={1} title="Account" subtitle="Last week's commitments. Kept or broken — no shame, just the result." />
-      <AccountBeat
-        owners={owners}
-        priorEntries={priorEntries}
-        currentEntries={entries}
-        meetingId={meeting.id}
-        myOwnerIds={myOwners.map(o => o.id)}
-        onChanged={onEntryChange}
-      />
       {carryBlock}
 
-      {/* ───── BEAT 2 — SCOREBOARD ───── */}
-      <BeatHeader num={2} title="Scoreboard" subtitle="Where the WIG stands right now." />
+      {/* ───── BEAT 1 — SCOREBOARD ───── */}
+      <BeatHeader num={1} title="Scoreboard" subtitle="Where the WIG stands right now." />
       <SaWeeklyGoals weekStart={weekDate} />
 
-      {/* ───── BEAT 3 — PLAN / COMMIT ───── */}
-      <BeatHeader num={3} title="Commit" subtitle="What you commit to this week, and how it serves the WIG." />
+      {/* ───── BEAT 2 — PLAN / COMMIT ───── */}
+      <BeatHeader num={2} title="Commit" subtitle="Account for last week, then commit to this week." />
       <div className="mb-3 flex justify-between items-center">
         {winButton}
         <div className="text-xs text-muted-foreground">{wins.length} wins this week</div>
