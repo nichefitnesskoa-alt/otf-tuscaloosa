@@ -91,6 +91,7 @@ export function buildOwnItExport(args: {
         : 'Not marked';
       out.push(`Status: ${status}`);
       out.push(`Result: ${ANSWER(entry.prior_result)}`);
+      out.push(`Learned: ${ANSWER(entry.prior_learning)}`);
       out.push('');
       out.push('COMMIT — This week:');
       out.push(ANSWER(entry.commitment));
@@ -98,10 +99,7 @@ export function buildOwnItExport(args: {
       out.push('How this serves the WIG:');
       out.push(ANSWER(entry.serves_wig));
       out.push('');
-      out.push('Ideas:');
-      out.push(ANSWER(entry.ideas));
-      out.push('');
-      out.push('Ask:');
+      out.push('What they need to be successful (and who can help):');
       out.push(ANSWER(entry.ask));
       out.push('');
     }
