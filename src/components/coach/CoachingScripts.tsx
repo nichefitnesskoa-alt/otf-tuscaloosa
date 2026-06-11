@@ -325,13 +325,45 @@ function UploadForm({ onSuccess }: { onSuccess: () => void }) {
   const [items, setItems] = useState<ParsedFile[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  const handleFiles = (files: FileList | null) => {
+  const [extracting, setExtracting] = useState(false);
+
+  const expandZips = async (files: File[]): Promise<File[]> => {
+    const out: File[] = [];
+    const { default: JSZip } = await import('jszip');
+    for (const f of files) {
+      const isZip = /\.zip$/i.test(f.name) || f.type === 'application/zip' || f.type === 'application/x-zip-compressed';
+      if (!isZip) { out.push(f); continue; }
+      try {
+        const zip = await JSZip.loadAsync(f);
+        const entries = Object.values(zip.files).filter(
+          (e: any) => !e.dir && /\.(docx|pdf)$/i.test(e.name) && !e.name.startsWith('__MACOSX/'),
+        );
+        for (const entry of entries) {
+          const blob = await (entry as any).async('blob');
+          const base = (entry as any).name.split('/').pop() || (entry as any).name;
+          const ext = base.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+          out.push(new File([blob], base, { type: ext }));
+        }
+      } catch (err: any) {
+        toast.error(`Couldn't read ${f.name}: ${err.message || 'invalid zip'}`);
+      }
+    }
+    return out;
+  };
+
+  const handleFiles = async (files: FileList | null) => {
     if (!files) return;
-    const next: ParsedFile[] = Array.from(files).map((file) => ({
-      file,
-      parsed: parseScriptFilename(file.name),
-    }));
-    setItems(next);
+    setExtracting(true);
+    try {
+      const expanded = await expandZips(Array.from(files));
+      const next: ParsedFile[] = expanded.map((file) => ({
+        file,
+        parsed: parseScriptFilename(file.name),
+      }));
+      setItems(next);
+    } finally {
+      setExtracting(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -395,16 +427,17 @@ function UploadForm({ onSuccess }: { onSuccess: () => void }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label>Documents (PDF or Word)</Label>
+        <Label>Documents (PDF, Word, or ZIP)</Label>
         <Input
           type="file"
           multiple
-          accept=".docx,.pdf"
+          accept=".docx,.pdf,.zip,application/zip,application/x-zip-compressed"
           onChange={(e) => handleFiles(e.target.files)}
         />
         <p className="text-xs text-muted-foreground mt-1.5">
-          Filename auto-detects format and date. Example: <code>May09_2G.docx</code>
+          Drop a ZIP and we'll pull every .docx/.pdf inside. Filename auto-detects format and date. Example: <code>May09_2G.docx</code>
         </p>
+        {extracting && <p className="text-xs text-muted-foreground mt-1">Extracting ZIP…</p>}
       </div>
 
       {items.length > 0 && (
