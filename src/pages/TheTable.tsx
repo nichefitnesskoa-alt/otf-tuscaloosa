@@ -272,6 +272,7 @@ export default function TheTable() {
       {/* Owner self-entry — one collapsible card per lane the user owns */}
       {myOwners.map(mine => {
         const myEntry = entries.find(e => e.owner_id === mine.id);
+        const myPrior = priorEntries.find(e => e.owner_id === mine.id);
         return (
           <CollapsibleUpdateCard
             key={mine.id}
@@ -283,6 +284,7 @@ export default function TheTable() {
               meetingId={meeting.id}
               ownerId={mine.id}
               entry={myEntry}
+              priorEntry={myPrior}
               onChange={onEntryChange}
               wigSuffix={wigSuffix}
               isCoachLane={coachStaffIds.has(mine.staff_id)}
