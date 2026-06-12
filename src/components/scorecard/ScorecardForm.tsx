@@ -40,6 +40,7 @@ export function ScorecardFormBody(props: BodyProps) {
   const { firstTimerId, defaultMemberName, defaultClassDate, defaultCoachName, defaultEvaluator, evalType, onEvalTypeChange, existingId, onSubmitted, onDeleted, showEvalToggle } = props;
   const queryClient = useQueryClient();
   const todayStr = new Date().toISOString().slice(0, 10);
+  const { data: guidance } = useScoringGuidance();
 
   const [scorecardId, setScorecardId] = useState<string | null>(existingId ?? null);
   const [isPractice, setIsPractice] = useState(!firstTimerId);
