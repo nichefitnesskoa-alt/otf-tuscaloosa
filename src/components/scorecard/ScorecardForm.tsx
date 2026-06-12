@@ -12,6 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BULLETS, COLUMNS, CLASS_TYPES, scoreToLevel, bulletsToColumnScore, type ColumnKey, type ClassType, type EvalType } from '@/lib/scorecard/levels';
 import { BulletControl } from './BulletControl';
+import { useScoringGuidance } from '@/hooks/useScoringGuidance';
+import { HowToScoreButton, ColumnStarBadge } from './ScoringGuideTooltip';
 import { ScoreReveal } from './ScoreReveal';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { toast } from 'sonner';
@@ -38,6 +40,7 @@ export function ScorecardFormBody(props: BodyProps) {
   const { firstTimerId, defaultMemberName, defaultClassDate, defaultCoachName, defaultEvaluator, evalType, onEvalTypeChange, existingId, onSubmitted, onDeleted, showEvalToggle } = props;
   const queryClient = useQueryClient();
   const todayStr = new Date().toISOString().slice(0, 10);
+  const { data: guidance } = useScoringGuidance();
 
   const [scorecardId, setScorecardId] = useState<string | null>(existingId ?? null);
   const [isPractice, setIsPractice] = useState(!firstTimerId);
@@ -319,12 +322,17 @@ export function ScorecardFormBody(props: BodyProps) {
 
       {/* 5 columns — table grid */}
       <div className="border rounded-md overflow-hidden">
+        <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/40 border-b">
+          <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">Scoring · 15 bullets · 0/1/2</p>
+          <HowToScoreButton global={guidance?.global ?? null} />
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-border">
           {COLUMNS.map(col => (
             <div key={col.key} className="p-3 space-y-3 min-w-0">
               <div className="flex items-baseline justify-between gap-2">
-                <h3 className="font-bold text-xs tracking-wide uppercase truncate">
-                  {col.label}{col.subtitle && <span className="text-[10px] text-muted-foreground ml-1">({col.subtitle})</span>}
+                <h3 className="font-bold text-xs tracking-wide uppercase truncate flex items-center gap-1">
+                  <ColumnStarBadge column={guidance?.columns[col.key]} label={col.label} />
+                  <span className="truncate">{col.label}{col.subtitle && <span className="text-[10px] text-muted-foreground ml-1">({col.subtitle})</span>}</span>
                 </h3>
                 <span className="text-xs font-bold tabular-nums shrink-0 text-brand">
                   {colTotal(col.key)}/6
@@ -332,7 +340,7 @@ export function ScorecardFormBody(props: BodyProps) {
               </div>
               <div className="space-y-2">
                 {BULLETS[col.key].map(b => (
-                  <BulletControl key={b.key} label={b.label} value={bullets[b.key]} onChange={v => setBullet(col.key, b.key, v)} onClear={() => clearBullet(col.key, b.key)} />
+                  <BulletControl key={b.key} label={b.label} value={bullets[b.key]} onChange={v => setBullet(col.key, b.key, v)} onClear={() => clearBullet(col.key, b.key)} guidance={guidance?.bullets[b.key]} />
                 ))}
               </div>
             </div>

@@ -1026,6 +1026,87 @@ export type Database = {
         }
         Relationships: []
       }
+      fv_scoring_columns: {
+        Row: {
+          column_key: string
+          created_at: string
+          is_starred: boolean
+          updated_at: string
+          why_matters: string | null
+        }
+        Insert: {
+          column_key: string
+          created_at?: string
+          is_starred?: boolean
+          updated_at?: string
+          why_matters?: string | null
+        }
+        Update: {
+          column_key?: string
+          created_at?: string
+          is_starred?: boolean
+          updated_at?: string
+          why_matters?: string | null
+        }
+        Relationships: []
+      }
+      fv_scoring_global: {
+        Row: {
+          awareness_test: string
+          bottom_line: string | null
+          created_at: string
+          id: string
+          scale_meaning: string
+          surface_test: string
+          updated_at: string
+        }
+        Insert: {
+          awareness_test: string
+          bottom_line?: string | null
+          created_at?: string
+          id?: string
+          scale_meaning: string
+          surface_test: string
+          updated_at?: string
+        }
+        Update: {
+          awareness_test?: string
+          bottom_line?: string | null
+          created_at?: string
+          id?: string
+          scale_meaning?: string
+          surface_test?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fv_scoring_guidance: {
+        Row: {
+          bullet_key: string
+          created_at: string
+          score_0: string
+          score_1: string
+          score_2: string
+          updated_at: string
+        }
+        Insert: {
+          bullet_key: string
+          created_at?: string
+          score_0: string
+          score_1: string
+          score_2: string
+          updated_at?: string
+        }
+        Update: {
+          bullet_key?: string
+          created_at?: string
+          score_0?: string
+          score_1?: string
+          score_2?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       giveaway_entries: {
         Row: {
           action_free_class: boolean
