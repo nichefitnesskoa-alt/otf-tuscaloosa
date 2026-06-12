@@ -1,11 +1,14 @@
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
+import { BulletGuidanceIcon } from './ScoringGuideTooltip';
+import type { BulletGuidance } from '@/hooks/useScoringGuidance';
 
-export function BulletControl({ value, onChange, onClear, label }: {
+export function BulletControl({ value, onChange, onClear, label, guidance }: {
   value: 0 | 1 | 2 | undefined;
   onChange: (v: 0 | 1 | 2) => void;
   onClear?: () => void;
   label: string;
+  guidance?: BulletGuidance;
 }) {
   const opts: { v: 0 | 1 | 2; lbl: string; cls: string }[] = [
     { v: 0, lbl: 'Missed',   cls: 'bg-danger-dim text-danger border-danger' },
@@ -14,7 +17,10 @@ export function BulletControl({ value, onChange, onClear, label }: {
   ];
   return (
     <div className="space-y-1.5">
-      <p className="text-xs leading-tight">{label}</p>
+      <div className="flex items-start gap-1">
+        <p className="text-xs leading-tight flex-1">{label}</p>
+        <BulletGuidanceIcon guidance={guidance} label={label} />
+      </div>
       <div className="flex gap-1.5 items-stretch">
         {opts.map(o => (
           <button

@@ -36,7 +36,7 @@ export function useScoringGuidance() {
       return {
         bullets: bulletMap,
         columns: columnMap,
-        global: (global.data || null) as GlobalGuidance | null,
+        global: (global.data || null) as unknown as GlobalGuidance | null,
       };
     },
   });
