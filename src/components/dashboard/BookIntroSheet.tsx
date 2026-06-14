@@ -325,6 +325,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
           is_vip: false,
           paired_booking_id: inserted.id,
           referred_by_member_name: memberName,
+          event_id: leadSource === 'Event' ? eventId : null,
         }).select('id').single();
 
         if (friendBooking?.id) {
