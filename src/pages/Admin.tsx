@@ -650,7 +650,7 @@ export default function Admin() {
         {/* Events Tab */}
         <TabsContent value="events" className="space-y-4">
           <EventsAdminPanel />
-          <EventCohortPanel />
+          <EventsTabCohortSection />
         </TabsContent>
 
 
