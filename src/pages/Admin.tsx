@@ -34,6 +34,7 @@ import ShiftTasksAdmin from '@/components/admin/ShiftTasksAdmin';
 import StaffManagement from '@/components/admin/StaffManagement';
 import { EventsAdminPanel } from '@/components/admin/EventsAdminPanel';
 import { EventCohortPanel } from '@/components/admin/EventCohortPanel';
+import { EventsIndexPanel } from '@/components/admin/EventsIndexPanel';
 
 import {
   DropdownMenu,
