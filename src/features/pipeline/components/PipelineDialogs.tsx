@@ -31,6 +31,7 @@ import { LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
 import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
+import { EventPicker } from '@/components/events/EventPicker';
 import { getLocalDateString } from '../helpers';
 import { capitalizeName } from '@/lib/utils';
 import { updateOutcomeFromPipeline, updateBookingFieldsFromPipeline, syncIntroOwnerToBooking, assertNoOutcomeOwnedFields } from '../pipelineActions';
@@ -88,6 +89,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
   const [newBooking, setNewBooking] = useState({ member_name: '', class_date: getLocalDateString(), intro_time: '', coach_name: '', sa_working_shift: '', lead_source: '', fitness_goal: '' });
   const [newBookingPhone, setNewBookingPhone] = useState('');
   const [newBookingVipSessionId, setNewBookingVipSessionId] = useState('');
+  const [newBookingEventId, setNewBookingEventId] = useState<string | null>(null);
   const [isSelfBooked, setIsSelfBooked] = useState(false);
   const [pickFromPipeline, setPickFromPipeline] = useState(false);
   const [pipelineSearch, setPipelineSearch] = useState('');
@@ -777,6 +779,9 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 {newBooking.lead_source.toLowerCase().includes('vip class') && (
                   <VipSessionPicker value={newBookingVipSessionId} onValueChange={setNewBookingVipSessionId} required={newBooking.lead_source === 'VIP Class'} showWarning={newBooking.lead_source === 'VIP Class'} />
                 )}
+                {newBooking.lead_source === 'Event' && (
+                  <EventPicker value={newBookingEventId} onValueChange={setNewBookingEventId} required />
+                )}
               </>
             )}
             <div><Label className="text-xs">Coach</Label>
@@ -792,6 +797,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
               if (!newBooking.member_name) { toast.error('Name required'); return; }
               if (!isSelfBooked && !newBooking.sa_working_shift) { toast.error('Booked By required'); return; }
               if (newBooking.lead_source === 'VIP Class' && !newBookingVipSessionId) { toast.error('Please select which VIP class'); return; }
+              if (newBooking.lead_source === 'Event' && !newBookingEventId) { toast.error('Pick or create the event this came from'); return; }
               const bookedBy = isSelfBooked ? 'Self-booked' : newBooking.sa_working_shift;
               const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || 'Instagram DMs');
 
@@ -817,6 +823,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 intro_owner_locked: !!introOwner,
                 originating_booking_id: secondIntroOriginatingId || null,
                 vip_session_id: leadSource === 'VIP Class' ? newBookingVipSessionId : null,
+                event_id: leadSource === 'Event' ? newBookingEventId : null,
                 phone: newBookingPhone.trim() || null,
                 rebooked_from_booking_id: rebookedFromId,
                 rebook_reason: rebookedFromId ? 'Rescheduled from pipeline' : null,
@@ -848,6 +855,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
               toast.success(label);
               setNewBooking({ member_name: '', class_date: getLocalDateString(), intro_time: '', coach_name: '', sa_working_shift: '', lead_source: '', fitness_goal: '' });
               setNewBookingPhone('');
+              setNewBookingEventId(null);
               setSelectedJourney(null);
             })}>
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
