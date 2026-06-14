@@ -213,6 +213,10 @@ export function EditBookingDialog({
               <VipSessionPicker value={vipSessionId} onValueChange={v => { setVipSessionId(v); setShowVipPicker(false); }} required showWarning={source === 'VIP Class'} />
             )}
 
+            {source === 'Event' && (
+              <EventPicker value={eventId} onValueChange={setEventId} required />
+            )}
+
             {source !== 'VIP Class' && !showVipPicker && (
               <div>
                 {vipLinkedLabel ? (
