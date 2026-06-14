@@ -50,6 +50,10 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
       toast.error('Friend\'s first name and phone are required');
       return;
     }
+    if (lead.source === 'Event' && !eventId) {
+      toast.error('Pick or create the event this came from');
+      return;
+    }
     setSaving(true);
     try {
       // Create main intro booking
@@ -65,6 +69,7 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
           booked_by: user?.name || 'Unknown',
           phone: lead.phone || null,
           email: lead.email || null,
+          event_id: lead.source === 'Event' ? eventId : null,
         } as any)
         .select('id')
         .single();
