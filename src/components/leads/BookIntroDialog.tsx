@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { Tables } from '@/integrations/supabase/types';
 import { ClassTimeSelect } from '@/components/shared/FormHelpers';
+import { EventPicker } from '@/components/events/EventPicker';
 import { generateUniqueSlug } from '@/lib/utils';
 
 interface BookIntroDialogProps {
@@ -28,6 +29,7 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
   const [friendLastName, setFriendLastName] = useState('');
   const [friendPhone, setFriendPhone] = useState('');
   const [friendEmail, setFriendEmail] = useState('');
+  const [eventId, setEventId] = useState<string | null>(null);
 
   const resetForm = () => {
     setClassDate('');
