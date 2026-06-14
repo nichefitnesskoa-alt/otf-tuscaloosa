@@ -305,6 +305,7 @@ export default function ShiftRecap() {
         referred_by_member_name: booking.referredByMemberName || null,
         phone: booking.phone?.trim() || null,
         email: booking.email?.trim() || null,
+        event_id: booking.leadSource === 'Event' ? (booking.eventId || null) : null,
       } as any).select().single();
 
       if (bookingInsertError) throw bookingInsertError;
@@ -537,6 +538,7 @@ export default function ShiftRecap() {
             referred_by_member_name: booking.referredByMemberName || null,
             phone: booking.phone?.trim() || null,
             email: booking.email?.trim() || null,
+            event_id: booking.leadSource === 'Event' ? (booking.eventId || null) : null,
           } as any).select().single();
 
           if (bookingInsertError) throw bookingInsertError;

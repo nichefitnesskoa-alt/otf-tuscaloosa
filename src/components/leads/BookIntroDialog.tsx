@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { Tables } from '@/integrations/supabase/types';
 import { ClassTimeSelect } from '@/components/shared/FormHelpers';
+import { EventPicker } from '@/components/events/EventPicker';
 import { generateUniqueSlug } from '@/lib/utils';
 
 interface BookIntroDialogProps {
@@ -28,6 +29,7 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
   const [friendLastName, setFriendLastName] = useState('');
   const [friendPhone, setFriendPhone] = useState('');
   const [friendEmail, setFriendEmail] = useState('');
+  const [eventId, setEventId] = useState<string | null>(null);
 
   const resetForm = () => {
     setClassDate('');
@@ -48,6 +50,10 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
       toast.error('Friend\'s first name and phone are required');
       return;
     }
+    if (lead.source === 'Event' && !eventId) {
+      toast.error('Pick or create the event this came from');
+      return;
+    }
     setSaving(true);
     try {
       // Create main intro booking
@@ -63,6 +69,7 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
           booked_by: user?.name || 'Unknown',
           phone: lead.phone || null,
           email: lead.email || null,
+          event_id: lead.source === 'Event' ? eventId : null,
         } as any)
         .select('id')
         .single();
@@ -143,6 +150,7 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
             referred_by_member_name: `${lead.first_name} ${lead.last_name}`,
             phone: friendPhone.trim() || null,
             email: friendEmail.trim() || null,
+            event_id: lead.source === 'Event' ? eventId : null,
           } as any)
           .select('id')
           .single();
@@ -209,6 +217,10 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
             <Label>Class Time</Label>
             <ClassTimeSelect value={classTime} onValueChange={setClassTime} />
           </div>
+
+          {lead.source === 'Event' && (
+            <EventPicker value={eventId} onValueChange={setEventId} required />
+          )}
 
           {/* Friend booking toggle */}
           <div className="flex items-center justify-between rounded-lg border p-3">

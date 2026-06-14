@@ -634,6 +634,39 @@ export type Database = {
         }
         Relationships: []
       }
+      events: {
+        Row: {
+          cost_cents: number | null
+          created_at: string
+          created_by: string | null
+          event_date: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          cost_cents?: number | null
+          created_at?: string
+          created_by?: string | null
+          event_date: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          cost_cents?: number | null
+          created_at?: string
+          created_by?: string | null
+          event_date?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       follow_up_queue: {
         Row: {
           booking_id: string | null
@@ -1656,6 +1689,7 @@ export type Database = {
           deleted_by: string | null
           edit_reason: string | null
           email: string | null
+          event_id: string | null
           fitness_goal: string | null
           followup_dismissed_at: string | null
           id: string
@@ -1725,6 +1759,7 @@ export type Database = {
           deleted_by?: string | null
           edit_reason?: string | null
           email?: string | null
+          event_id?: string | null
           fitness_goal?: string | null
           followup_dismissed_at?: string | null
           id?: string
@@ -1794,6 +1829,7 @@ export type Database = {
           deleted_by?: string | null
           edit_reason?: string | null
           email?: string | null
+          event_id?: string | null
           fitness_goal?: string | null
           followup_dismissed_at?: string | null
           id?: string
@@ -1838,6 +1874,13 @@ export type Database = {
           vip_status?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "intros_booked_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "intros_booked_linked_ig_lead_id_fkey"
             columns: ["linked_ig_lead_id"]

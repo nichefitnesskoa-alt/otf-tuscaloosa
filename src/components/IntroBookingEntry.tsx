@@ -23,6 +23,7 @@ import { LEAD_SOURCES } from '@/types';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { format, parseISO, isToday, isTomorrow } from 'date-fns';
 import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType } from '@/components/shared/FormHelpers';
+import { EventPicker } from '@/components/events/EventPicker';
 
 export interface IntroBookingData {
   id: string;
@@ -45,6 +46,7 @@ export interface IntroBookingData {
   friendQuestionnaireId?: string;
   friendQuestionnaireStatus?: 'not_sent' | 'sent' | 'completed';
   referredByMemberName?: string;
+  eventId?: string | null;
   submittedAt?: string; // ISO string when instant-submitted via Book Now
   submittedBookingId?: string; // DB id after instant submission
 }
@@ -378,6 +380,16 @@ export default function IntroBookingEntry({
           </Select>
           <FriendRuleNotice leadSource={booking.leadSource} bookedByName={user?.name || currentUserName} />
         </div>
+
+        {/* Event picker — required when source is Event */}
+        {booking.leadSource === 'Event' && (
+          <EventPicker
+            value={booking.eventId ?? null}
+            onValueChange={(v) => onUpdate(index, { eventId: v })}
+            required
+            dense
+          />
+        )}
 
         {/* Referred By - shown when lead source is Member Referral */}
         {booking.leadSource === 'Member Referral' && (
