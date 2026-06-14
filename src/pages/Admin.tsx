@@ -659,3 +659,14 @@ export default function Admin() {
     </div>
   );
 }
+
+function EventsTabCohortSection() {
+  const [eventId, setEventId] = useState<string | null>(null);
+  return (
+    <>
+      <EventsIndexPanel selectedEventId={eventId} onSelectEvent={setEventId} />
+      <EventCohortPanel eventId={eventId} onEventIdChange={setEventId} />
+    </>
+  );
+}
+
