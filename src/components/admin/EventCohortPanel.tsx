@@ -170,9 +170,9 @@ export function EventCohortPanel() {
             open={!!selectedPerson}
             onOpenChange={open => { if (!open) setSelectedPerson(null); }}
             identifier={{
-              memberName: selectedPerson.memberName,
-              phone: selectedPerson.phone || undefined,
-              email: selectedPerson.email || undefined,
+              name: selectedPerson.memberName,
+              phone: selectedPerson.phone,
+              email: selectedPerson.email,
             }}
             scopeBadge={`Event · ${selectedEvent?.name || ''}`}
           />
