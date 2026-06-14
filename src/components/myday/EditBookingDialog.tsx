@@ -13,15 +13,12 @@ import { Check, Link2, Trash2, Loader2 } from 'lucide-react';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
 import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
+import { EventPicker } from '@/components/events/EventPicker';
 import { format } from 'date-fns';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
+import { LEAD_SOURCES } from '@/types';
 
 const sb = supabase as any;
-
-const LEAD_SOURCES = [
-  'Gmail', 'IG', 'Referral', 'Walk-in', 'MindBody', 'Website',
-  'Facebook', 'Corporate', 'Event', 'VIP Class', 'Other',
-];
 
 const CLASS_TIMES = [
   '05:00', '06:15', '07:30', '08:00', '08:45', '09:15', '10:00',
@@ -69,6 +66,16 @@ export function EditBookingDialog({
   const [showVipPicker, setShowVipPicker] = useState(false);
   const [vipLinkedLabel, setVipLinkedLabel] = useState('');
 
+  // Event link state — load current event_id when dialog opens
+  const [eventId, setEventId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const { data } = await sb.from('intros_booked').select('event_id').eq('id', bookingId).maybeSingle();
+      setEventId((data?.event_id as string) || null);
+    })();
+  }, [open, bookingId]);
+
   // Delete state
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -94,9 +101,15 @@ export function EditBookingDialog({
         lead_source: source,
         intro_owner: owner || null,
         booked_by: booker || null,
+        event_id: source === 'Event' ? eventId : null,
         last_edited_at: new Date().toISOString(),
         last_edited_by: editedBy,
       };
+      if (source === 'Event' && !eventId) {
+        toast.error('Pick or create the event this came from');
+        setSaving(false);
+        return;
+      }
       if (vipSessionId) {
         updateData.vip_session_id = vipSessionId;
         if (source !== 'VIP Class') updateData.lead_source = 'VIP Class';
