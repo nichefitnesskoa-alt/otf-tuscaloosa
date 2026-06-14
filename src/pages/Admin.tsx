@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, FileSpreadsheet, Database, Users, BarChart3, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown, Gift } from 'lucide-react';
+import { Settings, FileSpreadsheet, Database, Users, BarChart3, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown, Gift, CalendarDays } from 'lucide-react';
 import GiveawaysAdminTab from '@/components/admin/GiveawaysAdminTab';
 import { Navigate, useNavigate } from 'react-router-dom';
 
@@ -32,6 +32,8 @@ import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCar
 import ObjectionReport from '@/components/admin/ObjectionReport';
 import ShiftTasksAdmin from '@/components/admin/ShiftTasksAdmin';
 import StaffManagement from '@/components/admin/StaffManagement';
+import { EventsAdminPanel } from '@/components/admin/EventsAdminPanel';
+import { EventCohortPanel } from '@/components/admin/EventCohortPanel';
 
 import {
   DropdownMenu,
@@ -502,6 +504,7 @@ export default function Admin() {
     { value: 'staff', label: 'Staff Management', icon: <Users className="w-4 h-4" /> },
     { value: 'shifts', label: 'Shifts', icon: <ListChecks className="w-4 h-4" /> },
     { value: 'giveaways', label: 'Giveaways', icon: <Gift className="w-4 h-4" /> },
+    { value: 'events', label: 'Events', icon: <CalendarDays className="w-4 h-4" /> },
   ], []);
 
   useEffect(() => {
@@ -641,6 +644,12 @@ export default function Admin() {
         {/* Giveaways Tab */}
         <TabsContent value="giveaways" className="space-y-4">
           <GiveawaysAdminTab />
+        </TabsContent>
+
+        {/* Events Tab */}
+        <TabsContent value="events" className="space-y-4">
+          <EventsAdminPanel />
+          <EventCohortPanel />
         </TabsContent>
 
 
