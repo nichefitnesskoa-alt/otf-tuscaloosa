@@ -34,6 +34,7 @@ import ShiftTasksAdmin from '@/components/admin/ShiftTasksAdmin';
 import StaffManagement from '@/components/admin/StaffManagement';
 import { EventsAdminPanel } from '@/components/admin/EventsAdminPanel';
 import { EventCohortPanel } from '@/components/admin/EventCohortPanel';
+import { EventsIndexPanel } from '@/components/admin/EventsIndexPanel';
 
 import {
   DropdownMenu,
@@ -649,7 +650,7 @@ export default function Admin() {
         {/* Events Tab */}
         <TabsContent value="events" className="space-y-4">
           <EventsAdminPanel />
-          <EventCohortPanel />
+          <EventsTabCohortSection />
         </TabsContent>
 
 
@@ -658,3 +659,14 @@ export default function Admin() {
     </div>
   );
 }
+
+function EventsTabCohortSection() {
+  const [eventId, setEventId] = useState<string | null>(null);
+  return (
+    <>
+      <EventsIndexPanel selectedEventId={eventId} onSelectEvent={setEventId} />
+      <EventCohortPanel eventId={eventId} onEventIdChange={setEventId} />
+    </>
+  );
+}
+

@@ -64,9 +64,20 @@ interface SelectedPerson {
   email: string | null;
 }
 
-export function EventCohortPanel() {
+interface EventCohortPanelProps {
+  eventId?: string | null;
+  onEventIdChange?: (id: string | null) => void;
+}
+
+export function EventCohortPanel({ eventId: controlledEventId, onEventIdChange }: EventCohortPanelProps = {}) {
   const { data: events = [], isLoading: eventsLoading } = useEvents();
-  const [eventId, setEventId] = useState<string | null>(null);
+  const [internalEventId, setInternalEventId] = useState<string | null>(null);
+  const isControlled = controlledEventId !== undefined;
+  const eventId = isControlled ? controlledEventId : internalEventId;
+  const setEventId = (id: string | null) => {
+    if (!isControlled) setInternalEventId(id);
+    onEventIdChange?.(id);
+  };
   const { data: cohort = [], isLoading: cohortLoading } = useCohort(eventId);
   const [selectedPerson, setSelectedPerson] = useState<SelectedPerson | null>(null);
 
