@@ -24,6 +24,7 @@ import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { Users, Search, X } from 'lucide-react';
 import { generateUniqueSlug } from '@/lib/utils';
 import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
+import { EventPicker } from '@/components/events/EventPicker';
 
 interface BookIntroSheetProps {
   open: boolean;
@@ -71,6 +72,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
   const [leadSource, setLeadSource] = useState('');
   const [saving, setSaving] = useState(false);
   const [vipSessionId, setVipSessionId] = useState('');
+  const [eventId, setEventId] = useState<string | null>(null);
 
   // Inline friend state
   const [friendAnswer, setFriendAnswer] = useState<'yes' | 'no' | null>(null);
@@ -211,6 +213,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
     if (!coach) { toast.error('Coach is required'); return; }
     if (!leadSource) { toast.error('Lead source is required'); return; }
     if (leadSource === 'VIP Class' && !vipSessionId) { toast.error('Please select which VIP class'); return; }
+    if (leadSource === 'Event' && !eventId) { toast.error('Pick or create the event this came from'); return; }
 
     setSaving(true);
     try {
@@ -259,6 +262,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
         is_vip: false,
         referred_by_member_name: REFERRAL_SOURCES.has(leadSource) ? (referredBy.trim() || null) : null,
         vip_session_id: resolvedVipSessionId,
+        event_id: leadSource === 'Event' ? eventId : null,
         rebooked_from_booking_id: rebookedFromId,
         originating_booking_id: selectedBooking ? (selectedBooking.originating_booking_id || selectedBooking.id) : null,
         rebook_reason: rebookedFromId ? 'Rescheduled from My Day' : null,
@@ -509,6 +513,9 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
           {/* VIP Session picker when VIP Class or VIP Class (Friend) is selected */}
           {leadSource.toLowerCase().includes('vip class') && (
             <VipSessionPicker value={vipSessionId} onValueChange={setVipSessionId} required={leadSource === 'VIP Class'} showWarning={leadSource === 'VIP Class'} />
+          )}
+          {leadSource === 'Event' && (
+            <EventPicker value={eventId} onValueChange={setEventId} required />
           )}
           {REFERRAL_SOURCES.has(leadSource) && (
             <div className="space-y-1.5">
