@@ -16,6 +16,7 @@ import { Users } from 'lucide-react';
 import { generateUniqueSlug } from '@/lib/utils';
 import { ClassTimeSelect, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
 import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
+import { EventPicker } from '@/components/events/EventPicker';
 
 interface WalkInIntroSheetProps {
   open: boolean;
@@ -58,6 +59,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
   const [classTime, setClassTime] = useState(getDefaultClassTime());
   const [coach, setCoach] = useState('');
   const [leadSource, setLeadSource] = useState('');
+  const [eventId, setEventId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Inline friend state
@@ -72,6 +74,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
   const reset = () => {
     setFirstName(''); setLastName(''); setPhone('');
     setClassTime(getDefaultClassTime()); setCoach(''); setLeadSource('');
+    setEventId(null);
     setFriendAnswer(null); setFriendFirstName(''); setFriendLastName(''); setFriendPhone('');
     setReferredBy('');
   };
@@ -83,6 +86,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
 
   const handleLeadSourceChange = (val: string) => {
     setLeadSource(val);
+    if (val !== 'Event') setEventId(null);
     setFriendAnswer(null);
     setFriendFirstName(''); setFriendLastName(''); setFriendPhone('');
     setReferredBy('');
@@ -95,6 +99,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
     if (!classTime) { toast.error('Class time is required'); return; }
     if (!coach) { toast.error('Coach is required'); return; }
     if (!leadSource) { toast.error('Lead source is required'); return; }
+    if (leadSource === 'Event' && !eventId) { toast.error('Pick or create the event this came from'); return; }
 
     setSaving(true);
     try {
@@ -121,6 +126,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
         questionnaire_status_canon: 'not_sent',
         is_vip: false,
         referred_by_member_name: leadSource === 'Member Referral' ? (referredBy.trim() || null) : null,
+        event_id: leadSource === 'Event' ? eventId : null,
       }).select('id').single();
 
       if (error) {
@@ -172,6 +178,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
           is_vip: false,
           paired_booking_id: inserted.id,
           originating_booking_id: inserted.id,
+          event_id: leadSource === 'Event' ? eventId : null,
         }).select('id').single();
 
         if (friendBooking?.id) {
@@ -269,6 +276,10 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
             </Select>
             <FriendRuleNotice leadSource={leadSource} bookedByName={user?.name} />
           </div>
+
+          {leadSource === 'Event' && (
+            <EventPicker value={eventId} onValueChange={setEventId} required />
+          )}
 
           {/* ── Who Referred Them? ── */}
           {leadSource === 'Member Referral' && (
