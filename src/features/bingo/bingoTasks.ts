@@ -46,6 +46,48 @@ export const REQUIRED_TASK_IDS = BINGO_TASKS
 
 export const TOTAL_REQUIRED = REQUIRED_TASK_IDS.length; // 24
 
+// ============ Bingo line geometry ============
+// 5x5 grid laid out row-major from BINGO_TASKS order.
+// Center (index 12) is the FREE square and always counts as marked.
+export const FREE_INDEX = 12;
+export const GRID_SIZE = 5;
+
+export interface BingoLine {
+  id: string;       // e.g. 'row-0', 'col-3', 'diag-0'
+  indices: number[]; // 5 grid positions
+}
+
+export const BINGO_LINES: BingoLine[] = (() => {
+  const lines: BingoLine[] = [];
+  for (let r = 0; r < GRID_SIZE; r++) {
+    lines.push({ id: `row-${r}`, indices: [0,1,2,3,4].map(c => r * GRID_SIZE + c) });
+  }
+  for (let c = 0; c < GRID_SIZE; c++) {
+    lines.push({ id: `col-${c}`, indices: [0,1,2,3,4].map(r => r * GRID_SIZE + c) });
+  }
+  lines.push({ id: 'diag-0', indices: [0, 6, 12, 18, 24] });
+  lines.push({ id: 'diag-1', indices: [4, 8, 12, 16, 20] });
+  return lines;
+})();
+
+export const TOTAL_LINES = BINGO_LINES.length; // 12
+
+/** Returns the set of line ids that are fully marked given a marked-square id list. */
+export function computeCompletedLines(markedSquares: string[]): string[] {
+  const marked = new Set(markedSquares);
+  const done: string[] = [];
+  for (const line of BINGO_LINES) {
+    const all = line.indices.every(i => i === FREE_INDEX || marked.has(BINGO_TASKS[i].id));
+    if (all) done.push(line.id);
+  }
+  return done;
+}
+
+/** Raffle entries = max(0, bingos - 1). First bingo earns the late cancel instead. */
+export function raffleEntriesFor(bingoCount: number): number {
+  return Math.max(0, bingoCount - 1);
+}
+
 export function normalizePhone(raw: string): string {
   const digits = (raw || '').replace(/\D/g, '');
   return digits.length >= 10 ? digits.slice(-10) : digits;

@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { FREE_SQUARE_ID, REQUIRED_TASK_IDS, normalizePhone } from './bingoTasks';
+import {
+  FREE_SQUARE_ID,
+  REQUIRED_TASK_IDS,
+  computeCompletedLines,
+  normalizePhone,
+} from './bingoTasks';
 
 export interface BingoPlayer {
   id: string;
@@ -11,6 +16,10 @@ export interface BingoPlayer {
   email: string;
   marked_squares: string[];
   blackout_completed_at: string | null;
+  bingo_count: number;
+  completed_lines: string[];
+  first_bingo_at: string | null;
+  late_cancel_used: boolean;
   created_at: string;
 }
 
@@ -20,8 +29,9 @@ export function useBingoPlayer() {
   const [player, setPlayer] = useState<BingoPlayer | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  /** Number of NEW bingos created by the last toggle (for celebration UI). */
+  const [lastBingoDelta, setLastBingoDelta] = useState(0);
 
-  // Resume on mount via localStorage id
   useEffect(() => {
     const id = localStorage.getItem(LS_KEY);
     if (!id) { setLoading(false); return; }
@@ -40,7 +50,6 @@ export function useBingoPlayer() {
     if (phone_normalized.length !== 10) {
       throw new Error('Please enter a valid 10-digit phone number.');
     }
-    // Dedup by phone — resume existing
     const existing = await supabase.from('bingo_players' as any)
       .select('*').eq('phone_normalized', phone_normalized).maybeSingle();
     if (existing.data) {
@@ -49,7 +58,6 @@ export function useBingoPlayer() {
       setPlayer(p);
       return p;
     }
-    // Always seed with FREE marked
     const { data, error } = await supabase.from('bingo_players' as any).insert({
       first_name: input.first_name.trim(),
       last_name: input.last_name.trim(),
@@ -57,6 +65,8 @@ export function useBingoPlayer() {
       phone_normalized,
       email: input.email.trim(),
       marked_squares: [FREE_SQUARE_ID],
+      bingo_count: 0,
+      completed_lines: [],
     }).select().single();
     if (error) throw error;
     const p = data as any as BingoPlayer;
@@ -72,26 +82,48 @@ export function useBingoPlayer() {
       ? player.marked_squares.filter(s => s !== taskId)
       : [...player.marked_squares, taskId];
 
-    // Compute blackout
+    const completed_lines = computeCompletedLines(next);
+    const bingo_count = completed_lines.length;
+
     const allDone = REQUIRED_TASK_IDS.every(id => next.includes(id));
     const blackout_completed_at =
       allDone ? (player.blackout_completed_at || new Date().toISOString()) : null;
 
-    // Optimistic
+    const first_bingo_at =
+      bingo_count > 0 ? (player.first_bingo_at || new Date().toISOString()) : player.first_bingo_at;
+
+    const delta = bingo_count - player.bingo_count;
+    setLastBingoDelta(delta > 0 ? delta : 0);
+
     const prev = player;
-    setPlayer({ ...player, marked_squares: next, blackout_completed_at });
+    setPlayer({
+      ...player,
+      marked_squares: next,
+      blackout_completed_at,
+      bingo_count,
+      completed_lines,
+      first_bingo_at,
+    });
     setSaving(true);
     const { error } = await supabase.from('bingo_players' as any)
-      .update({ marked_squares: next, blackout_completed_at })
+      .update({
+        marked_squares: next,
+        blackout_completed_at,
+        bingo_count,
+        completed_lines,
+        first_bingo_at,
+      })
       .eq('id', player.id);
     setSaving(false);
     if (error) { setPlayer(prev); throw error; }
   }, [player]);
+
+  const clearBingoDelta = useCallback(() => setLastBingoDelta(0), []);
 
   const reset = useCallback(() => {
     localStorage.removeItem(LS_KEY);
     setPlayer(null);
   }, []);
 
-  return { player, loading, saving, startOrResume, toggleSquare, reset };
+  return { player, loading, saving, startOrResume, toggleSquare, reset, lastBingoDelta, clearBingoDelta };
 }

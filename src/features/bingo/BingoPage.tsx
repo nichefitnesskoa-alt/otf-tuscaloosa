@@ -1,6 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { BINGO_TASKS, FREE_SQUARE_ID, REQUIRED_TASK_IDS, TOTAL_REQUIRED } from './bingoTasks';
+import {
+  BINGO_TASKS,
+  FREE_SQUARE_ID,
+  REQUIRED_TASK_IDS,
+  TOTAL_REQUIRED,
+  TOTAL_LINES,
+  raffleEntriesFor,
+} from './bingoTasks';
 import { useBingoPlayer } from './useBingoPlayer';
 import { toast } from 'sonner';
 
@@ -9,7 +16,7 @@ const BRAND_INK = '#0A0A0A';
 const BRAND_CREAM = '#FDF7EA';
 
 export default function BingoPage() {
-  const { player, loading, startOrResume, toggleSquare } = useBingoPlayer();
+  const { player, loading, startOrResume, toggleSquare, lastBingoDelta, clearBingoDelta } = useBingoPlayer();
 
   if (loading) {
     return (
@@ -20,7 +27,14 @@ export default function BingoPage() {
   }
 
   if (!player) return <EntryGate onSubmit={startOrResume} />;
-  return <BingoCard player={player} onToggle={toggleSquare} />;
+  return (
+    <BingoCard
+      player={player}
+      onToggle={toggleSquare}
+      lastBingoDelta={lastBingoDelta}
+      clearBingoDelta={clearBingoDelta}
+    />
+  );
 }
 
 function EntryGate({ onSubmit }: { onSubmit: (i: { first_name: string; last_name: string; phone: string; email: string }) => Promise<any> }) {
@@ -46,7 +60,7 @@ function EntryGate({ onSubmit }: { onSubmit: (i: { first_name: string; last_name
         <div className="text-center mb-6">
           <p className="text-xs uppercase tracking-[0.3em] font-bold mb-2" style={{ color: BRAND_ORANGE }}>OTF Tuscaloosa</p>
           <h1 className="text-5xl font-black leading-none mb-3">Summer Bingo</h1>
-          <p className="text-base opacity-80">Stay moving, stay connected, win OTF gear.</p>
+          <p className="text-base opacity-80">Every bingo earns you something. Stay moving all summer.</p>
         </div>
         <form onSubmit={handle} className="rounded-2xl p-5 space-y-3 border-2" style={{ borderColor: BRAND_INK, background: 'white' }}>
           <div className="grid grid-cols-2 gap-3">
@@ -70,57 +84,131 @@ function EntryGate({ onSubmit }: { onSubmit: (i: { first_name: string; last_name
   );
 }
 
-function BingoCard({ player, onToggle }: { player: ReturnType<typeof useBingoPlayer>['player']; onToggle: (id: string) => Promise<void> }) {
-  if (!player) return null;
+function BingoCard({
+  player,
+  onToggle,
+  lastBingoDelta,
+  clearBingoDelta,
+}: {
+  player: NonNullable<ReturnType<typeof useBingoPlayer>['player']>;
+  onToggle: (id: string) => Promise<void>;
+  lastBingoDelta: number;
+  clearBingoDelta: () => void;
+}) {
   const marked = new Set(player.marked_squares);
+  const completedLines = new Set(player.completed_lines);
   const progress = REQUIRED_TASK_IDS.filter(id => marked.has(id)).length;
+  const bingos = player.bingo_count;
+  const entries = raffleEntriesFor(bingos);
   const isBlackout = !!player.blackout_completed_at;
+  const hasLateCancel = bingos >= 1;
+
+  // Celebration overlay
+  const [celebration, setCelebration] = useState<null | { kind: 'first' | 'more'; bingos: number; entries: number }>(null);
+  const prevBingos = useRef(bingos);
+  // Pulse animation flags
+  const [pulseBingos, setPulseBingos] = useState(false);
+  const [pulseEntries, setPulseEntries] = useState(false);
+
+  useEffect(() => {
+    if (lastBingoDelta > 0) {
+      const wasFirst = prevBingos.current === 0 && bingos >= 1;
+      setCelebration({ kind: wasFirst ? 'first' : 'more', bingos, entries });
+      setPulseBingos(true);
+      if (entries > 0) setPulseEntries(true);
+      confetti({
+        particleCount: wasFirst ? 260 : 160,
+        spread: 100,
+        origin: { y: 0.45 },
+        colors: [BRAND_ORANGE, BRAND_INK, BRAND_CREAM, '#FFFFFF'],
+      });
+      const t1 = setTimeout(() => setCelebration(null), wasFirst ? 3400 : 2400);
+      const t2 = setTimeout(() => { setPulseBingos(false); setPulseEntries(false); }, 900);
+      const t3 = setTimeout(() => clearBingoDelta(), 100);
+      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    }
+    prevBingos.current = bingos;
+  }, [lastBingoDelta, bingos, entries, clearBingoDelta]);
+
+  useEffect(() => { prevBingos.current = bingos; }, [bingos]);
 
   const handleTap = async (id: string) => {
     if (id === FREE_SQUARE_ID) return;
-    const wasBlackout = isBlackout;
-    try {
-      await onToggle(id);
-      const willBeBlackout = REQUIRED_TASK_IDS.every(t =>
-        t === id ? !marked.has(t) : marked.has(t)
-      );
-      if (!wasBlackout && willBeBlackout) {
-        confetti({ particleCount: 200, spread: 90, origin: { y: 0.5 }, colors: [BRAND_ORANGE, BRAND_INK, BRAND_CREAM] });
-      }
-    } catch (e: any) { toast.error(e?.message || 'Could not save.'); }
+    try { await onToggle(id); }
+    catch (e: any) { toast.error(e?.message || 'Could not save.'); }
   };
+
+  // Which grid indices belong to a completed line (for green-glow highlight)
+  const winningIndices = new Set<number>();
+  if (completedLines.size > 0) {
+    for (let r = 0; r < 5; r++) if (completedLines.has(`row-${r}`)) for (let c = 0; c < 5; c++) winningIndices.add(r * 5 + c);
+    for (let c = 0; c < 5; c++) if (completedLines.has(`col-${c}`)) for (let r = 0; r < 5; r++) winningIndices.add(r * 5 + c);
+    if (completedLines.has('diag-0')) [0, 6, 12, 18, 24].forEach(i => winningIndices.add(i));
+    if (completedLines.has('diag-1')) [4, 8, 12, 16, 20].forEach(i => winningIndices.add(i));
+  }
+
+  const nextNudge = bingos === 0
+    ? 'One full line = free late cancel.'
+    : `One more line = ${entries + 1} raffle ${entries + 1 === 1 ? 'entry' : 'entries'}.`;
 
   return (
     <div className="min-h-screen px-4 py-6" style={{ background: BRAND_ORANGE, color: BRAND_INK }}>
       <div className="max-w-3xl mx-auto">
-        <div className="text-center mb-4" style={{ color: 'white' }}>
+        <div className="text-center mb-3" style={{ color: 'white' }}>
           <p className="text-xs uppercase tracking-[0.3em] font-bold mb-1">Hi {player.first_name}</p>
           <h1 className="text-4xl sm:text-5xl font-black leading-none">Summer Bingo</h1>
-          <p className="mt-2 text-sm">
-            <span className="font-bold tabular-nums">{progress}</span> of {TOTAL_REQUIRED} done
-          </p>
+        </div>
+
+        {/* SCORE PANEL — the centerpiece */}
+        <div
+          className="rounded-2xl border-4 mb-3 p-3 grid grid-cols-2 gap-2"
+          style={{ borderColor: BRAND_INK, background: BRAND_CREAM }}
+        >
+          <Counter
+            label="Bingos"
+            value={bingos}
+            outOf={TOTAL_LINES}
+            pulsing={pulseBingos}
+            color={BRAND_ORANGE}
+          />
+          <Counter
+            label="Raffle entries"
+            value={entries}
+            pulsing={pulseEntries}
+            color={BRAND_INK}
+          />
+        </div>
+
+        <div className="rounded-xl mb-3 px-3 py-2 text-center text-sm font-semibold" style={{ background: BRAND_INK, color: 'white' }}>
+          {hasLateCancel ? (
+            <>Free late cancel <span style={{ color: BRAND_ORANGE }}>unlocked</span> · {nextNudge}</>
+          ) : (
+            <>{nextNudge}</>
+          )}
         </div>
 
         {isBlackout && (
-          <div className="rounded-2xl border-4 p-4 mb-4 text-center font-black" style={{ borderColor: BRAND_INK, background: BRAND_CREAM }}>
+          <div className="rounded-2xl border-4 p-3 mb-3 text-center font-black" style={{ borderColor: BRAND_INK, background: BRAND_CREAM }}>
             <p className="text-xs uppercase tracking-[0.25em] mb-1" style={{ color: BRAND_ORANGE }}>Blackout!</p>
-            <p className="text-xl">You're entered to win OTF gear.</p>
+            <p className="text-lg">Full card. Max raffle entries locked in.</p>
           </div>
         )}
 
         <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
-          {BINGO_TASKS.map((task) => {
+          {BINGO_TASKS.map((task, idx) => {
             const isFree = task.id === FREE_SQUARE_ID;
             const done = marked.has(task.id) || isFree;
+            const winning = winningIndices.has(idx);
             return (
               <button
                 key={task.id}
                 onClick={() => handleTap(task.id)}
-                className="aspect-square rounded-lg sm:rounded-xl p-1 sm:p-2 text-[9px] sm:text-xs font-bold leading-tight flex items-center justify-center text-center transition-all active:scale-95"
+                className={`aspect-square rounded-lg sm:rounded-xl p-1 sm:p-2 text-[9px] sm:text-xs font-bold leading-tight flex items-center justify-center text-center transition-all active:scale-95 ${winning ? 'animate-pulse' : ''}`}
                 style={{
                   background: isFree ? BRAND_INK : (done ? BRAND_INK : 'white'),
                   color: isFree ? BRAND_ORANGE : (done ? BRAND_ORANGE : BRAND_INK),
-                  border: `2px solid ${BRAND_INK}`,
+                  border: `2px solid ${winning ? BRAND_ORANGE : BRAND_INK}`,
+                  boxShadow: winning ? `0 0 0 3px ${BRAND_ORANGE}, 0 0 18px rgba(255,111,13,0.55)` : undefined,
                 }}
               >
                 <span className={isFree ? 'text-base sm:text-2xl font-black' : ''}>{task.label}</span>
@@ -130,8 +218,77 @@ function BingoCard({ player, onToggle }: { player: ReturnType<typeof useBingoPla
         </div>
 
         <p className="text-center text-xs mt-4" style={{ color: 'white' }}>
-          Tap a square when you finish it. Blackout the whole card to enter the raffle.
+          {progress} of {TOTAL_REQUIRED} squares marked. Tap a square when you finish it.
         </p>
+      </div>
+
+      {celebration && (
+        <CelebrationOverlay
+          kind={celebration.kind}
+          bingos={celebration.bingos}
+          entries={celebration.entries}
+          onClose={() => setCelebration(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function Counter({ label, value, outOf, pulsing, color }: { label: string; value: number; outOf?: number; pulsing: boolean; color: string }) {
+  return (
+    <div className="rounded-xl px-3 py-2 text-center" style={{ background: 'white', border: `2px solid ${BRAND_INK}` }}>
+      <p className="text-[10px] uppercase tracking-[0.2em] font-bold" style={{ color: BRAND_INK }}>{label}</p>
+      <p
+        className={`text-4xl sm:text-5xl font-black tabular-nums leading-none mt-1 transition-transform ${pulsing ? 'scale-125' : 'scale-100'}`}
+        style={{ color, transitionDuration: '300ms' }}
+      >
+        {value}
+        {typeof outOf === 'number' && (
+          <span className="text-sm font-bold opacity-50 ml-1">/ {outOf}</span>
+        )}
+      </p>
+    </div>
+  );
+}
+
+function CelebrationOverlay({
+  kind, bingos, entries, onClose,
+}: { kind: 'first' | 'more'; bingos: number; entries: number; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-fade-in"
+      style={{ background: 'rgba(10,10,10,0.55)' }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-3xl border-4 p-6 sm:p-8 max-w-sm w-full text-center animate-scale-in"
+        style={{ background: BRAND_CREAM, borderColor: BRAND_INK }}
+        onClick={e => e.stopPropagation()}
+      >
+        <p className="text-xs uppercase tracking-[0.3em] font-bold mb-2" style={{ color: BRAND_ORANGE }}>
+          {kind === 'first' ? 'First bingo!' : `Bingo #${bingos}`}
+        </p>
+        <p className="text-5xl sm:text-6xl font-black leading-none mb-3" style={{ color: BRAND_INK }}>
+          BINGO!
+        </p>
+        {kind === 'first' ? (
+          <p className="text-base font-semibold" style={{ color: BRAND_INK }}>
+            You earned a <span style={{ color: BRAND_ORANGE }}>free late cancel</span>.
+            <br />
+            <span className="text-sm font-normal opacity-80">Text the studio when you need to use it.</span>
+          </p>
+        ) : (
+          <p className="text-base font-semibold" style={{ color: BRAND_INK }}>
+            That's <span style={{ color: BRAND_ORANGE }}>{entries}</span> raffle {entries === 1 ? 'entry' : 'entries'} for OTF gear.
+          </p>
+        )}
+        <button
+          className="mt-5 rounded-xl px-5 py-3 text-sm font-black uppercase tracking-wide"
+          style={{ background: BRAND_ORANGE, color: 'white' }}
+          onClick={onClose}
+        >
+          Keep playing
+        </button>
       </div>
     </div>
   );

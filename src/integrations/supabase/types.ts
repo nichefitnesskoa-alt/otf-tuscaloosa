@@ -106,36 +106,48 @@ export type Database = {
       }
       bingo_players: {
         Row: {
+          bingo_count: number
           blackout_completed_at: string | null
+          completed_lines: string[]
           created_at: string
           email: string
+          first_bingo_at: string | null
           first_name: string
           id: string
           last_name: string
+          late_cancel_used: boolean
           marked_squares: string[]
           phone: string
           phone_normalized: string
           updated_at: string
         }
         Insert: {
+          bingo_count?: number
           blackout_completed_at?: string | null
+          completed_lines?: string[]
           created_at?: string
           email: string
+          first_bingo_at?: string | null
           first_name: string
           id?: string
           last_name: string
+          late_cancel_used?: boolean
           marked_squares?: string[]
           phone: string
           phone_normalized: string
           updated_at?: string
         }
         Update: {
+          bingo_count?: number
           blackout_completed_at?: string | null
+          completed_lines?: string[]
           created_at?: string
           email?: string
+          first_bingo_at?: string | null
           first_name?: string
           id?: string
           last_name?: string
+          late_cancel_used?: boolean
           marked_squares?: string[]
           phone?: string
           phone_normalized?: string
