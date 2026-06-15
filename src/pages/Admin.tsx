@@ -35,6 +35,7 @@ import StaffManagement from '@/components/admin/StaffManagement';
 import { EventsAdminPanel } from '@/components/admin/EventsAdminPanel';
 import { EventCohortPanel } from '@/components/admin/EventCohortPanel';
 import { EventsIndexPanel } from '@/components/admin/EventsIndexPanel';
+import { BingoAdminTab } from '@/components/admin/BingoAdminTab';
 
 import {
   DropdownMenu,
@@ -506,6 +507,7 @@ export default function Admin() {
     { value: 'shifts', label: 'Shifts', icon: <ListChecks className="w-4 h-4" /> },
     { value: 'giveaways', label: 'Giveaways', icon: <Gift className="w-4 h-4" /> },
     { value: 'events', label: 'Events', icon: <CalendarDays className="w-4 h-4" /> },
+    { value: 'bingo', label: 'Summer Bingo', icon: <Gift className="w-4 h-4" /> },
   ], []);
 
   useEffect(() => {
@@ -651,6 +653,11 @@ export default function Admin() {
         <TabsContent value="events" className="space-y-4">
           <EventsAdminPanel />
           <EventsTabCohortSection />
+        </TabsContent>
+
+        {/* Summer Bingo Tab */}
+        <TabsContent value="bingo" className="space-y-4">
+          <BingoAdminTab />
         </TabsContent>
 
 
