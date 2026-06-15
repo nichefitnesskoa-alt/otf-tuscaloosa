@@ -40,6 +40,8 @@ import PartnerDeckPage from "./features/giveaway/PartnerDeckPage";
 import PartnerDeckAdminPage from "./features/giveaway/PartnerDeckAdminPage";
 import PartnerDeckShareResolver from "./features/giveaway/PartnerDeckShareResolver";
 import PartnerViewPage from "./features/giveaway/PartnerViewPage";
+import BingoPage from "./features/bingo/BingoPage";
+import BingoAdminPage from "./features/bingo/BingoAdminPage";
 import { useParams } from "react-router-dom";
 
 function QuestionnaireRedirect() {
@@ -172,6 +174,8 @@ function AppRoutes() {
       <Route path="/admin/:studioSlug/partner-view" element={<PartnerViewPage />} />
       <Route path="/partner-deck/:studioSlug" element={<PartnerDeckPage />} />
       <Route path="/questionnaire/:id" element={<QuestionnaireRedirect />} />
+      <Route path="/bingo" element={<BingoPage />} />
+      <Route path="/bingo-admin" element={<ProtectedRoute><BingoAdminPage /></ProtectedRoute>} />
       <Route
         path="/my-day"
         element={
