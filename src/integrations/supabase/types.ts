@@ -104,6 +104,45 @@ export type Database = {
         }
         Relationships: []
       }
+      bingo_players: {
+        Row: {
+          blackout_completed_at: string | null
+          created_at: string
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          marked_squares: string[]
+          phone: string
+          phone_normalized: string
+          updated_at: string
+        }
+        Insert: {
+          blackout_completed_at?: string | null
+          created_at?: string
+          email: string
+          first_name: string
+          id?: string
+          last_name: string
+          marked_squares?: string[]
+          phone: string
+          phone_normalized: string
+          updated_at?: string
+        }
+        Update: {
+          blackout_completed_at?: string | null
+          created_at?: string
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          marked_squares?: string[]
+          phone?: string
+          phone_normalized?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       campaign_sends: {
         Row: {
           campaign_id: string
