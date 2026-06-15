@@ -5,9 +5,9 @@ import { toast } from 'sonner';
 import { BingoAdminBoard } from '@/features/bingo/BingoAdminPage';
 
 export function BingoAdminTab() {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const playLink = `${origin}/bingo`;
-  const adminLink = `${origin}/bingo-admin`;
+  const PUBLIC_ORIGIN = 'https://otf-tuscaloosa.lovable.app';
+  const playLink = `${PUBLIC_ORIGIN}/bingo`;
+  const adminLink = `${PUBLIC_ORIGIN}/bingo-admin`;
 
   const copy = async (url: string, label: string) => {
     try { await navigator.clipboard.writeText(url); toast.success(`${label} link copied`); }
