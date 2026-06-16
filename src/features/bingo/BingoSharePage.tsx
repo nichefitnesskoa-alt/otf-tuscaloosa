@@ -9,7 +9,7 @@ import {
   TOTAL_LINES,
   raffleEntriesFor,
 } from './bingoTasks';
-import otfLogo from '@/assets/otf-logo.jpg';
+import otfLogo from '@/assets/otf-logo-orange.png.asset.json';
 
 const BRAND_ORANGE = '#FF6F0D';
 const BRAND_INK = '#0A0A0A';
