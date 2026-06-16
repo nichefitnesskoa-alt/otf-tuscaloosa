@@ -358,14 +358,14 @@ function CelebrationOverlay({
       onClick={onClose}
     >
       <div
-        className="rounded-3xl border-4 p-6 sm:p-8 max-w-sm w-full text-center animate-scale-in"
-        style={{ background: BRAND_CREAM, borderColor: BRAND_INK }}
+        className="p-6 sm:p-8 max-w-sm w-full text-center animate-scale-in"
+        style={{ background: BRAND_CREAM, border: `3px solid ${BRAND_INK}`, fontFamily: FONT }}
         onClick={e => e.stopPropagation()}
       >
-        <p className="text-xs uppercase tracking-[0.3em] font-bold mb-2" style={{ color: BRAND_ORANGE }}>
-          {kind === 'first' ? 'First bingo!' : `Bingo #${bingos}`}
+        <p className="text-[11px] uppercase tracking-[0.4em] font-black mb-2" style={{ color: BRAND_ORANGE }}>
+          {kind === 'first' ? 'First bingo' : `Bingo #${bingos}`}
         </p>
-        <p className="text-5xl sm:text-6xl font-black leading-none mb-3" style={{ color: BRAND_INK }}>
+        <p className="text-6xl sm:text-7xl font-black leading-none mb-3 uppercase tracking-tight" style={{ color: BRAND_INK }}>
           BINGO!
         </p>
         {kind === 'first' ? (
