@@ -159,6 +159,19 @@ export function BingoAdminBoard() {
                         )}
                         {isBlackout && <span className="text-primary">Blacked out {formatCstDateTime(p.blackout_completed_at)}</span>}
                       </div>
+                      {p.share_slug && (
+                        <button
+                          onClick={async () => {
+                            const url = `https://otf-tuscaloosa.lovable.app/bingo/s/${p.share_slug}`;
+                            try { await navigator.clipboard.writeText(url); toast.success('Share link copied'); }
+                            catch { toast.error('Copy failed'); }
+                          }}
+                          className="text-[11px] mt-1 underline text-primary hover:opacity-80"
+                          title="Copy this player's share link"
+                        >
+                          /bingo/s/{p.share_slug}
+                        </button>
+                      )}
                     </div>
                     <div className="flex items-center gap-4 sm:gap-5 shrink-0">
                       <Metric label="Bingos" value={p.bingo_count} max={TOTAL_LINES} />
