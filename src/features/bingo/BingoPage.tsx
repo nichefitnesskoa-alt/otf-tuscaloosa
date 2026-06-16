@@ -10,10 +10,13 @@ import {
 } from './bingoTasks';
 import { useBingoPlayer } from './useBingoPlayer';
 import { toast } from 'sonner';
+import otfLogo from '@/assets/otf-logo.jpg';
 
 const BRAND_ORANGE = '#FF6F0D';
 const BRAND_INK = '#0A0A0A';
 const BRAND_CREAM = '#FDF7EA';
+const BRAND_GREY = '#D7D7D7';
+const FONT = "'PP Right Grotesk', 'Arial Black', 'Helvetica Neue', Arial, sans-serif";
 
 export default function BingoPage() {
   const { player, loading, startOrResume, findByPhone, toggleSquare, lastBingoDelta, clearBingoDelta } = useBingoPlayer();
