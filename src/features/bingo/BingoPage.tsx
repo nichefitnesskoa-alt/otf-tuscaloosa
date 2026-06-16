@@ -37,11 +37,16 @@ export default function BingoPage() {
   );
 }
 
-function EntryGate({ onSubmit }: { onSubmit: (i: { first_name: string; last_name: string; phone: string; email: string }) => Promise<any> }) {
+function EntryGate({ onSubmit, onFind }: {
+  onSubmit: (i: { first_name: string; last_name: string; phone: string; email: string }) => Promise<any>;
+  onFind: (phone: string) => Promise<any>;
+}) {
+  const [mode, setMode] = useState<'start' | 'find'>('start');
   const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', email: '' });
+  const [findPhone, setFindPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const handle = async (e: React.FormEvent) => {
+  const handleStart = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.first_name.trim() || !form.last_name.trim() || !form.phone.trim() || !form.email.trim()) {
       toast.error('Please fill in everything so we can find you if you win.');
@@ -53,7 +58,28 @@ function EntryGate({ onSubmit }: { onSubmit: (i: { first_name: string; last_name
     finally { setSubmitting(false); }
   };
 
+  const handleFind = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!findPhone.trim()) { toast.error('Enter your phone number.'); return; }
+    setSubmitting(true);
+    try {
+      const found = await onFind(findPhone);
+      if (!found) {
+        toast.error("We don't see a card with that number. Start a new one below.");
+        setMode('start');
+        setForm(f => ({ ...f, phone: findPhone }));
+      }
+    } catch (err: any) { toast.error(err?.message || 'Something went wrong.'); }
+    finally { setSubmitting(false); }
+  };
+
   const inputCls = 'w-full rounded-xl border-2 px-4 py-3 text-base bg-white focus:outline-none focus:ring-2';
+  const tabBtn = (active: boolean) => ({
+    background: active ? BRAND_INK : 'transparent',
+    color: active ? 'white' : BRAND_INK,
+    borderColor: BRAND_INK,
+  });
+
   return (
     <div className="min-h-screen px-4 py-8 flex items-center justify-center" style={{ background: BRAND_CREAM, color: BRAND_INK }}>
       <div className="w-full max-w-md">
@@ -62,23 +88,58 @@ function EntryGate({ onSubmit }: { onSubmit: (i: { first_name: string; last_name
           <h1 className="text-5xl font-black leading-none mb-3">Summer Bingo</h1>
           <p className="text-base opacity-80">Every bingo earns you something. Stay moving all summer.</p>
         </div>
-        <form onSubmit={handle} className="rounded-2xl p-5 space-y-3 border-2" style={{ borderColor: BRAND_INK, background: 'white' }}>
-          <div className="grid grid-cols-2 gap-3">
-            <input className={inputCls} style={{ borderColor: BRAND_INK }} placeholder="First name" value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} />
-            <input className={inputCls} style={{ borderColor: BRAND_INK }} placeholder="Last name" value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} />
-          </div>
-          <input className={inputCls} style={{ borderColor: BRAND_INK }} placeholder="Phone" inputMode="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
-          <input className={inputCls} style={{ borderColor: BRAND_INK }} placeholder="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-          <p className="text-xs opacity-70 pt-1">We just need this so we can reach you if you win.</p>
+
+        <div className="grid grid-cols-2 gap-2 mb-3">
           <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-xl py-4 text-base font-black uppercase tracking-wide disabled:opacity-60"
-            style={{ background: BRAND_ORANGE, color: 'white' }}
+            type="button"
+            onClick={() => setMode('start')}
+            className="rounded-xl py-3 text-sm font-black uppercase tracking-wide border-2"
+            style={tabBtn(mode === 'start')}
           >
-            {submitting ? 'Starting…' : 'Start my card'}
+            Start my card
           </button>
-        </form>
+          <button
+            type="button"
+            onClick={() => setMode('find')}
+            className="rounded-xl py-3 text-sm font-black uppercase tracking-wide border-2"
+            style={tabBtn(mode === 'find')}
+          >
+            Find my card
+          </button>
+        </div>
+
+        {mode === 'start' ? (
+          <form onSubmit={handleStart} className="rounded-2xl p-5 space-y-3 border-2" style={{ borderColor: BRAND_INK, background: 'white' }}>
+            <div className="grid grid-cols-2 gap-3">
+              <input className={inputCls} style={{ borderColor: BRAND_INK }} placeholder="First name" value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} />
+              <input className={inputCls} style={{ borderColor: BRAND_INK }} placeholder="Last name" value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} />
+            </div>
+            <input className={inputCls} style={{ borderColor: BRAND_INK }} placeholder="Phone" inputMode="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+            <input className={inputCls} style={{ borderColor: BRAND_INK }} placeholder="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+            <p className="text-xs opacity-70 pt-1">We just need this so we can reach you if you win.</p>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full rounded-xl py-4 text-base font-black uppercase tracking-wide disabled:opacity-60"
+              style={{ background: BRAND_ORANGE, color: 'white' }}
+            >
+              {submitting ? 'Starting…' : 'Start my card'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleFind} className="rounded-2xl p-5 space-y-3 border-2" style={{ borderColor: BRAND_INK, background: 'white' }}>
+            <p className="text-sm font-semibold">Already started a card? Type the phone number you used.</p>
+            <input className={inputCls} style={{ borderColor: BRAND_INK }} placeholder="Phone" inputMode="tel" value={findPhone} onChange={e => setFindPhone(e.target.value)} />
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full rounded-xl py-4 text-base font-black uppercase tracking-wide disabled:opacity-60"
+              style={{ background: BRAND_ORANGE, color: 'white' }}
+            >
+              {submitting ? 'Looking…' : 'Find my card'}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
