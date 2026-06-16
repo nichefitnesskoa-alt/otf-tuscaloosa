@@ -10,7 +10,7 @@ import {
 } from './bingoTasks';
 import { useBingoPlayer } from './useBingoPlayer';
 import { toast } from 'sonner';
-import otfLogo from '@/assets/otf-logo.jpg';
+import otfLogo from '@/assets/otf-logo-orange.png.asset.json';
 
 const BRAND_ORANGE = '#FF6F0D';
 const BRAND_INK = '#0A0A0A';
