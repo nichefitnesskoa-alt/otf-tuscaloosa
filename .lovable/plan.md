@@ -1,55 +1,45 @@
-## How players come back to their card
+# WIG legibility + global dark/light toggle
 
-Today, the card only resumes via `localStorage` on the same device/browser. If they clear cookies, switch phones, or open it on a friend's device, they lose the card. We'll fix that and add sharing.
+Three coordinated UI changes. No data, no business logic, no hooks touched.
 
-### 1. Resume by phone number (primary recovery)
+## 1. WIG Team hero — denominator = pace-to-today, big number stays readable
 
-On `/bingo`, when someone enters info, we already look them up by `phone_normalized` and resume their card. We'll make this explicit and friendly:
+File: `src/components/wig/WigSaLeaderboard.tsx`
 
-- The entry screen gets two modes: **"Start my card"** and **"I already started — find my card"**.
-- "Find my card" asks for **phone number only**, normalizes to 10 digits, looks up the row, and if found: stores the id in `localStorage` and loads the card.
-- If not found: gentle copy ("We don't see a card with that number — start a new one below.")
-- Existing "Start" flow is unchanged — it still resumes automatically if the phone matches an existing player (no duplicates).
+- Change hero denominator from month-end total (`teamTargets.sgl`, currently 90) to today's expected total (`Math.round(teamPace.sgl)`, e.g. 48). Label becomes: `of 48 today` (where 48 = `Math.round(teamPace.sgl)`).
+- Keep the month-end total findable on the same card by appending: `month goal: {teamTargets.sgl}` in the right-side meta row (next to "Per-SA target × N active SAs"). Nothing about goal-setting is removed.
+- Big team number (`text-5xl`): bump to `text-7xl` and switch color from `heroCls.text` (which turns red when behind) to `text-foreground`. In dark mode `--foreground` = white; in light mode it's near-black. The status color stays expressed via the pace bar + the pace-today line, not by recoloring the headline number.
+- "Pace today: 48 · behind today — close the gap" line: bump from `text-[11px] text-muted-foreground` to `text-base text-foreground`. The colored status word (e.g. `formatPace(teamPace.sgl)`) keeps `heroCls.text` so red/yellow/green still reads — only the surrounding copy gets larger and brighter.
+- Per-SA row big number in the leaderboard table (`text-3xl` colored by status): bump to `text-4xl` and color `text-foreground`. The `/ {pace}` suffix beside it grows from `text-xs` → `text-sm text-foreground`. Status color is preserved on the row's pace bar.
+- Leaderboard column subhead `need X today` (already `text-sm text-foreground`) stays; `of X this month` bumps from `text-xs text-muted-foreground` to `text-sm text-foreground`.
 
-This means: any device, any time → type your phone → card is back. No custom slug required for the player.
+## 2. Studio Leads hero — same treatment
 
-### 2. Shareable read-only progress URL (for bragging to friends)
+File: `src/pages/Wig.tsx` (~lines 825–850)
 
-Each `bingo_players` row gets a stable `share_slug` (short, URL-safe, e.g. `sarah-3x7k`) generated on insert. We add a public route:
+- Change `of {targets.studioLeads} target` → `of {Math.round(studioLeadsPace)} today`. Append `month goal: {targets.studioLeads}` in the existing target-editor row below so the 182 number is still visible/editable.
+- Big number (`text-6xl`): keep size, switch color from `studioHeroCls.text` to `text-foreground` (white in dark, foreground in light).
+- "Should be at X by today" block: `text-base` → `text-lg`. Inner "behind pace / ahead" line: `text-sm` → `text-base font-bold`. Round the diff: `Math.round(studioLeadsPace - totalLeads)`.
 
-- `/bingo/s/:slug` → read-only card view: shows their name, bingos, raffle entries, and which squares are marked. No tap-to-toggle, no edit. Clear CTA at the bottom: "Want your own card? Start one →" linking to `/bingo`.
-- On the player's own card we add a **"Share my progress"** button that copies `https://otf-tuscaloosa.lovable.app/bingo/s/<slug>` to clipboard.
-- Admin board already lists players — we'll add the share link next to each row so staff can grab it too.
+## 3. Dark / light mode toggle on every page
 
-### 3. Why not give the player a custom slug as their primary return path?
+Today the toggle only lives in `MyDayPage.tsx` (top-right of the floating header). The hook `useDarkMode` is already global and persists via `localStorage`.
 
-Phone lookup is more reliable for this audience: members will forget a bookmark, but they know their phone number. The slug exists for *sharing*, not for *returning*. Best of both.
+- Add a Sun/Moon `Button` to the global `Header` (`src/components/Header.tsx`), placed between `NotificationsBell` and the user `User` icon. Same styling as the My Day toggle (`variant="ghost"`, `size="icon"`, `text-background hover:bg-background/10`).
+- Coaches don't render `Header` (see `AppLayout`). Add the same toggle to `BottomNav` (`src/components/BottomNav.tsx`) so coaches always have access; render it as a small icon button to the right of the nav items (or absolutely positioned top-right of the nav bar) — visible for all roles, harmless duplication for non-coaches.
+- Remove the toggle from `MyDayPage.tsx` so we don't have two side-by-side once Header has it. (Header is rendered on MyDay for SAs.)
 
----
+## Out of scope
 
-## Technical details
+- No hook changes, no React Query keys, no DB reads/writes, no pace formula changes, no role permissions.
+- Targets math, leaderboard sort, drilldowns, GroupMe — untouched.
 
-**Migration (`bingo_players`):**
-- Add `share_slug text unique` (nullable for backfill, then enforced).
-- Backfill existing rows with generated slugs (`lower(first_name) || '-' || substr(md5(id::text),1,4)`).
-- Add index on `phone_normalized` (likely already exists from the lookup; verify).
-- Update `GRANT SELECT` policy so `anon` can read `bingo_players` by `share_slug` (read-only). Current policies allow public read for the card flow already; we'll scope carefully so we don't expose `phone`/`email` on the public share view — the read-only page will select only `first_name, marked_squares, bingo_count, completed_lines, blackout_completed_at, share_slug`.
+## Coherence proof (will be produced after build)
 
-**Files to edit:**
-- `supabase/migrations/<new>.sql` — add `share_slug`, backfill, unique index.
-- `src/features/bingo/useBingoPlayer.ts` — add `findByPhone(phone)` method; include `share_slug` in the player interface.
-- `src/features/bingo/BingoPage.tsx` — split entry gate into "Start" / "Find" tabs; add "Share my progress" button on the card.
-- `src/features/bingo/BingoSharePage.tsx` — **new**, read-only card at `/bingo/s/:slug`.
-- `src/App.tsx` — register `/bingo/s/:slug` route.
-- `src/components/admin/BingoAdminTab.tsx` — show share link per player (optional, additive).
+- Hero shows `27 of {Math.round(teamPace.sgl)} today` and the Team row in the leaderboard sums to 27 (same source: `totals.sgl`).
+- `Math.round(teamPace.sgl)` shown in hero === `formatPace(teamPace.sgl)` rounded === number shown in "Pace today" line.
+- Studio hero `of N today` === `Math.round(studioLeadsPace)` === "Should be at N by today".
+- Dark toggle visible & functional on /wig, /the-table, /pipeline, /coach-view, /my-day, /vips, /recaps for all three roles.
+- Big team SGL number and big per-SA SGL numbers render in white in dark mode (verified via `getComputedStyle` or screenshot) and stay foreground in light mode.
 
-**No existing metrics, leads, intros, or bookings are touched.** This is isolated to `bingo_players` only.
-
----
-
-## Coherence checks before done
-- Insert a test player → verify `share_slug` is generated and unique.
-- Open `/bingo/s/<slug>` in incognito → card renders read-only, no phone/email leaked in the network response.
-- Clear `localStorage`, go to `/bingo`, click "Find my card", enter the test phone → card loads, same `id`.
-- Mark a square on the owner's card → refresh the share URL → progress updates (same row, same numbers).
-- Admin board entries-per-player count still matches `raffleEntriesFor(bingo_count)` for that row.
+Files to edit: `src/components/wig/WigSaLeaderboard.tsx`, `src/pages/Wig.tsx`, `src/components/Header.tsx`, `src/components/BottomNav.tsx`, `src/features/myDay/MyDayPage.tsx`.
