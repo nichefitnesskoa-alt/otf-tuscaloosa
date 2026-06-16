@@ -9,10 +9,13 @@ import {
   TOTAL_LINES,
   raffleEntriesFor,
 } from './bingoTasks';
+import otfLogo from '@/assets/otf-logo.jpg';
 
 const BRAND_ORANGE = '#FF6F0D';
 const BRAND_INK = '#0A0A0A';
 const BRAND_CREAM = '#FDF7EA';
+const BRAND_GREY = '#D7D7D7';
+const FONT = "'PP Right Grotesk', 'Arial Black', 'Helvetica Neue', Arial, sans-serif";
 
 interface PublicPlayer {
   first_name: string;
@@ -43,18 +46,19 @@ export default function BingoSharePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: BRAND_CREAM, color: BRAND_INK }}>
-        <p className="text-sm opacity-60">Loading…</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: BRAND_INK, color: BRAND_CREAM, fontFamily: FONT }}>
+        <p className="text-sm opacity-60 uppercase tracking-[0.3em]">Loading…</p>
       </div>
     );
   }
 
   if (!player) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center" style={{ background: BRAND_CREAM, color: BRAND_INK }}>
-        <h1 className="text-3xl font-black mb-2">Card not found</h1>
-        <p className="opacity-70 mb-6">This share link doesn't match any card.</p>
-        <Link to="/bingo" className="rounded-xl px-5 py-3 text-sm font-black uppercase tracking-wide" style={{ background: BRAND_ORANGE, color: 'white' }}>
+      <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center" style={{ background: BRAND_INK, color: BRAND_CREAM, fontFamily: FONT }}>
+        <img src={otfLogo} alt="Orangetheory Fitness" className="h-8 mb-6 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+        <h1 className="text-4xl font-black mb-2 uppercase tracking-tight">Card not found</h1>
+        <p className="mb-6" style={{ color: BRAND_GREY }}>This share link doesn't match any card.</p>
+        <Link to="/bingo" className="px-6 py-3 text-xs font-black uppercase tracking-[0.2em]" style={{ background: BRAND_ORANGE, color: BRAND_INK }}>
           Start your own card
         </Link>
       </div>
@@ -77,68 +81,79 @@ export default function BingoSharePage() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-6" style={{ background: BRAND_ORANGE, color: BRAND_INK }}>
+    <div className="min-h-screen px-3 sm:px-4 py-5" style={{ background: BRAND_INK, color: BRAND_CREAM, fontFamily: FONT }}>
       <div className="max-w-3xl mx-auto">
-        <div className="text-center mb-3" style={{ color: 'white' }}>
-          <p className="text-xs uppercase tracking-[0.3em] font-bold mb-1">{player.first_name}'s card</p>
-          <h1 className="text-4xl sm:text-5xl font-black leading-none">Summer Bingo</h1>
+        <div className="flex items-center justify-between mb-4">
+          <img src={otfLogo} alt="Orangetheory Fitness" className="h-7 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+          <p className="text-[10px] uppercase tracking-[0.4em] font-bold" style={{ color: BRAND_GREY }}>Tuscaloosa</p>
         </div>
 
-        <div
-          className="rounded-2xl border-4 mb-3 p-3 grid grid-cols-2 gap-2"
-          style={{ borderColor: BRAND_INK, background: BRAND_CREAM }}
-        >
-          <div className="rounded-xl px-3 py-2 text-center" style={{ background: 'white', border: `2px solid ${BRAND_INK}` }}>
-            <p className="text-[10px] uppercase tracking-[0.2em] font-bold">Bingos</p>
-            <p className="text-4xl sm:text-5xl font-black tabular-nums leading-none mt-1" style={{ color: BRAND_ORANGE }}>
-              {bingos}<span className="text-sm font-bold opacity-50 ml-1">/ {TOTAL_LINES}</span>
+        <div className="mb-4">
+          <p className="text-[11px] uppercase tracking-[0.4em] font-bold mb-1" style={{ color: BRAND_ORANGE }}>{player.first_name}'s card</p>
+          <h1 className="text-5xl sm:text-6xl font-black leading-[0.9] uppercase tracking-tight" style={{ color: BRAND_CREAM }}>
+            Summer<br/>Bingo
+          </h1>
+        </div>
+
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          <div className="px-3 py-3 sm:py-4 text-center" style={{ background: BRAND_CREAM, border: `2px solid ${BRAND_INK}` }}>
+            <p className="text-[10px] uppercase tracking-[0.3em] font-black" style={{ color: BRAND_INK }}>Bingos</p>
+            <p className="text-5xl sm:text-6xl font-black tabular-nums leading-none mt-1.5" style={{ color: BRAND_ORANGE, letterSpacing: '-0.04em' }}>
+              {bingos}<span className="text-base font-black opacity-40 ml-1" style={{ color: BRAND_INK }}>/{TOTAL_LINES}</span>
             </p>
           </div>
-          <div className="rounded-xl px-3 py-2 text-center" style={{ background: 'white', border: `2px solid ${BRAND_INK}` }}>
-            <p className="text-[10px] uppercase tracking-[0.2em] font-bold">Raffle entries</p>
-            <p className="text-4xl sm:text-5xl font-black tabular-nums leading-none mt-1" style={{ color: BRAND_INK }}>{entries}</p>
+          <div className="px-3 py-3 sm:py-4 text-center" style={{ background: BRAND_CREAM, border: `2px solid ${BRAND_INK}` }}>
+            <p className="text-[10px] uppercase tracking-[0.3em] font-black" style={{ color: BRAND_INK }}>Raffle entries</p>
+            <p className="text-5xl sm:text-6xl font-black tabular-nums leading-none mt-1.5" style={{ color: BRAND_INK, letterSpacing: '-0.04em' }}>{entries}</p>
           </div>
         </div>
 
         {isBlackout && (
-          <div className="rounded-2xl border-4 p-3 mb-3 text-center font-black" style={{ borderColor: BRAND_INK, background: BRAND_CREAM }}>
-            <p className="text-xs uppercase tracking-[0.25em] mb-1" style={{ color: BRAND_ORANGE }}>Blackout!</p>
-            <p className="text-lg">Full card complete.</p>
+          <div className="mb-3 px-3 py-3 text-center font-black uppercase tracking-wide" style={{ background: BRAND_ORANGE, color: BRAND_INK }}>
+            <p className="text-[10px] tracking-[0.3em] mb-1">Blackout</p>
+            <p className="text-lg leading-none">Full card complete.</p>
           </div>
         )}
 
-        <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+        <div className="grid grid-cols-5 gap-1 sm:gap-1.5">
           {BINGO_TASKS.map((task, idx) => {
             const isFree = task.id === FREE_SQUARE_ID;
-            const done = marked.has(task.id) || isFree;
+            const isMarked = marked.has(task.id);
             const winning = winningIndices.has(idx);
+            const bg = isFree ? BRAND_INK : (isMarked ? BRAND_ORANGE : BRAND_CREAM);
+            const fg = isFree ? BRAND_ORANGE : BRAND_INK;
+            const borderColor = winning ? BRAND_ORANGE : (isFree ? BRAND_ORANGE : BRAND_INK);
             return (
               <div
                 key={task.id}
-                className="aspect-square rounded-lg sm:rounded-xl p-1 sm:p-2 text-[9px] sm:text-xs font-bold leading-tight flex items-center justify-center text-center"
+                className="aspect-square p-1 sm:p-2 text-[9px] sm:text-xs font-black uppercase leading-tight flex items-center justify-center text-center"
                 style={{
-                  background: isFree ? BRAND_INK : (done ? BRAND_INK : 'white'),
-                  color: isFree ? BRAND_ORANGE : (done ? BRAND_ORANGE : BRAND_INK),
-                  border: `2px solid ${winning ? BRAND_ORANGE : BRAND_INK}`,
-                  boxShadow: winning ? `0 0 0 3px ${BRAND_ORANGE}, 0 0 18px rgba(255,111,13,0.55)` : undefined,
+                  background: bg,
+                  color: fg,
+                  border: `${winning ? 3 : 1.5}px solid ${borderColor}`,
+                  fontFamily: FONT,
+                  letterSpacing: '0.02em',
+                  boxShadow: winning ? `0 0 0 2px ${BRAND_INK}, 0 0 22px rgba(255,111,13,0.7)` : undefined,
                 }}
               >
-                <span className={isFree ? 'text-base sm:text-2xl font-black' : ''}>{task.label}</span>
+                <span className={isFree ? 'text-lg sm:text-3xl font-black' : ''}>
+                  {isFree ? 'FREE' : task.label}
+                </span>
               </div>
             );
           })}
         </div>
 
-        <p className="text-center text-xs mt-4" style={{ color: 'white' }}>
-          {progress} of {TOTAL_REQUIRED} squares marked. (Read-only view.)
+        <p className="text-center text-[11px] uppercase tracking-wider mt-5" style={{ color: BRAND_GREY }}>
+          {progress} of {TOTAL_REQUIRED} squares marked · Read-only view
         </p>
 
-        <div className="mt-6 rounded-2xl border-4 p-4 text-center" style={{ borderColor: BRAND_INK, background: BRAND_CREAM }}>
-          <p className="text-sm font-semibold mb-3">Want your own card?</p>
+        <div className="mt-6 p-5 text-center" style={{ background: BRAND_CREAM, color: BRAND_INK, border: `2px solid ${BRAND_ORANGE}` }}>
+          <p className="text-sm font-black uppercase tracking-wide mb-3">Want your own card?</p>
           <Link
             to="/bingo"
-            className="inline-block rounded-xl px-5 py-3 text-sm font-black uppercase tracking-wide"
-            style={{ background: BRAND_ORANGE, color: 'white' }}
+            className="inline-block px-6 py-3 text-xs font-black uppercase tracking-[0.2em]"
+            style={{ background: BRAND_ORANGE, color: BRAND_INK, fontFamily: FONT }}
           >
             Start my card
           </Link>

@@ -10,10 +10,13 @@ import {
 } from './bingoTasks';
 import { useBingoPlayer } from './useBingoPlayer';
 import { toast } from 'sonner';
+import otfLogo from '@/assets/otf-logo.jpg';
 
 const BRAND_ORANGE = '#FF6F0D';
 const BRAND_INK = '#0A0A0A';
 const BRAND_CREAM = '#FDF7EA';
+const BRAND_GREY = '#D7D7D7';
+const FONT = "'PP Right Grotesk', 'Arial Black', 'Helvetica Neue', Arial, sans-serif";
 
 export default function BingoPage() {
   const { player, loading, startOrResume, findByPhone, toggleSquare, lastBingoDelta, clearBingoDelta } = useBingoPlayer();
@@ -73,20 +76,21 @@ function EntryGate({ onSubmit, onFind }: {
     finally { setSubmitting(false); }
   };
 
-  const inputCls = 'w-full rounded-xl border-2 px-4 py-3 text-base bg-white focus:outline-none focus:ring-2';
+  const inputCls = 'w-full rounded-sm border-2 px-4 py-3 text-base bg-white focus:outline-none focus:ring-2';
   const tabBtn = (active: boolean) => ({
-    background: active ? BRAND_INK : 'transparent',
-    color: active ? 'white' : BRAND_INK,
-    borderColor: BRAND_INK,
+    background: active ? BRAND_ORANGE : 'transparent',
+    color: active ? BRAND_INK : BRAND_CREAM,
+    borderColor: active ? BRAND_ORANGE : BRAND_CREAM,
   });
 
   return (
-    <div className="min-h-screen px-4 py-8 flex items-center justify-center" style={{ background: BRAND_CREAM, color: BRAND_INK }}>
+    <div className="min-h-screen px-4 py-8 flex items-center justify-center" style={{ background: BRAND_INK, color: BRAND_CREAM, fontFamily: FONT }}>
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <p className="text-xs uppercase tracking-[0.3em] font-bold mb-2" style={{ color: BRAND_ORANGE }}>OTF Tuscaloosa</p>
-          <h1 className="text-5xl font-black leading-none mb-3">Summer Bingo</h1>
-          <p className="text-base opacity-80">Every bingo earns you something. Stay moving all summer.</p>
+          <img src={otfLogo} alt="Orangetheory Fitness" className="h-10 mx-auto mb-5 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+          <p className="text-[11px] uppercase tracking-[0.45em] font-bold mb-3" style={{ color: BRAND_ORANGE }}>Tuscaloosa</p>
+          <h1 className="text-6xl font-black leading-[0.9] uppercase tracking-tight mb-3" style={{ color: BRAND_CREAM }}>Summer<br/>Bingo</h1>
+          <p className="text-sm" style={{ color: BRAND_GREY }}>Every bingo earns you something. Stay moving all summer.</p>
         </div>
 
         <div className="grid grid-cols-2 gap-2 mb-3">
@@ -213,34 +217,38 @@ function BingoCard({
     : `One more line = ${entries + 1} raffle ${entries + 1 === 1 ? 'entry' : 'entries'}.`;
 
   return (
-    <div className="min-h-screen px-4 py-6" style={{ background: BRAND_ORANGE, color: BRAND_INK }}>
+    <div className="min-h-screen px-3 sm:px-4 py-5" style={{ background: BRAND_INK, color: BRAND_CREAM, fontFamily: FONT }}>
       <div className="max-w-3xl mx-auto">
-        <div className="text-center mb-3" style={{ color: 'white' }}>
-          <p className="text-xs uppercase tracking-[0.3em] font-bold mb-1">Hi {player.first_name}</p>
-          <h1 className="text-4xl sm:text-5xl font-black leading-none">Summer Bingo</h1>
+        {/* Header with real OTF logo */}
+        <div className="flex items-center justify-between mb-4">
+          <img src={otfLogo} alt="Orangetheory Fitness" className="h-7 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+          <p className="text-[10px] uppercase tracking-[0.4em] font-bold" style={{ color: BRAND_GREY }}>Tuscaloosa</p>
         </div>
 
-        {/* SCORE PANEL — the centerpiece */}
-        <div
-          className="rounded-2xl border-4 mb-3 p-3 grid grid-cols-2 gap-2"
-          style={{ borderColor: BRAND_INK, background: BRAND_CREAM }}
-        >
-          <Counter
+        <div className="mb-4">
+          <p className="text-[11px] uppercase tracking-[0.4em] font-bold mb-1" style={{ color: BRAND_ORANGE }}>Hi {player.first_name}</p>
+          <h1 className="text-5xl sm:text-6xl font-black leading-[0.9] uppercase tracking-tight" style={{ color: BRAND_CREAM }}>
+            Summer<br/>Bingo
+          </h1>
+        </div>
+
+        {/* SCORE PANEL — scoreboard hero */}
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          <Scoreboard
             label="Bingos"
             value={bingos}
             outOf={TOTAL_LINES}
             pulsing={pulseBingos}
-            color={BRAND_ORANGE}
+            primary
           />
-          <Counter
+          <Scoreboard
             label="Raffle entries"
             value={entries}
             pulsing={pulseEntries}
-            color={BRAND_INK}
           />
         </div>
 
-        <div className="rounded-xl mb-3 px-3 py-2 text-center text-sm font-semibold" style={{ background: BRAND_INK, color: 'white' }}>
+        <div className="mb-3 px-3 py-2.5 text-center text-[13px] font-bold uppercase tracking-wide border-2" style={{ background: 'transparent', color: BRAND_CREAM, borderColor: BRAND_ORANGE }}>
           {hasLateCancel ? (
             <>Free late cancel <span style={{ color: BRAND_ORANGE }}>unlocked</span> · {nextNudge}</>
           ) : (
@@ -249,49 +257,62 @@ function BingoCard({
         </div>
 
         {isBlackout && (
-          <div className="rounded-2xl border-4 p-3 mb-3 text-center font-black" style={{ borderColor: BRAND_INK, background: BRAND_CREAM }}>
-            <p className="text-xs uppercase tracking-[0.25em] mb-1" style={{ color: BRAND_ORANGE }}>Blackout!</p>
-            <p className="text-lg">Full card. Max raffle entries locked in.</p>
+          <div className="mb-3 px-3 py-3 text-center font-black uppercase tracking-wide" style={{ background: BRAND_ORANGE, color: BRAND_INK }}>
+            <p className="text-[10px] tracking-[0.3em] mb-1">Blackout</p>
+            <p className="text-lg leading-none">Full card. Max entries locked in.</p>
           </div>
         )}
 
-        <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+        <div className="grid grid-cols-5 gap-1 sm:gap-1.5">
           {BINGO_TASKS.map((task, idx) => {
             const isFree = task.id === FREE_SQUARE_ID;
-            const done = marked.has(task.id) || isFree;
+            const isMarked = marked.has(task.id);
+            const done = isMarked || isFree;
             const winning = winningIndices.has(idx);
+            // Visual hierarchy:
+            //   - Free square: charcoal with orange mark
+            //   - Marked (hit): orange STRIKE with ink text
+            //   - Unmarked: bone with ink text
+            //   - Winning line: thick orange outline + glow
+            const bg = isFree ? BRAND_INK : (isMarked ? BRAND_ORANGE : BRAND_CREAM);
+            const fg = isFree ? BRAND_ORANGE : BRAND_INK;
+            const borderColor = winning ? BRAND_ORANGE : (isFree ? BRAND_ORANGE : BRAND_INK);
             return (
               <button
                 key={task.id}
                 onClick={() => handleTap(task.id)}
-                className={`aspect-square rounded-lg sm:rounded-xl p-1 sm:p-2 text-[9px] sm:text-xs font-bold leading-tight flex items-center justify-center text-center transition-all active:scale-95 ${winning ? 'animate-pulse' : ''}`}
+                className={`aspect-square p-1 sm:p-2 text-[9px] sm:text-xs font-black uppercase leading-tight flex items-center justify-center text-center transition-all active:scale-95 ${winning ? 'animate-pulse' : ''}`}
                 style={{
-                  background: isFree ? BRAND_INK : (done ? BRAND_INK : 'white'),
-                  color: isFree ? BRAND_ORANGE : (done ? BRAND_ORANGE : BRAND_INK),
-                  border: `2px solid ${winning ? BRAND_ORANGE : BRAND_INK}`,
-                  boxShadow: winning ? `0 0 0 3px ${BRAND_ORANGE}, 0 0 18px rgba(255,111,13,0.55)` : undefined,
+                  background: bg,
+                  color: fg,
+                  border: `${winning ? 3 : 1.5}px solid ${borderColor}`,
+                  fontFamily: FONT,
+                  letterSpacing: '0.02em',
+                  boxShadow: winning ? `0 0 0 2px ${BRAND_INK}, 0 0 22px rgba(255,111,13,0.7)` : undefined,
                 }}
               >
-                <span className={isFree ? 'text-base sm:text-2xl font-black' : ''}>{task.label}</span>
+                <span className={isFree ? 'text-lg sm:text-3xl font-black' : ''}>
+                  {isFree ? 'FREE' : task.label}
+                </span>
               </button>
             );
           })}
         </div>
 
-        <div className="flex flex-col items-center gap-2 mt-4">
+        <div className="flex flex-col items-center gap-3 mt-5">
           <button
             onClick={async () => {
               const url = `https://otf-tuscaloosa.lovable.app/bingo/s/${player.share_slug}`;
               try { await navigator.clipboard.writeText(url); toast.success('Share link copied — text it to a friend!'); }
               catch { toast.error('Could not copy. Long-press to copy: ' + url); }
             }}
-            className="rounded-xl px-5 py-3 text-xs font-black uppercase tracking-wide border-2"
-            style={{ background: 'white', color: BRAND_INK, borderColor: BRAND_INK }}
+            className="px-6 py-3 text-xs font-black uppercase tracking-[0.2em] border-2"
+            style={{ background: 'transparent', color: BRAND_CREAM, borderColor: BRAND_CREAM, fontFamily: FONT }}
           >
             Share my progress
           </button>
-          <p className="text-center text-xs" style={{ color: 'white' }}>
-            {progress} of {TOTAL_REQUIRED} squares marked. Tap a square when you finish it.
+          <p className="text-center text-[11px] uppercase tracking-wider" style={{ color: BRAND_GREY }}>
+            {progress} of {TOTAL_REQUIRED} squares marked · Tap a square when you finish it
           </p>
         </div>
       </div>
@@ -308,17 +329,19 @@ function BingoCard({
   );
 }
 
-function Counter({ label, value, outOf, pulsing, color }: { label: string; value: number; outOf?: number; pulsing: boolean; color: string }) {
+function Scoreboard({ label, value, outOf, pulsing, primary }: { label: string; value: number; outOf?: number; pulsing: boolean; primary?: boolean }) {
+  // Athletic scoreboard tile: bone surface, ink label, orange (or ink) strike numeral
+  const numColor = primary ? BRAND_ORANGE : BRAND_INK;
   return (
-    <div className="rounded-xl px-3 py-2 text-center" style={{ background: 'white', border: `2px solid ${BRAND_INK}` }}>
-      <p className="text-[10px] uppercase tracking-[0.2em] font-bold" style={{ color: BRAND_INK }}>{label}</p>
+    <div className="px-3 py-3 sm:py-4 text-center relative overflow-hidden" style={{ background: BRAND_CREAM, border: `2px solid ${BRAND_INK}`, fontFamily: FONT }}>
+      <p className="text-[10px] uppercase tracking-[0.3em] font-black" style={{ color: BRAND_INK }}>{label}</p>
       <p
-        className={`text-4xl sm:text-5xl font-black tabular-nums leading-none mt-1 transition-transform ${pulsing ? 'scale-125' : 'scale-100'}`}
-        style={{ color, transitionDuration: '300ms' }}
+        className={`text-5xl sm:text-6xl font-black tabular-nums leading-none mt-1.5 transition-transform ${pulsing ? 'scale-125' : 'scale-100'}`}
+        style={{ color: numColor, transitionDuration: '300ms', letterSpacing: '-0.04em' }}
       >
         {value}
         {typeof outOf === 'number' && (
-          <span className="text-sm font-bold opacity-50 ml-1">/ {outOf}</span>
+          <span className="text-base font-black opacity-40 ml-1" style={{ color: BRAND_INK }}>/{outOf}</span>
         )}
       </p>
     </div>
@@ -335,14 +358,14 @@ function CelebrationOverlay({
       onClick={onClose}
     >
       <div
-        className="rounded-3xl border-4 p-6 sm:p-8 max-w-sm w-full text-center animate-scale-in"
-        style={{ background: BRAND_CREAM, borderColor: BRAND_INK }}
+        className="p-6 sm:p-8 max-w-sm w-full text-center animate-scale-in"
+        style={{ background: BRAND_CREAM, border: `3px solid ${BRAND_INK}`, fontFamily: FONT }}
         onClick={e => e.stopPropagation()}
       >
-        <p className="text-xs uppercase tracking-[0.3em] font-bold mb-2" style={{ color: BRAND_ORANGE }}>
-          {kind === 'first' ? 'First bingo!' : `Bingo #${bingos}`}
+        <p className="text-[11px] uppercase tracking-[0.4em] font-black mb-2" style={{ color: BRAND_ORANGE }}>
+          {kind === 'first' ? 'First bingo' : `Bingo #${bingos}`}
         </p>
-        <p className="text-5xl sm:text-6xl font-black leading-none mb-3" style={{ color: BRAND_INK }}>
+        <p className="text-6xl sm:text-7xl font-black leading-none mb-3 uppercase tracking-tight" style={{ color: BRAND_INK }}>
           BINGO!
         </p>
         {kind === 'first' ? (
@@ -357,8 +380,8 @@ function CelebrationOverlay({
           </p>
         )}
         <button
-          className="mt-5 rounded-xl px-5 py-3 text-sm font-black uppercase tracking-wide"
-          style={{ background: BRAND_ORANGE, color: 'white' }}
+          className="mt-5 px-6 py-3 text-xs font-black uppercase tracking-[0.2em]"
+          style={{ background: BRAND_INK, color: BRAND_CREAM, fontFamily: FONT }}
           onClick={onClose}
         >
           Keep playing
