@@ -221,7 +221,7 @@ function BingoCard({
       <div className="max-w-3xl mx-auto">
         {/* Header with real OTF logo */}
         <div className="flex items-center justify-between mb-4">
-          <img src={otfLogo} alt="Orangetheory Fitness" className="h-7 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+          <img src={otfLogo} alt="Orangetheory Fitness" className="h-7 object-contain" />
           <p className="text-[10px] uppercase tracking-[0.4em] font-bold" style={{ color: BRAND_GREY }}>Tuscaloosa</p>
         </div>
 
