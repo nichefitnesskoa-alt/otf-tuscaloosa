@@ -16,7 +16,7 @@ const BRAND_INK = '#0A0A0A';
 const BRAND_CREAM = '#FDF7EA';
 
 export default function BingoPage() {
-  const { player, loading, startOrResume, toggleSquare, lastBingoDelta, clearBingoDelta } = useBingoPlayer();
+  const { player, loading, startOrResume, findByPhone, toggleSquare, lastBingoDelta, clearBingoDelta } = useBingoPlayer();
 
   if (loading) {
     return (
@@ -26,7 +26,7 @@ export default function BingoPage() {
     );
   }
 
-  if (!player) return <EntryGate onSubmit={startOrResume} />;
+  if (!player) return <EntryGate onSubmit={startOrResume} onFind={findByPhone} />;
   return (
     <BingoCard
       player={player}
