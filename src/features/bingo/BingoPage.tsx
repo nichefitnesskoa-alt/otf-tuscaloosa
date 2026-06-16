@@ -329,17 +329,19 @@ function BingoCard({
   );
 }
 
-function Counter({ label, value, outOf, pulsing, color }: { label: string; value: number; outOf?: number; pulsing: boolean; color: string }) {
+function Scoreboard({ label, value, outOf, pulsing, primary }: { label: string; value: number; outOf?: number; pulsing: boolean; primary?: boolean }) {
+  // Athletic scoreboard tile: bone surface, ink label, orange (or ink) strike numeral
+  const numColor = primary ? BRAND_ORANGE : BRAND_INK;
   return (
-    <div className="rounded-xl px-3 py-2 text-center" style={{ background: 'white', border: `2px solid ${BRAND_INK}` }}>
-      <p className="text-[10px] uppercase tracking-[0.2em] font-bold" style={{ color: BRAND_INK }}>{label}</p>
+    <div className="px-3 py-3 sm:py-4 text-center relative overflow-hidden" style={{ background: BRAND_CREAM, border: `2px solid ${BRAND_INK}`, fontFamily: FONT }}>
+      <p className="text-[10px] uppercase tracking-[0.3em] font-black" style={{ color: BRAND_INK }}>{label}</p>
       <p
-        className={`text-4xl sm:text-5xl font-black tabular-nums leading-none mt-1 transition-transform ${pulsing ? 'scale-125' : 'scale-100'}`}
-        style={{ color, transitionDuration: '300ms' }}
+        className={`text-5xl sm:text-6xl font-black tabular-nums leading-none mt-1.5 transition-transform ${pulsing ? 'scale-125' : 'scale-100'}`}
+        style={{ color: numColor, transitionDuration: '300ms', letterSpacing: '-0.04em' }}
       >
         {value}
         {typeof outOf === 'number' && (
-          <span className="text-sm font-bold opacity-50 ml-1">/ {outOf}</span>
+          <span className="text-base font-black opacity-40 ml-1" style={{ color: BRAND_INK }}>/{outOf}</span>
         )}
       </p>
     </div>
