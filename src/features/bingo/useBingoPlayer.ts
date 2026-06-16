@@ -20,6 +20,7 @@ export interface BingoPlayer {
   completed_lines: string[];
   first_bingo_at: string | null;
   late_cancel_used: boolean;
+  share_slug: string;
   created_at: string;
 }
 
@@ -120,10 +121,24 @@ export function useBingoPlayer() {
 
   const clearBingoDelta = useCallback(() => setLastBingoDelta(0), []);
 
+  const findByPhone = useCallback(async (phone: string) => {
+    const phone_normalized = normalizePhone(phone);
+    if (phone_normalized.length !== 10) {
+      throw new Error('Please enter a valid 10-digit phone number.');
+    }
+    const { data } = await supabase.from('bingo_players' as any)
+      .select('*').eq('phone_normalized', phone_normalized).maybeSingle();
+    if (!data) return null;
+    const p = data as any as BingoPlayer;
+    localStorage.setItem(LS_KEY, p.id);
+    setPlayer(p);
+    return p;
+  }, []);
+
   const reset = useCallback(() => {
     localStorage.removeItem(LS_KEY);
     setPlayer(null);
   }, []);
 
-  return { player, loading, saving, startOrResume, toggleSquare, reset, lastBingoDelta, clearBingoDelta };
+  return { player, loading, saving, startOrResume, findByPhone, toggleSquare, reset, lastBingoDelta, clearBingoDelta };
 }
