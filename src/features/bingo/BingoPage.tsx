@@ -76,11 +76,11 @@ function EntryGate({ onSubmit, onFind }: {
     finally { setSubmitting(false); }
   };
 
-  const inputCls = 'w-full rounded-xl border-2 px-4 py-3 text-base bg-white focus:outline-none focus:ring-2';
+  const inputCls = 'w-full rounded-sm border-2 px-4 py-3 text-base bg-white focus:outline-none focus:ring-2';
   const tabBtn = (active: boolean) => ({
-    background: active ? BRAND_INK : 'transparent',
-    color: active ? 'white' : BRAND_INK,
-    borderColor: BRAND_INK,
+    background: active ? BRAND_ORANGE : 'transparent',
+    color: active ? BRAND_INK : BRAND_CREAM,
+    borderColor: active ? BRAND_ORANGE : BRAND_CREAM,
   });
 
   return (
