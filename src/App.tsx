@@ -42,6 +42,7 @@ import PartnerDeckShareResolver from "./features/giveaway/PartnerDeckShareResolv
 import PartnerViewPage from "./features/giveaway/PartnerViewPage";
 import BingoPage from "./features/bingo/BingoPage";
 import BingoAdminPage from "./features/bingo/BingoAdminPage";
+import BingoSharePage from "./features/bingo/BingoSharePage";
 import { useParams } from "react-router-dom";
 
 function QuestionnaireRedirect() {
