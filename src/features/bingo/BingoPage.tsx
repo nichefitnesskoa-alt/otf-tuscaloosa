@@ -278,9 +278,22 @@ function BingoCard({
           })}
         </div>
 
-        <p className="text-center text-xs mt-4" style={{ color: 'white' }}>
-          {progress} of {TOTAL_REQUIRED} squares marked. Tap a square when you finish it.
-        </p>
+        <div className="flex flex-col items-center gap-2 mt-4">
+          <button
+            onClick={async () => {
+              const url = `https://otf-tuscaloosa.lovable.app/bingo/s/${player.share_slug}`;
+              try { await navigator.clipboard.writeText(url); toast.success('Share link copied — text it to a friend!'); }
+              catch { toast.error('Could not copy. Long-press to copy: ' + url); }
+            }}
+            className="rounded-xl px-5 py-3 text-xs font-black uppercase tracking-wide border-2"
+            style={{ background: 'white', color: BRAND_INK, borderColor: BRAND_INK }}
+          >
+            Share my progress
+          </button>
+          <p className="text-center text-xs" style={{ color: 'white' }}>
+            {progress} of {TOTAL_REQUIRED} squares marked. Tap a square when you finish it.
+          </p>
+        </div>
       </div>
 
       {celebration && (
