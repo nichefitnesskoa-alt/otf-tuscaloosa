@@ -55,7 +55,7 @@ export default function BingoSharePage() {
   if (!player) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center" style={{ background: BRAND_INK, color: BRAND_CREAM, fontFamily: FONT }}>
-        <img src={otfLogo} alt="Orangetheory Fitness" className="h-8 mb-6 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+        <img src={otfLogo.url} alt="Orangetheory Fitness" className="h-8 mb-6 object-contain" />
         <h1 className="text-4xl font-black mb-2 uppercase tracking-tight">Card not found</h1>
         <p className="mb-6" style={{ color: BRAND_GREY }}>This share link doesn't match any card.</p>
         <Link to="/bingo" className="px-6 py-3 text-xs font-black uppercase tracking-[0.2em]" style={{ background: BRAND_ORANGE, color: BRAND_INK }}>
