@@ -131,7 +131,7 @@ function EntryGate({ onSubmit, onFind }: {
             </button>
           </form>
         ) : (
-          <form onSubmit={handleFind} className="rounded-2xl p-5 space-y-3 border-2" style={{ borderColor: BRAND_INK, background: 'white' }}>
+          <form onSubmit={handleFind} className="rounded-2xl p-5 space-y-3 border-2" style={{ borderColor: BRAND_INK, background: 'white', color: BRAND_INK }}>
             <p className="text-sm font-semibold">Already started a card? Type the phone number you used.</p>
             <input className={inputCls} style={{ borderColor: BRAND_INK }} placeholder="Phone" inputMode="tel" value={findPhone} onChange={e => setFindPhone(e.target.value)} />
             <button
