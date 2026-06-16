@@ -380,8 +380,8 @@ function CelebrationOverlay({
           </p>
         )}
         <button
-          className="mt-5 rounded-xl px-5 py-3 text-sm font-black uppercase tracking-wide"
-          style={{ background: BRAND_ORANGE, color: 'white' }}
+          className="mt-5 px-6 py-3 text-xs font-black uppercase tracking-[0.2em]"
+          style={{ background: BRAND_INK, color: BRAND_CREAM, fontFamily: FONT }}
           onClick={onClose}
         >
           Keep playing
