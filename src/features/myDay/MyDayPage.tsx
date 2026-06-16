@@ -320,24 +320,13 @@ export default function MyDayPage() {
 
       {/* ═══ FLOATING HEADER — always visible ═══ */}
       <div className="sticky top-0 z-20 bg-background border-b-2 border-primary px-4 py-3 space-y-2.5 shadow-sm">
-        {/* Greeting + date + dark toggle */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-bold leading-tight flex items-center gap-1.5">
-              Good {greeting}, {user?.name}! 👋
-            </h1>
-            <p className="text-xs text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Your shift home. Tasks, intros, and new leads — everything for this shift.</p>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleDark}
-            className="h-8 w-8"
-            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </Button>
+        {/* Greeting + date — dark toggle now lives in global Header/BottomNav */}
+        <div>
+          <h1 className="text-base font-bold leading-tight flex items-center gap-1.5">
+            Good {greeting}, {user?.name}! 👋
+          </h1>
+          <p className="text-xs text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Your shift home. Tasks, intros, and new leads — everything for this shift.</p>
         </div>
 
       </div>

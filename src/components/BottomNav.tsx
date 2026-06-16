@@ -1,11 +1,12 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { GitBranch, Home, Settings, Eye, Trophy, UserCheck, BarChart3, Star, Flag } from 'lucide-react';
+import { GitBranch, Home, Settings, Eye, Trophy, UserCheck, BarChart3, Star, Flag, Sun, Moon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useDataAudit } from '@/hooks/useDataAudit';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { canSee, isAdmin as isAdminCheck, type PermissionKey } from '@/lib/auth/roles';
+import { useDarkMode } from '@/hooks/useDarkMode';
 
 type NavItem = { path: string; label: string; icon: any; permKey: PermissionKey };
 
@@ -27,6 +28,7 @@ export function BottomNav() {
   const { user } = useAuth();
   const isAdmin = isAdminCheck(user);
   const { failCount } = useDataAudit(isAdmin);
+  const { isDark, toggle: toggleDark } = useDarkMode();
   const [coachFollowUpBadge, setCoachFollowUpBadge] = useState(0);
 
   const showCoachBadge = canSee(user, 'nav.my_intros') && user?.role !== 'SA';
@@ -84,6 +86,14 @@ export function BottomNav() {
             </button>
           );
         })}
+        <button
+          onClick={toggleDark}
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          className="flex flex-col items-center justify-center px-3 h-full text-muted-foreground hover:text-foreground transition-colors min-w-[60px]"
+        >
+          {isDark ? <Sun className="w-5 h-5 mb-0.5" /> : <Moon className="w-5 h-5 mb-0.5" />}
+          <span className="text-[11px] font-medium">{isDark ? 'Light' : 'Dark'}</span>
+        </button>
       </div>
     </nav>
   );

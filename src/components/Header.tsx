@@ -2,16 +2,18 @@ import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, CloudOff } from 'lucide-react';
+import { LogOut, User, CloudOff, Sun, Moon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { GlobalSearch, GlobalSearchTrigger } from '@/components/GlobalSearch';
 import { NotificationsBell } from '@/components/NotificationsBell';
+import { useDarkMode } from '@/hooks/useDarkMode';
 
 export function Header() {
   const { user, logout } = useAuth();
   const { pendingQueueCount, lastSyncAt } = useData();
   const [searchOpen, setSearchOpen] = useState(false);
+  const { isDark, toggle: toggleDark } = useDarkMode();
 
   const roleColors = {
     Admin: 'bg-primary text-primary-foreground',
@@ -52,6 +54,15 @@ export function Header() {
             {/* Global Search */}
             <GlobalSearchTrigger onOpen={() => setSearchOpen(true)} />
             <NotificationsBell />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleDark}
+              className="text-background hover:bg-background/10 flex-shrink-0"
+              title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
               <User className="w-4 h-4 flex-shrink-0" />
               <span className="text-sm font-medium hidden sm:inline truncate">{user.name}</span>

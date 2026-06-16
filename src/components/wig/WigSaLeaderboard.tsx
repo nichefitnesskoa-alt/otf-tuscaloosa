@@ -274,27 +274,29 @@ export function WigSaLeaderboard({ dateRange }: Props) {
             </span>
           </div>
           <div className="flex items-baseline gap-3 mb-2">
-            <span className={cn('text-5xl font-black tabular-nums leading-none', heroCls.text)}>
+            <span className="text-7xl font-black tabular-nums leading-none text-foreground">
               {totals.sgl}
             </span>
-            <span className="text-lg text-muted-foreground">
-              of {teamTargets.sgl ?? <em className="not-italic text-warning">CONFIRM THIS VALUE</em>}
+            <span className="text-xl text-foreground">
+              of {teamPace.sgl != null ? Math.round(teamPace.sgl) : <em className="not-italic text-warning">CONFIRM THIS VALUE</em>} today
             </span>
           </div>
           <PaceBar current={totals.sgl} target={teamTargets.sgl} pace={teamPace.sgl} size="lg" />
-          <div className="mt-2 flex items-center justify-between gap-2 flex-wrap text-[11px] text-muted-foreground">
+          <div className="mt-2 flex items-center justify-between gap-3 flex-wrap text-base text-foreground">
             <span>
-              Pace today: <span className={cn('font-semibold', heroCls.text)}>{formatPace(teamPace.sgl)}</span>
+              Pace today: <span className={cn('font-bold', heroCls.text)}>{formatPace(teamPace.sgl)}</span>
               {' · '}
               {heroStatus === 'green' && 'at or ahead of pace ✓'}
               {heroStatus === 'yellow' && 'a little behind today'}
               {heroStatus === 'red' && 'behind today — close the gap'}
               {heroStatus === 'unset' && 'set per-SA SGL target to start'}
             </span>
-            <span>
-              Per-SA target: <span className="font-semibold text-foreground">{targets.saSgl ?? '—'}</span>
+            <span className="text-sm text-foreground">
+              Month goal: <span className="font-bold">{teamTargets.sgl ?? '—'}</span>
+              <span className="mx-2 text-muted-foreground">·</span>
+              Per-SA: <span className="font-bold">{targets.saSgl ?? '—'}</span>
               <span className="mx-1">×</span>
-              {activeCount} active SAs
+              {activeCount} SAs
               {isAdmin && (
                 <Button
                   size="sm"
@@ -367,10 +369,10 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                     <TableHead className="text-sm">SA</TableHead>
                     <TableHead className="text-sm text-center">
                       Leads
-                      <div className="text-sm font-semibold text-foreground">
+                      <div className="text-base font-semibold text-foreground">
                         need {formatPace(perSaPace.sgl)} today
                       </div>
-                      <div className="text-xs font-normal text-muted-foreground">
+                      <div className="text-sm font-normal text-foreground">
                         of {targets.saSgl ?? '—'} this month
                       </div>
                     </TableHead>
@@ -394,9 +396,9 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                             onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'sourced' }); }}
                             className="w-full min-h-[48px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
                           >
-                            <div className={cn('text-3xl font-black tabular-nums', statusClasses(sglS).text)}>
+                            <div className="text-4xl font-black tabular-nums text-foreground">
                               {row.sgl}
-                              <span className="ml-1 text-xs font-normal text-muted-foreground">/ {formatPace(perSaPace.sgl)}</span>
+                              <span className="ml-1 text-sm font-normal text-foreground">/ {formatPace(perSaPace.sgl)}</span>
                             </div>
                             <div className="mt-1 px-2">
                               <PaceBar current={row.sgl} target={targets.saSgl} pace={perSaPace.sgl} />
@@ -409,8 +411,8 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                   <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
                     <TableCell />
                     <TableCell className="text-base font-bold">Team</TableCell>
-                    <TableCell className="text-2xl text-center font-black tabular-nums">
-                      {totals.sgl} <span className="text-muted-foreground font-normal text-sm">/ {teamTargets.sgl ?? '—'}</span>
+                    <TableCell className="text-3xl text-center font-black tabular-nums text-foreground">
+                      {totals.sgl} <span className="text-foreground font-normal text-base">/ {teamPace.sgl != null ? Math.round(teamPace.sgl) : '—'} today</span>
                     </TableCell>
                   </TableRow>
                 </TableBody>

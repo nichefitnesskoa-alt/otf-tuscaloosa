@@ -823,15 +823,18 @@ export default function Wig() {
                 </span>
               </div>
               <div className="flex items-baseline gap-3 flex-wrap">
-                <span className={cn('text-6xl font-black tabular-nums leading-none', studioHeroCls.text)}>
+                <span className="text-7xl font-black tabular-nums leading-none text-foreground">
                   {totalLeads}
                 </span>
-                <span className="text-xl text-muted-foreground">
-                  of {targets.studioLeads ?? <em className="not-italic text-warning">CONFIRM</em>} target
+                <span className="text-xl text-foreground">
+                  of {studioLeadsPace != null ? Math.round(studioLeadsPace) : <em className="not-italic text-warning">CONFIRM</em>} today
+                  {targets.studioLeads != null && (
+                    <span className="ml-2 text-sm text-muted-foreground">(month goal: {targets.studioLeads})</span>
+                  )}
                 </span>
               </div>
               <div className={cn(
-                'rounded-md px-4 py-3 text-base font-semibold',
+                'rounded-md px-4 py-3 text-lg font-semibold',
                 studioLeadsStatus === 'green' && 'bg-success/15 text-success',
                 studioLeadsStatus === 'yellow' && 'bg-warning/15 text-warning',
                 studioLeadsStatus === 'red' && 'bg-destructive/15 text-destructive',
@@ -840,10 +843,10 @@ export default function Wig() {
                 {studioLeadsPace != null ? (
                   <>
                     Should be at <span className="text-3xl font-black tabular-nums">{formatPace(studioLeadsPace)}</span> by today
-                    <div className="mt-1 text-sm font-medium">
+                    <div className="mt-1 text-base font-bold">
                       {totalLeads >= studioLeadsPace
-                        ? <>You're <span className="font-bold">+{totalLeads - studioLeadsPace} ahead ✓</span></>
-                        : <>You're <span className="font-bold">{studioLeadsPace - totalLeads} behind pace</span></>}
+                        ? <>You're +{Math.round(totalLeads - studioLeadsPace)} ahead ✓</>
+                        : <>You're {Math.round(studioLeadsPace - totalLeads)} behind pace</>}
                     </div>
                   </>
                 ) : 'Set a monthly target to see today\'s pace'}
