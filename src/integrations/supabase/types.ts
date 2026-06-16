@@ -119,6 +119,7 @@ export type Database = {
           marked_squares: string[]
           phone: string
           phone_normalized: string
+          share_slug: string
           updated_at: string
         }
         Insert: {
@@ -135,6 +136,7 @@ export type Database = {
           marked_squares?: string[]
           phone: string
           phone_normalized: string
+          share_slug: string
           updated_at?: string
         }
         Update: {
@@ -151,6 +153,7 @@ export type Database = {
           marked_squares?: string[]
           phone?: string
           phone_normalized?: string
+          share_slug?: string
           updated_at?: string
         }
         Relationships: []
