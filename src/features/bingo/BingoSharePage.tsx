@@ -9,7 +9,7 @@ import {
   TOTAL_LINES,
   raffleEntriesFor,
 } from './bingoTasks';
-import otfLogo from '@/assets/otf-logo.jpg';
+import otfLogo from '@/assets/otf-logo-orange.png.asset.json';
 
 const BRAND_ORANGE = '#FF6F0D';
 const BRAND_INK = '#0A0A0A';
@@ -55,7 +55,7 @@ export default function BingoSharePage() {
   if (!player) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center" style={{ background: BRAND_INK, color: BRAND_CREAM, fontFamily: FONT }}>
-        <img src={otfLogo} alt="Orangetheory Fitness" className="h-8 mb-6 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+        <img src={otfLogo.url} alt="Orangetheory Fitness" className="h-8 mb-6 object-contain" />
         <h1 className="text-4xl font-black mb-2 uppercase tracking-tight">Card not found</h1>
         <p className="mb-6" style={{ color: BRAND_GREY }}>This share link doesn't match any card.</p>
         <Link to="/bingo" className="px-6 py-3 text-xs font-black uppercase tracking-[0.2em]" style={{ background: BRAND_ORANGE, color: BRAND_INK }}>
@@ -84,7 +84,7 @@ export default function BingoSharePage() {
     <div className="min-h-screen px-3 sm:px-4 py-5" style={{ background: BRAND_INK, color: BRAND_CREAM, fontFamily: FONT }}>
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-4">
-          <img src={otfLogo} alt="Orangetheory Fitness" className="h-7 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+          <img src={otfLogo.url} alt="Orangetheory Fitness" className="h-7 object-contain" />
           <p className="text-[10px] uppercase tracking-[0.4em] font-bold" style={{ color: BRAND_GREY }}>Tuscaloosa</p>
         </div>
 

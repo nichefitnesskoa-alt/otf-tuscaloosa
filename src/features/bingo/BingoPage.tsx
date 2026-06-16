@@ -10,7 +10,7 @@ import {
 } from './bingoTasks';
 import { useBingoPlayer } from './useBingoPlayer';
 import { toast } from 'sonner';
-import otfLogo from '@/assets/otf-logo.jpg';
+import otfLogo from '@/assets/otf-logo-orange.png.asset.json';
 
 const BRAND_ORANGE = '#FF6F0D';
 const BRAND_INK = '#0A0A0A';
@@ -87,7 +87,7 @@ function EntryGate({ onSubmit, onFind }: {
     <div className="min-h-screen px-4 py-8 flex items-center justify-center" style={{ background: BRAND_INK, color: BRAND_CREAM, fontFamily: FONT }}>
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <img src={otfLogo} alt="Orangetheory Fitness" className="h-10 mx-auto mb-5 object-contain" />
+          <img src={otfLogo.url} alt="Orangetheory Fitness" className="h-10 mx-auto mb-5 object-contain" />
           <p className="text-[11px] uppercase tracking-[0.45em] font-bold mb-3" style={{ color: BRAND_ORANGE }}>Tuscaloosa</p>
           <h1 className="text-6xl font-black leading-[0.9] uppercase tracking-tight mb-3" style={{ color: BRAND_CREAM }}>Summer<br/>Bingo</h1>
           <p className="text-sm" style={{ color: BRAND_GREY }}>Every bingo earns you something. Stay moving all summer.</p>
@@ -221,7 +221,7 @@ function BingoCard({
       <div className="max-w-3xl mx-auto">
         {/* Header with real OTF logo */}
         <div className="flex items-center justify-between mb-4">
-          <img src={otfLogo} alt="Orangetheory Fitness" className="h-7 object-contain" />
+          <img src={otfLogo.url} alt="Orangetheory Fitness" className="h-7 object-contain" />
           <p className="text-[10px] uppercase tracking-[0.4em] font-bold" style={{ color: BRAND_GREY }}>Tuscaloosa</p>
         </div>
 
