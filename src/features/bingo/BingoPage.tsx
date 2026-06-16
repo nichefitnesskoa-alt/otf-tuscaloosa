@@ -87,7 +87,7 @@ function EntryGate({ onSubmit, onFind }: {
     <div className="min-h-screen px-4 py-8 flex items-center justify-center" style={{ background: BRAND_INK, color: BRAND_CREAM, fontFamily: FONT }}>
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <img src={otfLogo} alt="Orangetheory Fitness" className="h-10 mx-auto mb-5 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+          <img src={otfLogo} alt="Orangetheory Fitness" className="h-10 mx-auto mb-5 object-contain" />
           <p className="text-[11px] uppercase tracking-[0.45em] font-bold mb-3" style={{ color: BRAND_ORANGE }}>Tuscaloosa</p>
           <h1 className="text-6xl font-black leading-[0.9] uppercase tracking-tight mb-3" style={{ color: BRAND_CREAM }}>Summer<br/>Bingo</h1>
           <p className="text-sm" style={{ color: BRAND_GREY }}>Every bingo earns you something. Stay moving all summer.</p>
@@ -113,7 +113,7 @@ function EntryGate({ onSubmit, onFind }: {
         </div>
 
         {mode === 'start' ? (
-          <form onSubmit={handleStart} className="rounded-2xl p-5 space-y-3 border-2" style={{ borderColor: BRAND_INK, background: 'white' }}>
+          <form onSubmit={handleStart} className="rounded-2xl p-5 space-y-3 border-2" style={{ borderColor: BRAND_INK, background: 'white', color: BRAND_INK }}>
             <div className="grid grid-cols-2 gap-3">
               <input className={inputCls} style={{ borderColor: BRAND_INK }} placeholder="First name" value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} />
               <input className={inputCls} style={{ borderColor: BRAND_INK }} placeholder="Last name" value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} />
@@ -131,7 +131,7 @@ function EntryGate({ onSubmit, onFind }: {
             </button>
           </form>
         ) : (
-          <form onSubmit={handleFind} className="rounded-2xl p-5 space-y-3 border-2" style={{ borderColor: BRAND_INK, background: 'white' }}>
+          <form onSubmit={handleFind} className="rounded-2xl p-5 space-y-3 border-2" style={{ borderColor: BRAND_INK, background: 'white', color: BRAND_INK }}>
             <p className="text-sm font-semibold">Already started a card? Type the phone number you used.</p>
             <input className={inputCls} style={{ borderColor: BRAND_INK }} placeholder="Phone" inputMode="tel" value={findPhone} onChange={e => setFindPhone(e.target.value)} />
             <button
@@ -221,7 +221,7 @@ function BingoCard({
       <div className="max-w-3xl mx-auto">
         {/* Header with real OTF logo */}
         <div className="flex items-center justify-between mb-4">
-          <img src={otfLogo} alt="Orangetheory Fitness" className="h-7 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+          <img src={otfLogo} alt="Orangetheory Fitness" className="h-7 object-contain" />
           <p className="text-[10px] uppercase tracking-[0.4em] font-bold" style={{ color: BRAND_GREY }}>Tuscaloosa</p>
         </div>
 
