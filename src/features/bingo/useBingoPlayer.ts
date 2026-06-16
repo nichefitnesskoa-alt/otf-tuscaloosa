@@ -20,6 +20,7 @@ export interface BingoPlayer {
   completed_lines: string[];
   first_bingo_at: string | null;
   late_cancel_used: boolean;
+  share_slug: string;
   created_at: string;
 }
 
