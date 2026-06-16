@@ -176,6 +176,7 @@ function AppRoutes() {
       <Route path="/partner-deck/:studioSlug" element={<PartnerDeckPage />} />
       <Route path="/questionnaire/:id" element={<QuestionnaireRedirect />} />
       <Route path="/bingo" element={<BingoPage />} />
+      <Route path="/bingo/s/:slug" element={<BingoSharePage />} />
       <Route path="/bingo-admin" element={<ProtectedRoute><BingoAdminPage /></ProtectedRoute>} />
       <Route
         path="/my-day"
