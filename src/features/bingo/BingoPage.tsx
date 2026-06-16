@@ -113,7 +113,7 @@ function EntryGate({ onSubmit, onFind }: {
         </div>
 
         {mode === 'start' ? (
-          <form onSubmit={handleStart} className="rounded-2xl p-5 space-y-3 border-2" style={{ borderColor: BRAND_INK, background: 'white' }}>
+          <form onSubmit={handleStart} className="rounded-2xl p-5 space-y-3 border-2" style={{ borderColor: BRAND_INK, background: 'white', color: BRAND_INK }}>
             <div className="grid grid-cols-2 gap-3">
               <input className={inputCls} style={{ borderColor: BRAND_INK }} placeholder="First name" value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} />
               <input className={inputCls} style={{ borderColor: BRAND_INK }} placeholder="Last name" value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} />
