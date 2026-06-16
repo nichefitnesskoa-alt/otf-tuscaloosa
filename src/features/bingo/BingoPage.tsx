@@ -84,12 +84,13 @@ function EntryGate({ onSubmit, onFind }: {
   });
 
   return (
-    <div className="min-h-screen px-4 py-8 flex items-center justify-center" style={{ background: BRAND_CREAM, color: BRAND_INK }}>
+    <div className="min-h-screen px-4 py-8 flex items-center justify-center" style={{ background: BRAND_INK, color: BRAND_CREAM, fontFamily: FONT }}>
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <p className="text-xs uppercase tracking-[0.3em] font-bold mb-2" style={{ color: BRAND_ORANGE }}>OTF Tuscaloosa</p>
-          <h1 className="text-5xl font-black leading-none mb-3">Summer Bingo</h1>
-          <p className="text-base opacity-80">Every bingo earns you something. Stay moving all summer.</p>
+          <img src={otfLogo} alt="Orangetheory Fitness" className="h-10 mx-auto mb-5 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+          <p className="text-[11px] uppercase tracking-[0.45em] font-bold mb-3" style={{ color: BRAND_ORANGE }}>Tuscaloosa</p>
+          <h1 className="text-6xl font-black leading-[0.9] uppercase tracking-tight mb-3" style={{ color: BRAND_CREAM }}>Summer<br/>Bingo</h1>
+          <p className="text-sm" style={{ color: BRAND_GREY }}>Every bingo earns you something. Stay moving all summer.</p>
         </div>
 
         <div className="grid grid-cols-2 gap-2 mb-3">
