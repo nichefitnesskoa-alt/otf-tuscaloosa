@@ -84,7 +84,7 @@ export default function BingoSharePage() {
     <div className="min-h-screen px-3 sm:px-4 py-5" style={{ background: BRAND_INK, color: BRAND_CREAM, fontFamily: FONT }}>
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-4">
-          <img src={otfLogo} alt="Orangetheory Fitness" className="h-7 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+          <img src={otfLogo.url} alt="Orangetheory Fitness" className="h-7 object-contain" />
           <p className="text-[10px] uppercase tracking-[0.4em] font-bold" style={{ color: BRAND_GREY }}>Tuscaloosa</p>
         </div>
 
