@@ -9,6 +9,7 @@ import { useData } from '@/context/DataContext';
 import { format, addDays, differenceInHours, differenceInMinutes } from 'date-fns';
 import { getTodayStartISO } from '@/lib/dateUtils';
 import { formatDisplayTime, buildClassStartDateTime } from '@/lib/time/timeUtils';
+import { didIntroActuallyRun, NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 
 export type ChecklistItemType =
   | 'q_send'
@@ -96,6 +97,47 @@ export function useWinTheDayItems() {
       const qSlugByBooking = new Map<string, string>();
       for (const q of (qRecords || [])) {
         if (q.slug && q.booking_id) qSlugByBooking.set(q.booking_id, q.slug);
+      }
+
+      // Build "real 2nd intro" set — child is only a 2nd intro if the
+      // parent's intro actually ran (parent not in NON_RAN_BOOKING_STATUSES
+      // AND parent's runs satisfy didIntroActuallyRun). Otherwise child is
+      // its own 1st intro and still needs Q sends, prep, etc.
+      const realSecondIntroIds = new Set<string>();
+      const parentIds = Array.from(new Set(
+        (todayIntros || [])
+          .map(i => i.originating_booking_id)
+          .filter(Boolean) as string[],
+      ));
+      if (parentIds.length > 0) {
+        const [{ data: parentBookings }, { data: parentRuns }] = await Promise.all([
+          supabase
+            .from('intros_booked')
+            .select('id, booking_status_canon, deleted_at, member_name')
+            .in('id', parentIds),
+          supabase
+            .from('intros_run')
+            .select('linked_intro_booked_id, result, result_canon')
+            .in('linked_intro_booked_id', parentIds),
+        ]);
+        const parentMap = new Map((parentBookings || []).map(p => [p.id, p]));
+        const runsByParent = new Map<string, any[]>();
+        for (const r of (parentRuns || [])) {
+          if (!r.linked_intro_booked_id) continue;
+          const arr = runsByParent.get(r.linked_intro_booked_id) || [];
+          arr.push(r);
+          runsByParent.set(r.linked_intro_booked_id, arr);
+        }
+        for (const intro of (todayIntros || [])) {
+          if (!intro.originating_booking_id) continue;
+          const parent = parentMap.get(intro.originating_booking_id);
+          if (!parent) continue;
+          if ((parent as any).deleted_at) continue;
+          if (NON_RAN_BOOKING_STATUSES.has((parent as any).booking_status_canon || '')) continue;
+          const pRuns = runsByParent.get(parent.id) || [];
+          const ran = pRuns.length === 0 || pRuns.some(r => didIntroActuallyRun(r));
+          if (ran) realSecondIntroIds.add(intro.id);
+        }
       }
 
       // ── 2. Fetch tomorrow's intros for confirmations (exclude reschedule/cancelled) ──
@@ -188,7 +230,7 @@ export function useWinTheDayItems() {
 
       // Questionnaire sends & resends
       for (const intro of (todayIntros || [])) {
-        if (intro.originating_booking_id) continue; // skip 2nd intros
+        if (realSecondIntroIds.has(intro.id)) continue; // skip real 2nd intros
 
         const classStart = buildClassStartDateTime(intro.class_date, intro.intro_time) || new Date(`${intro.class_date}T23:59:00`);
         const minutesUntil = differenceInMinutes(classStart, now);

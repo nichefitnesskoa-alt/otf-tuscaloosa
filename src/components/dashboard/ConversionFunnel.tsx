@@ -11,6 +11,7 @@ import { parseLocalDate } from '@/lib/utils';
 import { FunnelDrillSheet, DrillPerson } from './FunnelDrillSheet';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { resolvePromotedOrphanBookingIds } from '@/lib/intros/orphanedFirstIntros';
+import { isSecondIntroBooking } from '@/lib/intros/secondIntroDetection';
 
 interface ConversionFunnelProps {
   dateRange?: DateRange | null;
@@ -87,14 +88,14 @@ export function computeFunnelBothRows(
     const phone = (b as any).phone_e164 as string | null | undefined;
     const key = personKey(phone, b.member_name);
     bookingPersonKey.set(b.id, key);
-    // Only count non-excluded bookings as evidence of a real 2nd-intro
-    // booking for the person — deleted children must not flip the chain.
-    const hasOrig = !!((b as any).originating_booking_id)
-      && !(b as any).referred_by_member_name
-      && !promotedOrphanIds.has(b.id)
-      && !excludedBookingIds.has(b.id);
-    bookingIsSecond.set(b.id, hasOrig);
-    if (hasOrig) personHasSecondBooking.set(key, true);
+    // Canonical 2nd-intro detection — requires parent intro to have
+    // actually run. Skip promoted orphans (already root) and excluded
+    // bookings (deleted children).
+    const isReal2nd = !promotedOrphanIds.has(b.id)
+      && !excludedBookingIds.has(b.id)
+      && isSecondIntroBooking(b as any, introsBooked as any, introsRun as any);
+    bookingIsSecond.set(b.id, isReal2nd);
+    if (isReal2nd) personHasSecondBooking.set(key, true);
     const normName = b.member_name.toLowerCase().replace(/\s+/g, '');
     if (!nameToPersonKey.has(normName)) {
       nameToPersonKey.set(normName, key);
@@ -138,7 +139,15 @@ export function computeFunnelBothRows(
   const isFirstBooking = (b: IntroBooked): boolean => {
     // Promoted orphan: already chosen as the canonical 1st intro for the chain.
     if (promotedOrphanIds.has(b.id)) return true;
-    if ((b as any).originating_booking_id && !(b as any).referred_by_member_name) return false;
+    // Canonical 2nd-intro check — when the parent intro actually ran,
+    // this is a real 2nd intro (not a 1st).
+    if (bookingIsSecond.get(b.id)) return false;
+    // When parent did NOT run (no-show / cancelled / rescheduled) OR
+    // there's no orig link at all, this booking is its own chain root
+    // → counts as a 1st intro.
+    if ((b as any).originating_booking_id && !(b as any).referred_by_member_name) {
+      return true; // parent didn't run → child is a fresh 1st intro
+    }
     const key = bookingPersonKey.get(b.id)!;
     const dates = personBookingDates.get(key) || [];
     return dates[0] === b.class_date;

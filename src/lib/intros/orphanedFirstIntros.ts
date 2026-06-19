@@ -51,21 +51,6 @@ export function resolvePromotedOrphanBookingIds(
   const bookingById = new Map<string, BookingLike>();
   for (const b of allBookings) bookingById.set(b.id, b);
 
-  // Group candidate children by originating_booking_id where the original
-  // is either missing or itself excluded.
-  const groups = new Map<string, BookingLike[]>();
-  for (const b of allBookings) {
-    const origId = b.originating_booking_id;
-    if (!origId) continue;
-    if (isBookingExcludedFromMetrics(b)) continue; // child must itself be eligible
-    const orig = bookingById.get(origId);
-    const origExcluded = !orig || isBookingExcludedFromMetrics(orig);
-    if (!origExcluded) continue;
-    const arr = groups.get(origId) || [];
-    arr.push(b);
-    groups.set(origId, arr);
-  }
-
   // Index runs by booking id for fast lookup.
   const runsByBooking = new Map<string, RunLike[]>();
   for (const r of allRuns) {
@@ -83,6 +68,36 @@ export function resolvePromotedOrphanBookingIds(
     if (res === 'no-show' || res === 'no show') return false;
     return true;
   };
+
+  // A parent counts as "excluded for orphan-promotion" if:
+  //   - it's missing from the batch, OR
+  //   - isBookingExcludedFromMetrics (deleted/VIP/etc.), OR
+  //   - all of its runs are non-ran (no-show / unresolved / vip-class).
+  // The last case is what handles "child whose parent was a no-show" —
+  // the parent's intro never actually happened, so the child IS the real
+  // 1st intro.
+  const isParentExcludedForPromotion = (parent: BookingLike | undefined): boolean => {
+    if (!parent) return true;
+    if (isBookingExcludedFromMetrics(parent)) return true;
+    const pRuns = runsByBooking.get(parent.id) || [];
+    if (pRuns.length === 0) return false; // no run yet → parent might still run
+    return !pRuns.some(isRanRun);
+  };
+
+  // Group candidate children by originating_booking_id where the original
+  // is missing, excluded, or never actually ran.
+  const groups = new Map<string, BookingLike[]>();
+  for (const b of allBookings) {
+    const origId = b.originating_booking_id;
+    if (!origId) continue;
+    if (isBookingExcludedFromMetrics(b)) continue; // child must itself be eligible
+    const orig = bookingById.get(origId);
+    if (!isParentExcludedForPromotion(orig)) continue;
+    const arr = groups.get(origId) || [];
+    arr.push(b);
+    groups.set(origId, arr);
+  }
+
 
   const promoted = new Set<string>();
   for (const [, candidates] of groups) {

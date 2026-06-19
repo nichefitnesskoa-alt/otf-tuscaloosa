@@ -10,7 +10,7 @@ import type { UpcomingIntroItem, TimeRange, QuestionnaireStatus } from './myDayT
 import { enrichWithRisk, sortByTime } from './myDaySelectors';
 import { normalizeDbTime } from '@/lib/time/timeUtils';
 import { isVipBooking } from '@/lib/vip/vipRules';
-import { NON_RAN_BOOKING_STATUSES, NON_RAN_RESULT_CANONS } from '@/lib/canon/introRules';
+import { NON_RAN_BOOKING_STATUSES, NON_RAN_RESULT_CANONS, didIntroActuallyRun } from '@/lib/canon/introRules';
 
 // Postgres `IN (...)` literal derived from the canonical NON_RAN_RESULT_CANONS
 // set, so this query agrees with `didIntroActuallyRun` everywhere else.
@@ -267,23 +267,25 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
 
       // ── 2nd intro detection: check originating_booking_id + prior runs ──
       {
-        // 1) originating_booking_id with same member name = definitive 2nd intro
-        //    BUT skip friend bookings (referred_by_member_name set)
+        // 1) originating_booking_id with same member name = potential 2nd intro.
+        //    Counts ONLY if the parent intro actually ran:
+        //      - parent status not in NON_RAN_BOOKING_STATUSES, AND
+        //      - if parent has any run, at least one run satisfies didIntroActuallyRun.
+        //    Skip friend bookings (referred_by_member_name set).
         for (const item of rawItems) {
           const b = bookings.find(bk => bk.id === item.bookingId);
           if (!b || !b.originating_booking_id || b.referred_by_member_name) continue;
           const orig = bookings.find(o => o.id === b.originating_booking_id);
           if (orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '')) {
-            // Only count as 2nd intro if the originating booking actually ran
-            // (not no-show, not rescheduled, not cancelled, not soft-deleted)
-            if (!NON_RAN_BOOKING_STATUSES.has((orig as any).booking_status_canon || '')) {
+            const statusGate = !NON_RAN_BOOKING_STATUSES.has((orig as any).booking_status_canon || '');
+            const origRun = runMap.get(orig.id);
+            // No run yet → trust status. Has a run → must satisfy didIntroActuallyRun.
+            const runGate = !origRun || didIntroActuallyRun({ result: origRun.result });
+            if (statusGate && runGate) {
               item.isSecondIntro = true;
             }
           }
-          // If originating booking not in batch, query it
-          if (!orig && b.originating_booking_id) {
-            // Will be resolved below via prior-run check
-          }
+          // If originating booking not in batch, will be resolved below.
         }
 
         // 2) Check for prior intros_run records for each member name
@@ -356,22 +358,29 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           const b = bookings.find(bk => bk.id === item.bookingId);
           if (!b || !b.originating_booking_id || b.referred_by_member_name) continue;
           if (bookings.find(o => o.id === b.originating_booking_id)) continue; // already handled
-          // Originating booking is outside batch — check if same member AND originator actually ran.
-          // If originator status is in NON_RAN_BOOKING_STATUSES (no-show, rescheduled, cancelled,
-          // soft-deleted), the member never had a real first intro, so this rebook IS the 1st intro.
+          // Originating booking is outside batch — check same member AND
+          // (a) status not NON_RAN AND (b) parent's runs (if any) actually ran.
           const { data: origBooking } = await supabase
             .from('intros_booked')
             .select('member_name, booking_status_canon, deleted_at')
             .eq('id', b.originating_booking_id)
             .maybeSingle();
           if (
-            origBooking &&
-            origBooking.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '') &&
-            !NON_RAN_BOOKING_STATUSES.has((origBooking as any).booking_status_canon || '') &&
-            !(origBooking as any).deleted_at
-          ) {
-            item.isSecondIntro = true;
-          }
+            !origBooking ||
+            origBooking.member_name.toLowerCase().replace(/\s+/g, '') !== b.member_name.toLowerCase().replace(/\s+/g, '') ||
+            NON_RAN_BOOKING_STATUSES.has((origBooking as any).booking_status_canon || '') ||
+            (origBooking as any).deleted_at
+          ) continue;
+          // Status passes — confirm parent's runs (if any) actually ran.
+          const { data: origRuns } = await supabase
+            .from('intros_run')
+            .select('result, result_canon')
+            .eq('linked_intro_booked_id', b.originating_booking_id)
+            .limit(10);
+          const runs = origRuns || [];
+          // No runs → trust status. Has runs → at least one must satisfy didIntroActuallyRun.
+          const anyRan = runs.length === 0 || runs.some(r => didIntroActuallyRun(r as any));
+          if (anyRan) item.isSecondIntro = true;
       }
 
       // VIP Class intros are neither 1st nor 2nd — force flag off

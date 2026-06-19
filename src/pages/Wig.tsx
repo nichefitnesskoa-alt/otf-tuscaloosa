@@ -23,6 +23,7 @@ import { isSaleInRange, isRunInRange } from '@/lib/sales-detection';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 import { resolvePromotedOrphanBookingIds } from '@/lib/intros/orphanedFirstIntros';
+import { NON_RAN_BOOKING_STATUSES, didIntroActuallyRun } from '@/lib/canon/introRules';
 import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } from '@/components/dashboard/CoachAttributionDrillDown';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
@@ -611,6 +612,20 @@ export default function Wig() {
         }
 
         // Walk originating_booking_id up to the root first intro (Total Journey).
+        // Stop walking if the immediate parent's intro didn't actually run
+        // (no-show / cancelled / rescheduled / deleted, OR runs all no-show) —
+        // in that case the current node IS the real 1st intro.
+        const parentRunsCache = new Map<string, any[]>();
+        const fetchParentRuns = async (parentId: string): Promise<any[]> => {
+          if (parentRunsCache.has(parentId)) return parentRunsCache.get(parentId)!;
+          const { data } = await supabase
+            .from('intros_run')
+            .select('result, result_canon')
+            .eq('linked_intro_booked_id', parentId);
+          const arr = data || [];
+          parentRunsCache.set(parentId, arr);
+          return arr;
+        };
         const rootCache = new Map<string, any>();
         const resolveRoot = async (startId: string): Promise<any | null> => {
           if (rootCache.has(startId)) return rootCache.get(startId);
@@ -629,6 +644,13 @@ export default function Wig() {
             }
             const next = bookingByIdMap.get(parentId);
             if (!next) break;
+            // Stop walking if this parent isn't a real ran-intro.
+            const parentStatus = (next.booking_status_canon || '').toUpperCase();
+            if (next.deleted_at || NON_RAN_BOOKING_STATUSES.has(parentStatus)) break;
+            const parentRuns = await fetchParentRuns(parentId);
+            const parentActuallyRan = parentRuns.length === 0
+              || parentRuns.some(r => didIntroActuallyRun(r));
+            if (!parentActuallyRan) break;
             current = next;
           }
           rootCache.set(startId, current || null);
@@ -668,7 +690,7 @@ export default function Wig() {
           ex.closed++;
           coachCloseMap.set(cName, ex);
 
-          const isViaSecond = !!linked.originating_booking_id;
+          const isViaSecond = !!linked.originating_booking_id && root.id !== linked.id;
           ensureAttrib(cName).closes.push({
             bookingId: root.id,
             member: root.member_name || linked.member_name || 'Unknown',

@@ -44,6 +44,7 @@ import { formatPhoneDisplay } from '@/lib/parsing/phone';
 import { notifyDataChanged } from '@/lib/data/invalidation';
 import { computeExpectedIntroOwner, classifyIntroOwnerStatus, type IntroOwnerMismatchStatus } from '@/lib/intros/introOwnerRule';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
+import { isSecondIntroBooking } from '@/lib/intros/secondIntroDetection';
 import { resolvePerson, type PersonIdentifier, type PersonResolution } from '@/lib/person/resolvePerson';
 import { updateBookingFieldsFromPipeline, syncIntroOwnerToBooking } from '@/features/pipeline/pipelineActions';
 import { isCloseRun } from '@/lib/intros/close-detection';
@@ -165,16 +166,18 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
 
   const reload = () => setReloadTick(t => t + 1);
 
-  // Build chain map: rootId → ordered bookings (root first, then 2nd intros)
+  // Build chain map: rootId → ordered bookings (root first, then 2nd intros).
+  // Uses canonical isSecondIntroBooking so children whose parent never
+  // actually ran (no-show / cancelled / rescheduled / excluded) are
+  // promoted to roots (1st intros) instead of being labeled "2nd".
   const orderedBookings = useMemo(() => {
-    const byId = new Map(bookings.map(b => [b.id, b]));
     const roots: BookingRow[] = [];
     const childrenOf: Record<string, BookingRow[]> = {};
     for (const b of bookings) {
-      if (!b.originating_booking_id || !byId.has(b.originating_booking_id)) {
-        roots.push(b);
+      if (isSecondIntroBooking(b as any, bookings as any, runs as any)) {
+        (childrenOf[b.originating_booking_id as string] ||= []).push(b);
       } else {
-        (childrenOf[b.originating_booking_id] ||= []).push(b);
+        roots.push(b);
       }
     }
     roots.sort((a, b) => (a.class_date || '').localeCompare(b.class_date || ''));
@@ -186,7 +189,7 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
         .forEach(c => flat.push({ booking: c, isSecondIntro: true, chainIdx: idx + 1 }));
     });
     return flat;
-  }, [bookings]);
+  }, [bookings, runs]);
 
   const visibleOrderedBookings = useMemo(() => {
     return orderedBookings.filter(({ booking }) => {

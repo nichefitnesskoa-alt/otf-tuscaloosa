@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { format, subDays, addDays, differenceInHours } from 'date-fns';
 import { localDateToStartISO } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
+import { didIntroActuallyRun, NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 
 export type FollowUpType = 'noshow_1st' | 'noshow_2nd' | 'reschedule' | 'didnt_buy_1st' | 'didnt_buy_2nd' | 'planning_to_buy';
 
@@ -198,8 +199,14 @@ export function useFollowUpData() {
         const orig = bookingByIdEarly.get(b.originating_booking_id);
         if (!orig) return true; // originator outside batch — be permissive
         if ((orig as any).deleted_at) return false;
-        if ((orig as any).booking_status_canon === 'NO_SHOW') return false;
-        return orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '');
+        if (NON_RAN_BOOKING_STATUSES.has((orig as any).booking_status_canon || '')) return false;
+        if (orig.member_name.toLowerCase().replace(/\s+/g, '') !== b.member_name.toLowerCase().replace(/\s+/g, '')) return false;
+        // Parent's booking_status_canon may be ACTIVE while the actual run
+        // was a no-show. If parent has any runs, at least one must satisfy
+        // didIntroActuallyRun for the child to count as a real 2nd intro.
+        const origRuns = runsByBookingId.get(orig.id) || [];
+        if (origRuns.length === 0) return true; // no run yet → trust status
+        return origRuns.some(r => didIntroActuallyRun(r as any));
       };
 
       const secondIntroByOrigin = new Map<string, (typeof bookings)[0]>();
@@ -313,7 +320,7 @@ export function useFollowUpData() {
         }
 
         // State B: 2nd intro ran with non-terminal outcome → Didn't Buy (2nd)
-        if (booking?.originating_booking_id && !isTerminal(r.result)) {
+        if (booking && isRealSecondIntroBooking(booking) && !isTerminal(r.result)) {
           processed.add(key);
           item.followUpState = 'B';
           item.isSecondIntro = true;
@@ -344,7 +351,7 @@ export function useFollowUpData() {
       for (const b of bookings) {
         if (b.class_date >= today) continue;
         if (runsByBookingId.has(b.id)) continue;
-        if (b.originating_booking_id) continue;
+        if (isRealSecondIntroBooking(b)) continue;
         const memberNameLower = b.member_name.toLowerCase();
         if (terminalMembers.has(memberNameLower)) continue;
         const key = `${memberNameLower}-${b.id}`;
