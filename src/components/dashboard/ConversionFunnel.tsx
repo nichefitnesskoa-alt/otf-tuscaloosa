@@ -11,6 +11,7 @@ import { parseLocalDate } from '@/lib/utils';
 import { FunnelDrillSheet, DrillPerson } from './FunnelDrillSheet';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { resolvePromotedOrphanBookingIds } from '@/lib/intros/orphanedFirstIntros';
+import { isSecondIntroBooking } from '@/lib/intros/secondIntroDetection';
 
 interface ConversionFunnelProps {
   dateRange?: DateRange | null;
