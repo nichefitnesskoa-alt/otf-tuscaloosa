@@ -230,7 +230,7 @@ export function useWinTheDayItems() {
 
       // Questionnaire sends & resends
       for (const intro of (todayIntros || [])) {
-        if (intro.originating_booking_id) continue; // skip 2nd intros
+        if (realSecondIntroIds.has(intro.id)) continue; // skip real 2nd intros
 
         const classStart = buildClassStartDateTime(intro.class_date, intro.intro_time) || new Date(`${intro.class_date}T23:59:00`);
         const minutesUntil = differenceInMinutes(classStart, now);
