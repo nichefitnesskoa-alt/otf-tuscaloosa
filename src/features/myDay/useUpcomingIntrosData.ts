@@ -267,23 +267,25 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
 
       // ── 2nd intro detection: check originating_booking_id + prior runs ──
       {
-        // 1) originating_booking_id with same member name = definitive 2nd intro
-        //    BUT skip friend bookings (referred_by_member_name set)
+        // 1) originating_booking_id with same member name = potential 2nd intro.
+        //    Counts ONLY if the parent intro actually ran:
+        //      - parent status not in NON_RAN_BOOKING_STATUSES, AND
+        //      - if parent has any run, at least one run satisfies didIntroActuallyRun.
+        //    Skip friend bookings (referred_by_member_name set).
         for (const item of rawItems) {
           const b = bookings.find(bk => bk.id === item.bookingId);
           if (!b || !b.originating_booking_id || b.referred_by_member_name) continue;
           const orig = bookings.find(o => o.id === b.originating_booking_id);
           if (orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '')) {
-            // Only count as 2nd intro if the originating booking actually ran
-            // (not no-show, not rescheduled, not cancelled, not soft-deleted)
-            if (!NON_RAN_BOOKING_STATUSES.has((orig as any).booking_status_canon || '')) {
+            const statusGate = !NON_RAN_BOOKING_STATUSES.has((orig as any).booking_status_canon || '');
+            const origRun = runMap.get(orig.id);
+            // No run yet → trust status. Has a run → must satisfy didIntroActuallyRun.
+            const runGate = !origRun || didIntroActuallyRun({ result: origRun.result });
+            if (statusGate && runGate) {
               item.isSecondIntro = true;
             }
           }
-          // If originating booking not in batch, query it
-          if (!orig && b.originating_booking_id) {
-            // Will be resolved below via prior-run check
-          }
+          // If originating booking not in batch, will be resolved below.
         }
 
         // 2) Check for prior intros_run records for each member name
