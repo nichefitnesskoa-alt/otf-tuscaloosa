@@ -9,6 +9,7 @@ import { useData } from '@/context/DataContext';
 import { format, addDays, differenceInHours, differenceInMinutes } from 'date-fns';
 import { getTodayStartISO } from '@/lib/dateUtils';
 import { formatDisplayTime, buildClassStartDateTime } from '@/lib/time/timeUtils';
+import { didIntroActuallyRun, NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 
 export type ChecklistItemType =
   | 'q_send'
