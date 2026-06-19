@@ -88,14 +88,14 @@ export function computeFunnelBothRows(
     const phone = (b as any).phone_e164 as string | null | undefined;
     const key = personKey(phone, b.member_name);
     bookingPersonKey.set(b.id, key);
-    // Only count non-excluded bookings as evidence of a real 2nd-intro
-    // booking for the person — deleted children must not flip the chain.
-    const hasOrig = !!((b as any).originating_booking_id)
-      && !(b as any).referred_by_member_name
-      && !promotedOrphanIds.has(b.id)
-      && !excludedBookingIds.has(b.id);
-    bookingIsSecond.set(b.id, hasOrig);
-    if (hasOrig) personHasSecondBooking.set(key, true);
+    // Canonical 2nd-intro detection — requires parent intro to have
+    // actually run. Skip promoted orphans (already root) and excluded
+    // bookings (deleted children).
+    const isReal2nd = !promotedOrphanIds.has(b.id)
+      && !excludedBookingIds.has(b.id)
+      && isSecondIntroBooking(b as any, introsBooked as any, introsRun as any);
+    bookingIsSecond.set(b.id, isReal2nd);
+    if (isReal2nd) personHasSecondBooking.set(key, true);
     const normName = b.member_name.toLowerCase().replace(/\s+/g, '');
     if (!nameToPersonKey.has(normName)) {
       nameToPersonKey.set(normName, key);
