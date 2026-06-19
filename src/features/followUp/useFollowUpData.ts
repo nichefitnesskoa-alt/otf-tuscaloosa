@@ -351,7 +351,7 @@ export function useFollowUpData() {
       for (const b of bookings) {
         if (b.class_date >= today) continue;
         if (runsByBookingId.has(b.id)) continue;
-        if (b.originating_booking_id) continue;
+        if (isRealSecondIntroBooking(b)) continue;
         const memberNameLower = b.member_name.toLowerCase();
         if (terminalMembers.has(memberNameLower)) continue;
         const key = `${memberNameLower}-${b.id}`;
