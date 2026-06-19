@@ -139,7 +139,8 @@ export function computeFunnelBothRows(
   const isFirstBooking = (b: IntroBooked): boolean => {
     // Promoted orphan: already chosen as the canonical 1st intro for the chain.
     if (promotedOrphanIds.has(b.id)) return true;
-    if ((b as any).originating_booking_id && !(b as any).referred_by_member_name) return false;
+    // Canonical 2nd-intro check — handles no-show/cancelled parents.
+    if (bookingIsSecond.get(b.id)) return false;
     const key = bookingPersonKey.get(b.id)!;
     const dates = personBookingDates.get(key) || [];
     return dates[0] === b.class_date;
