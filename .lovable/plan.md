@@ -1,45 +1,82 @@
-# WIG legibility + global dark/light toggle
+## The bug (verified in DB)
 
-Three coordinated UI changes. No data, no business logic, no hooks touched.
+Maliyah Grant's Jun 19 intro was a **no-show RUN** (booking_status_canon is still `ACTIVE`, but the linked `intros_run.result_canon = 'NO_SHOW'`). Her Jun 20 booking has `originating_booking_id` pointing at the Jun 19 row, so every consumer that decides "1st vs 2nd intro" from `originating_booking_id` alone labels Jun 20 as "Chain 1 · 2nd". It should be a 1st intro — she never actually had a 1st.
 
-## 1. WIG Team hero — denominator = pace-to-today, big number stays readable
+There's also a 3rd row (DELETED_SOFT, 10:30 Jun 19) — confirms the chain link, not the bug.
 
-File: `src/components/wig/WigSaLeaderboard.tsx`
+Existing helpers cover *part* of this:
+- `NON_RAN_BOOKING_STATUSES` (NO_SHOW / CANCELLED / PLANNING_RESCHEDULE / DELETED_SOFT) — only checks booking status.
+- `didIntroActuallyRun(run)` — only checks a single run.
+- `useIntroTypeDetection` excludes NO_SHOW *bookings* from grouping, but NOT bookings whose status is ACTIVE with a no-show run, and NOT CANCELLED.
+- `ConversionFunnel`, `PersonJourneyCard`, `useUpcomingIntrosData`, `useFollowUpData`, `Wig.tsx` chain-walk all check `originating_booking_id` directly with no parent-actually-ran gate.
 
-- Change hero denominator from month-end total (`teamTargets.sgl`, currently 90) to today's expected total (`Math.round(teamPace.sgl)`, e.g. 48). Label becomes: `of 48 today` (where 48 = `Math.round(teamPace.sgl)`).
-- Keep the month-end total findable on the same card by appending: `month goal: {teamTargets.sgl}` in the right-side meta row (next to "Per-SA target × N active SAs"). Nothing about goal-setting is removed.
-- Big team number (`text-5xl`): bump to `text-7xl` and switch color from `heroCls.text` (which turns red when behind) to `text-foreground`. In dark mode `--foreground` = white; in light mode it's near-black. The status color stays expressed via the pace bar + the pace-today line, not by recoloring the headline number.
-- "Pace today: 48 · behind today — close the gap" line: bump from `text-[11px] text-muted-foreground` to `text-base text-foreground`. The colored status word (e.g. `formatPace(teamPace.sgl)`) keeps `heroCls.text` so red/yellow/green still reads — only the surrounding copy gets larger and brighter.
-- Per-SA row big number in the leaderboard table (`text-3xl` colored by status): bump to `text-4xl` and color `text-foreground`. The `/ {pace}` suffix beside it grows from `text-xs` → `text-sm text-foreground`. Status color is preserved on the row's pace bar.
-- Leaderboard column subhead `need X today` (already `text-sm text-foreground`) stays; `of X this month` bumps from `text-xs text-muted-foreground` to `text-sm text-foreground`.
+This is the system-coherence bug the workspace rules call out — one concept ("is this a 2nd intro?") implemented inline in 6+ places.
 
-## 2. Studio Leads hero — same treatment
+## The fix — one canonical helper, route every consumer through it
 
-File: `src/pages/Wig.tsx` (~lines 825–850)
+### 1. New canonical helper: `src/lib/intros/secondIntroDetection.ts`
 
-- Change `of {targets.studioLeads} target` → `of {Math.round(studioLeadsPace)} today`. Append `month goal: {targets.studioLeads}` in the existing target-editor row below so the 182 number is still visible/editable.
-- Big number (`text-6xl`): keep size, switch color from `studioHeroCls.text` to `text-foreground` (white in dark, foreground in light).
-- "Should be at X by today" block: `text-base` → `text-lg`. Inner "behind pace / ahead" line: `text-sm` → `text-base font-bold`. Round the diff: `Math.round(studioLeadsPace - totalLeads)`.
+```ts
+isSecondIntroBooking(child, allBookings, allRuns): boolean
+```
 
-## 3. Dark / light mode toggle on every page
+Returns `true` only when ALL of:
+1. `child.originating_booking_id` is set
+2. `child.referred_by_member_name` is null (friend bookings are 1st intros)
+3. The parent booking exists in `allBookings`
+4. Parent's `member_name` matches child's (same person; otherwise friend)
+5. Parent is **not excluded** (`isBookingExcludedFromMetrics`)
+6. Parent's `booking_status_canon` is **not** in `NON_RAN_BOOKING_STATUSES`
+7. Parent has at least one run where `didIntroActuallyRun(run)` is true
+   *(this is the new gate — handles the Maliyah case where booking is ACTIVE but the run was NO_SHOW)*
 
-Today the toggle only lives in `MyDayPage.tsx` (top-right of the floating header). The hook `useDarkMode` is already global and persists via `localStorage`.
+Plus a companion `getEffectiveOriginatingBookingId(child, allBookings, allRuns)` that walks up the chain skipping no-show / cancelled / rescheduled parents, so chain index ("Chain N") and root resolution stay correct.
 
-- Add a Sun/Moon `Button` to the global `Header` (`src/components/Header.tsx`), placed between `NotificationsBell` and the user `User` icon. Same styling as the My Day toggle (`variant="ghost"`, `size="icon"`, `text-background hover:bg-background/10`).
-- Coaches don't render `Header` (see `AppLayout`). Add the same toggle to `BottomNav` (`src/components/BottomNav.tsx`) so coaches always have access; render it as a small icon button to the right of the nav items (or absolutely positioned top-right of the nav bar) — visible for all roles, harmless duplication for non-coaches.
-- Remove the toggle from `MyDayPage.tsx` so we don't have two side-by-side once Header has it. (Header is rendered on MyDay for SAs.)
+### 2. Replace inline checks (the reach map)
+
+| File | Current inline logic | Replace with |
+|---|---|---|
+| `src/components/person/PersonJourneyCard.tsx` (lines 168-189) | child = any booking with `originating_booking_id` | `isSecondIntroBooking()` — fixes the visible "Chain 1 · 2nd" bug |
+| `src/components/dashboard/ConversionFunnel.tsx` (`bookingIsSecond` map) | same | `isSecondIntroBooking()` |
+| `src/hooks/useIntroTypeDetection.ts` | excludes only NO_SHOW bookings; checks `originating_booking_id` w/ same-name | route through `isSecondIntroBooking()`; preserve fallback to "2ND" status text |
+| `src/features/myDay/useUpcomingIntrosData.ts` (2nd-intro detection block) | originating_booking_id + same name | `isSecondIntroBooking()` |
+| `src/features/followUp/useFollowUpData.ts` (`secondIntroByOrigin`) | originating_booking_id present | `isSecondIntroBooking()` |
+| `src/features/myDay/useWinTheDayItems.ts` line 191 (`skip 2nd intros`) | `if (intro.originating_booking_id) continue` | `if (isSecondIntroBooking(...)) continue` |
+| `src/pages/Wig.tsx` chain-walk (lines 619-625) and 2nd-intro grouping (lines 499-504, 671) | originating_booking_id present | `isSecondIntroBooking()` + `getEffectiveOriginatingBookingId()` |
+| `src/lib/intros/orphanedFirstIntros.ts` | already handles excluded parents | extend: parent counts as "excluded for orphan-promotion purposes" if it also failed `didIntroActuallyRun` (so the Maliyah child gets promoted to 1st intro in funnels/metrics, not just in the journey card) |
+
+### 3. Verify with the same DB row
+
+After the fix, Maliyah's three rows produce:
+- Jun 19 (ACTIVE, no-show run) → 1st intro
+- Jun 19 10:30 (DELETED_SOFT, excluded) → not displayed
+- Jun 20 (ACTIVE, originating → Jun 19 which didn't actually run) → **1st intro** (was: 2nd)
+
+Cross-page checks to confirm coherence:
+- Person Journey Card: both visible rows labeled "Chain 1 · 1st" / "Chain 2 · 1st"
+- Conversion Funnel: Maliyah counts in 1st Intro Booked row twice, not in 2nd Intro row
+- WIG Per-Coach: Koa keeps the 1st (no-show), James gets a 1st (was being counted as Koa's 2nd)
+- MyDay Upcoming Intros: Jun 20 card no longer flagged "2nd intro"
+- Follow-Up Queue: Jun 20 doesn't appear in "2nd Intro" tab
 
 ## Out of scope
 
-- No hook changes, no React Query keys, no DB reads/writes, no pace formula changes, no role permissions.
-- Targets math, leaderboard sort, drilldowns, GroupMe — untouched.
+- No DB schema changes. We do NOT clear `originating_booking_id` — the link is still useful for chain traversal and audit. We just stop misinterpreting it.
+- No changes to commission attribution math, sales-detection, or `isCloseRun`. The journey/sale logic in `journey.ts` already calls `isBookingExcludedFromMetrics`; the new helper is additive.
+- No changes to staff dropdowns, dates, roles, or VIP logic.
 
-## Coherence proof (will be produced after build)
+## Files touched
 
-- Hero shows `27 of {Math.round(teamPace.sgl)} today` and the Team row in the leaderboard sums to 27 (same source: `totals.sgl`).
-- `Math.round(teamPace.sgl)` shown in hero === `formatPace(teamPace.sgl)` rounded === number shown in "Pace today" line.
-- Studio hero `of N today` === `Math.round(studioLeadsPace)` === "Should be at N by today".
-- Dark toggle visible & functional on /wig, /the-table, /pipeline, /coach-view, /my-day, /vips, /recaps for all three roles.
-- Big team SGL number and big per-SA SGL numbers render in white in dark mode (verified via `getComputedStyle` or screenshot) and stay foreground in light mode.
+- `src/lib/intros/secondIntroDetection.ts` (new)
+- `src/components/person/PersonJourneyCard.tsx`
+- `src/components/dashboard/ConversionFunnel.tsx`
+- `src/hooks/useIntroTypeDetection.ts`
+- `src/features/myDay/useUpcomingIntrosData.ts`
+- `src/features/myDay/useWinTheDayItems.ts`
+- `src/features/followUp/useFollowUpData.ts`
+- `src/pages/Wig.tsx`
+- `src/lib/intros/orphanedFirstIntros.ts`
 
-Files to edit: `src/components/wig/WigSaLeaderboard.tsx`, `src/pages/Wig.tsx`, `src/components/Header.tsx`, `src/components/BottomNav.tsx`, `src/features/myDay/MyDayPage.tsx`.
+## Closing
+
+I'll end the build with a COHERENCE PROOF block: `read_query` confirming the three Maliyah rows, plus the labeled counts produced by each consumer above (Journey card, Funnel, WIG, MyDay, Follow-Up) all agreeing.
