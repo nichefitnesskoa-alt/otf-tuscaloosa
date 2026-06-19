@@ -199,8 +199,14 @@ export function useFollowUpData() {
         const orig = bookingByIdEarly.get(b.originating_booking_id);
         if (!orig) return true; // originator outside batch — be permissive
         if ((orig as any).deleted_at) return false;
-        if ((orig as any).booking_status_canon === 'NO_SHOW') return false;
-        return orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '');
+        if (NON_RAN_BOOKING_STATUSES.has((orig as any).booking_status_canon || '')) return false;
+        if (orig.member_name.toLowerCase().replace(/\s+/g, '') !== b.member_name.toLowerCase().replace(/\s+/g, '')) return false;
+        // Parent's booking_status_canon may be ACTIVE while the actual run
+        // was a no-show. If parent has any runs, at least one must satisfy
+        // didIntroActuallyRun for the child to count as a real 2nd intro.
+        const origRuns = runsByBookingId.get(orig.id) || [];
+        if (origRuns.length === 0) return true; // no run yet → trust status
+        return origRuns.some(r => didIntroActuallyRun(r as any));
       };
 
       const secondIntroByOrigin = new Map<string, (typeof bookings)[0]>();
