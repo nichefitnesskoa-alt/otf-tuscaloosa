@@ -98,23 +98,6 @@ export function resolvePromotedOrphanBookingIds(
     groups.set(origId, arr);
   }
 
-  // Index runs by booking id for fast lookup.
-  const runsByBooking = new Map<string, RunLike[]>();
-  for (const r of allRuns) {
-    const bid = r.linked_intro_booked_id;
-    if (!bid) continue;
-    const arr = runsByBooking.get(bid) || [];
-    arr.push(r);
-    runsByBooking.set(bid, arr);
-  }
-
-  const isRanRun = (r: RunLike) => {
-    const rc = (r.result_canon || '').toUpperCase();
-    if (rc === 'NO_SHOW' || rc === 'UNRESOLVED' || rc === 'VIP_CLASS_INTRO') return false;
-    const res = (r.result || '').toLowerCase();
-    if (res === 'no-show' || res === 'no show') return false;
-    return true;
-  };
 
   const promoted = new Set<string>();
   for (const [, candidates] of groups) {
