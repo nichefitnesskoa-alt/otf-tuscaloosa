@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { format, subDays, addDays, differenceInHours } from 'date-fns';
 import { localDateToStartISO } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
+import { didIntroActuallyRun, NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 
 export type FollowUpType = 'noshow_1st' | 'noshow_2nd' | 'reschedule' | 'didnt_buy_1st' | 'didnt_buy_2nd' | 'planning_to_buy';
 
