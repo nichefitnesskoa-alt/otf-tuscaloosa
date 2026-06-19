@@ -358,22 +358,29 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           const b = bookings.find(bk => bk.id === item.bookingId);
           if (!b || !b.originating_booking_id || b.referred_by_member_name) continue;
           if (bookings.find(o => o.id === b.originating_booking_id)) continue; // already handled
-          // Originating booking is outside batch — check if same member AND originator actually ran.
-          // If originator status is in NON_RAN_BOOKING_STATUSES (no-show, rescheduled, cancelled,
-          // soft-deleted), the member never had a real first intro, so this rebook IS the 1st intro.
+          // Originating booking is outside batch — check same member AND
+          // (a) status not NON_RAN AND (b) parent's runs (if any) actually ran.
           const { data: origBooking } = await supabase
             .from('intros_booked')
             .select('member_name, booking_status_canon, deleted_at')
             .eq('id', b.originating_booking_id)
             .maybeSingle();
           if (
-            origBooking &&
-            origBooking.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '') &&
-            !NON_RAN_BOOKING_STATUSES.has((origBooking as any).booking_status_canon || '') &&
-            !(origBooking as any).deleted_at
-          ) {
-            item.isSecondIntro = true;
-          }
+            !origBooking ||
+            origBooking.member_name.toLowerCase().replace(/\s+/g, '') !== b.member_name.toLowerCase().replace(/\s+/g, '') ||
+            NON_RAN_BOOKING_STATUSES.has((origBooking as any).booking_status_canon || '') ||
+            (origBooking as any).deleted_at
+          ) continue;
+          // Status passes — confirm parent's runs (if any) actually ran.
+          const { data: origRuns } = await supabase
+            .from('intros_run')
+            .select('result, result_canon')
+            .eq('linked_intro_booked_id', b.originating_booking_id)
+            .limit(10);
+          const runs = origRuns || [];
+          // No runs → trust status. Has runs → at least one must satisfy didIntroActuallyRun.
+          const anyRan = runs.length === 0 || runs.some(r => didIntroActuallyRun(r as any));
+          if (anyRan) item.isSecondIntro = true;
       }
 
       // VIP Class intros are neither 1st nor 2nd — force flag off
