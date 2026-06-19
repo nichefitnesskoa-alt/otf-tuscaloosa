@@ -690,7 +690,7 @@ export default function Wig() {
           ex.closed++;
           coachCloseMap.set(cName, ex);
 
-          const isViaSecond = !!linked.originating_booking_id;
+          const isViaSecond = !!linked.originating_booking_id && root.id !== linked.id;
           ensureAttrib(cName).closes.push({
             bookingId: root.id,
             member: root.member_name || linked.member_name || 'Unknown',
