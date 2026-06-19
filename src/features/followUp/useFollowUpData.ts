@@ -320,7 +320,7 @@ export function useFollowUpData() {
         }
 
         // State B: 2nd intro ran with non-terminal outcome → Didn't Buy (2nd)
-        if (booking?.originating_booking_id && !isTerminal(r.result)) {
+        if (booking && isRealSecondIntroBooking(booking) && !isTerminal(r.result)) {
           processed.add(key);
           item.followUpState = 'B';
           item.isSecondIntro = true;
