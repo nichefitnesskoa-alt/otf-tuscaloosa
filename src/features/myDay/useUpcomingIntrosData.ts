@@ -10,7 +10,7 @@ import type { UpcomingIntroItem, TimeRange, QuestionnaireStatus } from './myDayT
 import { enrichWithRisk, sortByTime } from './myDaySelectors';
 import { normalizeDbTime } from '@/lib/time/timeUtils';
 import { isVipBooking } from '@/lib/vip/vipRules';
-import { NON_RAN_BOOKING_STATUSES, NON_RAN_RESULT_CANONS } from '@/lib/canon/introRules';
+import { NON_RAN_BOOKING_STATUSES, NON_RAN_RESULT_CANONS, didIntroActuallyRun } from '@/lib/canon/introRules';
 
 // Postgres `IN (...)` literal derived from the canonical NON_RAN_RESULT_CANONS
 // set, so this query agrees with `didIntroActuallyRun` everywhere else.
