@@ -139,10 +139,18 @@ export function computeFunnelBothRows(
   const isFirstBooking = (b: IntroBooked): boolean => {
     // Promoted orphan: already chosen as the canonical 1st intro for the chain.
     if (promotedOrphanIds.has(b.id)) return true;
-    // Canonical 2nd-intro check — anything not classified as a real
-    // 2nd intro IS a first intro (its own chain root). This handles
-    // no-show / cancelled / rescheduled parents correctly.
-    return !bookingIsSecond.get(b.id);
+    // Canonical 2nd-intro check — when the parent intro actually ran,
+    // this is a real 2nd intro (not a 1st).
+    if (bookingIsSecond.get(b.id)) return false;
+    // When parent did NOT run (no-show / cancelled / rescheduled) OR
+    // there's no orig link at all, this booking is its own chain root
+    // → counts as a 1st intro.
+    if ((b as any).originating_booking_id && !(b as any).referred_by_member_name) {
+      return true; // parent didn't run → child is a fresh 1st intro
+    }
+    const key = bookingPersonKey.get(b.id)!;
+    const dates = personBookingDates.get(key) || [];
+    return dates[0] === b.class_date;
   };
 
   const now = new Date();
