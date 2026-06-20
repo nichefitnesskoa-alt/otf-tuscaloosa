@@ -413,15 +413,14 @@ function ClassTimeIntroSelector({
   return (
     <div className="space-y-2">
       {intros.map(intro => {
-        // Only a real ran originator makes this a 2nd intro. PLANNING_RESCHEDULE,
-        // CANCELLED, DELETED_SOFT, NO_SHOW originators all mean the prior intro
-        // never ran — this booking is the real 1st intro.
-        const origStatus = intro.originating_booking_id
-          ? originatingStatuses[intro.originating_booking_id]
-          : null;
-        const isSecondIntro = !!intro.originating_booking_id
-          && !!origStatus
-          && !NON_RAN_BOOKING_STATUSES.has(origStatus);
+        // Canonical helper: a booking is only a 2nd intro if the parent
+        // actually ran (not just status — also checks intros_run for no-shows
+        // whose booking_status_canon never flipped).
+        const isSecondIntro = isSecondIntroBooking(
+          intro as any,
+          [intro as any, ...parentBookings],
+          parentRuns,
+        );
 
         // 2nd intros render as a non-expandable stub — no card, no debrief, no lead measures
         if (isSecondIntro) {
