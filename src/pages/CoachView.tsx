@@ -134,7 +134,7 @@ export default function CoachView() {
         origIds.length > 0
           ? supabase
               .from('intros_booked')
-              .select('id, booking_status_canon')
+              .select('id, member_name, booking_status_canon, is_vip, ignore_from_metrics, deleted_at')
               .in('id', origIds)
           : Promise.resolve({ data: [] }),
       ]);
@@ -145,12 +145,20 @@ export default function CoachView() {
       });
       setQuestionnaires(qMap);
 
-      // Build map of originating booking statuses for no-show detection
-      const origStatusMap: Record<string, string> = {};
-      ((origRes.data || []) as any[]).forEach((o: any) => {
-        origStatusMap[o.id] = o.booking_status_canon;
-      });
-      setOriginatingStatuses(origStatusMap);
+      const parents = ((origRes.data || []) as any[]) as SecondIntroBookingLike[];
+      setParentBookings(parents);
+
+      // Load parent runs so we can detect no-show parents whose booking_status_canon
+      // never flipped (canonical isSecondIntroBooking helper requires this).
+      if (origIds.length > 0) {
+        const { data: prunes } = await supabase
+          .from('intros_run')
+          .select('linked_intro_booked_id, result, result_canon')
+          .in('linked_intro_booked_id', origIds);
+        setParentRuns(((prunes || []) as any[]) as SecondIntroRunLike[]);
+      } else {
+        setParentRuns([]);
+      }
     }
 
     if (!isRefetch) setLoading(false);
