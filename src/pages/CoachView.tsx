@@ -19,7 +19,6 @@ import { CollapsibleSection } from '@/components/dashboard/CollapsibleSection';
 import { CLASS_TIME_LABELS } from '@/types';
 import WeekDayTabs, { useWeekDays, getDefaultSelectedDate } from '@/components/shared/WeekDayTabs';
 import { getTodayYMD } from '@/lib/dateUtils';
-import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 import { isSecondIntroBooking, type SecondIntroBookingLike, type SecondIntroRunLike } from '@/lib/intros/secondIntroDetection';
 
 function formatTime(t: string) {
