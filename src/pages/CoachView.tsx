@@ -503,7 +503,11 @@ function ClassTimeIntroSelector({
                   questionnaire={questionnaires[intro.id] || null}
                   onUpdateBooking={onUpdateBooking}
                   userName={userName}
-                  originatingBookingStatus={origStatus}
+                  originatingBookingStatus={
+                    intro.originating_booking_id
+                      ? parentBookings.find(p => p.id === intro.originating_booking_id)?.booking_status_canon ?? null
+                      : null
+                  }
                 />
               </div>
             )}
