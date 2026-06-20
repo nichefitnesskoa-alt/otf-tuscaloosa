@@ -20,6 +20,7 @@ import {
 } from './types';
 import { triggerAuditRefresh } from '@/hooks/useDataAudit';
 import { computeExpectedIntroOwner } from '@/lib/intros/introOwnerRule';
+import { cleanupReplicasForBooking } from '@/lib/scorecard/replicate';
 
 export interface OutcomeUpdateParams {
   bookingId: string;
