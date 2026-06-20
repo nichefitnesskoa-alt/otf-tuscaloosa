@@ -1,79 +1,56 @@
-# Auto-replicate FV Scorecards across same-class intros
+## The bug
 
-## What this changes for the coach
+Maliyah Grant's 6/19 8:45 AM intro was logged as **No-show** on the run, but her booking row's `booking_status_canon` is still **ACTIVE** (the run captures the no-show, the booking status was never flipped). Her 6/20 10:30 booking points back at the 6/19 booking via `originating_booking_id`, so Coach View renders it with a "2nd Intro" badge.
 
-When a coach submits a First Visit scorecard for one intro, the app finds the **other intros in the exact same class** (same coach, same class_date, same class_time, not excluded, not yet scored) and **auto-creates a submitted scorecard for each of them** using the same bullets, notes, class type, and member count. Coach can still tap any one of them and adjust if the experience differed.
+We do have the canonical helper `isSecondIntroBooking` in `src/lib/intros/secondIntroDetection.ts` that handles exactly this case — it walks into `intros_run` and rejects the parent if no run actually `didIntroActuallyRun()`. But several surfaces never adopted it and still do the inline check `!!originating_booking_id && parent.booking_status_canon not in NON_RAN`. That inline check misses no-show parents whose booking_status_canon stayed ACTIVE/SHOWED.
 
-If one of those intros later resolves as a **no-show, cancellation, planning_reschedule, or soft-delete** (or the intro_run result is logged NO_SHOW), the **auto-created replica for that intro is removed**, so the coach isn't credited / debited for an intro that didn't actually happen. Replicas the coach manually edited after creation are preserved — only untouched replicas get cleaned up.
+Verified in DB:
 
-## Scope rules
+```
+3600e7e8 (6/19 08:45)  booking_status_canon=ACTIVE   originating=null
+9b6fb987 (6/19 10:30)  DELETED_SOFT                  originating=3600e7e8
+77a7ee3a (6/20 10:30)  ACTIVE                        originating=3600e7e8  ← shown as "2nd Intro"
+```
 
-- "Same class" = same `coach_name` + `class_date` + `class_time` on `intros_booked`, excluding the source booking, excluding bookings already excluded from metrics (`isBookingExcludedFromMetrics`), excluding bookings whose `booking_status_canon` is `NO_SHOW`, `CANCELLED`, `PLANNING_RESCHEDULE`, or `DELETED_SOFT` at submit time, and excluding bookings that already have a scorecard for that class_date + evaluator.
-- Replicas copy: all 15 bullets, all 5 column scores, total, level, class_type, member_count, interactions/otbeat/handback notes, evaluator, evaluatee, eval_type. `is_practice=false`. `submitted_at = now()`.
-- Replicas are flagged with a new column `replicated_from_scorecard_id` pointing at the source scorecard.
-- "Untouched replica" = `replicated_from_scorecard_id IS NOT NULL` AND no edits since creation (we compare `updated_at` and bullet rows). Touched replicas stay; coach intent wins.
+The 3600e7e8 run is a no-show, so 77a7ee3a should be a **1st Intro**.
 
-## Reach map (verified before coding)
+## Fix — route every 1st/2nd badge through the canonical helper
 
-- Tables touched: `fv_scorecards` (new column), `fv_scorecard_bullets`, `intros_booked` (read only), `intros_run` (read only).
-- Readers/displayers: `useScorecards` / `useScorecard` hooks → `BookingScorecards`, `ComparisonView`, `CoachScorecardGrid`, `CoachDashboard`, `CoachScorecards` page, `UnscoredDrillDown`, `WigFirstVisitSection`, `ClientJourneyPanel`, `CoachIntroCard`.
-- Writers we hook into: `ScorecardFormBody.finalizeSubmission` (replicate on submit), `applyIntroOutcomeUpdate` (cleanup on NO_SHOW / CANCELLED / PLANNING_RESCHEDULE / DELETED_SOFT and on `intros_run.result_canon = NO_SHOW`).
-- React Query keys to invalidate after replicate or cleanup: `['fv_scorecards']`, `['fv_scorecard', id]`, plus any WIG/coach view invalidation already used by the form (`fv_*` keys).
+All four surfaces below currently use inline `originating_booking_id` checks (with or without origStatus). Replace them with `isSecondIntroBooking(child, allBookings, allRuns)`. Fetch the parents' runs alongside the parents themselves.
 
-## Implementation
+1. **`src/pages/CoachView.tsx`** (line 410)
+   - In `fetchBookings`, when loading `origIds` parents, ALSO load `intros_run` rows where `linked_intro_booked_id IN (origIds)` (fields: `linked_intro_booked_id`, `result`, `result_canon`).
+   - Store parents (full `SecondIntroBookingLike` shape, including `member_name`, `booking_status_canon`, `is_vip`, `ignore_from_metrics`, `deleted_at`) and parent runs in state (replace `originatingStatuses`).
+   - Compute `isSecondIntro` via `isSecondIntroBooking(intro, [intro, ...parentBookings], parentRuns)`.
 
-1. **Migration**
-   - `ALTER TABLE public.fv_scorecards ADD COLUMN replicated_from_scorecard_id uuid NULL REFERENCES public.fv_scorecards(id) ON DELETE SET NULL;`
-   - Index on `(coach_name_unused?)` — not needed; queries hit `evaluatee_name + class_date + class_time` which is small.
+2. **`src/pages/CoachMyIntros.tsx`** (line 414)
+   - Same swap. The page already loads runs (`runByBooking`); extend the parent-status fetch to also pull parent runs and feed `isSecondIntroBooking`.
 
-2. **New helper `src/lib/scorecard/replicate.ts`**
-   - `replicateScorecardToSiblings(sourceScorecardId): Promise<{created: string[]}>`
-     - Loads source card + bullets.
-     - Resolves the source booking's `coach_name`, `class_date`, `class_time`.
-     - Queries `intros_booked` for siblings (same coach + date + time, not the source, valid canon statuses, not excluded).
-     - For each sibling: skip if `fv_scorecards` already has a row with `first_timer_id = sibling.id` AND `evaluator_name = source.evaluator_name` AND `class_date = source.class_date`. Otherwise insert a new scorecard row (mirroring all fields, `submitted_at = now()`, `replicated_from_scorecard_id = source.id`) and bulk-insert the bullet rows.
-   - `cleanupReplicasForBooking(bookingId): Promise<{deleted: string[]}>`
-     - Finds `fv_scorecards` where `first_timer_id = bookingId` AND `replicated_from_scorecard_id IS NOT NULL`.
-     - For each, verifies it's still "untouched": `updated_at <= created_at + 5s` AND no bullet rows updated after creation. (We use `created_at`/`updated_at` already on the table.)
-     - Deletes the bullets then the scorecard.
+3. **`src/features/shiftView/ShiftIntroCards.tsx`** (line 38)
+   - Replace `const isSecond = !!intro.originating_booking_id` with `isSecondIntroBooking(intro, introsBooked, introsRun)` using `useData()` (extend `useData` consumer to read `introsRun` if not already exposed).
 
-3. **Hook into submit** (`src/components/scorecard/ScorecardForm.tsx`)
-   - In `finalizeSubmission`, after the existing `submitted_at` update, call `replicateScorecardToSiblings(id)`. Show a toast: `Replicated to N other intros in this class`. Invalidate the same React Query keys the rest of the form already invalidates.
+4. **`src/features/pipeline/components/PipelineRowCard.tsx`** (line 191)
+   - Same swap; pipeline data context already has runs.
 
-4. **Hook into outcome cleanup** (`src/lib/outcome-update.ts` → `applyIntroOutcomeUpdate`)
-   - After the booking status is finalized, if the resulting canon is `NO_SHOW`, `CANCELLED`, `PLANNING_RESCHEDULE`, `DELETED_SOFT`, OR the new `intros_run.result_canon` is `NO_SHOW`, call `cleanupReplicasForBooking(bookingId)`. Invalidate `['fv_scorecards']`.
+No DB / canon / commission / attribution changes. The canonical helper already exists — we are just adopting it everywhere a stale inline check survived.
 
-5. **Verification (DB)**
-   - Pick a recent class with multiple intros from `intros_booked`, simulate the helper, confirm rows created and bullets mirrored.
-   - Pick a booking, mark NO_SHOW, confirm only the untouched replica is removed; a manually-edited replica stays.
-
-## Out of scope
-
-- No change to score math, level thresholds, or WIG/coach metrics logic — they keep reading `fv_scorecards` as-is.
-- No data-model collapse (we are NOT switching to one-scorecard-per-class).
-- No change to practice scorecards (`is_practice=true` never replicates).
-- No change to commission, attribution, or follow-up logic.
-
-## Files
-
-- `supabase/migrations/<ts>_fv_scorecards_replicated_from.sql` (new)
-- `src/lib/scorecard/replicate.ts` (new)
-- `src/components/scorecard/ScorecardForm.tsx` (hook submit)
-- `src/lib/outcome-update.ts` (hook cleanup)
-- `src/lib/scorecard/__tests__/replicate.test.ts` (new — covers sibling matching, skip-if-already-scored, untouched-only cleanup)
-
-## Coherence proof I'll produce before reporting done
+## Coherence proof I'll produce before closing
 
 ```
 COHERENCE PROOF
-- DB verification:
-  - SELECT id, first_timer_id, replicated_from_scorecard_id FROM fv_scorecards WHERE replicated_from_scorecard_id = '<source>'
-  - SELECT booking_status_canon FROM intros_booked WHERE id IN (...siblings)
-- Cross-page check:
-  - Coach View "FV Scorecards" on each sibling intro: shows L<n> · <score>/30
-  - WigFirstVisitSection unscored count: drops by N
-  - CoachScorecards page: N new rows for evaluator on class_date
+- DB row: intros_booked 77a7ee3a (Maliyah 6/20 10:30)
+  parent 3600e7e8 (6/19 08:45) booking_status_canon=ACTIVE, run.result_canon=NO_SHOW
+- Coach View 6/20 10:30: badge = "1st Intro"          ← was "2nd Intro"
+- Coach View 6/19 10:30 (deleted): hidden              ← already excluded
+- Coach View 6/19 08:45: 1st Intro, No-show run        ← unchanged
+- CoachMyIntros: visitType = FIRST for 6/20 booking
+- ShiftIntroCards: "1st Intro" badge
+- Pipeline row: "1st Intro" badge
 - All agree: yes
-- Files touched: <list>
-- Canonical helpers extracted: replicateScorecardToSiblings, cleanupReplicasForBooking
 ```
+
+## Out of scope
+
+No changes to commission, sales detection, follow-up routing, week grouping, staff lists, scorecard replication, or canon enums. No DB migration.
+
+Used the `system-change-audit` skill.
