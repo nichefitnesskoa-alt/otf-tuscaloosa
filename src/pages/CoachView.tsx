@@ -20,6 +20,7 @@ import { CLASS_TIME_LABELS } from '@/types';
 import WeekDayTabs, { useWeekDays, getDefaultSelectedDate } from '@/components/shared/WeekDayTabs';
 import { getTodayYMD } from '@/lib/dateUtils';
 import { isSecondIntroBooking, type SecondIntroBookingLike, type SecondIntroRunLike } from '@/lib/intros/secondIntroDetection';
+import { loadIntroClassification } from '@/lib/intros/loadIntroClassification';
 
 function formatTime(t: string) {
   if (t === 'TBD') return 'TBD';
@@ -120,22 +121,15 @@ export default function CoachView() {
     if (rows.length > 0) {
       const ids = rows.map(b => b.id);
 
-      // Fetch questionnaires and originating booking statuses in parallel
-      const origIds = rows
-        .map(b => b.originating_booking_id)
-        .filter((id): id is string => !!id);
-
-      const [qsRes, origRes] = await Promise.all([
+      // Questionnaires + canonical 2nd-intro classification in parallel.
+      // All parent fetching (bookings + runs) lives in loadIntroClassification
+      // so every page agrees on the rule.
+      const [qsRes, classification] = await Promise.all([
         supabase
           .from('intro_questionnaires')
           .select('booking_id, q1_fitness_goal, q2_fitness_level, q3_obstacle, q5_emotional_driver, q6_weekly_commitment, q6b_available_days, q7_coach_notes' as any)
           .in('booking_id', ids),
-        origIds.length > 0
-          ? supabase
-              .from('intros_booked')
-              .select('id, member_name, booking_status_canon, is_vip, ignore_from_metrics, deleted_at')
-              .in('id', origIds)
-          : Promise.resolve({ data: [] }),
+        loadIntroClassification(rows as any),
       ]);
 
       const qMap: QuestionnaireMap = {};
@@ -144,20 +138,8 @@ export default function CoachView() {
       });
       setQuestionnaires(qMap);
 
-      const parents = ((origRes.data || []) as any[]) as SecondIntroBookingLike[];
-      setParentBookings(parents);
-
-      // Load parent runs so we can detect no-show parents whose booking_status_canon
-      // never flipped (canonical isSecondIntroBooking helper requires this).
-      if (origIds.length > 0) {
-        const { data: prunes } = await supabase
-          .from('intros_run')
-          .select('linked_intro_booked_id, result, result_canon')
-          .in('linked_intro_booked_id', origIds);
-        setParentRuns(((prunes || []) as any[]) as SecondIntroRunLike[]);
-      } else {
-        setParentRuns([]);
-      }
+      setParentBookings(classification.parentBookings);
+      setParentRuns(classification.parentRuns);
     }
 
     if (!isRefetch) setLoading(false);
