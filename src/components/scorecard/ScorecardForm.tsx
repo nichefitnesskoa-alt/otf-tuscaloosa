@@ -18,6 +18,7 @@ import { ScoreReveal } from './ScoreReveal';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { replicateScorecardToSiblings } from '@/lib/scorecard/replicate';
 
 interface BodyProps {
   firstTimerId?: string | null;
