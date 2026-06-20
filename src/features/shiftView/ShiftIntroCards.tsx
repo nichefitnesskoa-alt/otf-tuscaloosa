@@ -36,7 +36,7 @@ export function ShiftIntroCards() {
   return (
     <div className="space-y-2">
       {todayIntros.map((intro) => {
-        const isSecond = !!intro.originating_booking_id;
+        const isSecond = isSecondIntroBooking(intro as any, introsBooked as any, introsRun as any);
         const qStatus = (intro as any).questionnaire_status_canon;
 
         return (
