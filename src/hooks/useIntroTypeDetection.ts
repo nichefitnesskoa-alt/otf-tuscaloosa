@@ -1,10 +1,14 @@
 import { useMemo } from 'react';
+import { isSecondIntroBooking } from '@/lib/intros/secondIntroDetection';
 
 /**
- * Determines if a booking is a 2nd intro by checking:
- * 1. originating_booking_id (definitive)
- * 2. Name or phone matching against other bookings
- * 3. booking_status containing "2nd" (fallback)
+ * @deprecated Use `loadIntroClassification` (async) or `isSecondIntroBooking`
+ * (pure) directly. This hook is retained as a thin shim that routes through
+ * the canonical helper so no surface ever ships with bespoke 2nd-intro logic.
+ *
+ * The name/phone fallback and "status contains 2nd" heuristic have been
+ * removed — every surface in the app now uses the same originating_booking_id
+ * + parent-run rule.
  */
 export function useIntroTypeDetection(
   allBookings: Array<{
@@ -21,96 +25,19 @@ export function useIntroTypeDetection(
 ) {
   const introTypeMap = useMemo(() => {
     const map = new Map<string, boolean>();
-    
-    // Group bookings by member_key, excluding VIP and NO_SHOW bookings from intro type logic
-    // NO_SHOW bookings should not count as prior visits — the person never had their intro
-    const nonVipBookings = allBookings.filter(b => !b.is_vip && b.booking_status_canon !== 'NO_SHOW');
-    
-    // Group by name key
-    const memberGroups = new Map<string, typeof nonVipBookings>();
-    nonVipBookings.forEach(b => {
-      const key = b.member_name.toLowerCase().replace(/\s+/g, '');
-      if (!memberGroups.has(key)) memberGroups.set(key, []);
-      memberGroups.get(key)!.push(b);
-    });
-
-    // Group by phone (secondary matching)
-    const phoneGroups = new Map<string, typeof nonVipBookings>();
-    nonVipBookings.forEach(b => {
-      const phone = b.phone?.replace(/\D/g, '');
-      if (phone && phone.length >= 7) {
-        if (!phoneGroups.has(phone)) phoneGroups.set(phone, []);
-        phoneGroups.get(phone)!.push(b);
-      }
-    });
-
-    allBookings.forEach(b => {
-      // VIP bookings are never 1st/2nd intros
-      if (b.is_vip) {
-        map.set(b.id, false);
-        return;
-      }
-      // 1) originating_booking_id — only counts as 2nd intro if the
-      //    originating booking belongs to the SAME member (same person returning).
-      //    Friend bookings also set originating_booking_id but point to a
-      //    DIFFERENT person's booking, so those must NOT be treated as 2nd intros.
-      if (b.originating_booking_id) {
-        const orig = allBookings.find(o => o.id === b.originating_booking_id);
-        if (orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '')) {
-          // Only count as 2nd intro if the originating booking wasn't a no-show
-          if (orig.booking_status_canon !== 'NO_SHOW') {
-            map.set(b.id, true);
-            return;
-          }
-        }
-        // Different member → friend booking, fall through to name/phone grouping
-      }
-
-      // 2) Check name-based grouping
-      const key = b.member_name.toLowerCase().replace(/\s+/g, '');
-      const nameGroup = memberGroups.get(key) || [];
-      
-      // 3) Check phone-based grouping
-      const phone = b.phone?.replace(/\D/g, '');
-      const phoneGroup = (phone && phone.length >= 7) ? (phoneGroups.get(phone) || []) : [];
-      
-      // Merge unique bookings from both groups
-      const seenIds = new Set<string>();
-      const combined: typeof nonVipBookings = [];
-      for (const booking of [...nameGroup, ...phoneGroup]) {
-        if (!seenIds.has(booking.id)) {
-          seenIds.add(booking.id);
-          combined.push(booking);
-        }
-      }
-
-      if (combined.length <= 1) {
-        // 4) Fallback: booking_status contains "2nd"
-        const status = (b.booking_status || '').toUpperCase();
-        if (status.includes('2ND')) {
-          map.set(b.id, true);
-        } else {
-          map.set(b.id, false);
-        }
-        return;
-      }
-
-      // Sort by class_date, then created_at to find earliest
-      const sorted = [...combined].sort((a, c) => {
-        const dateCompare = a.class_date.localeCompare(c.class_date);
-        if (dateCompare !== 0) return dateCompare;
-        return (a.created_at || '').localeCompare(c.created_at || '');
-      });
-
-      // First booking in the group is 1st intro, rest are 2nd
-      map.set(b.id, sorted[0].id !== b.id);
-    });
-
+    // Pass the whole list as both "child candidates" and "lookup pool".
+    // Runs are unavailable here, so the canonical helper will only return
+    // true when the parent is in the list AND the parent has at least one
+    // run that satisfies didIntroActuallyRun — which means a parent with no
+    // run yet correctly resolves to "not a 2nd intro".
+    for (const b of allBookings) {
+      map.set(b.id, isSecondIntroBooking(b as any, allBookings as any, []));
+    }
     return map;
   }, [allBookings]);
 
   const isSecondIntro = (bookingId: string) => introTypeMap.get(bookingId) ?? false;
-  
+
   const isSecondIntroByName = (memberName: string, currentBookingId?: string) => {
     const key = memberName.toLowerCase().replace(/\s+/g, '');
     const group = allBookings.filter(b => b.member_name.toLowerCase().replace(/\s+/g, '') === key);

@@ -11,6 +11,7 @@ import { enrichWithRisk, sortByTime } from './myDaySelectors';
 import { normalizeDbTime } from '@/lib/time/timeUtils';
 import { isVipBooking } from '@/lib/vip/vipRules';
 import { NON_RAN_BOOKING_STATUSES, NON_RAN_RESULT_CANONS, didIntroActuallyRun } from '@/lib/canon/introRules';
+import { loadIntroClassification } from '@/lib/intros/loadIntroClassification';
 
 // Postgres `IN (...)` literal derived from the canonical NON_RAN_RESULT_CANONS
 // set, so this query agrees with `didIntroActuallyRun` everywhere else.
@@ -265,128 +266,17 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         };
       });
 
-      // ── 2nd intro detection: check originating_booking_id + prior runs ──
-      {
-        // 1) originating_booking_id with same member name = potential 2nd intro.
-        //    Counts ONLY if the parent intro actually ran:
-        //      - parent status not in NON_RAN_BOOKING_STATUSES, AND
-        //      - if parent has any run, at least one run satisfies didIntroActuallyRun.
-        //    Skip friend bookings (referred_by_member_name set).
-        for (const item of rawItems) {
-          const b = bookings.find(bk => bk.id === item.bookingId);
-          if (!b || !b.originating_booking_id || b.referred_by_member_name) continue;
-          const orig = bookings.find(o => o.id === b.originating_booking_id);
-          if (orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '')) {
-            const statusGate = !NON_RAN_BOOKING_STATUSES.has((orig as any).booking_status_canon || '');
-            const origRun = runMap.get(orig.id);
-            // No run yet → trust status. Has a run → must satisfy didIntroActuallyRun.
-            const runGate = !origRun || didIntroActuallyRun({ result: origRun.result });
-            if (statusGate && runGate) {
-              item.isSecondIntro = true;
-            }
-          }
-          // If originating booking not in batch, will be resolved below.
-        }
-
-        // 2) Check for prior intros_run records for each member name
-        const uniqueNames = [...new Set(bookings.map(b => b.member_name))];
-        // Query in batches of 50 to avoid URL length limits
-        const priorRunMembers = new Set<string>();
-        for (let i = 0; i < uniqueNames.length; i += 50) {
-          const batch = uniqueNames.slice(i, i + 50);
-          // Include both original and lowercased names to handle case mismatches
-          const batchExtended = [...new Set([...batch, ...batch.map(n => n.toLowerCase())])];
-          const { data: priorRuns } = await supabase
-            .from('intros_run')
-            .select('member_name, linked_intro_booked_id, result_canon')
-            .in('member_name', batchExtended)
-            .not('result_canon', 'in', '(NO_SHOW,PLANNING_RESCHEDULE,UNRESOLVED,VIP_CLASS_INTRO)');
-          if (priorRuns) {
-            for (const pr of priorRuns) {
-              priorRunMembers.add(pr.member_name.toLowerCase().replace(/\s+/g, ''));
-            }
-          }
-        }
-
-        // For items not yet marked as 2nd intro, check if they have a prior run
-        // A booking is 2nd intro if ANOTHER booking for the same member has a run
-        for (const item of rawItems) {
-          if (item.isSecondIntro) continue; // already determined
-          const nameKey = item.memberName.toLowerCase().replace(/\s+/g, '');
-          if (!priorRunMembers.has(nameKey)) continue;
-          
-          // Member has runs — check if any run is linked to a DIFFERENT booking
-          // (not the current one) to confirm this is a subsequent visit
-          const memberBookings = rawItems.filter(ri => 
-            ri.memberName.toLowerCase().replace(/\s+/g, '') === nameKey
-          );
-          // Sort by class_date to find the earliest
-          const sorted = [...memberBookings].sort((a, c) => {
-            const d = a.classDate.localeCompare(c.classDate);
-            if (d !== 0) return d;
-            return (a.introTime || '').localeCompare(c.introTime || '');
-          });
-          // The first booking in chronological order is the 1st intro (or might be)
-          // But we need to check if prior runs exist from BEFORE this batch
-          // Since priorRunMembers confirms runs exist, and if this isn't the earliest booking,
-          // it's a 2nd intro
-          if (sorted.length > 1 && sorted[0].bookingId !== item.bookingId) {
-            item.isSecondIntro = true;
-          } else if (sorted.length === 1 || sorted[0].bookingId === item.bookingId) {
-            // This is the only/earliest booking in batch — check if prior run is from outside batch
-            // Query for runs NOT linked to any booking in current batch
-            const batchIds = new Set(rawItems.map(ri => ri.bookingId));
-            // Query with both original and lowercased name to handle case mismatches
-            const { data: externalRuns } = await supabase
-              .from('intros_run')
-              .select('id, linked_intro_booked_id, result_canon')
-              .or(`member_name.eq.${item.memberName},member_name.eq.${item.memberName.toLowerCase()}`)
-              .not('result_canon', 'in', '(NO_SHOW,PLANNING_RESCHEDULE,UNRESOLVED,VIP_CLASS_INTRO)')
-              .limit(5);
-            const hasExternalRun = (externalRuns || []).some(r => 
-              r.linked_intro_booked_id && !batchIds.has(r.linked_intro_booked_id)
-            );
-            if (hasExternalRun) {
-              item.isSecondIntro = true;
-            }
-          }
-        }
-
-        // 3) Handle originating_booking_id pointing outside the batch (skip friends)
-        for (const item of rawItems) {
-          if (item.isSecondIntro) continue;
-          const b = bookings.find(bk => bk.id === item.bookingId);
-          if (!b || !b.originating_booking_id || b.referred_by_member_name) continue;
-          if (bookings.find(o => o.id === b.originating_booking_id)) continue; // already handled
-          // Originating booking is outside batch — check same member AND
-          // (a) status not NON_RAN AND (b) parent's runs (if any) actually ran.
-          const { data: origBooking } = await supabase
-            .from('intros_booked')
-            .select('member_name, booking_status_canon, deleted_at')
-            .eq('id', b.originating_booking_id)
-            .maybeSingle();
-          if (
-            !origBooking ||
-            origBooking.member_name.toLowerCase().replace(/\s+/g, '') !== b.member_name.toLowerCase().replace(/\s+/g, '') ||
-            NON_RAN_BOOKING_STATUSES.has((origBooking as any).booking_status_canon || '') ||
-            (origBooking as any).deleted_at
-          ) continue;
-          // Status passes — confirm parent's runs (if any) actually ran.
-          const { data: origRuns } = await supabase
-            .from('intros_run')
-            .select('result, result_canon')
-            .eq('linked_intro_booked_id', b.originating_booking_id)
-            .limit(10);
-          const runs = origRuns || [];
-          // No runs → trust status. Has runs → at least one must satisfy didIntroActuallyRun.
-          const anyRan = runs.length === 0 || runs.some(r => didIntroActuallyRun(r as any));
-          if (anyRan) item.isSecondIntro = true;
+      // ── 2nd intro detection: canonical helper, single source of truth ──
+      // Fetches missing parents + parent runs, applies isSecondIntroBooking.
+      // Same rule as Coach View, My Intros, Pipeline, Follow-Up, Shift View.
+      const classification = await loadIntroClassification(bookings as any);
+      for (const item of rawItems) {
+        item.isSecondIntro = classification.isSecondIntro(item.bookingId);
       }
 
       // VIP Class intros are neither 1st nor 2nd — force flag off
       for (const item of rawItems) {
         if (item.isVipClassIntro) item.isSecondIntro = false;
-      }
       }
 
       // ── 2nd intro phone inheritance: fill missing phone from originating booking ──

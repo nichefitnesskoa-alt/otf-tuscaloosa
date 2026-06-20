@@ -12,6 +12,7 @@ import { format, subDays, addDays, differenceInHours } from 'date-fns';
 import { localDateToStartISO } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { didIntroActuallyRun, NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
+import { isSecondIntroBooking } from '@/lib/intros/secondIntroDetection';
 
 export type FollowUpType = 'noshow_1st' | 'noshow_2nd' | 'reschedule' | 'didnt_buy_1st' | 'didnt_buy_2nd' | 'planning_to_buy';
 
@@ -188,25 +189,17 @@ export function useFollowUpData() {
         }
       }
 
-      // 2nd intro bookings by originating_booking_id.
-      // A booking only counts as a real 2nd intro if its originator wasn't a
-      // no-show (or soft-deleted). A no-show originator means the member never
-      // had their first intro — the rebook IS the 1st intro, and the original
-      // no-show follow-up should NOT be dismissed.
+      // 2nd intro detection routes through the canonical helper so this
+      // page agrees with Coach View, My Day, Pipeline, and Shift View.
+      // For cross-batch parents (originator outside the 90-day window) the
+      // helper returns false — that matches every other surface and avoids
+      // the historical "permissive true on orphans" drift.
       const bookingByIdEarly = new Map(bookings.map(b => [b.id, b]));
+      const allRunsFlat = runs as any[];
       const isRealSecondIntroBooking = (b: typeof bookings[0]): boolean => {
-        if (!b.originating_booking_id) return false;
-        const orig = bookingByIdEarly.get(b.originating_booking_id);
-        if (!orig) return true; // originator outside batch — be permissive
-        if ((orig as any).deleted_at) return false;
-        if (NON_RAN_BOOKING_STATUSES.has((orig as any).booking_status_canon || '')) return false;
-        if (orig.member_name.toLowerCase().replace(/\s+/g, '') !== b.member_name.toLowerCase().replace(/\s+/g, '')) return false;
-        // Parent's booking_status_canon may be ACTIVE while the actual run
-        // was a no-show. If parent has any runs, at least one must satisfy
-        // didIntroActuallyRun for the child to count as a real 2nd intro.
-        const origRuns = runsByBookingId.get(orig.id) || [];
-        if (origRuns.length === 0) return true; // no run yet → trust status
-        return origRuns.some(r => didIntroActuallyRun(r as any));
+        const parent = b.originating_booking_id ? bookingByIdEarly.get(b.originating_booking_id) : null;
+        const list = parent ? [b as any, parent as any] : [b as any];
+        return isSecondIntroBooking(b as any, list, allRunsFlat);
       };
 
       const secondIntroByOrigin = new Map<string, (typeof bookings)[0]>();

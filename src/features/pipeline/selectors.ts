@@ -4,6 +4,7 @@
  */
 import { isMembershipSale, isEffectiveSale } from '@/lib/sales-detection';
 import { didIntroActuallyRun, NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
+import { isSecondIntroBooking } from '@/lib/intros/secondIntroDetection';
 import { capitalizeNameOrNull, getLocalDateString } from './helpers';
 import type {
   PipelineBooking,
@@ -45,37 +46,18 @@ function isBookingUpcoming(booking: PipelineBooking): boolean {
 }
 
 /**
- * True 2nd-intro check: a booking is a real 2nd intro only when its
- * originator actually produced an intro. If the originator was a
- * no-show, planning-to-reschedule, cancelled, or soft-deleted, the
- * member never had their 1st intro yet — so this rebook IS the 1st intro.
+ * True 2nd-intro check — routes through the canonical
+ * `isSecondIntroBooking` helper so this page agrees with Coach View,
+ * My Day, Follow-Up, and Shift View.
  *
- * We also require that the originator either has a run that actually
- * ran, OR has a resolved post-class status. A booking that's still
- * "Active" with no run yet doesn't make a later booking a 2nd intro.
+ * Pipeline historically treated "originator not in journey" as
+ * permissively 2nd intro. The canonical helper treats orphans as 1st
+ * intro (the safer answer everywhere else). We follow the canonical
+ * answer to keep the system coherent — a journey row missing its
+ * parent is a data issue, not a 2nd intro.
  */
 export function isRealSecondIntro(b: PipelineBooking, journey: ClientJourney): boolean {
-  if (!b.originating_booking_id) return false;
-  const orig = journey.bookings.find(o => o.id === b.originating_booking_id);
-  if (!orig) {
-    // Originator not in journey — fall back to treating it as 2nd intro
-    // (we can't prove it didn't run; safer to label as 2nd than to lose it).
-    return true;
-  }
-  if ((orig as any).deleted_at) return false;
-
-  // Originator's status says the intro never happened
-  const origCanon = (orig.booking_status_canon || '').toUpperCase();
-  if (NON_RAN_BOOKING_STATUSES.has(origCanon)) return false;
-  if ((orig as any).booking_status === 'No-show') return false;
-  if ((orig as any).booking_status === 'Planning to Reschedule') return false;
-  if ((orig as any).booking_status === 'Cancelled') return false;
-
-  // Or the originator has a run, but no run that actually ran
-  const origRuns = journey.runs.filter(r => r.linked_intro_booked_id === orig.id);
-  if (origRuns.length > 0 && !origRuns.some(r => didIntroActuallyRun(r))) return false;
-
-  return true;
+  return isSecondIntroBooking(b as any, journey.bookings as any, journey.runs as any);
 }
 
 function hasPurchasedMembership(journey: ClientJourney): boolean {
