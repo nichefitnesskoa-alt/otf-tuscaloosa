@@ -4,9 +4,10 @@ import { format } from 'date-fns';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
+import { isSecondIntroBooking } from '@/lib/intros/secondIntroDetection';
 
 export function ShiftIntroCards() {
-  const { introsBooked } = useData();
+  const { introsBooked, introsRun } = useData();
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   const todayIntros = useMemo(() =>
