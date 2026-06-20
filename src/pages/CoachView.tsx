@@ -19,7 +19,7 @@ import { CollapsibleSection } from '@/components/dashboard/CollapsibleSection';
 import { CLASS_TIME_LABELS } from '@/types';
 import WeekDayTabs, { useWeekDays, getDefaultSelectedDate } from '@/components/shared/WeekDayTabs';
 import { getTodayYMD } from '@/lib/dateUtils';
-import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
+import { isSecondIntroBooking, type SecondIntroBookingLike, type SecondIntroRunLike } from '@/lib/intros/secondIntroDetection';
 
 function formatTime(t: string) {
   if (t === 'TBD') return 'TBD';
@@ -83,7 +83,8 @@ export default function CoachView() {
 
   const [bookings, setBookings] = useState<CoachBooking[]>([]);
   const [questionnaires, setQuestionnaires] = useState<QuestionnaireMap>({});
-  const [originatingStatuses, setOriginatingStatuses] = useState<Record<string, string>>({});
+  const [parentBookings, setParentBookings] = useState<SecondIntroBookingLike[]>([]);
+  const [parentRuns, setParentRuns] = useState<SecondIntroRunLike[]>([]);
   const [loading, setLoading] = useState(true);
   // Default to "mine" — user sees only their own intros. Toggle flips to "all".
   const [coachScope, setCoachScope] = useState<'mine' | 'all'>('mine');
@@ -132,7 +133,7 @@ export default function CoachView() {
         origIds.length > 0
           ? supabase
               .from('intros_booked')
-              .select('id, booking_status_canon')
+              .select('id, member_name, booking_status_canon, is_vip, ignore_from_metrics, deleted_at')
               .in('id', origIds)
           : Promise.resolve({ data: [] }),
       ]);
@@ -143,12 +144,20 @@ export default function CoachView() {
       });
       setQuestionnaires(qMap);
 
-      // Build map of originating booking statuses for no-show detection
-      const origStatusMap: Record<string, string> = {};
-      ((origRes.data || []) as any[]).forEach((o: any) => {
-        origStatusMap[o.id] = o.booking_status_canon;
-      });
-      setOriginatingStatuses(origStatusMap);
+      const parents = ((origRes.data || []) as any[]) as SecondIntroBookingLike[];
+      setParentBookings(parents);
+
+      // Load parent runs so we can detect no-show parents whose booking_status_canon
+      // never flipped (canonical isSecondIntroBooking helper requires this).
+      if (origIds.length > 0) {
+        const { data: prunes } = await supabase
+          .from('intros_run')
+          .select('linked_intro_booked_id, result, result_canon')
+          .in('linked_intro_booked_id', origIds);
+        setParentRuns(((prunes || []) as any[]) as SecondIntroRunLike[]);
+      } else {
+        setParentRuns([]);
+      }
     }
 
     if (!isRefetch) setLoading(false);
@@ -348,7 +357,8 @@ export default function CoachView() {
                         onUpdateBooking={handleUpdateBooking}
                         userName={user?.name || ''}
                         autoExpand={selectedIsToday}
-                        originatingStatuses={originatingStatuses}
+                        parentBookings={parentBookings}
+                        parentRuns={parentRuns}
                       />
                     </CollapsibleContent>
                   </Collapsible>
@@ -363,14 +373,15 @@ export default function CoachView() {
 
 // ── Per-class-time: expandable card list (accordion — one at a time) ──
 function ClassTimeIntroSelector({
-  intros, questionnaires, onUpdateBooking, userName, autoExpand = true, originatingStatuses = {},
+  intros, questionnaires, onUpdateBooking, userName, autoExpand = true, parentBookings = [], parentRuns = [],
 }: {
   intros: CoachBooking[];
   questionnaires: QuestionnaireMap;
   onUpdateBooking: (id: string, updates: Partial<CoachBooking>) => void;
   userName: string;
   autoExpand?: boolean;
-  originatingStatuses?: Record<string, string>;
+  parentBookings?: SecondIntroBookingLike[];
+  parentRuns?: SecondIntroRunLike[];
 }) {
   const journey = useJourneyCard();
   // Auto-expand: find next upcoming intro (only when autoExpand is true / today)
@@ -401,15 +412,14 @@ function ClassTimeIntroSelector({
   return (
     <div className="space-y-2">
       {intros.map(intro => {
-        // Only a real ran originator makes this a 2nd intro. PLANNING_RESCHEDULE,
-        // CANCELLED, DELETED_SOFT, NO_SHOW originators all mean the prior intro
-        // never ran — this booking is the real 1st intro.
-        const origStatus = intro.originating_booking_id
-          ? originatingStatuses[intro.originating_booking_id]
-          : null;
-        const isSecondIntro = !!intro.originating_booking_id
-          && !!origStatus
-          && !NON_RAN_BOOKING_STATUSES.has(origStatus);
+        // Canonical helper: a booking is only a 2nd intro if the parent
+        // actually ran (not just status — also checks intros_run for no-shows
+        // whose booking_status_canon never flipped).
+        const isSecondIntro = isSecondIntroBooking(
+          intro as any,
+          [intro as any, ...parentBookings],
+          parentRuns,
+        );
 
         // 2nd intros render as a non-expandable stub — no card, no debrief, no lead measures
         if (isSecondIntro) {
@@ -492,7 +502,11 @@ function ClassTimeIntroSelector({
                   questionnaire={questionnaires[intro.id] || null}
                   onUpdateBooking={onUpdateBooking}
                   userName={userName}
-                  originatingBookingStatus={origStatus}
+                  originatingBookingStatus={
+                    intro.originating_booking_id
+                      ? parentBookings.find(p => p.id === intro.originating_booking_id)?.booking_status_canon ?? null
+                      : null
+                  }
                 />
               </div>
             )}

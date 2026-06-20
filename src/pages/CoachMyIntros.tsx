@@ -16,7 +16,7 @@ import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { toast } from 'sonner';
-import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
+import { isSecondIntroBooking } from '@/lib/intros/secondIntroDetection';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { isCloseResult } from '@/lib/intros/resultLabels';
 import {
@@ -331,11 +331,12 @@ export default function CoachMyIntros() {
     const myBookingIds = bookings.map(b => b.id);
     const originatingIds = bookings.map(b => (b as any).originating_booking_id).filter(Boolean) as string[];
     const chainBookingIds = new Set<string>([...myBookingIds, ...originatingIds]);
-    // Map originating booking id → its booking_status_canon. Used below to
-    // decide whether each booking is a real 2nd intro (originator actually ran)
-    // or whether the originator was rescheduled/cancelled/no-show — in which
-    // case this booking IS the 1st intro.
-    const origStatusById = new Map<string, string>();
+    // Map originating booking id → its full row + runs. Used below via the
+    // canonical isSecondIntroBooking helper to decide whether each booking is
+    // a real 2nd intro (originator actually ran) or whether the originator was
+    // rescheduled/cancelled/no-show — in which case this booking IS the 1st intro.
+    const parentBookingsById = new Map<string, any>();
+    const parentRunsByParentId = new Map<string, any[]>();
     if (myBookingIds.length > 0) {
       const { data: rebooks } = await supabase
         .from('intros_booked')
@@ -347,12 +348,25 @@ export default function CoachMyIntros() {
       });
     }
     if (originatingIds.length > 0) {
-      const { data: origs } = await supabase
-        .from('intros_booked')
-        .select('id, booking_status_canon')
-        .in('id', originatingIds);
-      (origs || []).forEach((r: any) => {
-        if (r.id) origStatusById.set(r.id, r.booking_status_canon || '');
+      const [origsRes, origRunsRes] = await Promise.all([
+        supabase
+          .from('intros_booked')
+          .select('id, member_name, booking_status_canon, is_vip, ignore_from_metrics, deleted_at')
+          .in('id', originatingIds),
+        supabase
+          .from('intros_run')
+          .select('linked_intro_booked_id, result, result_canon')
+          .in('linked_intro_booked_id', originatingIds),
+      ]);
+      (origsRes.data || []).forEach((r: any) => {
+        if (r.id) parentBookingsById.set(r.id, r);
+      });
+      (origRunsRes.data || []).forEach((r: any) => {
+        const pid = r.linked_intro_booked_id;
+        if (!pid) return;
+        const arr = parentRunsByParentId.get(pid) || [];
+        arr.push(r);
+        parentRunsByParentId.set(pid, arr);
       });
     }
     // Map: any booking in chainBookingIds with a SALE run (canon OR legacy membership sale text)
@@ -410,10 +424,19 @@ export default function CoachMyIntros() {
       // Total Journey override: if any booking in this person's chain has a sale,
       // treat this intro as Joined and route it to "Caught up".
       const resultCanon = chainSaleByBooking.get(b.id) ? 'SALE' : baseResultCanon;
-      const origStatus = b.originating_booking_id ? origStatusById.get(b.originating_booking_id) : null;
-      const isSecondIntro = !!b.originating_booking_id
-        && !!origStatus
-        && !NON_RAN_BOOKING_STATUSES.has(origStatus);
+      // Canonical helper handles no-show parents whose booking_status_canon
+      // never flipped (it inspects intros_run for the parent).
+      const parentForChild = b.originating_booking_id
+        ? parentBookingsById.get(b.originating_booking_id)
+        : null;
+      const parentRunsForChild = b.originating_booking_id
+        ? (parentRunsByParentId.get(b.originating_booking_id) || [])
+        : [];
+      const isSecondIntro = isSecondIntroBooking(
+        b as any,
+        parentForChild ? [b as any, parentForChild] : [b as any],
+        parentRunsForChild,
+      );
 
       const lastTouch = lastTouchRow
         ? { daysAgo: differenceInDays(new Date(), new Date(lastTouchRow.created_at)), channel: lastTouchRow.channel || lastTouchRow.touch_type }
