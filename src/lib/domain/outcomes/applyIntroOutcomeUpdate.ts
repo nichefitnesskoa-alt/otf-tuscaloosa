@@ -20,6 +20,7 @@ import {
 } from './types';
 import { triggerAuditRefresh } from '@/hooks/useDataAudit';
 import { computeExpectedIntroOwner } from '@/lib/intros/introOwnerRule';
+import { cleanupReplicasForBooking } from '@/lib/scorecard/replicate';
 
 export interface OutcomeUpdateParams {
   bookingId: string;
@@ -274,6 +275,18 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         edit_reason: params.editReason || `Status synced: ${params.newResult}`,
         ...dismissedAtPatch,
       } as any).eq('id', params.bookingId);
+
+      // Remove auto-replicated FV scorecards when the intro turns into
+      // a no-show / cancel / reschedule / soft-delete. Untouched replicas
+      // only — manually edited replicas are preserved.
+      const cleanupStatuses = new Set(['NO_SHOW', 'CANCELLED', 'PLANNING_RESCHEDULE', 'DELETED_SOFT', 'RESCHEDULED']);
+      if (isNowNoShow || cleanupStatuses.has((canonicalStatus || '').toUpperCase())) {
+        try {
+          await cleanupReplicasForBooking(params.bookingId);
+        } catch (e) {
+          console.warn('Replicated scorecard cleanup failed (non-critical):', e);
+        }
+      }
     }
 
     // ── STEP 3: AMC (idempotent) — skip for COMP bookings ──

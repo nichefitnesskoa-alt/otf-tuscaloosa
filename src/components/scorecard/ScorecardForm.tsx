@@ -18,6 +18,7 @@ import { ScoreReveal } from './ScoreReveal';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { replicateScorecardToSiblings } from '@/lib/scorecard/replicate';
 
 interface BodyProps {
   firstTimerId?: string | null;
@@ -178,6 +179,21 @@ export function ScorecardFormBody(props: BodyProps) {
         coach_debrief_submitted_at: new Date().toISOString(),
         coach_debrief_submitted_by: evaluator,
       }).eq('id', firstTimerId);
+    }
+    // Auto-replicate to other intros in the same class (same coach +
+    // class_date + intro_time). Coach can edit any replica afterward.
+    // Skips siblings already scored by this evaluator on this date,
+    // skips no-show/cancelled/rescheduled/deleted bookings.
+    if (firstTimerId && !isPractice) {
+      try {
+        const { created } = await replicateScorecardToSiblings(id);
+        if (created.length > 0) {
+          toast.success(`Score copied to ${created.length} other ${created.length === 1 ? 'intro' : 'intros'} in this class`);
+          queryClient.invalidateQueries({ queryKey: ['fv_scorecards'] });
+        }
+      } catch (e) {
+        console.warn('Scorecard replication failed (non-critical):', e);
+      }
     }
     setRevealLevel(lvl);
     onSubmitted?.(id, lvl);
