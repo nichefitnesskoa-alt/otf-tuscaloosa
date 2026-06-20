@@ -358,7 +358,8 @@ export default function CoachView() {
                         onUpdateBooking={handleUpdateBooking}
                         userName={user?.name || ''}
                         autoExpand={selectedIsToday}
-                        originatingStatuses={originatingStatuses}
+                        parentBookings={parentBookings}
+                        parentRuns={parentRuns}
                       />
                     </CollapsibleContent>
                   </Collapsible>
