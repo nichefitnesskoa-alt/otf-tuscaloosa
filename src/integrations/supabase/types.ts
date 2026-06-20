@@ -1051,6 +1051,7 @@ export type Database = {
           otbeat_score: number
           practice_name: string | null
           reflection_text: string | null
+          replicated_from_scorecard_id: string | null
           rower_score: number
           submitted_at: string | null
           total_score: number | null
@@ -1078,6 +1079,7 @@ export type Database = {
           otbeat_score?: number
           practice_name?: string | null
           reflection_text?: string | null
+          replicated_from_scorecard_id?: string | null
           rower_score?: number
           submitted_at?: string | null
           total_score?: number | null
@@ -1105,13 +1107,22 @@ export type Database = {
           otbeat_score?: number
           practice_name?: string | null
           reflection_text?: string | null
+          replicated_from_scorecard_id?: string | null
           rower_score?: number
           submitted_at?: string | null
           total_score?: number | null
           tread_score?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fv_scorecards_replicated_from_scorecard_id_fkey"
+            columns: ["replicated_from_scorecard_id"]
+            isOneToOne: false
+            referencedRelation: "fv_scorecards"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fv_scoring_columns: {
         Row: {

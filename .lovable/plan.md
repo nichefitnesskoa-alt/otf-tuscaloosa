@@ -1,82 +1,79 @@
-## The bug (verified in DB)
+# Auto-replicate FV Scorecards across same-class intros
 
-Maliyah Grant's Jun 19 intro was a **no-show RUN** (booking_status_canon is still `ACTIVE`, but the linked `intros_run.result_canon = 'NO_SHOW'`). Her Jun 20 booking has `originating_booking_id` pointing at the Jun 19 row, so every consumer that decides "1st vs 2nd intro" from `originating_booking_id` alone labels Jun 20 as "Chain 1 · 2nd". It should be a 1st intro — she never actually had a 1st.
+## What this changes for the coach
 
-There's also a 3rd row (DELETED_SOFT, 10:30 Jun 19) — confirms the chain link, not the bug.
+When a coach submits a First Visit scorecard for one intro, the app finds the **other intros in the exact same class** (same coach, same class_date, same class_time, not excluded, not yet scored) and **auto-creates a submitted scorecard for each of them** using the same bullets, notes, class type, and member count. Coach can still tap any one of them and adjust if the experience differed.
 
-Existing helpers cover *part* of this:
-- `NON_RAN_BOOKING_STATUSES` (NO_SHOW / CANCELLED / PLANNING_RESCHEDULE / DELETED_SOFT) — only checks booking status.
-- `didIntroActuallyRun(run)` — only checks a single run.
-- `useIntroTypeDetection` excludes NO_SHOW *bookings* from grouping, but NOT bookings whose status is ACTIVE with a no-show run, and NOT CANCELLED.
-- `ConversionFunnel`, `PersonJourneyCard`, `useUpcomingIntrosData`, `useFollowUpData`, `Wig.tsx` chain-walk all check `originating_booking_id` directly with no parent-actually-ran gate.
+If one of those intros later resolves as a **no-show, cancellation, planning_reschedule, or soft-delete** (or the intro_run result is logged NO_SHOW), the **auto-created replica for that intro is removed**, so the coach isn't credited / debited for an intro that didn't actually happen. Replicas the coach manually edited after creation are preserved — only untouched replicas get cleaned up.
 
-This is the system-coherence bug the workspace rules call out — one concept ("is this a 2nd intro?") implemented inline in 6+ places.
+## Scope rules
 
-## The fix — one canonical helper, route every consumer through it
+- "Same class" = same `coach_name` + `class_date` + `class_time` on `intros_booked`, excluding the source booking, excluding bookings already excluded from metrics (`isBookingExcludedFromMetrics`), excluding bookings whose `booking_status_canon` is `NO_SHOW`, `CANCELLED`, `PLANNING_RESCHEDULE`, or `DELETED_SOFT` at submit time, and excluding bookings that already have a scorecard for that class_date + evaluator.
+- Replicas copy: all 15 bullets, all 5 column scores, total, level, class_type, member_count, interactions/otbeat/handback notes, evaluator, evaluatee, eval_type. `is_practice=false`. `submitted_at = now()`.
+- Replicas are flagged with a new column `replicated_from_scorecard_id` pointing at the source scorecard.
+- "Untouched replica" = `replicated_from_scorecard_id IS NOT NULL` AND no edits since creation (we compare `updated_at` and bullet rows). Touched replicas stay; coach intent wins.
 
-### 1. New canonical helper: `src/lib/intros/secondIntroDetection.ts`
+## Reach map (verified before coding)
 
-```ts
-isSecondIntroBooking(child, allBookings, allRuns): boolean
-```
+- Tables touched: `fv_scorecards` (new column), `fv_scorecard_bullets`, `intros_booked` (read only), `intros_run` (read only).
+- Readers/displayers: `useScorecards` / `useScorecard` hooks → `BookingScorecards`, `ComparisonView`, `CoachScorecardGrid`, `CoachDashboard`, `CoachScorecards` page, `UnscoredDrillDown`, `WigFirstVisitSection`, `ClientJourneyPanel`, `CoachIntroCard`.
+- Writers we hook into: `ScorecardFormBody.finalizeSubmission` (replicate on submit), `applyIntroOutcomeUpdate` (cleanup on NO_SHOW / CANCELLED / PLANNING_RESCHEDULE / DELETED_SOFT and on `intros_run.result_canon = NO_SHOW`).
+- React Query keys to invalidate after replicate or cleanup: `['fv_scorecards']`, `['fv_scorecard', id]`, plus any WIG/coach view invalidation already used by the form (`fv_*` keys).
 
-Returns `true` only when ALL of:
-1. `child.originating_booking_id` is set
-2. `child.referred_by_member_name` is null (friend bookings are 1st intros)
-3. The parent booking exists in `allBookings`
-4. Parent's `member_name` matches child's (same person; otherwise friend)
-5. Parent is **not excluded** (`isBookingExcludedFromMetrics`)
-6. Parent's `booking_status_canon` is **not** in `NON_RAN_BOOKING_STATUSES`
-7. Parent has at least one run where `didIntroActuallyRun(run)` is true
-   *(this is the new gate — handles the Maliyah case where booking is ACTIVE but the run was NO_SHOW)*
+## Implementation
 
-Plus a companion `getEffectiveOriginatingBookingId(child, allBookings, allRuns)` that walks up the chain skipping no-show / cancelled / rescheduled parents, so chain index ("Chain N") and root resolution stay correct.
+1. **Migration**
+   - `ALTER TABLE public.fv_scorecards ADD COLUMN replicated_from_scorecard_id uuid NULL REFERENCES public.fv_scorecards(id) ON DELETE SET NULL;`
+   - Index on `(coach_name_unused?)` — not needed; queries hit `evaluatee_name + class_date + class_time` which is small.
 
-### 2. Replace inline checks (the reach map)
+2. **New helper `src/lib/scorecard/replicate.ts`**
+   - `replicateScorecardToSiblings(sourceScorecardId): Promise<{created: string[]}>`
+     - Loads source card + bullets.
+     - Resolves the source booking's `coach_name`, `class_date`, `class_time`.
+     - Queries `intros_booked` for siblings (same coach + date + time, not the source, valid canon statuses, not excluded).
+     - For each sibling: skip if `fv_scorecards` already has a row with `first_timer_id = sibling.id` AND `evaluator_name = source.evaluator_name` AND `class_date = source.class_date`. Otherwise insert a new scorecard row (mirroring all fields, `submitted_at = now()`, `replicated_from_scorecard_id = source.id`) and bulk-insert the bullet rows.
+   - `cleanupReplicasForBooking(bookingId): Promise<{deleted: string[]}>`
+     - Finds `fv_scorecards` where `first_timer_id = bookingId` AND `replicated_from_scorecard_id IS NOT NULL`.
+     - For each, verifies it's still "untouched": `updated_at <= created_at + 5s` AND no bullet rows updated after creation. (We use `created_at`/`updated_at` already on the table.)
+     - Deletes the bullets then the scorecard.
 
-| File | Current inline logic | Replace with |
-|---|---|---|
-| `src/components/person/PersonJourneyCard.tsx` (lines 168-189) | child = any booking with `originating_booking_id` | `isSecondIntroBooking()` — fixes the visible "Chain 1 · 2nd" bug |
-| `src/components/dashboard/ConversionFunnel.tsx` (`bookingIsSecond` map) | same | `isSecondIntroBooking()` |
-| `src/hooks/useIntroTypeDetection.ts` | excludes only NO_SHOW bookings; checks `originating_booking_id` w/ same-name | route through `isSecondIntroBooking()`; preserve fallback to "2ND" status text |
-| `src/features/myDay/useUpcomingIntrosData.ts` (2nd-intro detection block) | originating_booking_id + same name | `isSecondIntroBooking()` |
-| `src/features/followUp/useFollowUpData.ts` (`secondIntroByOrigin`) | originating_booking_id present | `isSecondIntroBooking()` |
-| `src/features/myDay/useWinTheDayItems.ts` line 191 (`skip 2nd intros`) | `if (intro.originating_booking_id) continue` | `if (isSecondIntroBooking(...)) continue` |
-| `src/pages/Wig.tsx` chain-walk (lines 619-625) and 2nd-intro grouping (lines 499-504, 671) | originating_booking_id present | `isSecondIntroBooking()` + `getEffectiveOriginatingBookingId()` |
-| `src/lib/intros/orphanedFirstIntros.ts` | already handles excluded parents | extend: parent counts as "excluded for orphan-promotion purposes" if it also failed `didIntroActuallyRun` (so the Maliyah child gets promoted to 1st intro in funnels/metrics, not just in the journey card) |
+3. **Hook into submit** (`src/components/scorecard/ScorecardForm.tsx`)
+   - In `finalizeSubmission`, after the existing `submitted_at` update, call `replicateScorecardToSiblings(id)`. Show a toast: `Replicated to N other intros in this class`. Invalidate the same React Query keys the rest of the form already invalidates.
 
-### 3. Verify with the same DB row
+4. **Hook into outcome cleanup** (`src/lib/outcome-update.ts` → `applyIntroOutcomeUpdate`)
+   - After the booking status is finalized, if the resulting canon is `NO_SHOW`, `CANCELLED`, `PLANNING_RESCHEDULE`, `DELETED_SOFT`, OR the new `intros_run.result_canon` is `NO_SHOW`, call `cleanupReplicasForBooking(bookingId)`. Invalidate `['fv_scorecards']`.
 
-After the fix, Maliyah's three rows produce:
-- Jun 19 (ACTIVE, no-show run) → 1st intro
-- Jun 19 10:30 (DELETED_SOFT, excluded) → not displayed
-- Jun 20 (ACTIVE, originating → Jun 19 which didn't actually run) → **1st intro** (was: 2nd)
-
-Cross-page checks to confirm coherence:
-- Person Journey Card: both visible rows labeled "Chain 1 · 1st" / "Chain 2 · 1st"
-- Conversion Funnel: Maliyah counts in 1st Intro Booked row twice, not in 2nd Intro row
-- WIG Per-Coach: Koa keeps the 1st (no-show), James gets a 1st (was being counted as Koa's 2nd)
-- MyDay Upcoming Intros: Jun 20 card no longer flagged "2nd intro"
-- Follow-Up Queue: Jun 20 doesn't appear in "2nd Intro" tab
+5. **Verification (DB)**
+   - Pick a recent class with multiple intros from `intros_booked`, simulate the helper, confirm rows created and bullets mirrored.
+   - Pick a booking, mark NO_SHOW, confirm only the untouched replica is removed; a manually-edited replica stays.
 
 ## Out of scope
 
-- No DB schema changes. We do NOT clear `originating_booking_id` — the link is still useful for chain traversal and audit. We just stop misinterpreting it.
-- No changes to commission attribution math, sales-detection, or `isCloseRun`. The journey/sale logic in `journey.ts` already calls `isBookingExcludedFromMetrics`; the new helper is additive.
-- No changes to staff dropdowns, dates, roles, or VIP logic.
+- No change to score math, level thresholds, or WIG/coach metrics logic — they keep reading `fv_scorecards` as-is.
+- No data-model collapse (we are NOT switching to one-scorecard-per-class).
+- No change to practice scorecards (`is_practice=true` never replicates).
+- No change to commission, attribution, or follow-up logic.
 
-## Files touched
+## Files
 
-- `src/lib/intros/secondIntroDetection.ts` (new)
-- `src/components/person/PersonJourneyCard.tsx`
-- `src/components/dashboard/ConversionFunnel.tsx`
-- `src/hooks/useIntroTypeDetection.ts`
-- `src/features/myDay/useUpcomingIntrosData.ts`
-- `src/features/myDay/useWinTheDayItems.ts`
-- `src/features/followUp/useFollowUpData.ts`
-- `src/pages/Wig.tsx`
-- `src/lib/intros/orphanedFirstIntros.ts`
+- `supabase/migrations/<ts>_fv_scorecards_replicated_from.sql` (new)
+- `src/lib/scorecard/replicate.ts` (new)
+- `src/components/scorecard/ScorecardForm.tsx` (hook submit)
+- `src/lib/outcome-update.ts` (hook cleanup)
+- `src/lib/scorecard/__tests__/replicate.test.ts` (new — covers sibling matching, skip-if-already-scored, untouched-only cleanup)
 
-## Closing
+## Coherence proof I'll produce before reporting done
 
-I'll end the build with a COHERENCE PROOF block: `read_query` confirming the three Maliyah rows, plus the labeled counts produced by each consumer above (Journey card, Funnel, WIG, MyDay, Follow-Up) all agreeing.
+```
+COHERENCE PROOF
+- DB verification:
+  - SELECT id, first_timer_id, replicated_from_scorecard_id FROM fv_scorecards WHERE replicated_from_scorecard_id = '<source>'
+  - SELECT booking_status_canon FROM intros_booked WHERE id IN (...siblings)
+- Cross-page check:
+  - Coach View "FV Scorecards" on each sibling intro: shows L<n> · <score>/30
+  - WigFirstVisitSection unscored count: drops by N
+  - CoachScorecards page: N new rows for evaluator on class_date
+- All agree: yes
+- Files touched: <list>
+- Canonical helpers extracted: replicateScorecardToSiblings, cleanupReplicasForBooking
+```
