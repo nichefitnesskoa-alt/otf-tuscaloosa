@@ -374,14 +374,15 @@ export default function CoachView() {
 
 // ── Per-class-time: expandable card list (accordion — one at a time) ──
 function ClassTimeIntroSelector({
-  intros, questionnaires, onUpdateBooking, userName, autoExpand = true, originatingStatuses = {},
+  intros, questionnaires, onUpdateBooking, userName, autoExpand = true, parentBookings = [], parentRuns = [],
 }: {
   intros: CoachBooking[];
   questionnaires: QuestionnaireMap;
   onUpdateBooking: (id: string, updates: Partial<CoachBooking>) => void;
   userName: string;
   autoExpand?: boolean;
-  originatingStatuses?: Record<string, string>;
+  parentBookings?: SecondIntroBookingLike[];
+  parentRuns?: SecondIntroRunLike[];
 }) {
   const journey = useJourneyCard();
   // Auto-expand: find next upcoming intro (only when autoExpand is true / today)
