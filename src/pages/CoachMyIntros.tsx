@@ -17,6 +17,7 @@ import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { toast } from 'sonner';
 import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
+import { isSecondIntroBooking } from '@/lib/intros/secondIntroDetection';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { isCloseResult } from '@/lib/intros/resultLabels';
 import {
