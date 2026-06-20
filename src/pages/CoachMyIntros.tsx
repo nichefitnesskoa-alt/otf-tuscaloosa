@@ -425,10 +425,19 @@ export default function CoachMyIntros() {
       // Total Journey override: if any booking in this person's chain has a sale,
       // treat this intro as Joined and route it to "Caught up".
       const resultCanon = chainSaleByBooking.get(b.id) ? 'SALE' : baseResultCanon;
-      const origStatus = b.originating_booking_id ? origStatusById.get(b.originating_booking_id) : null;
-      const isSecondIntro = !!b.originating_booking_id
-        && !!origStatus
-        && !NON_RAN_BOOKING_STATUSES.has(origStatus);
+      // Canonical helper handles no-show parents whose booking_status_canon
+      // never flipped (it inspects intros_run for the parent).
+      const parentForChild = b.originating_booking_id
+        ? parentBookingsById.get(b.originating_booking_id)
+        : null;
+      const parentRunsForChild = b.originating_booking_id
+        ? (parentRunsByParentId.get(b.originating_booking_id) || [])
+        : [];
+      const isSecondIntro = isSecondIntroBooking(
+        b as any,
+        parentForChild ? [b as any, parentForChild] : [b as any],
+        parentRunsForChild,
+      );
 
       const lastTouch = lastTouchRow
         ? { daysAgo: differenceInDays(new Date(), new Date(lastTouchRow.created_at)), channel: lastTouchRow.channel || lastTouchRow.touch_type }
