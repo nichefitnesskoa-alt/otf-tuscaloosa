@@ -84,7 +84,8 @@ export default function CoachView() {
 
   const [bookings, setBookings] = useState<CoachBooking[]>([]);
   const [questionnaires, setQuestionnaires] = useState<QuestionnaireMap>({});
-  const [originatingStatuses, setOriginatingStatuses] = useState<Record<string, string>>({});
+  const [parentBookings, setParentBookings] = useState<SecondIntroBookingLike[]>([]);
+  const [parentRuns, setParentRuns] = useState<SecondIntroRunLike[]>([]);
   const [loading, setLoading] = useState(true);
   // Default to "mine" — user sees only their own intros. Toggle flips to "all".
   const [coachScope, setCoachScope] = useState<'mine' | 'all'>('mine');
