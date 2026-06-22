@@ -30,6 +30,7 @@ interface FormState {
   last_name: string;
   email: string;
   phone: string;
+  instagram_handle: string;
   ig_checks: Record<string, boolean>;
   action_post_engagement: boolean;
   action_post_engagement_screenshot_url: string | null;
@@ -41,7 +42,7 @@ interface FormState {
 }
 
 const baseEmpty: Omit<FormState, 'ig_checks' | 'partner_actions'> = {
-  first_name: '', last_name: '', email: '', phone: '',
+  first_name: '', last_name: '', email: '', phone: '', instagram_handle: '',
   action_post_engagement: false, action_post_engagement_screenshot_url: null,
   action_story_share: false, action_story_share_screenshot_url: null,
   action_free_class: false, action_free_class_screenshot_url: null,
