@@ -52,15 +52,11 @@ export function PrizeShowcase({
         {cards.map(c => <PrizeCard key={c.id} {...c} showWinnerBadge={showWinnerBadge} />)}
       </div>
 
-      {/* Mobile horizontal scroll */}
-      <div className="md:hidden flex gap-2.5 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-2" style={{ scrollPaddingLeft: 16 }}>
+      {/* Mobile vertical stack — all prizes visible at a glance */}
+      <div className="md:hidden flex flex-col gap-2.5">
         {cards.map(c => (
-          <div key={c.id} className="snap-start flex-shrink-0" style={{ width: 200 }}>
-            <PrizeCard {...c} mobile showWinnerBadge={showWinnerBadge} />
-          </div>
+          <PrizeCard key={c.id} {...c} mobile showWinnerBadge={showWinnerBadge} />
         ))}
-        {/* peek spacer */}
-        <div className="flex-shrink-0" style={{ width: 4 }} />
       </div>
     </section>
   );

@@ -141,7 +141,6 @@ export function GiveawayEntryForm({ slug, previewMode, entrySlug }: Props) {
   if (!previewMode && !entry) {
     return (
       <Shell>
-        <CoBrandBar parts={coBrandParts} />
         <EntryGate
           slug={slug}
           isMobile={isMobile}
@@ -167,7 +166,6 @@ export function GiveawayEntryForm({ slug, previewMode, entrySlug }: Props) {
   // ACTIONS — entry exists (or preview)
   return (
     <Shell>
-      <CoBrandBar parts={coBrandParts} />
       <EntryActions
         slug={slug}
         studio={studio}
@@ -254,10 +252,6 @@ function EntryGate({
             {giveawayTitle}
           </FitText>
         )}
-        <p className="font-display font-medium uppercase text-[#8E8E93] mt-3"
-          style={{ fontSize: 'clamp(10px, 1vw, 12px)', letterSpacing: '0.2em' }}>
-          Presented by {coBrandParts.join(' + ')}
-        </p>
         <p className="font-body text-[#F5F2EE]/70 mt-4">
           Drop your info to unlock entry actions. Come back anytime to add more entries.
         </p>
@@ -480,10 +474,6 @@ function EntryActions({
             {giveawayTitle}
           </FitText>
         )}
-        <p className="font-display font-medium uppercase text-[#8E8E93] mt-2"
-          style={{ fontSize: 'clamp(10px, 1vw, 12px)', letterSpacing: '0.2em' }}>
-          Presented by {coBrandParts.join(' + ')}
-        </p>
         <p className="font-body text-[#F5F2EE]/70 mt-4 max-w-2xl">
           Welcome back{entry ? `, ${entry.first_name}` : ''}. Complete actions below to earn more entries.
         </p>
@@ -682,7 +672,7 @@ const TITLE_FONT = "'PP Right Grotesk', 'Arial Black', Arial, sans-serif";
 function MobileStackedTitle({ studioName, partners }: { studioName: string; partners: { partner_name: string }[] }) {
   const baseStyle: React.CSSProperties = {
     fontFamily: TITLE_FONT, fontWeight: 900, lineHeight: 0.95,
-    letterSpacing: '0.01em', textTransform: 'uppercase', whiteSpace: 'nowrap', textAlign: 'center',
+    letterSpacing: '0.01em', textTransform: 'uppercase', textAlign: 'center',
   };
 
   const sep = (
@@ -690,11 +680,11 @@ function MobileStackedTitle({ studioName, partners }: { studioName: string; part
   );
   return (
     <div>
-      <FitText as="div" min={24} max={48} style={{ ...baseStyle, color: '#FDF7EA' }}>{studioName}</FitText>
+      <FitText as="div" min={24} max={48} multiline style={{ ...baseStyle, color: '#FDF7EA' }}>{studioName}</FitText>
       {partners.map((p, i) => (
         <div key={i}>
           {sep}
-          <FitText as="div" min={20} max={48} style={{ ...baseStyle, color: '#E8540A' }}>{p.partner_name}</FitText>
+          <FitText as="div" min={20} max={48} multiline style={{ ...baseStyle, color: '#E8540A' }}>{p.partner_name}</FitText>
         </div>
       ))}
     </div>
@@ -702,7 +692,7 @@ function MobileStackedTitle({ studioName, partners }: { studioName: string; part
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen bg-[#1C1C1E] text-[#F5F2EE]">{children}</div>;
+  return <div className="min-h-screen overflow-x-hidden bg-[#1C1C1E] text-[#F5F2EE]">{children}</div>;
 }
 
 function CoBrandBar({ parts }: { parts: string[] }) {
