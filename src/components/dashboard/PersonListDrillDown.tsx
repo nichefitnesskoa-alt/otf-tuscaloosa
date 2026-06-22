@@ -7,7 +7,8 @@
  * Use <DrillNumber> as the trigger — handles 44px tap target, OTF Orange
  * underlined numerals, disabled-when-zero state, and accessible label.
  */
-import { ReactNode } from 'react';
+import { ReactNode, useState, MouseEvent } from 'react';
+import { Trash2, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { OutcomeEditButton } from '@/components/shared/OutcomeEditButton';
+import { toast } from 'sonner';
 
 export interface PersonRow {
   id: string;
