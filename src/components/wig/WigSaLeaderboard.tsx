@@ -10,7 +10,7 @@ import { parseLocalDate } from '@/lib/utils';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 import { PersonJourneyCard } from '@/components/person/PersonJourneyCard';
 import { useSaAllBooked } from '@/hooks/useSaAllBooked';
-import { useSaLeads } from '@/hooks/useSaLeads';
+import { useSaLeads, removeSelfSourcedRow } from '@/hooks/useSaLeads';
 import { useSaSales } from '@/hooks/useSaSales';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import type { DateRange } from '@/lib/pay-period';
@@ -232,6 +232,8 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         rightLabel: p.booked ? 'Booked' : 'Lead',
         rightTone: (p.booked ? 'success' : 'primary') as 'success' | 'primary',
         onClick: p.booking_id ? () => setJourneyBookingId(p.booking_id!) : undefined,
+        onRemove: isAdmin ? () => removeSelfSourcedRow(p.id).then(() => sourcedLeads.refetch()) : undefined,
+        removeConfirm: `Remove ${p.name} from ${r.sa}'s self-sourced count?\n\nThis won't delete the booking or the lead — it just excludes it from this metric.`,
       })));
     }
     const saRows = drill.sa ? booked.rows.filter(r => r.sa === drill.sa) : booked.rows;

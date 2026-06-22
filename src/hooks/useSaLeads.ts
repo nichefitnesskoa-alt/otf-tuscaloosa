@@ -80,13 +80,17 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
     // ── 2) SGL bookings whose booking_id is NOT already represented by a lead row
     const { data: sglBookings } = await supabase
       .from('intros_booked')
-      .select('id, lead_source, booked_by, vip_session_id, created_at, deleted_at, ignore_from_metrics, member_name')
+      .select('id, lead_source, booked_by, vip_session_id, created_at, deleted_at, ignore_from_metrics, member_name, originating_booking_id')
       .gte('created_at', startIso)
       .lte('created_at', endIso)
       .is('deleted_at', null);
 
-    const candidateBookings = (sglBookings as LeadBookedBookingInput[] | null || [])
+    const candidateBookings = (sglBookings as (LeadBookedBookingInput & { originating_booking_id: string | null })[] | null || [])
       .filter(b => !b.ignore_from_metrics)
+      // Child bookings (rebook / 2nd intro for an already-sourced person)
+      // never add a NEW self-sourced lead — the originating booking already
+      // represents that person.
+      .filter(b => !b.originating_booking_id)
       .filter(b => isSelfSourcedLeadSource(b.lead_source))
       .filter(b => !linkedBookingIds.has(b.id));
 
@@ -163,3 +167,38 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
   const total = rows.reduce((s, r) => s + r.count, 0);
   return { rows, total, loading, refetch: fetchData };
 }
+
+import { notifyDataChanged } from '@/lib/data/invalidation';
+
+/**
+ * Admin remove: drops a row from the SA's self-sourced count without
+ * deleting the underlying record.
+ *
+ * Row id format from useSaLeads:
+ *   - "lead-{uuid}"  → unattribute from SA (leads.sourced_by_sa = NULL)
+ *   - "bk-{uuid}"    → exclude booking from metrics (ignore_from_metrics = true)
+ */
+export async function removeSelfSourcedRow(rowId: string): Promise<void> {
+  if (rowId.startsWith('lead-')) {
+    const id = rowId.slice('lead-'.length);
+    const { error } = await supabase
+      .from('leads')
+      .update({ sourced_by_sa: null })
+      .eq('id', id);
+    if (error) throw error;
+  } else if (rowId.startsWith('bk-')) {
+    const id = rowId.slice('bk-'.length);
+    const { error } = await supabase
+      .from('intros_booked')
+      .update({ ignore_from_metrics: true })
+      .eq('id', id);
+    if (error) throw error;
+  } else {
+    throw new Error(`Unknown self-sourced row id: ${rowId}`);
+  }
+  notifyDataChanged(
+    ['leads', 'intros_booked', 'sa-leads', 'sa-leads-booked'],
+    'remove-self-sourced-row',
+  );
+}
+

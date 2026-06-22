@@ -7,7 +7,8 @@
  * Use <DrillNumber> as the trigger — handles 44px tap target, OTF Orange
  * underlined numerals, disabled-when-zero state, and accessible label.
  */
-import { ReactNode } from 'react';
+import { ReactNode, useState, MouseEvent } from 'react';
+import { Trash2, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { OutcomeEditButton } from '@/components/shared/OutcomeEditButton';
+import { toast } from 'sonner';
 
 export interface PersonRow {
   id: string;
@@ -27,6 +29,12 @@ export interface PersonRow {
   outcomeEdit?: { bookingId: string };
   href?: string; // when set, row becomes navigable
   onClick?: () => void; // when set, row becomes a tappable button (overrides href)
+  /** Admin-only remove handler. When set, renders a trash icon button that
+   *  confirms then runs the handler. Use to exclude a row from a metric
+   *  without deleting the underlying record. */
+  onRemove?: () => void | Promise<void>;
+  /** Confirm message shown before onRemove runs. Defaults to a generic one. */
+  removeConfirm?: string;
 }
 
 interface Props {
@@ -47,6 +55,40 @@ const TONE_CLASS: Record<NonNullable<PersonRow['rightTone']>, string> = {
   primary: 'bg-primary/10 text-primary border-primary/30',
   muted: 'bg-muted text-muted-foreground border-border',
 };
+
+function RemoveButton({ onRemove, confirm, name }: {
+  onRemove: () => void | Promise<void>;
+  confirm: string;
+  name: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  const handle = async (e: MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (busy) return;
+    if (!window.confirm(confirm)) return;
+    setBusy(true);
+    try {
+      await onRemove();
+      toast.success(`Removed ${name} from this count.`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not remove.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={handle}
+      disabled={busy}
+      aria-label={`Remove ${name} from this count`}
+      className="shrink-0 w-9 h-9 rounded-md border border-border bg-card hover:border-destructive/60 hover:text-destructive flex items-center justify-center cursor-pointer disabled:opacity-50"
+    >
+      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+    </button>
+  );
+}
 
 function Body({ rows, emptyText, footer, subtitle, scopeBadge }: {
   rows: PersonRow[]; emptyText?: string; footer?: ReactNode; subtitle?: string; scopeBadge?: string;
@@ -109,14 +151,22 @@ function Body({ rows, emptyText, footer, subtitle, scopeBadge }: {
                       {r.subtitle && <p className="text-[10px] text-muted-foreground font-normal">{r.subtitle}</p>}
                     </NameEl>
                     {rightSlot}
+                    {r.onRemove && (
+                      <RemoveButton
+                        onRemove={r.onRemove}
+                        confirm={r.removeConfirm || `Remove ${r.name} from this count?`}
+                        name={r.name}
+                      />
+                    )}
                   </div>
                 </div>
               );
             }
 
-            const inner = (
+            // Card body — name + subtitle, plus right-side label.
+            const cardBody = (
               <div className={cn(
-                'rounded-md border border-border p-2 bg-card',
+                'flex-1 min-w-0 rounded-md border border-border p-2 bg-card',
                 interactive && 'cursor-pointer hover:border-primary/60 active:scale-[0.99] transition-all'
               )}>
                 <div className="flex items-start justify-between gap-2">
@@ -128,22 +178,34 @@ function Body({ rows, emptyText, footer, subtitle, scopeBadge }: {
                 </div>
               </div>
             );
-            if (r.onClick) {
-              return (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={r.onClick}
-                  className="block w-full text-left"
-                >
-                  {inner}
-                </button>
-              );
-            }
-            return r.href ? (
-              <a key={r.id} href={r.href} className="block no-underline text-current">{inner}</a>
+
+            // Wrap name/card in interactive element; keep RemoveButton as a
+            // sibling so we never nest <button> in <button>.
+            const clickable = r.onClick ? (
+              <button
+                type="button"
+                onClick={r.onClick}
+                className="block flex-1 min-w-0 text-left"
+              >
+                {cardBody}
+              </button>
+            ) : r.href ? (
+              <a href={r.href} className="block flex-1 min-w-0 no-underline text-current">{cardBody}</a>
             ) : (
-              <div key={r.id}>{inner}</div>
+              <div className="flex-1 min-w-0">{cardBody}</div>
+            );
+
+            return (
+              <div key={r.id} className="flex items-stretch gap-2">
+                {clickable}
+                {r.onRemove && (
+                  <RemoveButton
+                    onRemove={r.onRemove}
+                    confirm={r.removeConfirm || `Remove ${r.name} from this count?`}
+                    name={r.name}
+                  />
+                )}
+              </div>
             );
           })
         )}
