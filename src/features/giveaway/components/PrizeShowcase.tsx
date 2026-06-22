@@ -12,24 +12,28 @@ export function PrizeShowcase({
 }) {
   const igHandle = getStudioIgHandle(slug).replace(/^@/, '');
 
-  const cards: Array<{ id: string; prize: string; business: string; handle?: string | null; tbd?: boolean }> = [
+  const cards: Array<{ id: string; prize: string; business: string; handle?: string | null; tbd?: boolean; winnerLabel?: string }> = [
     {
       id: 'otf',
       prize: 'FREE MEMBERSHIP',
       business: getParticipantStudioName(slug).toUpperCase(),
       handle: igHandle,
     },
-    ...partners.map(p => {
-      const prizeText = (p.prize_description || '').trim();
-      return {
-        id: p.id,
+  ];
+  for (const p of partners) {
+    const prizeText = (p.prize_description || '').trim();
+    const count = Math.max(1, Math.min(10, p.prize_count ?? 1));
+    for (let i = 0; i < count; i++) {
+      cards.push({
+        id: count > 1 ? `${p.id}__${i + 1}` : p.id,
         prize: prizeText ? prizeText.toUpperCase() : 'PRIZE TBD',
         business: p.partner_name.toUpperCase(),
         handle: (p.partner_ig_handle || '').trim().replace(/^@/, '') || null,
         tbd: !prizeText,
-      };
-    }),
-  ];
+        winnerLabel: count > 1 ? `Winner ${i + 1} of ${count}` : undefined,
+      });
+    }
+  }
 
   const count = cards.length;
 
