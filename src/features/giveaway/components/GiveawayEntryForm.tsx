@@ -147,6 +147,9 @@ export function GiveawayEntryForm({ slug, previewMode, entrySlug }: Props) {
           isMobile={isMobile}
           giveawayTitle={giveawayTitle}
           partners={partners}
+          studio={studio}
+          coBrandParts={coBrandParts}
+          endAt={endAt}
           onStart={async (input) => {
             const res = await startEntry(input);
             if (res.created) setJustCreated(true);
@@ -159,6 +162,7 @@ export function GiveawayEntryForm({ slug, previewMode, entrySlug }: Props) {
       </Shell>
     );
   }
+
 
   // ACTIONS — entry exists (or preview)
   return (
