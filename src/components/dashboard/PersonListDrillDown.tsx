@@ -151,14 +151,22 @@ function Body({ rows, emptyText, footer, subtitle, scopeBadge }: {
                       {r.subtitle && <p className="text-[10px] text-muted-foreground font-normal">{r.subtitle}</p>}
                     </NameEl>
                     {rightSlot}
+                    {r.onRemove && (
+                      <RemoveButton
+                        onRemove={r.onRemove}
+                        confirm={r.removeConfirm || `Remove ${r.name} from this count?`}
+                        name={r.name}
+                      />
+                    )}
                   </div>
                 </div>
               );
             }
 
-            const inner = (
+            // Card body — name + subtitle, plus right-side label.
+            const cardBody = (
               <div className={cn(
-                'rounded-md border border-border p-2 bg-card',
+                'flex-1 min-w-0 rounded-md border border-border p-2 bg-card',
                 interactive && 'cursor-pointer hover:border-primary/60 active:scale-[0.99] transition-all'
               )}>
                 <div className="flex items-start justify-between gap-2">
@@ -170,22 +178,34 @@ function Body({ rows, emptyText, footer, subtitle, scopeBadge }: {
                 </div>
               </div>
             );
-            if (r.onClick) {
-              return (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={r.onClick}
-                  className="block w-full text-left"
-                >
-                  {inner}
-                </button>
-              );
-            }
-            return r.href ? (
-              <a key={r.id} href={r.href} className="block no-underline text-current">{inner}</a>
+
+            // Wrap name/card in interactive element; keep RemoveButton as a
+            // sibling so we never nest <button> in <button>.
+            const clickable = r.onClick ? (
+              <button
+                type="button"
+                onClick={r.onClick}
+                className="block flex-1 min-w-0 text-left"
+              >
+                {cardBody}
+              </button>
+            ) : r.href ? (
+              <a href={r.href} className="block flex-1 min-w-0 no-underline text-current">{cardBody}</a>
             ) : (
-              <div key={r.id}>{inner}</div>
+              <div className="flex-1 min-w-0">{cardBody}</div>
+            );
+
+            return (
+              <div key={r.id} className="flex items-stretch gap-2">
+                {clickable}
+                {r.onRemove && (
+                  <RemoveButton
+                    onRemove={r.onRemove}
+                    confirm={r.removeConfirm || `Remove ${r.name} from this count?`}
+                    name={r.name}
+                  />
+                )}
+              </div>
             );
           })
         )}
