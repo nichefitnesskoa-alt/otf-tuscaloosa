@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DrawEntry, topWeightedForWheel } from '../lib/weightedDraw';
-import type { GiveawayPartner } from '../hooks/useGiveawayPartners';
+import { type GiveawayPartner, getPartnerPrizeLabel } from '../hooks/useGiveawayPartners';
 import {
   getDrawRuleStatement,
   isPerPrize,
