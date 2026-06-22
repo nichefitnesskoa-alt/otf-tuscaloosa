@@ -1218,13 +1218,15 @@ export type Database = {
           action_story_share_screenshot_url: string | null
           base_entries: number
           bonus_entries: number
-          email: string
+          email: string | null
+          entry_slug: string
           first_name: string
           id: string
           instagram_handle: string | null
           last_name: string
           partner_actions: Json
           phone: string
+          phone_normalized: string
           studio_slug: string
           submitted_at: string
           total_entries: number | null
@@ -1241,13 +1243,15 @@ export type Database = {
           action_story_share_screenshot_url?: string | null
           base_entries?: number
           bonus_entries?: number
-          email: string
+          email?: string | null
+          entry_slug?: string
           first_name: string
           id?: string
           instagram_handle?: string | null
           last_name: string
           partner_actions?: Json
           phone: string
+          phone_normalized: string
           studio_slug: string
           submitted_at?: string
           total_entries?: number | null
@@ -1264,13 +1268,15 @@ export type Database = {
           action_story_share_screenshot_url?: string | null
           base_entries?: number
           bonus_entries?: number
-          email?: string
+          email?: string | null
+          entry_slug?: string
           first_name?: string
           id?: string
           instagram_handle?: string | null
           last_name?: string
           partner_actions?: Json
           phone?: string
+          phone_normalized?: string
           studio_slug?: string
           submitted_at?: string
           total_entries?: number | null

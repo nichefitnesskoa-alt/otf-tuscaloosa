@@ -1,9 +1,9 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Instagram } from 'lucide-react';
+import { Instagram, LogOut, Copy, Share2, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { useGiveawayStudio } from '../hooks/useGiveawayStudio';
 import { useGiveawayPartners } from '../hooks/useGiveawayPartners';
+import { useGiveawayEntry, normalizePhone, type GiveawayEntryRow } from '../hooks/useGiveawayEntry';
 import { Countdown } from './Countdown';
 import { AchievementCard } from './AchievementCard';
 import { ScreenshotUpload } from './ScreenshotUpload';
@@ -25,78 +25,46 @@ interface PartnerActionState {
   screenshot_url: string | null;
 }
 
-interface FormState {
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  instagram_handle: string;
-  ig_checks: Record<string, boolean>;
-  action_post_engagement: boolean;
-  action_post_engagement_screenshot_url: string | null;
-  action_story_share: boolean;
-  action_story_share_screenshot_url: string | null;
-  action_free_class: boolean;
-  action_free_class_screenshot_url: string | null;
-  partner_actions: PartnerActionState[];
-}
-
-const baseEmpty: Omit<FormState, 'ig_checks' | 'partner_actions'> = {
-  first_name: '', last_name: '', email: '', phone: '', instagram_handle: '',
-  action_post_engagement: false, action_post_engagement_screenshot_url: null,
-  action_story_share: false, action_story_share_screenshot_url: null,
-  action_free_class: false, action_free_class_screenshot_url: null,
-};
-
 interface Props {
   slug: string;
   previewMode?: boolean;
+  entrySlug?: string;
 }
 
-export function GiveawayEntryForm({ slug, previewMode }: Props) {
-  const { studio, loading } = useGiveawayStudio(slug);
+function computeBonus(
+  entry: GiveawayEntryRow,
+  partners: { id: string }[],
+): number {
+  const partnerActions: PartnerActionState[] = Array.isArray(entry.partner_actions) ? entry.partner_actions : [];
+  const partnerCount = partnerActions.filter(a =>
+    a.completed && partners.some(p => p.id === a.partner_id)
+  ).length;
+  return (
+    (entry.action_instagram_follow ? 1 : 0) +
+    (entry.action_post_engagement ? 1 : 0) +
+    (entry.action_story_share ? 1 : 0) +
+    (entry.action_free_class ? 1 : 0) +
+    partnerCount
+  );
+}
+
+export function GiveawayEntryForm({ slug, previewMode, entrySlug }: Props) {
+  const { studio, loading: studioLoading } = useGiveawayStudio(slug);
   const { partners } = useGiveawayPartners(slug);
   const isMobile = useIsMobile();
-  const [form, setForm] = useState<FormState>({ ...baseEmpty, ig_checks: {}, partner_actions: [] });
-  const [draftId] = useState<string>(() => crypto.randomUUID());
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState<{ firstName: string; total: number } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { entry, loading: entryLoading, startEntry, resumeByPhone, resumeBySlug, updateEntry, signOut } =
+    useGiveawayEntry(previewMode ? undefined : slug);
 
+  const [justCreated, setJustCreated] = useState(false);
 
-  const studioIgHandle = getStudioIgHandle(slug).replace(/^@/, '');
-  const studioIgDisplay = getStudioIgHandle(slug);
-  const studioParticipantName = getParticipantStudioName(slug);
-
-  const igAccounts = useMemo(() => {
-    const list: { handle: string; label: string }[] = [{ handle: studioIgHandle, label: studioIgDisplay }];
-    for (const p of partners) {
-      const h = (p.partner_ig_handle || '').trim().replace(/^@/, '');
-      if (h) list.push({ handle: h, label: `@${h}` });
-    }
-    return list;
-  }, [studioIgHandle, studioIgDisplay, partners]);
-
+  // Auto-resume from /:entrySlug
   useEffect(() => {
-    setForm(prev => {
-      const map = new Map(prev.partner_actions.map(a => [a.partner_id, a]));
-      const next = partners.map(p => map.get(p.id) || { partner_id: p.id, completed: false, screenshot_url: null });
-      if (next.length === prev.partner_actions.length &&
-          next.every((a, i) => a.partner_id === prev.partner_actions[i].partner_id)) return prev;
-      return { ...prev, partner_actions: next };
-    });
-  }, [partners]);
+    if (!entrySlug || previewMode) return;
+    if (entry?.entry_slug === entrySlug) return;
+    resumeBySlug(entrySlug).catch(() => {});
+  }, [entrySlug, previewMode, entry?.entry_slug, resumeBySlug]);
 
-  const igFollowComplete = igAccounts.length > 0 && igAccounts.every(a => form.ig_checks[a.handle]);
-  const partnerCompletedCount = form.partner_actions.filter(a => a.completed).length;
-  const bonusCount =
-    (igFollowComplete ? 1 : 0) +
-    (form.action_post_engagement ? 1 : 0) +
-    (form.action_story_share ? 1 : 0) +
-    (form.action_free_class ? 1 : 0) +
-    partnerCompletedCount;
-
-  const maxPossible = 5 + partners.length;
+  const loading = studioLoading || entryLoading;
 
   if (loading) {
     return <div className="min-h-[40vh] bg-[#1C1C1E] text-[#F5F2EE] flex items-center justify-center font-body">Loading…</div>;
@@ -113,16 +81,14 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
     );
   }
 
-  const giveawayTitle = getGiveawayTitle(
-    slug, partners, studio.title_format, studio.custom_title,
-  );
+  const giveawayTitle = getGiveawayTitle(slug, partners, studio.title_format, studio.custom_title);
   const coBrandParts = getCoBrandParts(slug, partners);
 
   const now = Date.now();
   const liveAt = studio.goes_live_at ? new Date(studio.goes_live_at).getTime() : null;
   const endAt = getGiveawayEndAt(studio);
 
-  // In preview mode we always show the live form regardless of live state.
+  // Lifecycle screens
   if (!previewMode && !liveAt) {
     return <ComingSoonScreen slug={slug} giveawayTitle={giveawayTitle} coBrandParts={coBrandParts} />;
   }
@@ -154,377 +120,551 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
     );
   }
 
-  if (submitted) {
+  // First-time confetti
+  if (justCreated && entry) {
     return (
       <div className="min-h-screen bg-[#1C1C1E] text-[#F5F2EE]">
-        <ConfirmationScreen firstName={submitted.firstName} totalEntries={submitted.total} />
+        <ConfirmationScreen firstName={entry.first_name} totalEntries={entry.bonus_entries} />
+        <div className="text-center pb-12">
+          <button
+            onClick={() => setJustCreated(false)}
+            className="font-display font-bold uppercase tracking-wider text-sm bg-[#E8540A] text-white px-8 py-3 rounded-lg hover:bg-[#ff6a1f]"
+          >
+            Earn more entries
+          </button>
+        </div>
       </div>
     );
   }
 
-  const igHandleClean = form.instagram_handle.trim().replace(/^@/, '').toLowerCase();
-  const igHandleValid = /^[a-z0-9._]{1,30}$/.test(igHandleClean);
-  const fieldsValid = form.first_name.trim() && form.last_name.trim() && form.email.trim() && form.phone.trim() && igHandleValid;
-  const canSubmit = fieldsValid && bonusCount >= 1;
+  // GATE — collect contact info before showing actions
+  if (!previewMode && !entry) {
+    return (
+      <Shell>
+        <CoBrandBar parts={coBrandParts} />
+        <EntryGate
+          slug={slug}
+          isMobile={isMobile}
+          giveawayTitle={giveawayTitle}
+          partners={partners}
+          onStart={async (input) => {
+            const res = await startEntry(input);
+            if (res.created) setJustCreated(true);
+          }}
+          onResume={async (phone) => {
+            const found = await resumeByPhone(phone);
+            if (!found) throw new Error("No entry yet for that number. Tap Start my entry.");
+          }}
+        />
+      </Shell>
+    );
+  }
 
-  const handleSubmit = async () => {
-    if (!canSubmit || submitting) return;
-    if (previewMode) {
-      toast('This is a preview. Participants can submit when the giveaway is live.');
-      return;
-    }
-    setSubmitting(true);
+  // ACTIONS — entry exists (or preview)
+  return (
+    <Shell>
+      <CoBrandBar parts={coBrandParts} />
+      <EntryActions
+        slug={slug}
+        studio={studio}
+        partners={partners}
+        entry={entry}
+        previewMode={previewMode}
+        giveawayTitle={giveawayTitle}
+        coBrandParts={coBrandParts}
+        isMobile={isMobile}
+        endAt={endAt}
+        onUpdate={updateEntry}
+        onSignOut={signOut}
+      />
+    </Shell>
+  );
+}
+
+/* ───────── Gate screen ───────── */
+
+function EntryGate({
+  slug, isMobile, giveawayTitle, partners, onStart, onResume,
+}: {
+  slug: string;
+  isMobile: boolean;
+  giveawayTitle: string;
+  partners: { partner_name: string }[];
+  onStart: (input: { first_name: string; last_name: string; email: string; phone: string; instagram_handle: string }) => Promise<void>;
+  onResume: (phone: string) => Promise<void>;
+}) {
+  const [tab, setTab] = useState<'start' | 'resume'>('start');
+  const [first_name, setFirst] = useState('');
+  const [last_name, setLast] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [instagram_handle, setIg] = useState('');
+  const [resumePhone, setResumePhone] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const igClean = instagram_handle.trim().replace(/^@/, '').toLowerCase();
+  const igValid = /^[a-z0-9._]{1,30}$/.test(igClean);
+  const phoneValid = normalizePhone(phone).length === 10;
+  const resumePhoneValid = normalizePhone(resumePhone).length === 10;
+  const canStart = first_name.trim() && last_name.trim() && email.trim() && phoneValid && igValid;
+
+  const submit = async () => {
+    if (busy) return;
     setError(null);
+    setBusy(true);
     try {
-      const emailLower = form.email.trim().toLowerCase();
-      const { data: existing } = await supabase
-        .from('giveaway_entries' as any).select('id')
-        .eq('studio_slug', studio.studio_slug).ilike('email', emailLower).maybeSingle();
-      if (existing) {
-        setError("You've already entered at this studio.");
-        setSubmitting(false);
-        return;
+      if (tab === 'start') {
+        if (!canStart) throw new Error('Please fill out all fields.');
+        await onStart({ first_name, last_name, email, phone, instagram_handle });
+      } else {
+        if (!resumePhoneValid) throw new Error('Enter your 10-digit phone number.');
+        await onResume(resumePhone);
       }
-      const { error: insErr } = await supabase.from('giveaway_entries' as any).insert({
-        studio_slug: studio.studio_slug,
-        first_name: form.first_name.trim(), last_name: form.last_name.trim(),
-        email: emailLower, phone: form.phone.trim(),
-        instagram_handle: igHandleClean,
-        base_entries: 0, bonus_entries: bonusCount,
-        action_instagram_follow: igFollowComplete,
-        action_post_engagement: form.action_post_engagement,
-        action_post_engagement_screenshot_url: form.action_post_engagement_screenshot_url,
-        action_story_share: form.action_story_share,
-        action_story_share_screenshot_url: form.action_story_share_screenshot_url,
-        action_free_class: form.action_free_class,
-        action_free_class_screenshot_url: form.action_free_class_screenshot_url,
-        partner_actions: form.partner_actions,
-        action_partner_visit: false, action_partner_visit_photo_url: null,
-      });
-      if (insErr) {
-        setError((insErr as any).code === '23505' ? "You've already entered at this studio." : insErr.message);
-        setSubmitting(false);
-        return;
-      }
-      setSubmitted({ firstName: form.first_name.trim(), total: bonusCount });
     } catch (e: any) {
       setError(e?.message || 'Something went wrong');
-      setSubmitting(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="w-full max-w-[760px] mx-auto px-4 md:px-12 py-6 md:py-10">
+      <div className="mb-6">
+        {isMobile ? (
+          <MobileStackedTitle studioName={getParticipantBrandName()} partners={partners} />
+        ) : (
+          <FitText
+            as="h1" min={28} max={56}
+            style={{
+              fontFamily: "'PP Right Grotesk', 'Arial Black', Arial, sans-serif",
+              fontWeight: 900, color: '#E8540A', lineHeight: 0.95,
+              letterSpacing: '0.01em', textTransform: 'uppercase',
+            }}
+          >
+            {giveawayTitle}
+          </FitText>
+        )}
+        <p className="font-body text-[#F5F2EE]/70 mt-4">
+          Drop your info to unlock entry actions. Come back anytime to add more entries.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-1 inline-flex mb-4">
+        <button
+          onClick={() => setTab('start')}
+          className={`min-h-[40px] px-4 rounded-lg font-display text-xs font-bold uppercase tracking-wider cursor-pointer ${tab === 'start' ? 'bg-[#E8540A] text-white' : 'text-[#F5F2EE]/60 hover:text-[#F5F2EE]'}`}
+        >
+          First time
+        </button>
+        <button
+          onClick={() => setTab('resume')}
+          className={`min-h-[40px] px-4 rounded-lg font-display text-xs font-bold uppercase tracking-wider cursor-pointer ${tab === 'resume' ? 'bg-[#E8540A] text-white' : 'text-[#F5F2EE]/60 hover:text-[#F5F2EE]'}`}
+        >
+          Coming back
+        </button>
+      </div>
+
+      {tab === 'start' ? (
+        <div className="rounded-xl bg-[#1f1f21] border border-[#3a3a3c] p-4 md:p-6 space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Field label="First name" value={first_name} onChange={setFirst} />
+            <Field label="Last name" value={last_name} onChange={setLast} />
+            <Field label="Email" type="email" value={email} onChange={setEmail} />
+            <Field label="Phone" type="tel" value={phone} onChange={setPhone} />
+          </div>
+          <label className="block">
+            <span className="block font-display text-[10px] uppercase tracking-[0.2em] text-[#8E8E93] font-bold mb-1.5">Instagram handle</span>
+            <div className="flex items-center rounded-xl bg-[#181819] border border-[#3a3a3c] focus-within:border-[#E8540A] overflow-hidden">
+              <span className="pl-3 pr-1 text-[#8E8E93] font-body select-none">@</span>
+              <input
+                type="text"
+                value={instagram_handle}
+                onChange={(e) => setIg(e.target.value.replace(/^@/, ''))}
+                placeholder="yourhandle"
+                autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                className="flex-1 min-h-[44px] bg-transparent px-1 py-2 text-[#F5F2EE] font-body focus:outline-none"
+              />
+            </div>
+            {instagram_handle.trim() && !igValid && (
+              <span className="block font-body text-xs text-red-400 mt-1">Letters, numbers, dots, underscores only (max 30 chars).</span>
+            )}
+          </label>
+          {error && <p className="text-sm text-red-300">{error}</p>}
+          <button
+            onClick={submit}
+            disabled={!canStart || busy}
+            className="w-full min-h-[56px] rounded-xl bg-[#E8540A] hover:bg-[#ff6a1f] disabled:bg-[#3a3a3c] disabled:text-[#F5F2EE]/40 text-white font-display font-black text-lg uppercase tracking-wider transition cursor-pointer"
+            style={{ letterSpacing: '0.08em' }}
+          >
+            {busy ? 'Starting…' : 'Start my entry'}
+          </button>
+          <p className="font-body text-xs text-[#F5F2EE]/50 text-center">We only use this to verify entries and notify winners.</p>
+        </div>
+      ) : (
+        <div className="rounded-xl bg-[#1f1f21] border border-[#3a3a3c] p-4 md:p-6 space-y-3">
+          <Field label="Phone" type="tel" value={resumePhone} onChange={setResumePhone} />
+          {error && <p className="text-sm text-red-300">{error}</p>}
+          <button
+            onClick={submit}
+            disabled={!resumePhoneValid || busy}
+            className="w-full min-h-[56px] rounded-xl bg-[#E8540A] hover:bg-[#ff6a1f] disabled:bg-[#3a3a3c] disabled:text-[#F5F2EE]/40 text-white font-display font-black text-lg uppercase tracking-wider transition cursor-pointer"
+            style={{ letterSpacing: '0.08em' }}
+          >
+            {busy ? 'Looking…' : 'Resume my entry'}
+          </button>
+          <p className="font-body text-xs text-[#F5F2EE]/50 text-center">Same number you entered with. No code, no password.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ───────── Actions screen ───────── */
+
+function EntryActions({
+  slug, studio, partners, entry, previewMode, giveawayTitle, coBrandParts, isMobile, endAt, onUpdate, onSignOut,
+}: {
+  slug: string;
+  studio: any;
+  partners: any[];
+  entry: GiveawayEntryRow | null;
+  previewMode?: boolean;
+  giveawayTitle: string;
+  coBrandParts: string[];
+  isMobile: boolean;
+  endAt: number | null;
+  onUpdate: (patch: Partial<GiveawayEntryRow>) => Promise<void>;
+  onSignOut: () => void;
+}) {
+  const studioIgHandle = getStudioIgHandle(slug).replace(/^@/, '');
+  const studioIgDisplay = getStudioIgHandle(slug);
+  const studioParticipantName = getParticipantStudioName(slug);
+
+  const igAccounts = useMemo(() => {
+    const list: { handle: string; label: string }[] = [{ handle: studioIgHandle, label: studioIgDisplay }];
+    for (const p of partners) {
+      const h = (p.partner_ig_handle || '').trim().replace(/^@/, '');
+      if (h) list.push({ handle: h, label: `@${h}` });
+    }
+    return list;
+  }, [studioIgHandle, studioIgDisplay, partners]);
+
+  // Preview mode synthesizes an empty entry shape so the UI renders the same.
+  const e: GiveawayEntryRow = entry ?? {
+    id: 'preview', studio_slug: slug, first_name: 'Preview', last_name: '', email: '',
+    phone: '', phone_normalized: '', instagram_handle: '', entry_slug: 'preview',
+    base_entries: 0, bonus_entries: 0, total_entries: 0,
+    action_instagram_follow: false,
+    action_post_engagement: false, action_post_engagement_screenshot_url: null,
+    action_story_share: false, action_story_share_screenshot_url: null,
+    action_free_class: false, action_free_class_screenshot_url: null,
+    partner_actions: [],
+    submitted_at: new Date().toISOString(),
+  };
+
+  // IG follow checks: previously checked = all true; otherwise allow per-account
+  const [igChecks, setIgChecks] = useState<Record<string, boolean>>(() =>
+    e.action_instagram_follow
+      ? Object.fromEntries(igAccounts.map(a => [a.handle, true]))
+      : {}
+  );
+  useEffect(() => {
+    if (e.action_instagram_follow) {
+      setIgChecks(Object.fromEntries(igAccounts.map(a => [a.handle, true])));
+    }
+  }, [e.action_instagram_follow, igAccounts.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const igFollowComplete = igAccounts.length > 0 && igAccounts.every(a => igChecks[a.handle]);
+
+  // Sync ig follow boolean to server when changes
+  useEffect(() => {
+    if (previewMode || !entry) return;
+    if (igFollowComplete !== entry.action_instagram_follow) {
+      patchAndRecompute({ action_instagram_follow: igFollowComplete });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [igFollowComplete]);
+
+  // Ensure partner_actions has a slot per partner
+  useEffect(() => {
+    if (previewMode || !entry) return;
+    const current: PartnerActionState[] = Array.isArray(entry.partner_actions) ? entry.partner_actions : [];
+    const map = new Map(current.map(a => [a.partner_id, a]));
+    const next = partners.map(p => map.get(p.id) || { partner_id: p.id, completed: false, screenshot_url: null });
+    const same = next.length === current.length && next.every((a, i) => a.partner_id === current[i].partner_id);
+    if (!same) patchAndRecompute({ partner_actions: next });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partners.length, entry?.id]);
+
+  const patchAndRecompute = async (patch: Partial<GiveawayEntryRow>) => {
+    if (previewMode || !entry) return;
+    const merged = { ...entry, ...patch } as GiveawayEntryRow;
+    const bonus = computeBonus(merged, partners);
+    try {
+      await onUpdate({ ...patch, bonus_entries: bonus });
+    } catch (err: any) {
+      toast.error(err?.message || 'Save failed');
     }
   };
 
   const setPartnerAction = (partnerId: string, patch: Partial<PartnerActionState>) => {
-    setForm(prev => ({
-      ...prev,
-      partner_actions: prev.partner_actions.map(a => a.partner_id === partnerId ? { ...a, ...patch } : a),
-    }));
+    const current: PartnerActionState[] = Array.isArray(e.partner_actions) ? e.partner_actions : [];
+    const next = current.map(a => a.partner_id === partnerId ? { ...a, ...patch } : a);
+    patchAndRecompute({ partner_actions: next });
   };
 
+  const personalUrl = entry ? `${window.location.origin}/giveaway/${slug}/e/${entry.entry_slug}` : '';
+  const copyLink = async () => {
+    if (!personalUrl) return;
+    try {
+      await navigator.clipboard.writeText(personalUrl);
+      toast.success('Link copied — bookmark or text it to yourself.');
+    } catch {
+      toast.error("Couldn't copy — long-press the link to copy it.");
+    }
+  };
+
+  const bonusCount = computeBonus(e, partners);
+  const maxPossible = 5 + partners.length;
+
   return (
-    <Shell>
-      <CoBrandBar parts={coBrandParts} />
-
-      <div className="w-full max-w-[1200px] mx-auto px-4 md:px-12 py-6 md:py-10">
-        {/* Hero */}
-        <div className="mb-8 md:mb-10">
-          {isMobile ? (
-            <MobileStackedTitle studioName={getParticipantBrandName()} partners={partners} />
-          ) : (
-            <FitText
-              as="h1"
-              min={28}
-              max={56}
-              multiline
-              style={{
-                fontFamily: "'PP Right Grotesk', 'Arial Black', Arial, sans-serif",
-                fontWeight: 900,
-                color: '#E8540A',
-                lineHeight: 0.95,
-                letterSpacing: '0.01em',
-                textTransform: 'uppercase',
-              }}
-            >
-              {giveawayTitle}
-            </FitText>
-          )}
-          <p
-            className="font-display font-medium uppercase text-[#8E8E93] mt-2"
-            style={{ fontSize: 'clamp(10px, 1vw, 12px)', letterSpacing: '0.2em' }}
+    <div className="w-full max-w-[1200px] mx-auto px-4 md:px-12 py-6 md:py-10">
+      {/* Hero */}
+      <div className="mb-8 md:mb-10">
+        {isMobile ? (
+          <MobileStackedTitle studioName={getParticipantBrandName()} partners={partners} />
+        ) : (
+          <FitText
+            as="h1" min={28} max={56} multiline
+            style={{
+              fontFamily: "'PP Right Grotesk', 'Arial Black', Arial, sans-serif",
+              fontWeight: 900, color: '#E8540A', lineHeight: 0.95,
+              letterSpacing: '0.01em', textTransform: 'uppercase',
+            }}
           >
-            Presented by {coBrandParts.join(' + ')}
-          </p>
-          <p className="font-body text-[#F5F2EE]/70 mt-4 max-w-2xl">
-            Complete actions below to earn entries. More entries = more chances to win.
-          </p>
-        </div>
-
-
-        {endAt && (
-          <div className="mb-8 flex justify-center md:justify-start">
-            <Countdown targetIso={new Date(endAt).toISOString()} label="Closes in" />
-          </div>
+            {giveawayTitle}
+          </FitText>
         )}
+        <p className="font-display font-medium uppercase text-[#8E8E93] mt-2"
+          style={{ fontSize: 'clamp(10px, 1vw, 12px)', letterSpacing: '0.2em' }}>
+          Presented by {coBrandParts.join(' + ')}
+        </p>
+        <p className="font-body text-[#F5F2EE]/70 mt-4 max-w-2xl">
+          Welcome back{entry ? `, ${entry.first_name}` : ''}. Complete actions below to earn more entries.
+        </p>
+      </div>
 
-        {(() => {
-          const ef = getEntryFormPrizeFraming(studio.winner_structure ?? 'single');
-          return (
-            <>
-              <PrizeShowcase slug={studio.studio_slug} partners={partners} showWinnerBadge={ef.showWinnerBadgeOnCards} />
-              <div
-                className="mt-2 mb-3 w-full rounded text-center font-display font-bold"
-                style={{
-                  background: 'rgba(232, 84, 10, 0.15)',
-                  border: '1px solid #E8540A',
-                  color: '#E8540A',
-                  fontSize: 14,
-                  padding: '10px 16px',
-                }}
-              >
-                {ef.bannerText}
-              </div>
-              <p className="font-body italic text-[13px] text-[#8E8E93] mb-8">
-                {ef.winnerRuleStatement}
-              </p>
-            </>
-          );
-        })()}
-
-        {/* Personal info — 2-col desktop, 1-col mobile */}
-        <div className="rounded-xl bg-[#1f1f21] border border-[#3a3a3c] p-4 md:p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-            <Field label="First name" value={form.first_name} onChange={(v) => setForm({ ...form, first_name: v })} />
-            <Field label="Last name" value={form.last_name} onChange={(v) => setForm({ ...form, last_name: v })} />
-            <Field label="Email" type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
-            <Field label="Phone" type="tel" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
-            <div className="md:col-span-2">
-              <label className="block">
-                <span className="block font-display text-[10px] uppercase tracking-[0.2em] text-[#8E8E93] font-bold mb-1.5">Instagram handle</span>
-                <div className="flex items-center rounded-xl bg-[#181819] border border-[#3a3a3c] focus-within:border-[#E8540A] overflow-hidden">
-                  <span className="pl-3 pr-1 text-[#8E8E93] font-body select-none">@</span>
-                  <input
-                    type="text"
-                    value={form.instagram_handle}
-                    onChange={(e) => setForm({ ...form, instagram_handle: e.target.value.replace(/^@/, '') })}
-                    placeholder="yourhandle"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    className="flex-1 min-h-[44px] bg-transparent px-1 py-2 text-[#F5F2EE] font-body focus:outline-none"
-                  />
-                </div>
-                {form.instagram_handle.trim() && !igHandleValid && (
-                  <span className="block font-body text-xs text-red-400 mt-1">Letters, numbers, dots, underscores only (max 30 chars).</span>
-                )}
-              </label>
-            </div>
-          </div>
-        </div>
-
-        {/* Action cards: 2-col desktop, 1-col mobile. IG, counter, submit span full. */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div className="md:col-span-2">
-            <AchievementCard
-              number={1}
-              title="Follow on Instagram"
-              description={igAccounts.length > 1
-                ? `Follow ${studioParticipantName} (${studioIgDisplay}) and ${igAccounts.length - 1} partner${igAccounts.length - 1 === 1 ? '' : 's'} on Instagram to earn this entry.`
-                : `Follow ${studioParticipantName} on Instagram (${studioIgDisplay})`}
-              unlocked={igFollowComplete}
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {igAccounts.map(acc => {
-                  const checked = !!form.ig_checks[acc.handle];
-                  return (
-                    <label key={acc.handle} className="flex items-center gap-3 cursor-pointer min-h-[44px] rounded-lg border border-[#3a3a3c] hover:border-[#E8540A]/50 px-3 bg-[#181819]">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => setForm({ ...form, ig_checks: { ...form.ig_checks, [acc.handle]: e.target.checked } })}
-                        className="h-5 w-5 accent-[#E8540A] cursor-pointer"
-                      />
-                      <span className="flex-1 font-body text-sm font-semibold text-[#F5F2EE]">{acc.label}</span>
-                      <a
-                        href={`https://instagram.com/${acc.handle}`} target="_blank" rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="font-display text-xs text-[#E8540A] hover:underline font-bold uppercase tracking-wider"
-                      >
-                        <Instagram className="inline h-3.5 w-3.5 mr-1" />Open
-                      </a>
-                    </label>
-                  );
-                })}
-              </div>
-            </AchievementCard>
-          </div>
-
-          <AchievementCard number={2} title="Like, comment & tag a friend"
-            description="Like our giveaway post, leave a comment, and tag a local friend."
-            unlocked={form.action_post_engagement}>
-            <ActionVerification
-              mode={getActionMode(studio.action_verification_modes, 'post_engagement', 'checkbox')}
-              studioSlug={studio.studio_slug}
-              draftId={draftId}
-              actionType="post_engagement"
-              checked={form.action_post_engagement}
-              screenshotUrl={form.action_post_engagement_screenshot_url}
-              onCheckboxChange={(checked) => setForm({ ...form, action_post_engagement: checked, action_post_engagement_screenshot_url: null })}
-              onUploaded={(url) => setForm({ ...form, action_post_engagement: true, action_post_engagement_screenshot_url: url })}
-              previewMode={previewMode}
-            />
-          </AchievementCard>
-
-          <AchievementCard number={3} title="Share to your story"
-            description="Share our giveaway post to your Instagram story."
-            unlocked={form.action_story_share}>
-            <ActionVerification
-              mode={getActionMode(studio.action_verification_modes, 'story_share', 'checkbox')}
-              studioSlug={studio.studio_slug}
-              draftId={draftId}
-              actionType="story_share"
-              checked={form.action_story_share}
-              screenshotUrl={form.action_story_share_screenshot_url}
-              onCheckboxChange={(checked) => setForm({ ...form, action_story_share: checked, action_story_share_screenshot_url: null })}
-              onUploaded={(url) => setForm({ ...form, action_story_share: true, action_story_share_screenshot_url: url })}
-              previewMode={previewMode}
-            />
-          </AchievementCard>
-
-          <AchievementCard number={4} title="Post a Class Story"
-            description="Post a story of you taking a class and tag us."
-            unlocked={form.action_free_class}>
-            <ActionVerification
-              mode={getActionMode(studio.action_verification_modes, 'free_class', 'checkbox')}
-              studioSlug={studio.studio_slug}
-              draftId={draftId}
-              actionType="free_class"
-              checked={form.action_free_class}
-              screenshotUrl={form.action_free_class_screenshot_url}
-              onCheckboxChange={(checked) => setForm({ ...form, action_free_class: checked, action_free_class_screenshot_url: null })}
-              onUploaded={(url) => setForm({ ...form, action_free_class: true, action_free_class_screenshot_url: url })}
-              screenshotLabel="Tap to upload story screenshot"
-              previewMode={previewMode}
-            />
-          </AchievementCard>
-
-          {partners.map((p, idx) => {
-            const state = form.partner_actions.find(a => a.partner_id === p.id);
-            const handle = (p.partner_ig_handle || '').trim().replace(/^@/, '');
-            const partnerKey = `partner:${p.id}`;
-            const mode = getActionMode(studio.action_verification_modes, partnerKey, 'screenshot');
-            return (
-              <AchievementCard
-                key={p.id}
-                number={5 + idx}
-                title={`Visit ${p.partner_name}`}
-                description={p.receipt_instructions?.trim() || `Visit ${p.partner_name}${mode === 'screenshot' ? ' and upload a photo of your receipt.' : '.'}`}
-                unlocked={!!state?.completed}
-              >
-                {handle && (
-                  <p className="font-body text-xs text-[#8E8E93] mb-2">
-                    <a href={`https://instagram.com/${handle}`} target="_blank" rel="noreferrer" className="hover:text-[#E8540A]">@{handle}</a>
-                  </p>
-                )}
-                {(() => {
-                  const labels = Array.isArray((p as any).prize_labels)
-                    ? ((p as any).prize_labels as string[]).filter(x => (x || '').trim())
-                    : [];
-                  const distinct = Array.from(new Set(labels.map(l => l.trim())));
-                  const text = distinct.length > 1
-                    ? `Prizes: ${distinct.join(' · ')}`
-                    : p.prize_description ? `Prize: ${p.prize_description}` : null;
-                  return text ? (
-                    <div className="mb-3 inline-flex items-start gap-1.5 rounded-md border border-[#E8540A]/40 bg-[#E8540A]/10 text-[#E8540A] px-2 py-1 font-display font-bold uppercase" style={{ fontSize: 11, letterSpacing: '0.05em' }}>
-                      <span>🎁</span><span>{text}</span>
-                    </div>
-                  ) : null;
-                })()}
-                <ActionVerification
-                  mode={mode}
-                  studioSlug={studio.studio_slug}
-                  draftId={draftId}
-                  actionType={`partner_${p.id}`}
-                  checked={!!state?.completed}
-                  screenshotUrl={state?.screenshot_url ?? null}
-                  onCheckboxChange={(checked) => setPartnerAction(p.id, { completed: checked, screenshot_url: null })}
-                  onUploaded={(url) => setPartnerAction(p.id, { completed: true, screenshot_url: url })}
-                  previewMode={previewMode}
-                />
-              </AchievementCard>
-            );
-          })}
-
-          <div className="md:col-span-2">
-            <LiveEntryCounter entries={bonusCount} max={maxPossible} />
-          </div>
-
-          {error && (
-            <div className="md:col-span-2 rounded-lg border border-red-500/50 bg-red-500/10 text-red-300 px-4 py-3 text-sm font-body">{error}</div>
-          )}
-
-          <div className="md:col-span-2">
-            <button
-              onClick={handleSubmit}
-              disabled={!canSubmit || submitting}
-              className="w-full min-h-[60px] rounded-xl bg-[#E8540A] hover:bg-[#ff6a1f] disabled:bg-[#3a3a3c] disabled:text-[#F5F2EE]/40 text-white font-display font-black text-xl uppercase tracking-wider transition cursor-pointer"
-              style={{ letterSpacing: '0.08em' }}
-            >
-              {submitting ? 'Submitting…' : previewMode ? 'ENTER NOW (Preview — submissions disabled)' : 'ENTER NOW'}
-            </button>
-            <p className="font-body text-center text-xs text-[#F5F2EE]/50 mt-3">
-              {bonusCount === 0
-                ? 'Complete at least one action to earn entries.'
-                : 'One entry per email per studio.'}
+      {/* Identity bar */}
+      {entry && (
+        <div className="mb-4 rounded-xl border border-[#3a3a3c] bg-[#1f1f21] px-4 py-3 flex items-center gap-3 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
+            <p className="font-display text-[10px] uppercase tracking-[0.2em] text-[#8E8E93] font-bold">Signed in as</p>
+            <p className="font-body text-sm text-[#F5F2EE] font-semibold">
+              {entry.first_name} {entry.last_name} · {entry.phone}
             </p>
           </div>
+          <button
+            onClick={copyLink}
+            className="min-h-[40px] px-3 rounded-lg border border-[#E8540A] text-[#E8540A] hover:bg-[#E8540A]/10 font-display text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <Share2 className="h-3.5 w-3.5" /> Save my link
+          </button>
+          <button
+            onClick={onSignOut}
+            className="min-h-[40px] px-3 rounded-lg border border-[#3a3a3c] text-[#F5F2EE]/70 hover:text-[#F5F2EE] hover:border-[#F5F2EE]/40 font-display text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <LogOut className="h-3.5 w-3.5" /> Sign out
+          </button>
         </div>
+      )}
+
+      {endAt && (
+        <div className="mb-8 flex justify-center md:justify-start">
+          <Countdown targetIso={new Date(endAt).toISOString()} label="Closes in" />
+        </div>
+      )}
+
+      {(() => {
+        const ef = getEntryFormPrizeFraming(studio.winner_structure ?? 'single');
+        return (
+          <>
+            <PrizeShowcase slug={studio.studio_slug} partners={partners} showWinnerBadge={ef.showWinnerBadgeOnCards} />
+            <div className="mt-2 mb-3 w-full rounded text-center font-display font-bold"
+              style={{ background: 'rgba(232, 84, 10, 0.15)', border: '1px solid #E8540A', color: '#E8540A', fontSize: 14, padding: '10px 16px' }}>
+              {ef.bannerText}
+            </div>
+            <p className="font-body italic text-[13px] text-[#8E8E93] mb-8">{ef.winnerRuleStatement}</p>
+          </>
+        );
+      })()}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="md:col-span-2">
+          <AchievementCard
+            number={1}
+            title="Follow on Instagram"
+            description={igAccounts.length > 1
+              ? `Follow ${studioParticipantName} (${studioIgDisplay}) and ${igAccounts.length - 1} partner${igAccounts.length - 1 === 1 ? '' : 's'} on Instagram to earn this entry.`
+              : `Follow ${studioParticipantName} on Instagram (${studioIgDisplay})`}
+            unlocked={igFollowComplete}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {igAccounts.map(acc => {
+                const checked = !!igChecks[acc.handle];
+                return (
+                  <label key={acc.handle} className="flex items-center gap-3 cursor-pointer min-h-[44px] rounded-lg border border-[#3a3a3c] hover:border-[#E8540A]/50 px-3 bg-[#181819]">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(ev) => setIgChecks(prev => ({ ...prev, [acc.handle]: ev.target.checked }))}
+                      className="h-5 w-5 accent-[#E8540A] cursor-pointer"
+                    />
+                    <span className="flex-1 font-body text-sm font-semibold text-[#F5F2EE]">{acc.label}</span>
+                    <a href={`https://instagram.com/${acc.handle}`} target="_blank" rel="noreferrer"
+                      onClick={(ev) => ev.stopPropagation()}
+                      className="font-display text-xs text-[#E8540A] hover:underline font-bold uppercase tracking-wider">
+                      <Instagram className="inline h-3.5 w-3.5 mr-1" />Open
+                    </a>
+                  </label>
+                );
+              })}
+            </div>
+          </AchievementCard>
+        </div>
+
+        <AchievementCard number={2} title="Like, comment & tag a friend"
+          description="Like our giveaway post, leave a comment, and tag a local friend."
+          unlocked={e.action_post_engagement}>
+          <ActionVerification
+            mode={getActionMode(studio.action_verification_modes, 'post_engagement', 'checkbox')}
+            studioSlug={studio.studio_slug} draftId={e.id} actionType="post_engagement"
+            checked={e.action_post_engagement} screenshotUrl={e.action_post_engagement_screenshot_url}
+            onCheckboxChange={(checked) => patchAndRecompute({ action_post_engagement: checked, action_post_engagement_screenshot_url: null })}
+            onUploaded={(url) => patchAndRecompute({ action_post_engagement: true, action_post_engagement_screenshot_url: url })}
+            previewMode={previewMode}
+          />
+        </AchievementCard>
+
+        <AchievementCard number={3} title="Share to your story"
+          description="Share our giveaway post to your Instagram story."
+          unlocked={e.action_story_share}>
+          <ActionVerification
+            mode={getActionMode(studio.action_verification_modes, 'story_share', 'checkbox')}
+            studioSlug={studio.studio_slug} draftId={e.id} actionType="story_share"
+            checked={e.action_story_share} screenshotUrl={e.action_story_share_screenshot_url}
+            onCheckboxChange={(checked) => patchAndRecompute({ action_story_share: checked, action_story_share_screenshot_url: null })}
+            onUploaded={(url) => patchAndRecompute({ action_story_share: true, action_story_share_screenshot_url: url })}
+            previewMode={previewMode}
+          />
+        </AchievementCard>
+
+        <AchievementCard number={4} title="Post a Class Story"
+          description="Post a story of you taking a class and tag us."
+          unlocked={e.action_free_class}>
+          <ActionVerification
+            mode={getActionMode(studio.action_verification_modes, 'free_class', 'checkbox')}
+            studioSlug={studio.studio_slug} draftId={e.id} actionType="free_class"
+            checked={e.action_free_class} screenshotUrl={e.action_free_class_screenshot_url}
+            onCheckboxChange={(checked) => patchAndRecompute({ action_free_class: checked, action_free_class_screenshot_url: null })}
+            onUploaded={(url) => patchAndRecompute({ action_free_class: true, action_free_class_screenshot_url: url })}
+            screenshotLabel="Tap to upload story screenshot"
+            previewMode={previewMode}
+          />
+        </AchievementCard>
+
+        {partners.map((p, idx) => {
+          const list: PartnerActionState[] = Array.isArray(e.partner_actions) ? e.partner_actions : [];
+          const state = list.find(a => a.partner_id === p.id);
+          const handle = (p.partner_ig_handle || '').trim().replace(/^@/, '');
+          const partnerKey = `partner:${p.id}`;
+          const mode = getActionMode(studio.action_verification_modes, partnerKey, 'screenshot');
+          return (
+            <AchievementCard
+              key={p.id} number={5 + idx} title={`Visit ${p.partner_name}`}
+              description={p.receipt_instructions?.trim() || `Visit ${p.partner_name}${mode === 'screenshot' ? ' and upload a photo of your receipt.' : '.'}`}
+              unlocked={!!state?.completed}
+            >
+              {handle && (
+                <p className="font-body text-xs text-[#8E8E93] mb-2">
+                  <a href={`https://instagram.com/${handle}`} target="_blank" rel="noreferrer" className="hover:text-[#E8540A]">@{handle}</a>
+                </p>
+              )}
+              {(() => {
+                const labels = Array.isArray((p as any).prize_labels)
+                  ? ((p as any).prize_labels as string[]).filter(x => (x || '').trim())
+                  : [];
+                const distinct = Array.from(new Set(labels.map(l => l.trim())));
+                const text = distinct.length > 1
+                  ? `Prizes: ${distinct.join(' · ')}`
+                  : p.prize_description ? `Prize: ${p.prize_description}` : null;
+                return text ? (
+                  <div className="mb-3 inline-flex items-start gap-1.5 rounded-md border border-[#E8540A]/40 bg-[#E8540A]/10 text-[#E8540A] px-2 py-1 font-display font-bold uppercase" style={{ fontSize: 11, letterSpacing: '0.05em' }}>
+                    <span>🎁</span><span>{text}</span>
+                  </div>
+                ) : null;
+              })()}
+              <ActionVerification
+                mode={mode}
+                studioSlug={studio.studio_slug} draftId={e.id}
+                actionType={`partner_${p.id}`}
+                checked={!!state?.completed}
+                screenshotUrl={state?.screenshot_url ?? null}
+                onCheckboxChange={(checked) => setPartnerAction(p.id, { completed: checked, screenshot_url: null })}
+                onUploaded={(url) => setPartnerAction(p.id, { completed: true, screenshot_url: url })}
+                previewMode={previewMode}
+              />
+            </AchievementCard>
+          );
+        })}
+
+        <div className="md:col-span-2">
+          <LiveEntryCounter entries={bonusCount} max={maxPossible} />
+        </div>
+
+        {entry && (
+          <div className="md:col-span-2 rounded-xl border border-[#E8540A]/40 bg-[#E8540A]/5 p-4 flex items-center gap-3 flex-wrap">
+            <Check className="h-5 w-5 text-[#E8540A] flex-shrink-0" />
+            <p className="font-body text-sm text-[#F5F2EE] flex-1 min-w-[200px]">
+              You're in with <span className="font-bold text-[#E8540A]">{bonusCount}</span> {bonusCount === 1 ? 'entry' : 'entries'}. Anything you check off saves automatically.
+            </p>
+            <button
+              onClick={copyLink}
+              className="min-h-[40px] px-3 rounded-lg bg-[#E8540A] text-white hover:bg-[#ff6a1f] font-display text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <Copy className="h-3.5 w-3.5" /> Copy my link
+            </button>
+          </div>
+        )}
       </div>
-    </Shell>
+    </div>
   );
 }
+
+/* ───────── Shared building blocks (unchanged) ───────── */
 
 const TITLE_FONT = "'PP Right Grotesk', 'Arial Black', Arial, sans-serif";
 
 function MobileStackedTitle({ studioName, partners }: { studioName: string; partners: { partner_name: string }[] }) {
   const baseStyle: React.CSSProperties = {
-    fontFamily: TITLE_FONT,
-    fontWeight: 900,
-    lineHeight: 0.95,
-    letterSpacing: '0.01em',
-    textTransform: 'uppercase',
-    whiteSpace: 'nowrap',
+    fontFamily: TITLE_FONT, fontWeight: 900, lineHeight: 0.95,
+    letterSpacing: '0.01em', textTransform: 'uppercase', whiteSpace: 'nowrap',
   };
   const sep = (
-    <div
-      style={{
-        fontFamily: TITLE_FONT,
-        fontWeight: 900,
-        color: '#E8540A',
-        fontSize: 20,
-        textAlign: 'center',
-        margin: '4px 0',
-        lineHeight: 1,
-      }}
-    >
-      ×
-    </div>
+    <div style={{ fontFamily: TITLE_FONT, fontWeight: 900, color: '#E8540A', fontSize: 20, textAlign: 'center', margin: '4px 0', lineHeight: 1 }}>×</div>
   );
   return (
     <div>
-      <FitText as="div" min={24} max={48} style={{ ...baseStyle, color: '#FDF7EA' }}>
-        {studioName}
-      </FitText>
+      <FitText as="div" min={24} max={48} style={{ ...baseStyle, color: '#FDF7EA' }}>{studioName}</FitText>
       {partners.map((p, i) => (
         <div key={i}>
           {sep}
-          <FitText as="div" min={20} max={48} style={{ ...baseStyle, color: '#E8540A' }}>
-            {p.partner_name}
-          </FitText>
+          <FitText as="div" min={20} max={48} style={{ ...baseStyle, color: '#E8540A' }}>{p.partner_name}</FitText>
         </div>
       ))}
     </div>
   );
 }
-
 
 function Shell({ children }: { children: React.ReactNode }) {
   return <div className="min-h-screen bg-[#1C1C1E] text-[#F5F2EE]">{children}</div>;
@@ -534,15 +674,11 @@ function CoBrandBar({ parts }: { parts: string[] }) {
   return (
     <div className="w-full bg-[#242426] border-b border-[#3a3a3c]">
       <div className="max-w-[1200px] mx-auto px-4 md:px-12 py-2.5 md:py-3 flex flex-wrap items-center justify-center md:justify-start gap-1.5">
-        <span className="font-display font-bold uppercase text-[#8E8E93]" style={{ fontSize: 11, letterSpacing: '0.15em' }}>
-          Presented by
-        </span>
+        <span className="font-display font-bold uppercase text-[#8E8E93]" style={{ fontSize: 11, letterSpacing: '0.15em' }}>Presented by</span>
         {parts.map((p, i) => (
           <span key={i} className="flex items-center gap-1.5">
             {i > 0 && <span className="font-display font-bold text-[#E8540A]" style={{ fontSize: 13 }}>+</span>}
-            <span className="font-display font-bold uppercase text-[#F5F2EE]" style={{ fontSize: 'clamp(11px, 1.1vw, 13px)', letterSpacing: '0.05em' }}>
-              {p}
-            </span>
+            <span className="font-display font-bold uppercase text-[#F5F2EE]" style={{ fontSize: 'clamp(11px, 1.1vw, 13px)', letterSpacing: '0.05em' }}>{p}</span>
           </span>
         ))}
       </div>
@@ -572,38 +708,22 @@ export function getActionMode(
 }
 
 function ActionVerification({
-  mode,
-  studioSlug,
-  draftId,
-  actionType,
-  checked,
-  screenshotUrl,
-  onCheckboxChange,
-  onUploaded,
-  screenshotLabel,
-  previewMode,
+  mode, studioSlug, draftId, actionType, checked, screenshotUrl,
+  onCheckboxChange, onUploaded, screenshotLabel, previewMode,
 }: {
   mode: 'checkbox' | 'screenshot';
-  studioSlug: string;
-  draftId: string;
-  actionType: string;
-  checked: boolean;
-  screenshotUrl: string | null;
+  studioSlug: string; draftId: string; actionType: string;
+  checked: boolean; screenshotUrl: string | null;
   onCheckboxChange: (checked: boolean) => void;
   onUploaded: (url: string) => void;
-  screenshotLabel?: string;
-  previewMode?: boolean;
+  screenshotLabel?: string; previewMode?: boolean;
 }) {
   if (mode === 'screenshot') {
     return (
       <ScreenshotUpload
-        studioSlug={studioSlug}
-        draftId={draftId}
-        actionType={actionType}
-        value={screenshotUrl}
-        onUploaded={onUploaded}
-        label={screenshotLabel}
-        previewMode={previewMode}
+        studioSlug={studioSlug} draftId={draftId} actionType={actionType}
+        value={screenshotUrl} onUploaded={onUploaded}
+        label={screenshotLabel} previewMode={previewMode}
       />
     );
   }
@@ -611,8 +731,7 @@ function ActionVerification({
     <div className="space-y-2">
       <label className="flex items-center gap-3 cursor-pointer min-h-[56px] rounded-lg border border-[#3a3a3c] hover:border-[#E8540A]/50 px-4 bg-[#181819]">
         <input
-          type="checkbox"
-          checked={checked}
+          type="checkbox" checked={checked}
           onChange={(e) => onCheckboxChange(e.target.checked)}
           className="h-5 w-5 accent-[#E8540A] cursor-pointer"
         />
@@ -643,9 +762,7 @@ function ComingSoonScreen({
         <h1 className="font-display font-black text-[#F5F2EE]" style={{ fontSize: 'clamp(40px, 7vw, 64px)', lineHeight: 1, letterSpacing: '0.01em' }}>
           OrangeTheory Fitness
         </h1>
-        <p className="font-display font-bold text-[#F5F2EE]/70 mt-3 uppercase" style={{ fontSize: 'clamp(12px, 1.4vw, 16px)', letterSpacing: '0.35em' }}>
-          {city}
-        </p>
+        <p className="font-display font-bold text-[#F5F2EE]/70 mt-3 uppercase" style={{ fontSize: 'clamp(12px, 1.4vw, 16px)', letterSpacing: '0.35em' }}>{city}</p>
         <div className="h-px w-10 bg-[#E8540A] my-8" />
         <h2 className="font-display font-black text-[#E8540A] uppercase max-w-xl line-clamp-2" style={{ fontSize: 'clamp(28px, 4vw, 40px)', letterSpacing: '0.02em' }}>
           {giveawayTitle}
