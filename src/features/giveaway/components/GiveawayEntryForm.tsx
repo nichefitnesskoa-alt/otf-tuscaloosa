@@ -296,6 +296,27 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
             <Field label="Last name" value={form.last_name} onChange={(v) => setForm({ ...form, last_name: v })} />
             <Field label="Email" type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
             <Field label="Phone" type="tel" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+            <div className="md:col-span-2">
+              <label className="block">
+                <span className="block font-display text-[10px] uppercase tracking-[0.2em] text-[#8E8E93] font-bold mb-1.5">Instagram handle</span>
+                <div className="flex items-center rounded-xl bg-[#181819] border border-[#3a3a3c] focus-within:border-[#E8540A] overflow-hidden">
+                  <span className="pl-3 pr-1 text-[#8E8E93] font-body select-none">@</span>
+                  <input
+                    type="text"
+                    value={form.instagram_handle}
+                    onChange={(e) => setForm({ ...form, instagram_handle: e.target.value.replace(/^@/, '') })}
+                    placeholder="yourhandle"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    className="flex-1 min-h-[44px] bg-transparent px-1 py-2 text-[#F5F2EE] font-body focus:outline-none"
+                  />
+                </div>
+                {form.instagram_handle.trim() && !igHandleValid && (
+                  <span className="block font-body text-xs text-red-400 mt-1">Letters, numbers, dots, underscores only (max 30 chars).</span>
+                )}
+              </label>
+            </div>
           </div>
         </div>
 
