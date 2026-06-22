@@ -271,10 +271,6 @@ function EntryGate({
 
       {studio && (
         <div className="mb-8">
-          <p className="font-display font-bold uppercase text-[#8E8E93] mb-3 text-center"
-            style={{ fontSize: 11, letterSpacing: '0.25em' }}>
-            What you could win
-          </p>
           <PrizeShowcase slug={studio.studio_slug} partners={partners} showWinnerBadge={ef.showWinnerBadgeOnCards} />
           <div className="mt-3 w-full rounded text-center font-display font-bold"
             style={{ background: 'rgba(232, 84, 10, 0.15)', border: '1px solid #E8540A', color: '#E8540A', fontSize: 14, padding: '10px 16px' }}>
@@ -283,6 +279,7 @@ function EntryGate({
           <p className="font-body italic text-[13px] text-[#8E8E93] mt-2 text-center">{ef.winnerRuleStatement}</p>
         </div>
       )}
+
 
       <div className="flex justify-center mb-4">
         <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-1 inline-flex">
