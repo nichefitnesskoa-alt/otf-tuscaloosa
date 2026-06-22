@@ -111,6 +111,7 @@ export function EntriesTable({ entries, partners }: { entries: Entry[]; partners
               {isOpen && (
                 <div className="px-4 pb-4 space-y-2 border-t border-[#3a3a3c] pt-3 font-body text-sm">
                   <p className="text-[#F5F2EE]/80"><span className="text-[#F5F2EE]/50">Phone:</span> {e.phone}</p>
+                  <p className="text-[#F5F2EE]/80"><span className="text-[#F5F2EE]/50">IG:</span> {e.instagram_handle ? `@${e.instagram_handle}` : '—'}</p>
                   <ExpandedScreenshots entry={e} partners={partners} />
                 </div>
               )}
