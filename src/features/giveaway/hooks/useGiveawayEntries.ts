@@ -14,6 +14,7 @@ export interface GiveawayEntry {
   last_name: string;
   email: string;
   phone: string;
+  instagram_handle: string | null;
   base_entries: number;
   bonus_entries: number;
   total_entries: number;

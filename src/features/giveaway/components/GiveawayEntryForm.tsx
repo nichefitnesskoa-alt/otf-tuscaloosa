@@ -13,6 +13,7 @@ import { PrizeShowcase } from './PrizeShowcase';
 import { FitText } from './FitText';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getParticipantStudioName, getParticipantBrandName, getStudioCity, getStudioIgHandle } from '@/lib/studioNames';
+import { getGiveawayEndAt } from '../lib/endAt';
 
 import { getGiveawayTitle, getCoBrandParts } from '../lib/giveawayTitle';
 import { getEntryFormPrizeFraming } from '../lib/winnerCopy';
@@ -29,6 +30,7 @@ interface FormState {
   last_name: string;
   email: string;
   phone: string;
+  instagram_handle: string;
   ig_checks: Record<string, boolean>;
   action_post_engagement: boolean;
   action_post_engagement_screenshot_url: string | null;
@@ -40,7 +42,7 @@ interface FormState {
 }
 
 const baseEmpty: Omit<FormState, 'ig_checks' | 'partner_actions'> = {
-  first_name: '', last_name: '', email: '', phone: '',
+  first_name: '', last_name: '', email: '', phone: '', instagram_handle: '',
   action_post_engagement: false, action_post_engagement_screenshot_url: null,
   action_story_share: false, action_story_share_screenshot_url: null,
   action_free_class: false, action_free_class_screenshot_url: null,
@@ -118,7 +120,7 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
 
   const now = Date.now();
   const liveAt = studio.goes_live_at ? new Date(studio.goes_live_at).getTime() : null;
-  const endAt = liveAt ? liveAt + studio.countdown_duration_days * 86400 * 1000 : null;
+  const endAt = getGiveawayEndAt(studio);
 
   // In preview mode we always show the live form regardless of live state.
   if (!previewMode && !liveAt) {
@@ -160,7 +162,9 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
     );
   }
 
-  const fieldsValid = form.first_name.trim() && form.last_name.trim() && form.email.trim() && form.phone.trim();
+  const igHandleClean = form.instagram_handle.trim().replace(/^@/, '').toLowerCase();
+  const igHandleValid = /^[a-z0-9._]{1,30}$/.test(igHandleClean);
+  const fieldsValid = form.first_name.trim() && form.last_name.trim() && form.email.trim() && form.phone.trim() && igHandleValid;
   const canSubmit = fieldsValid && bonusCount >= 1;
 
   const handleSubmit = async () => {
@@ -185,6 +189,7 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
         studio_slug: studio.studio_slug,
         first_name: form.first_name.trim(), last_name: form.last_name.trim(),
         email: emailLower, phone: form.phone.trim(),
+        instagram_handle: igHandleClean,
         base_entries: 0, bonus_entries: bonusCount,
         action_instagram_follow: igFollowComplete,
         action_post_engagement: form.action_post_engagement,
@@ -291,6 +296,27 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
             <Field label="Last name" value={form.last_name} onChange={(v) => setForm({ ...form, last_name: v })} />
             <Field label="Email" type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
             <Field label="Phone" type="tel" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+            <div className="md:col-span-2">
+              <label className="block">
+                <span className="block font-display text-[10px] uppercase tracking-[0.2em] text-[#8E8E93] font-bold mb-1.5">Instagram handle</span>
+                <div className="flex items-center rounded-xl bg-[#181819] border border-[#3a3a3c] focus-within:border-[#E8540A] overflow-hidden">
+                  <span className="pl-3 pr-1 text-[#8E8E93] font-body select-none">@</span>
+                  <input
+                    type="text"
+                    value={form.instagram_handle}
+                    onChange={(e) => setForm({ ...form, instagram_handle: e.target.value.replace(/^@/, '') })}
+                    placeholder="yourhandle"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    className="flex-1 min-h-[44px] bg-transparent px-1 py-2 text-[#F5F2EE] font-body focus:outline-none"
+                  />
+                </div>
+                {form.instagram_handle.trim() && !igHandleValid && (
+                  <span className="block font-body text-xs text-red-400 mt-1">Letters, numbers, dots, underscores only (max 30 chars).</span>
+                )}
+              </label>
+            </div>
           </div>
         </div>
 

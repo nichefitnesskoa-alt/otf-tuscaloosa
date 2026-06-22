@@ -11,6 +11,7 @@ interface EntryRow {
   last_name: string;
   email: string;
   phone: string;
+  instagram_handle: string | null;
   base_entries: number;
   bonus_entries: number;
   total_entries: number;
@@ -42,7 +43,7 @@ export function downloadEntriesCsv(rows: EntryRow[], studioSlug: string, partner
     partnerHeaders.push(`partner_${s}_completed`, `partner_${s}_screenshot_url`);
   }
   const HEADERS = [
-    'first_name','last_name','email','phone','total_entries','submitted_at',
+    'first_name','last_name','email','phone','instagram_handle','total_entries','submitted_at',
     'action_instagram_follow','action_post_engagement','action_story_share','action_class_story_post',
     ...partnerHeaders,
   ];
@@ -57,7 +58,9 @@ export function downloadEntriesCsv(rows: EntryRow[], studioSlug: string, partner
       partnerCols.push(!!a?.completed, a?.screenshot_url ?? '');
     }
     lines.push([
-      r.first_name, r.last_name, r.email, r.phone, r.total_entries, r.submitted_at,
+      r.first_name, r.last_name, r.email, r.phone,
+      r.instagram_handle ? `@${r.instagram_handle}` : '',
+      r.total_entries, r.submitted_at,
       r.action_instagram_follow, r.action_post_engagement, r.action_story_share, r.action_free_class,
       ...partnerCols,
     ].map(esc).join(','));

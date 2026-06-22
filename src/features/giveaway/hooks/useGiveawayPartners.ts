@@ -8,6 +8,7 @@ export interface GiveawayPartner {
   partner_ig_handle: string | null;
   receipt_instructions: string | null;
   prize_description: string | null;
+  prize_count: number;
   display_order: number;
   created_at: string;
 }
@@ -17,6 +18,13 @@ export interface PartnerInput {
   partner_ig_handle: string | null;
   receipt_instructions: string | null;
   prize_description: string | null;
+  prize_count: number;
+}
+
+function clampPrizeCount(n: unknown): number {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return 1;
+  return Math.max(1, Math.min(10, Math.round(v)));
 }
 
 export function useGiveawayPartners(slug: string | undefined) {
@@ -55,6 +63,7 @@ export function useGiveawayPartners(slug: string | undefined) {
       partner_ig_handle: input.partner_ig_handle?.trim() || null,
       receipt_instructions: input.receipt_instructions?.trim() || null,
       prize_description: input.prize_description?.trim() || null,
+      prize_count: clampPrizeCount(input.prize_count),
       display_order: nextOrder,
     });
     if (!error) await refresh();
@@ -67,6 +76,7 @@ export function useGiveawayPartners(slug: string | undefined) {
       partner_ig_handle: input.partner_ig_handle?.trim() || null,
       receipt_instructions: input.receipt_instructions?.trim() || null,
       prize_description: input.prize_description?.trim() || null,
+      prize_count: clampPrizeCount(input.prize_count),
     }).eq('id', id);
     if (!error) await refresh();
     return { error: error?.message };

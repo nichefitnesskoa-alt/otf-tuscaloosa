@@ -8,6 +8,7 @@ import { DEFAULT_DECK, slide2AutoCopy } from './lib/partnerDeckDefaults';
 import { getDeckSlide2 } from './lib/winnerCopy';
 import { WINNER_STRUCTURE_OPTIONS, type WinnerStructure } from './lib/winnerStructure';
 import { getGiveawayTitle, type TitleFormat } from './lib/giveawayTitle';
+import { getGiveawayEndAt } from './lib/endAt';
 
 type FieldKey = keyof GiveawayStudio;
 
@@ -87,7 +88,8 @@ function Editor({
   setBust: (n: number) => void;
 }) {
   const liveAt = studio.goes_live_at ? new Date(studio.goes_live_at) : null;
-  const endAt = liveAt ? new Date(liveAt.getTime() + studio.countdown_duration_days * 86400 * 1000) : null;
+  const endAtMs = getGiveawayEndAt(studio);
+  const endAt = endAtMs ? new Date(endAtMs) : null;
 
   const goLive = async () => {
     if (!confirm('Take the giveaway live now? This starts the countdown.')) return;

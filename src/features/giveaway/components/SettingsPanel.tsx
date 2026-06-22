@@ -2,16 +2,18 @@ import { useEffect, useState } from 'react';
 import { GiveawayStudio } from '../hooks/useGiveawayStudio';
 import { useGiveawayPartners, GiveawayPartner, PartnerInput } from '../hooks/useGiveawayPartners';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Trash2, Plus, Check, X, Gift } from 'lucide-react';
+import { Pencil, Trash2, Plus, Check, X, Gift, Minus } from 'lucide-react';
 import {
   WINNER_STRUCTURE_OPTIONS,
   type WinnerStructure,
 } from '../lib/winnerStructure';
 import { getGiveawayTitle, type TitleFormat } from '../lib/giveawayTitle';
 import { PartnerDeckSettings } from './PartnerDeckSettings';
+import { getGiveawayEndAt, type CountdownMode } from '../lib/endAt';
 
 export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onSaved: () => void }) {
   const [duration, setDuration] = useState<number>(studio.countdown_duration_days);
+  const [countdownMode, setCountdownMode] = useState<CountdownMode>(studio.countdown_mode ?? 'fixed_days');
   const [winnerStructure, setWinnerStructure] = useState<WinnerStructure>(studio.winner_structure ?? 'single');
   const [titleFormat, setTitleFormat] = useState<TitleFormat>(studio.title_format ?? 'auto_combined');
   const [customTitle, setCustomTitle] = useState<string>(studio.custom_title ?? '');
@@ -21,10 +23,11 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
 
   useEffect(() => {
     setDuration(studio.countdown_duration_days);
+    setCountdownMode(studio.countdown_mode ?? 'fixed_days');
     setWinnerStructure(studio.winner_structure ?? 'single');
     setTitleFormat(studio.title_format ?? 'auto_combined');
     setCustomTitle(studio.custom_title ?? '');
-  }, [studio.id, studio.countdown_duration_days, studio.winner_structure, studio.title_format, studio.custom_title]);
+  }, [studio.id, studio.countdown_duration_days, studio.countdown_mode, studio.winner_structure, studio.title_format, studio.custom_title]);
 
   const saveSettings = async () => {
     setSaving(true);
@@ -33,6 +36,7 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
       .from('giveaway_studios' as any)
       .update({
         countdown_duration_days: duration,
+        countdown_mode: countdownMode,
         winner_structure: winnerStructure,
         title_format: titleFormat,
         custom_title: titleFormat === 'custom' ? (customTitle.trim() || null) : customTitle.trim() || null,
@@ -62,7 +66,18 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
   };
 
   const liveAt = studio.goes_live_at ? new Date(studio.goes_live_at) : null;
-  const endAt = liveAt ? new Date(liveAt.getTime() + studio.countdown_duration_days * 86400 * 1000) : null;
+  const endAtMs = getGiveawayEndAt(studio);
+  const endAt = endAtMs ? new Date(endAtMs) : null;
+
+  // Preview the end date for the current unsaved selection
+  const previewEnd = (() => {
+    const anchor = liveAt ?? new Date();
+    return getGiveawayEndAt({
+      goes_live_at: anchor.toISOString(),
+      countdown_duration_days: duration,
+      countdown_mode: countdownMode,
+    });
+  })();
 
   return (
     <div className="max-w-2xl space-y-6 font-body">
@@ -88,16 +103,41 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
       <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-6 space-y-4">
         <h2 className="text-xl font-black">Countdown</h2>
         <div>
-          <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-2 font-bold">Duration</span>
+          <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-2 font-bold">Mode</span>
           <div className="inline-flex rounded-lg border border-[#3a3a3c] overflow-hidden">
-            {[7,10,14].map(d => (
-              <button key={d} onClick={() => setDuration(d)}
-                className={`min-h-[44px] px-5 font-bold cursor-pointer ${duration === d ? 'bg-[#E8540A] text-white' : 'bg-[#2a2a2c] text-[#F5F2EE]/70 hover:bg-[#3a3a3c]'}`}>
-                {d} days
-              </button>
-            ))}
+            <button onClick={() => setCountdownMode('fixed_days')}
+              className={`min-h-[44px] px-5 font-bold cursor-pointer ${countdownMode === 'fixed_days' ? 'bg-[#E8540A] text-white' : 'bg-[#2a2a2c] text-[#F5F2EE]/70 hover:bg-[#3a3a3c]'}`}>
+              Fixed duration
+            </button>
+            <button onClick={() => setCountdownMode('end_of_month')}
+              className={`min-h-[44px] px-5 font-bold cursor-pointer ${countdownMode === 'end_of_month' ? 'bg-[#E8540A] text-white' : 'bg-[#2a2a2c] text-[#F5F2EE]/70 hover:bg-[#3a3a3c]'}`}>
+              End of month
+            </button>
           </div>
         </div>
+
+        {countdownMode === 'fixed_days' && (
+          <div>
+            <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-2 font-bold">Duration</span>
+            <div className="inline-flex rounded-lg border border-[#3a3a3c] overflow-hidden">
+              {[7,10,14].map(d => (
+                <button key={d} onClick={() => setDuration(d)}
+                  className={`min-h-[44px] px-5 font-bold cursor-pointer ${duration === d ? 'bg-[#E8540A] text-white' : 'bg-[#2a2a2c] text-[#F5F2EE]/70 hover:bg-[#3a3a3c]'}`}>
+                  {d} days
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {previewEnd && (
+          <p className="text-sm text-[#F5F2EE]/70">
+            {liveAt ? 'Ends' : 'Would end'}{' '}
+            <span className="text-[#E8540A] font-bold">{new Date(previewEnd).toLocaleString()}</span>
+            {countdownMode === 'end_of_month' && <span className="text-[#F5F2EE]/50"> (last second of {new Date(previewEnd).toLocaleString('en-US', { month: 'long', timeZone: 'America/Chicago' })} CT)</span>}
+          </p>
+        )}
+
         <div className="flex items-center gap-3">
           <button onClick={saveSettings} disabled={saving}
             className="min-h-[44px] px-5 rounded-lg bg-[#2a2a2c] hover:bg-[#3a3a3c] border border-[#3a3a3c] text-[#F5F2EE] font-bold cursor-pointer">
@@ -106,6 +146,7 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
           {msg && <span className="text-sm text-emerald-400">{msg}</span>}
         </div>
       </div>
+
 
       <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-6 space-y-4">
         <h2 className="text-xl font-black">Live Status</h2>
@@ -310,6 +351,7 @@ function PartnersSection({ slug }: { slug: string }) {
                   partner_ig_handle: p.partner_ig_handle,
                   receipt_instructions: p.receipt_instructions,
                   prize_description: p.prize_description,
+                  prize_count: p.prize_count ?? 1,
                 }}
                 submitLabel="Update Partner"
                 onSubmit={async (input) => {
@@ -363,7 +405,7 @@ function PartnerCard({ partner, onEdit, onDelete }: { partner: GiveawayPartner; 
           <p className="text-lg font-black text-[#F5F2EE] truncate">{partner.partner_name}</p>
           {partner.prize_description && (
             <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-bold uppercase tracking-wider text-[#E8540A] bg-[#E8540A]/10 border border-[#E8540A]/40 rounded px-2 py-0.5">
-              <Gift className="h-3 w-3" /> Prize: {partner.prize_description}
+              <Gift className="h-3 w-3" /> Prize: {partner.prize_description}{(partner.prize_count ?? 1) > 1 ? ` × ${partner.prize_count}` : ''}
             </span>
           )}
           {partner.partner_ig_handle && (
@@ -400,6 +442,7 @@ function PartnerForm({
   const [ig, setIg] = useState(initial?.partner_ig_handle ?? '');
   const [instr, setInstr] = useState(initial?.receipt_instructions ?? '');
   const [prize, setPrize] = useState(initial?.prize_description ?? '');
+  const [prizeCount, setPrizeCount] = useState<number>(initial?.prize_count ?? 1);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -413,6 +456,7 @@ function PartnerForm({
       partner_ig_handle: cleanIg || null,
       receipt_instructions: instr || null,
       prize_description: prize || null,
+      prize_count: Math.max(1, Math.min(10, Math.round(prizeCount || 1))),
     });
     setBusy(false);
     if (error) setErr(error);
@@ -432,6 +476,26 @@ function PartnerForm({
           className="w-full min-h-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none px-3 text-[#F5F2EE]" />
         <span className="block text-xs text-[#F5F2EE]/50 mt-1">Shown on the entry form so participants know what they can win.</span>
       </label>
+      <div>
+        <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-1 font-bold">How many winners for this prize?</span>
+        <div className="inline-flex items-center gap-2">
+          <button type="button" onClick={() => setPrizeCount(c => Math.max(1, c - 1))}
+            className="min-h-[44px] min-w-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] hover:bg-[#3a3a3c] text-[#F5F2EE] font-bold cursor-pointer flex items-center justify-center">
+            <Minus className="h-4 w-4" />
+          </button>
+          <input
+            type="number" min={1} max={10}
+            value={prizeCount}
+            onChange={(e) => setPrizeCount(Number(e.target.value) || 1)}
+            className="w-20 min-h-[44px] text-center rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none text-[#F5F2EE] font-bold"
+          />
+          <button type="button" onClick={() => setPrizeCount(c => Math.min(10, c + 1))}
+            className="min-h-[44px] min-w-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] hover:bg-[#3a3a3c] text-[#F5F2EE] font-bold cursor-pointer flex items-center justify-center">
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
+        <span className="block text-xs text-[#F5F2EE]/50 mt-1">Each winner gets one of this prize. Drawn separately in per-prize modes.</span>
+      </div>
       <label className="block">
         <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-1 font-bold">Instagram Handle</span>
         <input value={ig} onChange={(e) => setIg(e.target.value)} placeholder="@businessname"

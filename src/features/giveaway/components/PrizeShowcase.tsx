@@ -12,24 +12,28 @@ export function PrizeShowcase({
 }) {
   const igHandle = getStudioIgHandle(slug).replace(/^@/, '');
 
-  const cards: Array<{ id: string; prize: string; business: string; handle?: string | null; tbd?: boolean }> = [
+  const cards: Array<{ id: string; prize: string; business: string; handle?: string | null; tbd?: boolean; winnerLabel?: string }> = [
     {
       id: 'otf',
       prize: 'FREE MEMBERSHIP',
       business: getParticipantStudioName(slug).toUpperCase(),
       handle: igHandle,
     },
-    ...partners.map(p => {
-      const prizeText = (p.prize_description || '').trim();
-      return {
-        id: p.id,
+  ];
+  for (const p of partners) {
+    const prizeText = (p.prize_description || '').trim();
+    const count = Math.max(1, Math.min(10, p.prize_count ?? 1));
+    for (let i = 0; i < count; i++) {
+      cards.push({
+        id: count > 1 ? `${p.id}__${i + 1}` : p.id,
         prize: prizeText ? prizeText.toUpperCase() : 'PRIZE TBD',
         business: p.partner_name.toUpperCase(),
         handle: (p.partner_ig_handle || '').trim().replace(/^@/, '') || null,
         tbd: !prizeText,
-      };
-    }),
-  ];
+        winnerLabel: count > 1 ? `Winner ${i + 1} of ${count}` : undefined,
+      });
+    }
+  }
 
   const count = cards.length;
 
@@ -62,7 +66,7 @@ export function PrizeShowcase({
 }
 
 function PrizeCard({
-  prize, business, handle, tbd, mobile, showWinnerBadge,
+  prize, business, handle, tbd, mobile, showWinnerBadge, winnerLabel,
 }: {
   prize: string;
   business: string;
@@ -70,6 +74,7 @@ function PrizeCard({
   tbd?: boolean;
   mobile?: boolean;
   showWinnerBadge?: boolean;
+  winnerLabel?: string;
 }) {
   return (
     <article
@@ -97,6 +102,11 @@ function PrizeCard({
         {handle && (
           <p className="font-body text-[#8E8E93] truncate" style={{ fontSize: 12 }}>
             @{handle}
+          </p>
+        )}
+        {winnerLabel && (
+          <p className="font-display font-bold uppercase text-[#E8540A] mt-1" style={{ fontSize: 10, letterSpacing: '0.12em' }}>
+            {winnerLabel}
           </p>
         )}
       </div>
