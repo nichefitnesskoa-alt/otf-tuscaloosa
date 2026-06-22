@@ -13,6 +13,7 @@ import { PrizeShowcase } from './PrizeShowcase';
 import { FitText } from './FitText';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getParticipantStudioName, getParticipantBrandName, getStudioCity, getStudioIgHandle } from '@/lib/studioNames';
+import { getGiveawayEndAt } from '../lib/endAt';
 
 import { getGiveawayTitle, getCoBrandParts } from '../lib/giveawayTitle';
 import { getEntryFormPrizeFraming } from '../lib/winnerCopy';
