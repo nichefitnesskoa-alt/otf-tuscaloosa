@@ -399,16 +399,24 @@ function PartnersSection({ slug }: { slug: string }) {
 }
 
 function PartnerCard({ partner, onEdit, onDelete }: { partner: GiveawayPartner; onEdit: () => void; onDelete: () => void }) {
+  const labels = Array.isArray(partner.prize_labels) ? partner.prize_labels.filter(x => (x || '').trim()) : [];
+  const distinct = Array.from(new Set(labels.map(l => l.trim())));
+  const showMulti = distinct.length > 1;
   return (
     <div className="rounded-lg border border-[#3a3a3c] bg-[#2a2a2c] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-lg font-black text-[#F5F2EE] truncate">{partner.partner_name}</p>
-          {partner.prize_description && (
+          {showMulti ? (
+            <span className="inline-flex items-start gap-1 mt-1.5 text-[11px] font-bold uppercase tracking-wider text-[#E8540A] bg-[#E8540A]/10 border border-[#E8540A]/40 rounded px-2 py-0.5">
+              <Gift className="h-3 w-3 mt-0.5 flex-shrink-0" />
+              <span>Prizes: {distinct.join(' · ')}</span>
+            </span>
+          ) : partner.prize_description ? (
             <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-bold uppercase tracking-wider text-[#E8540A] bg-[#E8540A]/10 border border-[#E8540A]/40 rounded px-2 py-0.5">
               <Gift className="h-3 w-3" /> Prize: {partner.prize_description}{(partner.prize_count ?? 1) > 1 ? ` × ${partner.prize_count}` : ''}
             </span>
-          )}
+          ) : null}
           {partner.partner_ig_handle && (
             <p className="text-sm text-[#F5F2EE]/60 mt-1.5">@{partner.partner_ig_handle}</p>
           )}
