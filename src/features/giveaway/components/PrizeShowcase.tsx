@@ -104,6 +104,11 @@ function PrizeCard({
             @{handle}
           </p>
         )}
+        {winnerLabel && (
+          <p className="font-display font-bold uppercase text-[#E8540A] mt-1" style={{ fontSize: 10, letterSpacing: '0.12em' }}>
+            {winnerLabel}
+          </p>
+        )}
       </div>
       {showWinnerBadge && (
         <span
