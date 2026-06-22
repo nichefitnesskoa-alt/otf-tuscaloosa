@@ -16,6 +16,7 @@ interface Entry {
   last_name: string;
   email: string;
   phone: string;
+  instagram_handle: string | null;
   total_entries: number;
   submitted_at: string;
   action_instagram_follow: boolean;
