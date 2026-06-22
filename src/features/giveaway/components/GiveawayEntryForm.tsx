@@ -474,10 +474,6 @@ function EntryActions({
             {giveawayTitle}
           </FitText>
         )}
-        <p className="font-display font-medium uppercase text-[#8E8E93] mt-2"
-          style={{ fontSize: 'clamp(10px, 1vw, 12px)', letterSpacing: '0.2em' }}>
-          Presented by {coBrandParts.join(' + ')}
-        </p>
         <p className="font-body text-[#F5F2EE]/70 mt-4 max-w-2xl">
           Welcome back{entry ? `, ${entry.first_name}` : ''}. Complete actions below to earn more entries.
         </p>
