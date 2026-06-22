@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { drawWinner, DrawEntry } from '../lib/weightedDraw';
-import type { GiveawayPartner } from '../hooks/useGiveawayPartners';
+import { type GiveawayPartner, getPartnerPrizeLabel } from '../hooks/useGiveawayPartners';
 import {
   getDrawRuleStatement,
   isPerPrize,
