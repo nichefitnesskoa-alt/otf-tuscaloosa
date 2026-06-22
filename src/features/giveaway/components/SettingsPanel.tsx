@@ -442,6 +442,7 @@ function PartnerForm({
   const [ig, setIg] = useState(initial?.partner_ig_handle ?? '');
   const [instr, setInstr] = useState(initial?.receipt_instructions ?? '');
   const [prize, setPrize] = useState(initial?.prize_description ?? '');
+  const [prizeCount, setPrizeCount] = useState<number>(initial?.prize_count ?? 1);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -455,6 +456,7 @@ function PartnerForm({
       partner_ig_handle: cleanIg || null,
       receipt_instructions: instr || null,
       prize_description: prize || null,
+      prize_count: Math.max(1, Math.min(10, Math.round(prizeCount || 1))),
     });
     setBusy(false);
     if (error) setErr(error);
@@ -474,6 +476,26 @@ function PartnerForm({
           className="w-full min-h-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none px-3 text-[#F5F2EE]" />
         <span className="block text-xs text-[#F5F2EE]/50 mt-1">Shown on the entry form so participants know what they can win.</span>
       </label>
+      <div>
+        <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-1 font-bold">How many winners for this prize?</span>
+        <div className="inline-flex items-center gap-2">
+          <button type="button" onClick={() => setPrizeCount(c => Math.max(1, c - 1))}
+            className="min-h-[44px] min-w-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] hover:bg-[#3a3a3c] text-[#F5F2EE] font-bold cursor-pointer flex items-center justify-center">
+            <Minus className="h-4 w-4" />
+          </button>
+          <input
+            type="number" min={1} max={10}
+            value={prizeCount}
+            onChange={(e) => setPrizeCount(Number(e.target.value) || 1)}
+            className="w-20 min-h-[44px] text-center rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none text-[#F5F2EE] font-bold"
+          />
+          <button type="button" onClick={() => setPrizeCount(c => Math.min(10, c + 1))}
+            className="min-h-[44px] min-w-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] hover:bg-[#3a3a3c] text-[#F5F2EE] font-bold cursor-pointer flex items-center justify-center">
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
+        <span className="block text-xs text-[#F5F2EE]/50 mt-1">Each winner gets one of this prize. Drawn separately in per-prize modes.</span>
+      </div>
       <label className="block">
         <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-1 font-bold">Instagram Handle</span>
         <input value={ig} onChange={(e) => setIg(e.target.value)} placeholder="@businessname"
