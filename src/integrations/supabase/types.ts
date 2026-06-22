@@ -1294,6 +1294,7 @@ export type Database = {
           partner_name: string
           prize_count: number
           prize_description: string | null
+          prize_labels: Json | null
           receipt_instructions: string | null
           studio_slug: string
         }
@@ -1305,6 +1306,7 @@ export type Database = {
           partner_name: string
           prize_count?: number
           prize_description?: string | null
+          prize_labels?: Json | null
           receipt_instructions?: string | null
           studio_slug: string
         }
@@ -1316,6 +1318,7 @@ export type Database = {
           partner_name?: string
           prize_count?: number
           prize_description?: string | null
+          prize_labels?: Json | null
           receipt_instructions?: string | null
           studio_slug?: string
         }

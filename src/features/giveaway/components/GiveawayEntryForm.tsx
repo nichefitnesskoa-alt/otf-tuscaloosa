@@ -424,11 +424,20 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
                     <a href={`https://instagram.com/${handle}`} target="_blank" rel="noreferrer" className="hover:text-[#E8540A]">@{handle}</a>
                   </p>
                 )}
-                {p.prize_description && (
-                  <div className="mb-3 inline-flex items-start gap-1.5 rounded-md border border-[#E8540A]/40 bg-[#E8540A]/10 text-[#E8540A] px-2 py-1 font-display font-bold uppercase" style={{ fontSize: 11, letterSpacing: '0.05em' }}>
-                    <span>🎁</span><span>Prize: {p.prize_description}</span>
-                  </div>
-                )}
+                {(() => {
+                  const labels = Array.isArray((p as any).prize_labels)
+                    ? ((p as any).prize_labels as string[]).filter(x => (x || '').trim())
+                    : [];
+                  const distinct = Array.from(new Set(labels.map(l => l.trim())));
+                  const text = distinct.length > 1
+                    ? `Prizes: ${distinct.join(' · ')}`
+                    : p.prize_description ? `Prize: ${p.prize_description}` : null;
+                  return text ? (
+                    <div className="mb-3 inline-flex items-start gap-1.5 rounded-md border border-[#E8540A]/40 bg-[#E8540A]/10 text-[#E8540A] px-2 py-1 font-display font-bold uppercase" style={{ fontSize: 11, letterSpacing: '0.05em' }}>
+                      <span>🎁</span><span>{text}</span>
+                    </div>
+                  ) : null;
+                })()}
                 <ActionVerification
                   mode={mode}
                   studioSlug={studio.studio_slug}
