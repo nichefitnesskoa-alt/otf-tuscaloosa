@@ -103,16 +103,41 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
       <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-6 space-y-4">
         <h2 className="text-xl font-black">Countdown</h2>
         <div>
-          <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-2 font-bold">Duration</span>
+          <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-2 font-bold">Mode</span>
           <div className="inline-flex rounded-lg border border-[#3a3a3c] overflow-hidden">
-            {[7,10,14].map(d => (
-              <button key={d} onClick={() => setDuration(d)}
-                className={`min-h-[44px] px-5 font-bold cursor-pointer ${duration === d ? 'bg-[#E8540A] text-white' : 'bg-[#2a2a2c] text-[#F5F2EE]/70 hover:bg-[#3a3a3c]'}`}>
-                {d} days
-              </button>
-            ))}
+            <button onClick={() => setCountdownMode('fixed_days')}
+              className={`min-h-[44px] px-5 font-bold cursor-pointer ${countdownMode === 'fixed_days' ? 'bg-[#E8540A] text-white' : 'bg-[#2a2a2c] text-[#F5F2EE]/70 hover:bg-[#3a3a3c]'}`}>
+              Fixed duration
+            </button>
+            <button onClick={() => setCountdownMode('end_of_month')}
+              className={`min-h-[44px] px-5 font-bold cursor-pointer ${countdownMode === 'end_of_month' ? 'bg-[#E8540A] text-white' : 'bg-[#2a2a2c] text-[#F5F2EE]/70 hover:bg-[#3a3a3c]'}`}>
+              End of month
+            </button>
           </div>
         </div>
+
+        {countdownMode === 'fixed_days' && (
+          <div>
+            <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-2 font-bold">Duration</span>
+            <div className="inline-flex rounded-lg border border-[#3a3a3c] overflow-hidden">
+              {[7,10,14].map(d => (
+                <button key={d} onClick={() => setDuration(d)}
+                  className={`min-h-[44px] px-5 font-bold cursor-pointer ${duration === d ? 'bg-[#E8540A] text-white' : 'bg-[#2a2a2c] text-[#F5F2EE]/70 hover:bg-[#3a3a3c]'}`}>
+                  {d} days
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {previewEnd && (
+          <p className="text-sm text-[#F5F2EE]/70">
+            {liveAt ? 'Ends' : 'Would end'}{' '}
+            <span className="text-[#E8540A] font-bold">{new Date(previewEnd).toLocaleString()}</span>
+            {countdownMode === 'end_of_month' && <span className="text-[#F5F2EE]/50"> (last second of {new Date(previewEnd).toLocaleString('en-US', { month: 'long', timeZone: 'America/Chicago' })} CT)</span>}
+          </p>
+        )}
+
         <div className="flex items-center gap-3">
           <button onClick={saveSettings} disabled={saving}
             className="min-h-[44px] px-5 rounded-lg bg-[#2a2a2c] hover:bg-[#3a3a3c] border border-[#3a3a3c] text-[#F5F2EE] font-bold cursor-pointer">
@@ -121,6 +146,7 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
           {msg && <span className="text-sm text-emerald-400">{msg}</span>}
         </div>
       </div>
+
 
       <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-6 space-y-4">
         <h2 className="text-xl font-black">Live Status</h2>
