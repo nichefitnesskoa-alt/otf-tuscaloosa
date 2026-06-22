@@ -1,5 +1,6 @@
-import { GiveawayPartner } from '../hooks/useGiveawayPartners';
+import { GiveawayPartner, getPartnerPrizeLabel } from '../hooks/useGiveawayPartners';
 import { getParticipantStudioName, getStudioIgHandle } from '@/lib/studioNames';
+
 
 export function PrizeShowcase({
   slug,
