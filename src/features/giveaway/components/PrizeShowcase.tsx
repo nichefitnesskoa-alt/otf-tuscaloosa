@@ -66,7 +66,7 @@ export function PrizeShowcase({
 }
 
 function PrizeCard({
-  prize, business, handle, tbd, mobile, showWinnerBadge,
+  prize, business, handle, tbd, mobile, showWinnerBadge, winnerLabel,
 }: {
   prize: string;
   business: string;
@@ -74,6 +74,7 @@ function PrizeCard({
   tbd?: boolean;
   mobile?: boolean;
   showWinnerBadge?: boolean;
+  winnerLabel?: string;
 }) {
   return (
     <article
