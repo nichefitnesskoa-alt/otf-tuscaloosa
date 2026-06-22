@@ -692,7 +692,14 @@ function MobileStackedTitle({ studioName, partners }: { studioName: string; part
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen overflow-x-hidden bg-[#1C1C1E] text-[#F5F2EE]">{children}</div>;
+  return (
+    <div
+      className="min-h-screen overflow-x-hidden bg-[#1C1C1E] text-[#F5F2EE]"
+      style={{ touchAction: 'pan-y' }}
+    >
+      {children}
+    </div>
+  );
 }
 
 function CoBrandBar({ parts }: { parts: string[] }) {
