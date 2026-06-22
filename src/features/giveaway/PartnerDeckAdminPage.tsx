@@ -8,6 +8,7 @@ import { DEFAULT_DECK, slide2AutoCopy } from './lib/partnerDeckDefaults';
 import { getDeckSlide2 } from './lib/winnerCopy';
 import { WINNER_STRUCTURE_OPTIONS, type WinnerStructure } from './lib/winnerStructure';
 import { getGiveawayTitle, type TitleFormat } from './lib/giveawayTitle';
+import { getGiveawayEndAt } from './lib/endAt';
 
 type FieldKey = keyof GiveawayStudio;
 
