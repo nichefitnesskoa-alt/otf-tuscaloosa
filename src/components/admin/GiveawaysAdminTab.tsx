@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Users, Eye, Presentation, ExternalLink, Gift, Share2, Copy, BarChart3, Check } from 'lucide-react';
+import { Users, Eye, Presentation, ExternalLink, Gift, Share2, Copy, BarChart3, Check, Ticket } from 'lucide-react';
 import { getAdminStudioName } from '@/lib/studioNames';
 import { toast } from 'sonner';
 
@@ -87,6 +87,7 @@ function StudioCard({
   // Always use the published short domain for partner-facing links
   const PUBLIC_ORIGIN = 'https://otf-tuscaloosa.lovable.app';
   const publicUrl = value ? `${PUBLIC_ORIGIN}/${value}` : '';
+  const entryUrl = `${PUBLIC_ORIGIN}/giveaway/${slug}`;
 
   const save = async () => {
     const next = sanitize(value);
@@ -179,6 +180,32 @@ function StudioCard({
             </Button>
             <Button asChild variant="outline" disabled={!publicUrl} className="min-h-[44px] text-[13px] font-semibold">
               <a href={publicUrl || '#'} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Open
+              </a>
+            </Button>
+          </div>
+        </div>
+
+        {/* Giveaway entry — participant link */}
+        <div className="rounded-lg border-2 border-emerald-500/40 bg-emerald-500/5 p-3 space-y-3">
+          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider font-bold text-emerald-500">
+            <Ticket className="w-3.5 h-3.5" />
+            Giveaway Entry — Participant Link
+          </div>
+          <p className="text-[11px] text-foreground/80 break-all font-mono bg-background/50 rounded px-2 py-1.5">
+            {entryUrl}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              onClick={() => onCopy(entryUrl)}
+              className="min-h-[44px] text-[13px] font-semibold bg-emerald-600 hover:bg-emerald-600/90 text-white"
+            >
+              <Copy className="w-4 h-4 mr-2" />
+              Copy link
+            </Button>
+            <Button asChild variant="outline" className="min-h-[44px] text-[13px] font-semibold">
+              <a href={entryUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="w-4 h-4 mr-2" />
                 Open
               </a>
