@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { GiveawayStudio } from '../hooks/useGiveawayStudio';
 import { useGiveawayPartners, GiveawayPartner, PartnerInput } from '../hooks/useGiveawayPartners';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Trash2, Plus, Check, X, Gift } from 'lucide-react';
+import { Pencil, Trash2, Plus, Check, X, Gift, Minus } from 'lucide-react';
 import {
   WINNER_STRUCTURE_OPTIONS,
   type WinnerStructure,
 } from '../lib/winnerStructure';
 import { getGiveawayTitle, type TitleFormat } from '../lib/giveawayTitle';
 import { PartnerDeckSettings } from './PartnerDeckSettings';
+import { getGiveawayEndAt, type CountdownMode } from '../lib/endAt';
 
 export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onSaved: () => void }) {
   const [duration, setDuration] = useState<number>(studio.countdown_duration_days);
