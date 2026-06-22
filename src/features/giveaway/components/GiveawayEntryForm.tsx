@@ -679,7 +679,7 @@ function MobileStackedTitle({ studioName, partners }: { studioName: string; part
     <div style={{ fontFamily: TITLE_FONT, fontWeight: 900, color: '#E8540A', fontSize: 20, textAlign: 'center', margin: '4px 0', lineHeight: 1 }}>×</div>
   );
   return (
-    <div>
+    <div className="w-full max-w-full overflow-hidden">
       <FitText as="div" min={24} max={48} multiline style={{ ...baseStyle, color: '#FDF7EA' }}>{studioName}</FitText>
       {partners.map((p, i) => (
         <div key={i}>
