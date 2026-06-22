@@ -21,6 +21,12 @@ export interface PartnerInput {
   prize_count: number;
 }
 
+function clampPrizeCount(n: unknown): number {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return 1;
+  return Math.max(1, Math.min(10, Math.round(v)));
+}
+
 export function useGiveawayPartners(slug: string | undefined) {
   const [partners, setPartners] = useState<GiveawayPartner[]>([]);
   const [loading, setLoading] = useState(true);
