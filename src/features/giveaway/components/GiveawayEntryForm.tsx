@@ -162,7 +162,9 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
     );
   }
 
-  const fieldsValid = form.first_name.trim() && form.last_name.trim() && form.email.trim() && form.phone.trim();
+  const igHandleClean = form.instagram_handle.trim().replace(/^@/, '').toLowerCase();
+  const igHandleValid = /^[a-z0-9._]{1,30}$/.test(igHandleClean);
+  const fieldsValid = form.first_name.trim() && form.last_name.trim() && form.email.trim() && form.phone.trim() && igHandleValid;
   const canSubmit = fieldsValid && bonusCount >= 1;
 
   const handleSubmit = async () => {
