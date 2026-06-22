@@ -27,6 +27,12 @@ export interface PersonRow {
   outcomeEdit?: { bookingId: string };
   href?: string; // when set, row becomes navigable
   onClick?: () => void; // when set, row becomes a tappable button (overrides href)
+  /** Admin-only remove handler. When set, renders a trash icon button that
+   *  confirms then runs the handler. Use to exclude a row from a metric
+   *  without deleting the underlying record. */
+  onRemove?: () => void | Promise<void>;
+  /** Confirm message shown before onRemove runs. Defaults to a generic one. */
+  removeConfirm?: string;
 }
 
 interface Props {
