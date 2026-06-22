@@ -87,6 +87,18 @@ export function FitText({ children, min, max, fixed, style, as = 'span', fillRat
         letterSpacing: 'inherit',
         lineHeight: 'inherit',
       };
+  const multilineDisplayStyle: CSSProperties = multiline
+    ? {
+        whiteSpace: 'normal',
+        wordBreak: 'break-word',
+        overflowWrap: 'break-word',
+        maxWidth: '100%',
+        display: 'block',
+      }
+    : {
+        whiteSpace: 'nowrap',
+        display: 'block',
+      };
 
   return (
     <Tag ref={wrapRef} style={{ ...style, fontSize: size, display: 'block', width: '100%' }}>
