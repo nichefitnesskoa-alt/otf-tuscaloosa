@@ -167,3 +167,38 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
   const total = rows.reduce((s, r) => s + r.count, 0);
   return { rows, total, loading, refetch: fetchData };
 }
+
+import { notifyDataChanged } from '@/lib/data/invalidation';
+
+/**
+ * Admin remove: drops a row from the SA's self-sourced count without
+ * deleting the underlying record.
+ *
+ * Row id format from useSaLeads:
+ *   - "lead-{uuid}"  → unattribute from SA (leads.sourced_by_sa = NULL)
+ *   - "bk-{uuid}"    → exclude booking from metrics (ignore_from_metrics = true)
+ */
+export async function removeSelfSourcedRow(rowId: string): Promise<void> {
+  if (rowId.startsWith('lead-')) {
+    const id = rowId.slice('lead-'.length);
+    const { error } = await supabase
+      .from('leads')
+      .update({ sourced_by_sa: null })
+      .eq('id', id);
+    if (error) throw error;
+  } else if (rowId.startsWith('bk-')) {
+    const id = rowId.slice('bk-'.length);
+    const { error } = await supabase
+      .from('intros_booked')
+      .update({ ignore_from_metrics: true })
+      .eq('id', id);
+    if (error) throw error;
+  } else {
+    throw new Error(`Unknown self-sourced row id: ${rowId}`);
+  }
+  notifyDataChanged(
+    ['leads', 'intros_booked', 'sa-leads', 'sa-leads-booked'],
+    'remove-self-sourced-row',
+  );
+}
+
