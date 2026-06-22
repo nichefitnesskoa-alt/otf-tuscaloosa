@@ -452,11 +452,50 @@ function PartnerForm({
   const [instr, setInstr] = useState(initial?.receipt_instructions ?? '');
   const [prize, setPrize] = useState(initial?.prize_description ?? '');
   const [prizeCount, setPrizeCount] = useState<number>(initial?.prize_count ?? 1);
+  const [prizeLabels, setPrizeLabels] = useState<string[]>(() => {
+    const init = Array.isArray(initial?.prize_labels) ? initial!.prize_labels! : [];
+    const count = initial?.prize_count ?? 1;
+    const out: string[] = [];
+    for (let i = 0; i < count; i++) out.push((init[i] ?? '').toString());
+    return out;
+  });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const resizeLabels = (next: number) => {
+    setPrizeLabels(prev => {
+      const target = Math.max(1, Math.min(10, next));
+      if (prev.length === target) return prev;
+      if (prev.length < target) {
+        return [...prev, ...Array(target - prev.length).fill('')];
+      }
+      // shrinking — warn if we'd drop non-empty values
+      const dropped = prev.slice(target).filter(v => (v || '').trim().length > 0);
+      if (dropped.length > 0) {
+        if (!confirm(`Reduce winners to ${target}? You'll lose: ${dropped.join(', ')}`)) {
+          return prev;
+        }
+      }
+      return prev.slice(0, target);
+    });
+  };
+
+  const changeCount = (next: number) => {
+    const clamped = Math.max(1, Math.min(10, next));
+    resizeLabels(clamped);
+    setPrizeCount(clamped);
+  };
+
+  const setLabelAt = (i: number, v: string) => {
+    setPrizeLabels(prev => prev.map((x, idx) => (idx === i ? v : x)));
+  };
+
   const submit = async () => {
     if (!name.trim()) { setErr('Partner name is required'); return; }
+    if (prizeCount > 1) {
+      const empties = prizeLabels.slice(0, prizeCount).filter(v => !(v || '').trim()).length;
+      if (empties > 0) { setErr(`Enter a prize for each of the ${prizeCount} winners.`); return; }
+    }
     setBusy(true);
     setErr(null);
     const cleanIg = ig.trim().replace(/^@/, '');
@@ -466,6 +505,7 @@ function PartnerForm({
       receipt_instructions: instr || null,
       prize_description: prize || null,
       prize_count: Math.max(1, Math.min(10, Math.round(prizeCount || 1))),
+      prize_labels: prizeCount > 1 ? prizeLabels.slice(0, prizeCount) : null,
     });
     setBusy(false);
     if (error) setErr(error);
@@ -478,33 +518,53 @@ function PartnerForm({
         <input value={name} onChange={(e) => setName(e.target.value)}
           className="w-full min-h-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none px-3 text-[#F5F2EE]" />
       </label>
-      <label className="block">
-        <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-1 font-bold">Prize for this partner</span>
-        <input value={prize} onChange={(e) => setPrize(e.target.value)}
-          placeholder="e.g. One free blowout, $25 gift card, Free meal for two"
-          className="w-full min-h-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none px-3 text-[#F5F2EE]" />
-        <span className="block text-xs text-[#F5F2EE]/50 mt-1">Shown on the entry form so participants know what they can win.</span>
-      </label>
+
       <div>
         <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-1 font-bold">How many winners for this prize?</span>
         <div className="inline-flex items-center gap-2">
-          <button type="button" onClick={() => setPrizeCount(c => Math.max(1, c - 1))}
+          <button type="button" onClick={() => changeCount(prizeCount - 1)}
             className="min-h-[44px] min-w-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] hover:bg-[#3a3a3c] text-[#F5F2EE] font-bold cursor-pointer flex items-center justify-center">
             <Minus className="h-4 w-4" />
           </button>
           <input
             type="number" min={1} max={10}
             value={prizeCount}
-            onChange={(e) => setPrizeCount(Number(e.target.value) || 1)}
+            onChange={(e) => changeCount(Number(e.target.value) || 1)}
             className="w-20 min-h-[44px] text-center rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none text-[#F5F2EE] font-bold"
           />
-          <button type="button" onClick={() => setPrizeCount(c => Math.min(10, c + 1))}
+          <button type="button" onClick={() => changeCount(prizeCount + 1)}
             className="min-h-[44px] min-w-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] hover:bg-[#3a3a3c] text-[#F5F2EE] font-bold cursor-pointer flex items-center justify-center">
             <Plus className="h-4 w-4" />
           </button>
         </div>
-        <span className="block text-xs text-[#F5F2EE]/50 mt-1">Each winner gets one of this prize. Drawn separately in per-prize modes.</span>
+        <span className="block text-xs text-[#F5F2EE]/50 mt-1">Each winner gets their own prize. One entry box per winner appears below.</span>
       </div>
+
+      {prizeCount === 1 ? (
+        <label className="block">
+          <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-1 font-bold">Prize for this partner</span>
+          <input value={prize} onChange={(e) => setPrize(e.target.value)}
+            placeholder="e.g. One free blowout, $25 gift card, Free meal for two"
+            className="w-full min-h-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none px-3 text-[#F5F2EE]" />
+          <span className="block text-xs text-[#F5F2EE]/50 mt-1">Shown on the entry form so participants know what they can win.</span>
+        </label>
+      ) : (
+        <div className="space-y-2">
+          <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 font-bold">Prizes ({prizeCount} winners)</span>
+          {Array.from({ length: prizeCount }).map((_, i) => (
+            <label key={i} className="block">
+              <span className="block text-[11px] uppercase tracking-wider text-[#F5F2EE]/50 mb-1 font-bold">Prize for winner {i + 1} *</span>
+              <input
+                value={prizeLabels[i] ?? ''}
+                onChange={(e) => setLabelAt(i, e.target.value)}
+                placeholder={i === 0 ? 'e.g. Diamond Glow Facial' : 'e.g. Hormone Labs'}
+                className="w-full min-h-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none px-3 text-[#F5F2EE]"
+              />
+            </label>
+          ))}
+          <span className="block text-xs text-[#F5F2EE]/50">Each prize shows in its own card on the entry form and is drawn separately.</span>
+        </div>
+      )}
       <label className="block">
         <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-1 font-bold">Instagram Handle</span>
         <input value={ig} onChange={(e) => setIg(e.target.value)} placeholder="@businessname"
