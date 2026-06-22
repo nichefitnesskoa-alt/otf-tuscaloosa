@@ -1,74 +1,87 @@
-## You're right — that's the bug pattern
+## Goal
 
-Each surface (Coach View, My Day, My Intros, Shift cards, Pipeline, Follow-Up) has its **own** reimplementation of "is this a 2nd intro?". I patched the inline check on each surface separately, which is exactly the anti-pattern your rules forbid. The canonical helper `isSecondIntroBooking` exists, but every consumer still fetches its own parent rows and runs (or worse, uses a different check). Next time a rule shifts — friend bookings, VIP, no-show parents — we'll have to chase it through 6 files again.
+Three changes to the public Giveaway feature:
 
-## Fix — one hook, one data source, every surface
+1. A partner business can offer **multiple prizes** (each is its own winner slot in the draw)
+2. Admin can set the giveaway to end at **end of the current month**, not just 7/10/14 days
+3. Participants must enter their **Instagram handle** to submit the form
 
-### 1. Single canonical hook: `useIntroClassification`
+---
 
-New file `src/hooks/useIntroClassification.ts`. Given a list of bookings in view, it:
+## 1. Multiple prizes per partner
 
-- Collects all `originating_booking_id` values from those bookings.
-- Fetches missing parents from `intros_booked` (`id, member_name, booking_status_canon, is_vip, ignore_from_metrics, deleted_at`).
-- Fetches all parent runs from `intros_run` (`linked_intro_booked_id, result, result_canon`).
-- Caches via React Query under a stable key (`['intro-classification', sortedIds]`).
-- Returns:
-  - `isSecondIntro(bookingId): boolean` — calls canonical `isSecondIntroBooking`
-  - `getParent(bookingId): SecondIntroBookingLike | null`
-  - `getParentRuns(bookingId): SecondIntroRunLike[]`
-  - `loading: boolean`
+### DB
+Add to `giveaway_partners`:
+- `prize_count int not null default 1` (1–10)
 
-All the helper does internally is call `isSecondIntroBooking` from `src/lib/intros/secondIntroDetection.ts` — that file stays the source of truth for the rule itself.
+OTF (the studio itself) stays at 1 membership prize. Only partner businesses get a count.
 
-### 2. Rewire every consumer to use the hook
+### Admin UI (`SettingsPanel.tsx` → PartnersSection partner form)
+- Add "How many winners for this prize?" number stepper (1–10) under "Prize for this partner"
+- Edit row badge becomes `PRIZE: $175 GIFT CARD × 3` when count > 1
 
-Replace each bespoke check with `const { isSecondIntro } = useIntroClassification(bookings); ... isSecondIntro(b.id)`. Delete the local fetch/state code in each:
+### Draw logic (`DrawWinner.tsx` + `winnerStructure.ts`)
+- When building the `prizes[]` array, expand each partner into `prize_count` Prize entries, e.g. `Hemline #1`, `Hemline #2`, `Hemline #3`. Each is drawn independently following the existing winner-structure rules (single / no-repeat / repeat-allowed).
+- "Single" structure is unchanged (still one grand winner — partner count ignored there since one person wins everything).
 
-| File | Lines to delete | Replacement |
-|---|---|---|
-| `src/pages/CoachView.tsx` | parentBookings/parentRuns state + parallel fetch + inline check | `useIntroClassification(bookings)` |
-| `src/pages/CoachMyIntros.tsx` | `parentBookingsById` / `parentRunsByParentId` block + inline check | same |
-| `src/features/myDay/useUpcomingIntrosData.ts` | the ~90-line bespoke "2nd intro detection" block (lines 268–390) | same — hook handles cross-batch parent lookups via a single parent-id query |
-| `src/features/shiftView/ShiftIntroCards.tsx` | direct call to `isSecondIntroBooking` with raw `useData()` | same |
-| `src/features/pipeline/selectors.ts` (`isRealSecondIntro`) | delete; pipeline already passes journey bookings/runs — wrap it to call the canonical helper directly | route through `isSecondIntroBooking` so there is exactly one rule |
-| `src/features/followUp/useFollowUpData.ts` (`isRealSecondIntroBooking`) | delete local helper | route through canonical |
-| `src/hooks/useIntroTypeDetection.ts` | mark deprecated, internally call canonical helper | (gradual — remove callers in same PR if cheap) |
+### Display (`PrizeShowcase.tsx`, entry form "WHAT YOU COULD WIN")
+- Render one card per prize slot. Card shows partner + prize, and a small `1 of 3 winners` line when `prize_count > 1`.
+- Total winners line under the grid recomputes from the new count.
 
-### 3. Cross-batch / outside-batch parents
+### CSV export
+- Winners CSV already keys off prize slot, just needs the expanded prize list passed through.
 
-My Day's current code has special branches for "parent is outside the current batch". The hook handles this uniformly by always issuing the parent fetch for any `originating_booking_id` not already present in the input list. One code path, no branches.
+---
 
-### 4. Tests
+## 2. End-of-month countdown option
 
-- Reuse Maliyah's shape as a fixture in `src/lib/intros/__tests__/secondIntroDetection.test.ts` (new): parent ACTIVE + parent run NO_SHOW → child is NOT a 2nd intro.
-- Friend booking (different `member_name`) → 1st intro.
-- Parent SHOWED with no runs yet → still 2nd intro (existing behavior preserved).
-- DELETED_SOFT parent → child is 1st intro.
+### DB
+Add to `giveaway_studios`:
+- `countdown_mode text not null default 'fixed_days'` — values: `fixed_days`, `end_of_month`
+- `countdown_duration_days` stays (used only when mode = fixed_days)
 
-### 5. Coherence proof I'll produce before closing
+When mode = `end_of_month`, `endAt` is computed as the last second of the current month in America/Chicago at the time `goes_live_at` was set (i.e. end-of-month *of the month the giveaway went live*).
 
-```
-COHERENCE PROOF
-- DB rows verified (Maliyah):
-  - parent 3600e7e8 booking_status_canon=ACTIVE
-  - run b0285894 result_canon=NO_SHOW linked to parent
-  - child 77a7ee3a (6/20 10:30)
-- All consumers route through useIntroClassification → isSecondIntroBooking:
-  - Coach View 6/20: 1st Intro
-  - My Day upcoming: 1st Intro
-  - CoachMyIntros: visitType FIRST
-  - ShiftIntroCards: 1st Intro
-  - Pipeline row: 1st Intro
-  - Follow-Up queue: classified as 1st-intro journey
-- Canonical helpers extracted: useIntroClassification (new)
-- Local duplicates deleted: 6 (listed above)
-- All agree: yes
-```
+### Admin UI (Countdown card)
+Replace the 3 chips with two rows:
+- Mode toggle: `Fixed duration` | `End of month`
+- When Fixed: existing 7 / 10 / 14 chips
+- When End of month: read-only line showing computed end date (e.g. `Ends June 30, 2026 at 11:59 PM CT`)
+
+### Runtime (`GiveawayEntryForm.tsx`, `GiveawayPreviewPage`, `Countdown` consumers)
+Extract a single helper `getGiveawayEndAt(studio)` in `src/features/giveaway/lib/endAt.ts` and route every existing `liveAt + duration*86400*1000` calculation through it. This is the canonical helper — no inline math anywhere else.
+
+---
+
+## 3. Required Instagram handle on entry form
+
+### DB
+Add to `giveaway_entries`:
+- `instagram_handle text` (nullable in schema for back-compat; required at app layer)
+
+Normalize on insert: strip leading `@`, lowercase, max 30 chars.
+
+### Entry form (`GiveawayEntryForm.tsx`)
+- New required field "Instagram handle" with `@` prefix adornment, placed between Phone and the IG follow section
+- Add to `FormState`, `baseEmpty`, `fieldsValid` check, and the insert payload
+- Validation: required, 1–30 chars, only `a-z 0-9 . _`
+
+### Admin table (`EntriesTable.tsx`) + CSV export
+- Add `@handle` column next to Phone
+- Include in CSV download
+
+---
 
 ## Out of scope
+- No change to entry-counting logic (entries-per-action stays the same)
+- No change to wheel weighting algorithm
+- No retroactive IG handles for existing entries (column nullable, old rows stay blank)
+- No change to internal app, only the public Giveaway feature
 
-- No DB changes, no canon enum changes.
-- No commission, attribution, scorecard, or close-rate logic touched.
-- No UI redesign — only the data source behind the existing "2nd Intro" badge.
+---
 
-Used the `system-change-audit` skill.
+## Coherence proof to produce at done
+- DB: query `giveaway_partners` showing new `prize_count` column populated and a 2-prize partner expanding to 2 rows in the admin entries draw list
+- DB: query `giveaway_studios` showing `countdown_mode='end_of_month'` and verify the entry form, preview page, and admin "ends at" line all show the same end timestamp
+- DB: query `giveaway_entries` showing `instagram_handle` populated for a new submission, and confirm the form blocks submission when blank
+- Cross-page: prize count badge in Settings matches PrizeShowcase card count matches DrawWinner prize slot count

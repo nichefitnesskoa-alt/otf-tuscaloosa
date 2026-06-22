@@ -1221,6 +1221,7 @@ export type Database = {
           email: string
           first_name: string
           id: string
+          instagram_handle: string | null
           last_name: string
           partner_actions: Json
           phone: string
@@ -1243,6 +1244,7 @@ export type Database = {
           email: string
           first_name: string
           id?: string
+          instagram_handle?: string | null
           last_name: string
           partner_actions?: Json
           phone: string
@@ -1265,6 +1267,7 @@ export type Database = {
           email?: string
           first_name?: string
           id?: string
+          instagram_handle?: string | null
           last_name?: string
           partner_actions?: Json
           phone?: string
@@ -1289,6 +1292,7 @@ export type Database = {
           id: string
           partner_ig_handle: string | null
           partner_name: string
+          prize_count: number
           prize_description: string | null
           receipt_instructions: string | null
           studio_slug: string
@@ -1299,6 +1303,7 @@ export type Database = {
           id?: string
           partner_ig_handle?: string | null
           partner_name: string
+          prize_count?: number
           prize_description?: string | null
           receipt_instructions?: string | null
           studio_slug: string
@@ -1309,6 +1314,7 @@ export type Database = {
           id?: string
           partner_ig_handle?: string | null
           partner_name?: string
+          prize_count?: number
           prize_description?: string | null
           receipt_instructions?: string | null
           studio_slug?: string
@@ -1327,6 +1333,7 @@ export type Database = {
         Row: {
           action_verification_modes: Json
           countdown_duration_days: number
+          countdown_mode: string
           created_at: string
           custom_title: string | null
           deck_contact_email: string | null
@@ -1399,6 +1406,7 @@ export type Database = {
         Insert: {
           action_verification_modes?: Json
           countdown_duration_days?: number
+          countdown_mode?: string
           created_at?: string
           custom_title?: string | null
           deck_contact_email?: string | null
@@ -1471,6 +1479,7 @@ export type Database = {
         Update: {
           action_verification_modes?: Json
           countdown_duration_days?: number
+          countdown_mode?: string
           created_at?: string
           custom_title?: string | null
           deck_contact_email?: string | null
