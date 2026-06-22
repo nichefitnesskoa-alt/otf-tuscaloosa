@@ -252,10 +252,6 @@ function EntryGate({
             {giveawayTitle}
           </FitText>
         )}
-        <p className="font-display font-medium uppercase text-[#8E8E93] mt-3"
-          style={{ fontSize: 'clamp(10px, 1vw, 12px)', letterSpacing: '0.2em' }}>
-          Presented by {coBrandParts.join(' + ')}
-        </p>
         <p className="font-body text-[#F5F2EE]/70 mt-4">
           Drop your info to unlock entry actions. Come back anytime to add more entries.
         </p>
