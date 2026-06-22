@@ -377,7 +377,7 @@ function SlideConcept({ studio }: { studio: any }) {
 function SlidePrize({ city, partners, anchor, bundleTotal, studio }: any) {
   type Row = { tag: string; tagAccent: boolean; title: string; description: string; value?: string };
   const rows: Row[] = [
-    { tag: `OrangeTheory Fitness ${city}`, tagAccent: true, title: 'One month free membership', description: 'Full access, all classes, all month. This is the anchor of the bundle.', value: `$${anchor}` },
+    { tag: `OrangeTheory Fitness ${city}`, tagAccent: true, title: 'One month free unlimited membership', description: 'Full access, all classes, all month. This is the anchor of the bundle.', value: `$${anchor}` },
   ];
   for (const p of partners) {
     rows.push({ tag: p.partner_name, tagAccent: false, title: p.prize_description?.trim() || 'Prize coming', description: p.receipt_instructions?.trim() || '' });
