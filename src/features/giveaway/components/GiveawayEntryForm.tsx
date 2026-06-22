@@ -682,8 +682,9 @@ const TITLE_FONT = "'PP Right Grotesk', 'Arial Black', Arial, sans-serif";
 function MobileStackedTitle({ studioName, partners }: { studioName: string; partners: { partner_name: string }[] }) {
   const baseStyle: React.CSSProperties = {
     fontFamily: TITLE_FONT, fontWeight: 900, lineHeight: 0.95,
-    letterSpacing: '0.01em', textTransform: 'uppercase', whiteSpace: 'nowrap',
+    letterSpacing: '0.01em', textTransform: 'uppercase', whiteSpace: 'nowrap', textAlign: 'center',
   };
+
   const sep = (
     <div style={{ fontFamily: TITLE_FONT, fontWeight: 900, color: '#E8540A', fontSize: 20, textAlign: 'center', margin: '4px 0', lineHeight: 1 }}>×</div>
   );
