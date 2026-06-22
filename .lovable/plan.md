@@ -1,51 +1,79 @@
-## Two fixes for the giveaway
+# Giveaway: phone-gated entry with resume / return
 
-### 1. Prize text overflows the showcase card
+Mirror the bingo flow. Today the giveaway is one shot: the public link is the partner deck, and `GiveawayEntryForm` blocks anyone whose email already exists. Replace that with a phone-first gate that lets people enter once, then return anytime before the giveaway ends to complete more actions and earn more entries.
 
-`src/features/giveaway/components/PrizeShowcase.tsx` currently fits the prize headline with `line-clamp-2` and a large `clamp(22px, 2.4vw, 36px)` desktop font. "DIAMOND GLOW FACIAL + HORMONE LABS" can't fit in two lines at that size, so it truncates to "DIAMOND GLOW…".
+## What changes for the participant
 
-Changes (visual only):
-- Replace fixed `height` (160 / 180) with `minHeight` of the same value — card can grow if a long prize needs the room, cards in the same row stay equal via CSS grid stretch.
-- Drop the desktop clamp upper bound to `clamp(15px, 1.6vw, 22px)` and mobile to `clamp(14px, 4.2vw, 18px)`.
-- Remove `line-clamp-2`; add `break-words hyphens-auto` so long phrases wrap cleanly across up to 4 lines.
-- Tighten letter-spacing slightly and keep `leading-[1.05]` so multi-line prizes still feel like one block.
+1. Public link (e.g. `/OTF-AUBURN-PARTNER`) still opens the partner deck.
+2. The "Enter the Giveaway" CTA in the deck goes to the entry page (no change to the URL the partner sees).
+3. Entry page first shows a **gate screen** — two paths:
+  - **First time:** First name, Last name, Phone, Email, IG handle → "Start my entry."
+  - **Coming back:** Phone only → "Resume my entry."
+4. After the gate, the existing actions UI loads with their current progress. Each action saves on toggle/upload (no big Submit button required). A header shows "X entries earned · Add more to win."
+5. A persistent "Save my link" button copies a personal URL (`/<shareSlug>/entry/<entry_slug>`) so they can bookmark or text it to themselves. That URL auto-resumes without re-entering phone.
+6. `localStorage` remembers them on the same device so they skip the gate on return.
+7. When the giveaway ends, the page flips to the existing "Giveaway has ended" screen and locks edits.
 
-No content/data changes — pure presentation fit.
+## What changes for admin
 
-### 2. One prize input per winner
+Nothing visible. The existing entries table keeps working; `total_entries` updates live as participants add actions.
 
-Today a partner has one `prize_description` and a `prize_count`. If Lush has 2 winners, the showcase repeats the same label twice (e.g. "DIAMOND GLOW…" / "DIAMOND GLOW…"). Koa wants distinct prize labels per winner slot.
+## Technical details
 
-**DB (migration):**
-- Add `prize_labels jsonb` (nullable) to `public.giveaway_partners`. Holds an array of trimmed strings, length must equal `prize_count` when set. No CHECK constraint (avoid immutability issues); validate at the app layer.
-- Backfill: leave existing rows with `prize_labels = NULL` → readers fall back to `prize_description` (no visible change for current partners).
+**DB migration (`giveaway_entries`)**
 
-**Hook (`useGiveawayPartners.ts`):**
-- Add `prize_labels: string[] | null` to both the row type and `PartnerInput`.
-- In `add`/`update`: when `prize_count > 1`, write `prize_labels` (trimmed, length = prize_count, each non-empty). When `prize_count === 1`, store `prize_labels = null`. Always mirror the first label into `prize_description` so card badges / summaries / legacy readers stay coherent.
+- Add `phone_normalized text` (10-digit stripped) — new uniqueness key per studio.
+- Add `entry_slug text` — short random token for the personal URL.
+- Add unique index `(studio_slug, phone_normalized)`. Keep the existing email uniqueness or drop it (phone becomes the primary identity). Recommend: drop email uniqueness, keep phone+studio unique.
+- Add unique index on `entry_slug`.
+- Backfill existing rows: derive `phone_normalized` from `phone`, generate `entry_slug`.
+- RLS: keep anon `INSERT`, add anon `UPDATE` scoped to rows matched by `entry_slug` (the slug acts as the bearer token, same trust model as bingo's `share_slug`). Anon `SELECT` limited to single row by `entry_slug` or `phone_normalized` exact match — never list.
 
-**Admin form (`SettingsPanel.tsx` `PartnerForm`):**
-- When `prizeCount === 1` → keep today's single "Prize for this partner" input.
-- When `prizeCount > 1` → swap the single input for `prizeCount` labeled inputs: "Prize for winner 1", "Prize for winner 2", … Each required. Adjusting the stepper resizes the array (keeps existing values, appends blanks on grow, trims on shrink, with a confirm when shrink would drop a non-empty value).
-- `PartnerCard` badge: when multiple distinct labels exist, show "PRIZES: Label A · Label B · Label C"; otherwise keep the current "PRIZE: X × N" form.
+**New hook `useGiveawayEntry(slug)**`
+Modeled on `useBingoPlayer`:
 
-**Showcase (`PrizeShowcase.tsx`) + Draw (`DrawWinner.tsx`):**
-- Both already loop `0..prize_count` to produce per-slot entries. Update both to read `p.prize_labels?.[i] ?? p.prize_description` when building the per-slot prize text/label so each slot shows its own prize. No structural change to the loop.
+- `entry`, `loading`, `saving`
+- `startEntry({ first_name, last_name, phone, email, instagram_handle })` — insert; on phone collision, resume that row.
+- `resumeByPhone(phone)` — lookup by `(studio_slug, phone_normalized)`.
+- `resumeBySlug(entry_slug)` — lookup by slug (used by personal URL).
+- `updateActions(patch)` — patches IG checks, post engagement, story, free class, partner actions, recomputes `bonus_entries` server-side (or client + write).
+- LocalStorage key `otf_giveaway_entry_<studio_slug> = entry_id`.
 
-**Out of scope:**
-- No change to entry form (still one set of partner action rows per partner — winners are drawn from the same entry pool).
-- No retroactive split of existing single-input partners (they keep working via the `prize_description` fallback).
-- No change to `winner_structure` or draw mechanics beyond the per-slot label.
+**Routing**
 
-### Coherence proof I'll produce on completion
-- DB: insert a 2-winner Lush row with `prize_labels = ['Diamond Glow Facial', 'Hormone Labs']`; verify `SELECT prize_labels, prize_count FROM giveaway_partners …`.
-- Visual: showcase card for the longest current prize ("$175 GIFT CARD", "DIAMOND GLOW FACIAL", "$100 GIFT CARD + …") renders the full text inside the box with no ellipsis at desktop + mobile widths.
-- Cross-surface: PrizeShowcase shows two distinct cards for Lush ("DIAMOND GLOW FACIAL" / "HORMONE LABS"), DrawWinner's per-prize list shows the same two distinct sub-labels, admin PartnerCard badge lists both labels.
-- Legacy: a partner with `prize_labels = NULL` and `prize_count > 1` still renders correctly (falls back to `prize_description` for every slot).
+- Keep `/<shareSlug>` → partner deck.
+- New route: `/<shareSlug>/entry` → `GiveawayEntryPage` (gate + form).
+- New route: `/<shareSlug>/entry/:entrySlug` → `GiveawayEntryPage` auto-resumed.
+- Update existing CTAs in `PartnerDeckPage` ("Enter now" buttons) to route to `/<shareSlug>/entry`.
 
-### Files touched
-- migration: `ALTER TABLE giveaway_partners ADD COLUMN prize_labels jsonb;`
-- `src/features/giveaway/hooks/useGiveawayPartners.ts`
-- `src/features/giveaway/components/SettingsPanel.tsx` (PartnerForm + PartnerCard badge)
-- `src/features/giveaway/components/PrizeShowcase.tsx` (text-fit + per-slot label)
-- `src/features/giveaway/components/DrawWinner.tsx` (per-slot label)
+`**GiveawayEntryForm` refactor**
+
+- Split into:
+  - `EntryGateScreen` — two tabs (Start / Resume), validates phone, calls hook.
+  - `EntryActionsScreen` — current actions UI, but each toggle/upload immediately calls `updateActions`. Remove the single Submit button; show inline "Saved" pill and a sticky "X entries · share my link" footer.
+- Remove the duplicate-email error path; the gate handles identity.
+- Confetti / `ConfirmationScreen` fires once on first-time entry creation, then becomes a small "Nice — you're in" banner for subsequent action saves.
+
+**Personal URL share**
+
+- Button copies `${window.location.origin}/<shareSlug>/entry/<entry_slug>` to clipboard, plus a "Text me my link" that opens `sms:` prefilled.
+
+## Out of scope
+
+- No SMS verification (matches bingo's trust model: phone = identifier, slug = bearer).
+- No changes to draw/winner logic, partner CRUD, or partner deck content.
+- No changes to admin entries table beyond reading the new fields.
+
+## Coherence checks before done
+
+- Existing entries still load in `EntriesTable`, `PartnerViewPage`, and `DrawWinner` with their `total_entries` unchanged.
+- A participant who entered before the migration can resume by phone and add more actions; their `total_entries` increases and the live counter on `PartnerViewPage` matches the admin `EntriesTable` row.
+- Two participants with the same phone at the same studio cannot create duplicate rows.
+- Giveaway end time still blocks edits.
+
+## Open question
+
+Drop the existing email-uniqueness constraint, or keep both phone and email unique? Recommendation: drop email uniqueness — phone is the new identity, and forcing email uniqueness will reject legitimate spouses/roommates sharing an email.  
+  
+  
+Drop email uniqueness and use phone as the new identity
