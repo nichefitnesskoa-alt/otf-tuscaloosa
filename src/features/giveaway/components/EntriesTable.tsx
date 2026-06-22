@@ -40,8 +40,8 @@ export function EntriesTable({ entries, partners }: { entries: Entry[]; partners
     <>
       {/* Desktop table */}
       <div className="hidden md:block rounded-xl border border-[#3a3a3c] bg-[#1f1f21] overflow-hidden">
-        <div className="grid grid-cols-[40px_2fr_2fr_1.2fr_80px_1.6fr_1fr] gap-3 px-4 py-3 text-[10px] uppercase tracking-wider text-[#F5F2EE]/60 font-bold font-display border-b border-[#3a3a3c]">
-          <span></span><span>Name</span><span>Email</span><span>Phone</span><span>Entries</span><span>Actions</span><span>Submitted</span>
+        <div className="grid grid-cols-[40px_1.6fr_1.8fr_1.1fr_1.1fr_70px_1.4fr_1fr] gap-3 px-4 py-3 text-[10px] uppercase tracking-wider text-[#F5F2EE]/60 font-bold font-display border-b border-[#3a3a3c]">
+          <span></span><span>Name</span><span>Email</span><span>Phone</span><span>IG</span><span>Entries</span><span>Actions</span><span>Submitted</span>
         </div>
         <ul>
           {entries.map((e) => {
@@ -51,12 +51,13 @@ export function EntriesTable({ entries, partners }: { entries: Entry[]; partners
               <li key={e.id} className="border-b border-[#3a3a3c] last:border-b-0">
                 <button
                   onClick={() => setOpen(isOpen ? null : e.id)}
-                  className="w-full text-left grid grid-cols-[40px_2fr_2fr_1.2fr_80px_1.6fr_1fr] gap-3 px-4 py-3 hover:bg-[#262628] items-center min-h-[56px] cursor-pointer font-body"
+                  className="w-full text-left grid grid-cols-[40px_1.6fr_1.8fr_1.1fr_1.1fr_70px_1.4fr_1fr] gap-3 px-4 py-3 hover:bg-[#262628] items-center min-h-[56px] cursor-pointer font-body"
                 >
                   <span className="text-[#F5F2EE]/50">{isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</span>
                   <span className="font-semibold truncate">{e.first_name} {e.last_name}</span>
                   <span className="truncate text-sm text-[#F5F2EE]/80">{e.email}</span>
                   <span className="text-sm text-[#F5F2EE]/80">{e.phone}</span>
+                  <span className="text-sm text-[#F5F2EE]/80 truncate">{e.instagram_handle ? `@${e.instagram_handle}` : '—'}</span>
                   <span>
                     <span className={`inline-flex items-center justify-center min-w-[36px] h-7 px-2 rounded font-black font-display text-sm ${
                       e.total_entries === 0 ? 'bg-[#2a2a2c] text-[#F5F2EE]/40 border border-[#3a3a3c]'
