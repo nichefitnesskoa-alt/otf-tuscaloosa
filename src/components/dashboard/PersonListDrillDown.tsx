@@ -56,6 +56,40 @@ const TONE_CLASS: Record<NonNullable<PersonRow['rightTone']>, string> = {
   muted: 'bg-muted text-muted-foreground border-border',
 };
 
+function RemoveButton({ onRemove, confirm, name }: {
+  onRemove: () => void | Promise<void>;
+  confirm: string;
+  name: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  const handle = async (e: MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (busy) return;
+    if (!window.confirm(confirm)) return;
+    setBusy(true);
+    try {
+      await onRemove();
+      toast.success(`Removed ${name} from this count.`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not remove.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={handle}
+      disabled={busy}
+      aria-label={`Remove ${name} from this count`}
+      className="shrink-0 w-9 h-9 rounded-md border border-border bg-card hover:border-destructive/60 hover:text-destructive flex items-center justify-center cursor-pointer disabled:opacity-50"
+    >
+      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+    </button>
+  );
+}
+
 function Body({ rows, emptyText, footer, subtitle, scopeBadge }: {
   rows: PersonRow[]; emptyText?: string; footer?: ReactNode; subtitle?: string; scopeBadge?: string;
 }) {
