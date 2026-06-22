@@ -10,7 +10,7 @@ import { parseLocalDate } from '@/lib/utils';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 import { PersonJourneyCard } from '@/components/person/PersonJourneyCard';
 import { useSaAllBooked } from '@/hooks/useSaAllBooked';
-import { useSaLeads } from '@/hooks/useSaLeads';
+import { useSaLeads, removeSelfSourcedRow } from '@/hooks/useSaLeads';
 import { useSaSales } from '@/hooks/useSaSales';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import type { DateRange } from '@/lib/pay-period';
