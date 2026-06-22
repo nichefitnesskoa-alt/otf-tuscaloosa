@@ -57,6 +57,7 @@ export function useGiveawayPartners(slug: string | undefined) {
       partner_ig_handle: input.partner_ig_handle?.trim() || null,
       receipt_instructions: input.receipt_instructions?.trim() || null,
       prize_description: input.prize_description?.trim() || null,
+      prize_count: clampPrizeCount(input.prize_count),
       display_order: nextOrder,
     });
     if (!error) await refresh();
@@ -69,6 +70,7 @@ export function useGiveawayPartners(slug: string | undefined) {
       partner_ig_handle: input.partner_ig_handle?.trim() || null,
       receipt_instructions: input.receipt_instructions?.trim() || null,
       prize_description: input.prize_description?.trim() || null,
+      prize_count: clampPrizeCount(input.prize_count),
     }).eq('id', id);
     if (!error) await refresh();
     return { error: error?.message };
