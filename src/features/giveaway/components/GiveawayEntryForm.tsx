@@ -141,7 +141,6 @@ export function GiveawayEntryForm({ slug, previewMode, entrySlug }: Props) {
   if (!previewMode && !entry) {
     return (
       <Shell>
-        <CoBrandBar parts={coBrandParts} />
         <EntryGate
           slug={slug}
           isMobile={isMobile}
