@@ -108,7 +108,7 @@ export function FitText({ children, min, max, fixed, style, as = 'span', fillRat
       <span ref={measureRef} aria-hidden style={measureStyle}>
         {children}
       </span>
-      <span style={{ whiteSpace: multiline ? 'normal' : 'nowrap', display: 'block' }}>{children}</span>
+      <span style={multilineDisplayStyle}>{children}</span>
     </Tag>
   );
 }
