@@ -1,12 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { WinnerStructure } from '../lib/winnerStructure';
+import type { CountdownMode } from '../lib/endAt';
 
 export interface GiveawayStudio {
   id: string;
   studio_slug: string;
   studio_name: string;
   countdown_duration_days: number;
+  countdown_mode: CountdownMode;
   goes_live_at: string | null;
   winner_structure: WinnerStructure;
   title_format: 'auto_combined' | 'auto_studio_only' | 'custom';
