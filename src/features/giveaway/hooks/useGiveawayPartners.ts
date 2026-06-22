@@ -8,6 +8,7 @@ export interface GiveawayPartner {
   partner_ig_handle: string | null;
   receipt_instructions: string | null;
   prize_description: string | null;
+  prize_count: number;
   display_order: number;
   created_at: string;
 }
@@ -17,6 +18,7 @@ export interface PartnerInput {
   partner_ig_handle: string | null;
   receipt_instructions: string | null;
   prize_description: string | null;
+  prize_count: number;
 }
 
 export function useGiveawayPartners(slug: string | undefined) {
