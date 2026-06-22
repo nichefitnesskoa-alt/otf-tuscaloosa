@@ -80,14 +80,16 @@ function PrizeCard({
   return (
     <article
       className="relative rounded-xl border-[1.5px] border-[#E8540A] bg-[#2A2A2C] overflow-hidden flex flex-col"
-      style={{ height: mobile ? 160 : 180 }}
+      style={{ minHeight: mobile ? 160 : 180 }}
     >
-      <div className="flex-1 flex items-center justify-center px-4 py-3 text-center">
+      <div className="flex-1 flex items-center justify-center px-3 py-3 text-center">
         <h3
-          className={`font-display font-black uppercase leading-[0.95] ${tbd ? 'text-[#8E8E93]' : 'text-[#E8540A]'} line-clamp-2`}
+          className={`font-display font-black uppercase leading-[1.05] break-words hyphens-auto ${tbd ? 'text-[#8E8E93]' : 'text-[#E8540A]'}`}
           style={{
-            fontSize: mobile ? 'clamp(20px, 5vw, 24px)' : 'clamp(22px, 2.4vw, 36px)',
-            letterSpacing: '0.01em',
+            fontSize: mobile ? 'clamp(14px, 4.2vw, 18px)' : 'clamp(15px, 1.6vw, 22px)',
+            letterSpacing: '0',
+            wordBreak: 'break-word',
+            overflowWrap: 'anywhere',
           }}
         >
           {prize}
