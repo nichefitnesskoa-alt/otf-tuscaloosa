@@ -53,7 +53,7 @@ export function PrizeShowcase({
       </div>
 
       {/* Mobile vertical stack — all prizes visible at a glance */}
-      <div className="md:hidden flex flex-col gap-2.5">
+      <div className="md:hidden flex flex-col gap-2.5 w-full">
         {cards.map(c => (
           <PrizeCard key={c.id} {...c} mobile showWinnerBadge={showWinnerBadge} />
         ))}
