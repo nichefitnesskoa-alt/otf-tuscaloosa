@@ -13,6 +13,7 @@ import { getGiveawayEndAt, type CountdownMode } from '../lib/endAt';
 
 export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onSaved: () => void }) {
   const [duration, setDuration] = useState<number>(studio.countdown_duration_days);
+  const [countdownMode, setCountdownMode] = useState<CountdownMode>(studio.countdown_mode ?? 'fixed_days');
   const [winnerStructure, setWinnerStructure] = useState<WinnerStructure>(studio.winner_structure ?? 'single');
   const [titleFormat, setTitleFormat] = useState<TitleFormat>(studio.title_format ?? 'auto_combined');
   const [customTitle, setCustomTitle] = useState<string>(studio.custom_title ?? '');
@@ -22,10 +23,11 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
 
   useEffect(() => {
     setDuration(studio.countdown_duration_days);
+    setCountdownMode(studio.countdown_mode ?? 'fixed_days');
     setWinnerStructure(studio.winner_structure ?? 'single');
     setTitleFormat(studio.title_format ?? 'auto_combined');
     setCustomTitle(studio.custom_title ?? '');
-  }, [studio.id, studio.countdown_duration_days, studio.winner_structure, studio.title_format, studio.custom_title]);
+  }, [studio.id, studio.countdown_duration_days, studio.countdown_mode, studio.winner_structure, studio.title_format, studio.custom_title]);
 
   const saveSettings = async () => {
     setSaving(true);
@@ -34,6 +36,7 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
       .from('giveaway_studios' as any)
       .update({
         countdown_duration_days: duration,
+        countdown_mode: countdownMode,
         winner_structure: winnerStructure,
         title_format: titleFormat,
         custom_title: titleFormat === 'custom' ? (customTitle.trim() || null) : customTitle.trim() || null,
@@ -63,7 +66,18 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
   };
 
   const liveAt = studio.goes_live_at ? new Date(studio.goes_live_at) : null;
-  const endAt = liveAt ? new Date(liveAt.getTime() + studio.countdown_duration_days * 86400 * 1000) : null;
+  const endAtMs = getGiveawayEndAt(studio);
+  const endAt = endAtMs ? new Date(endAtMs) : null;
+
+  // Preview the end date for the current unsaved selection
+  const previewEnd = (() => {
+    const anchor = liveAt ?? new Date();
+    return getGiveawayEndAt({
+      goes_live_at: anchor.toISOString(),
+      countdown_duration_days: duration,
+      countdown_mode: countdownMode,
+    });
+  })();
 
   return (
     <div className="max-w-2xl space-y-6 font-body">
