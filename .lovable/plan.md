@@ -1,27 +1,33 @@
-## Mobile entry-form polish
+# Clarify OTF prize as "One Month Free Membership"
 
-Three frontend-only edits to `src/features/giveaway/components/GiveawayEntryForm.tsx`. No data, hooks, or routes change.
+Replace the ambiguous "Free Membership" / "Membership" wording on every giveaway-facing surface so entrants and partners see the actual prize: one month, not an indefinite membership.
 
-### 1. Kill the horizontal page scroll on mobile
-`MobileStackedTitle` sets `whiteSpace: 'nowrap'` on each FitText line. Long brand names ("ORANGETHEORY FITNESS TUSCALOOSA") can't shrink below the `min` size, so the line pushes past the viewport and the whole page becomes horizontally scrollable (the white gutter in IMG_1096).
+## Changes (frontend copy only)
 
-Fix: remove `whiteSpace: 'nowrap'` from `baseStyle` and pass `multiline` to each `FitText`, so long words wrap inside the viewport. Add `overflow-x-hidden` to the outer `Shell` wrapper as a belt-and-suspenders guard.
+1. **`src/features/giveaway/components/PrizeShowcase.tsx`** (line 19)
+   - `prize: 'FREE MEMBERSHIP'` → `prize: 'ONE MONTH FREE MEMBERSHIP'`
+   - This drives both the entry page prize grid and any preview that renders PrizeShowcase.
 
-### 2. Show all prizes at a glance on mobile
-`PrizeShowcase` currently renders a horizontal snap-scroll carousel on mobile (`md:hidden flex gap-2.5 overflow-x-auto …`).
+2. **`src/features/giveaway/components/DrawWinner.tsx`** (line 38)
+   - Prize label `` `${getParticipantStudioName(studioSlug)} Membership` `` → `'One Month Free Membership'`
+   - (Studio name still appears via the page/section context; the per-prize row is about what is won.)
 
-Fix: replace the mobile branch with a **single-column vertical stack** of full-width prize cards (`flex flex-col gap-2.5`). Each card uses the existing `PrizeCard mobile` styling but stretches to the container width — no swiping, all prizes visible as the user scrolls down.
+3. **`src/features/giveaway/components/SpinWheel.tsx`** (line 41)
+   - Same swap as DrawWinner: prize label → `'One Month Free Membership'`.
 
-### 3. Remove the redundant "Presented by …" subtitle
-The big title already lists every brand. The grey "PRESENTED BY ORANGETHEORY FITNESS TUSCALOOSA + HEMLINE + LUSH MED SPA + TURBO COFFEE" subtitle is duplicate noise in three spots:
+4. **`src/features/giveaway/lib/winnerStructure.ts`** (line 20)
+   - Subtitle for the `single` option:
+     `'One person wins the OrangeTheory Fitness membership and all partner prizes.'`
+     → `'One person wins one month of free OrangeTheory Fitness membership and all partner prizes.'`
 
-- Gate view (line 257-260): delete the `<p>Presented by …</p>`.
-- Post-entry view (line 483-486): delete the matching `<p>Presented by …</p>`.
-- Top `CoBrandBar` rendered above the form: stop rendering it inside `GiveawayEntryForm`. (The `CoBrandBar` component itself stays in the file for other surfaces that use it — partner deck etc. — but the entry form will not render it.)
+## Intentionally NOT changed
 
-After this, `getCoBrandParts` may become unused in this file; remove the import if so.
+- **`PartnerDeckPage.tsx` line 380** already says "One month free membership" — leave as-is.
+- **`partnerDeckDefaults.ts` line 21** and **`PartnerDeckSettings.tsx` lines 95, 109** reference "OTF membership" as the *value anchor* for partner gift matching, not as the prize description. Renaming there would muddle the partner-pitch math. Leave as-is.
 
-### Verification
-- Run Playwright at 390×844: scroll the entry page left/right — no horizontal scroll, no white gutter. Capture screenshot of the prize stack and confirm all 4 prizes are visible without swiping.
-- Run Playwright at 1280×900: confirm desktop layout unchanged (desktop already uses a grid, not the mobile branch).
-- Visit `/giveaway/tuscaloosa` to confirm both the gate (first visit) and post-entry view (resume) render cleanly with no "Presented by" line.
+## Verification
+
+- Visit `/giveaway/tuscaloosa` (gate + post-entry) — prize grid OTF card reads "ONE MONTH FREE MEMBERSHIP".
+- Visit `/giveaway/tuscaloosa/admin` Draw view in both single and per-prize modes — OTF row reads "One Month Free Membership".
+- Confirm desktop grid + mobile vertical stack both reflect the new label (PrizeShowcase change covers both).
+- Partner deck slide listing the OTF anchor still reads "One month free membership" (unchanged).

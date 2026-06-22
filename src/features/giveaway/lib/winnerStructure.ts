@@ -17,7 +17,7 @@ export const WINNER_STRUCTURE_OPTIONS: WinnerStructureOption[] = [
   {
     value: 'single',
     title: 'One Grand Prize Winner',
-    subtitle: 'One person wins the OrangeTheory Fitness membership and all partner prizes.',
+    subtitle: 'One person wins one month of free OrangeTheory Fitness membership and all partner prizes.',
     icon: Trophy,
   },
   {

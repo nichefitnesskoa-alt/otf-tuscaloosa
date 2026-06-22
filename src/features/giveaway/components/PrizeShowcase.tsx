@@ -16,7 +16,7 @@ export function PrizeShowcase({
   const cards: Array<{ id: string; prize: string; business: string; handle?: string | null; tbd?: boolean; winnerLabel?: string }> = [
     {
       id: 'otf',
-      prize: 'FREE MEMBERSHIP',
+      prize: 'ONE MONTH FREE MEMBERSHIP',
       business: getParticipantStudioName(slug).toUpperCase(),
       handle: igHandle,
     },
