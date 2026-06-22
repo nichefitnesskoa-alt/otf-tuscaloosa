@@ -147,6 +147,9 @@ export function GiveawayEntryForm({ slug, previewMode, entrySlug }: Props) {
           isMobile={isMobile}
           giveawayTitle={giveawayTitle}
           partners={partners}
+          studio={studio}
+          coBrandParts={coBrandParts}
+          endAt={endAt}
           onStart={async (input) => {
             const res = await startEntry(input);
             if (res.created) setJustCreated(true);
@@ -159,6 +162,7 @@ export function GiveawayEntryForm({ slug, previewMode, entrySlug }: Props) {
       </Shell>
     );
   }
+
 
   // ACTIONS — entry exists (or preview)
   return (
@@ -184,12 +188,15 @@ export function GiveawayEntryForm({ slug, previewMode, entrySlug }: Props) {
 /* ───────── Gate screen ───────── */
 
 function EntryGate({
-  slug, isMobile, giveawayTitle, partners, onStart, onResume,
+  slug, isMobile, giveawayTitle, partners, studio, coBrandParts, endAt, onStart, onResume,
 }: {
   slug: string;
   isMobile: boolean;
   giveawayTitle: string;
-  partners: { partner_name: string }[];
+  partners: any[];
+  studio: any;
+  coBrandParts: string[];
+  endAt: number | null;
   onStart: (input: { first_name: string; last_name: string; email: string; phone: string; instagram_handle: string }) => Promise<void>;
   onResume: (phone: string) => Promise<void>;
 }) {
@@ -228,14 +235,16 @@ function EntryGate({
     }
   };
 
+  const ef = getEntryFormPrizeFraming(studio?.winner_structure ?? 'single');
+
   return (
-    <div className="w-full max-w-[760px] mx-auto px-4 md:px-12 py-6 md:py-10">
-      <div className="mb-6">
+    <div className="w-full max-w-[880px] mx-auto px-4 md:px-12 py-6 md:py-10">
+      <div className="mb-6 text-center">
         {isMobile ? (
           <MobileStackedTitle studioName={getParticipantBrandName()} partners={partners} />
         ) : (
           <FitText
-            as="h1" min={28} max={56}
+            as="h1" min={28} max={56} multiline
             style={{
               fontFamily: "'PP Right Grotesk', 'Arial Black', Arial, sans-serif",
               fontWeight: 900, color: '#E8540A', lineHeight: 0.95,
@@ -245,25 +254,53 @@ function EntryGate({
             {giveawayTitle}
           </FitText>
         )}
+        <p className="font-display font-medium uppercase text-[#8E8E93] mt-3"
+          style={{ fontSize: 'clamp(10px, 1vw, 12px)', letterSpacing: '0.2em' }}>
+          Presented by {coBrandParts.join(' + ')}
+        </p>
         <p className="font-body text-[#F5F2EE]/70 mt-4">
           Drop your info to unlock entry actions. Come back anytime to add more entries.
         </p>
       </div>
 
-      <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-1 inline-flex mb-4">
-        <button
-          onClick={() => setTab('start')}
-          className={`min-h-[40px] px-4 rounded-lg font-display text-xs font-bold uppercase tracking-wider cursor-pointer ${tab === 'start' ? 'bg-[#E8540A] text-white' : 'text-[#F5F2EE]/60 hover:text-[#F5F2EE]'}`}
-        >
-          First time
-        </button>
-        <button
-          onClick={() => setTab('resume')}
-          className={`min-h-[40px] px-4 rounded-lg font-display text-xs font-bold uppercase tracking-wider cursor-pointer ${tab === 'resume' ? 'bg-[#E8540A] text-white' : 'text-[#F5F2EE]/60 hover:text-[#F5F2EE]'}`}
-        >
-          Coming back
-        </button>
+      {endAt && (
+        <div className="mb-8 flex justify-center">
+          <Countdown targetIso={new Date(endAt).toISOString()} label="Closes in" />
+        </div>
+      )}
+
+      {studio && (
+        <div className="mb-8">
+          <p className="font-display font-bold uppercase text-[#8E8E93] mb-3 text-center"
+            style={{ fontSize: 11, letterSpacing: '0.25em' }}>
+            What you could win
+          </p>
+          <PrizeShowcase slug={studio.studio_slug} partners={partners} showWinnerBadge={ef.showWinnerBadgeOnCards} />
+          <div className="mt-3 w-full rounded text-center font-display font-bold"
+            style={{ background: 'rgba(232, 84, 10, 0.15)', border: '1px solid #E8540A', color: '#E8540A', fontSize: 14, padding: '10px 16px' }}>
+            {ef.bannerText}
+          </div>
+          <p className="font-body italic text-[13px] text-[#8E8E93] mt-2 text-center">{ef.winnerRuleStatement}</p>
+        </div>
+      )}
+
+      <div className="flex justify-center mb-4">
+        <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-1 inline-flex">
+          <button
+            onClick={() => setTab('start')}
+            className={`min-h-[40px] px-4 rounded-lg font-display text-xs font-bold uppercase tracking-wider cursor-pointer ${tab === 'start' ? 'bg-[#E8540A] text-white' : 'text-[#F5F2EE]/60 hover:text-[#F5F2EE]'}`}
+          >
+            First time
+          </button>
+          <button
+            onClick={() => setTab('resume')}
+            className={`min-h-[40px] px-4 rounded-lg font-display text-xs font-bold uppercase tracking-wider cursor-pointer ${tab === 'resume' ? 'bg-[#E8540A] text-white' : 'text-[#F5F2EE]/60 hover:text-[#F5F2EE]'}`}
+          >
+            Coming back
+          </button>
+        </div>
       </div>
+
 
       {tab === 'start' ? (
         <div className="rounded-xl bg-[#1f1f21] border border-[#3a3a3c] p-4 md:p-6 space-y-3">
