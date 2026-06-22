@@ -87,7 +87,8 @@ function Editor({
   setBust: (n: number) => void;
 }) {
   const liveAt = studio.goes_live_at ? new Date(studio.goes_live_at) : null;
-  const endAt = liveAt ? new Date(liveAt.getTime() + studio.countdown_duration_days * 86400 * 1000) : null;
+  const endAtMs = getGiveawayEndAt(studio);
+  const endAt = endAtMs ? new Date(endAtMs) : null;
 
   const goLive = async () => {
     if (!confirm('Take the giveaway live now? This starts the countdown.')) return;
