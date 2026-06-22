@@ -120,7 +120,7 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
 
   const now = Date.now();
   const liveAt = studio.goes_live_at ? new Date(studio.goes_live_at).getTime() : null;
-  const endAt = liveAt ? liveAt + studio.countdown_duration_days * 86400 * 1000 : null;
+  const endAt = getGiveawayEndAt(studio);
 
   // In preview mode we always show the live form regardless of live state.
   if (!previewMode && !liveAt) {
