@@ -352,6 +352,7 @@ function PartnersSection({ slug }: { slug: string }) {
                   receipt_instructions: p.receipt_instructions,
                   prize_description: p.prize_description,
                   prize_count: p.prize_count ?? 1,
+                  prize_labels: p.prize_labels ?? null,
                 }}
                 submitLabel="Update Partner"
                 onSubmit={async (input) => {
