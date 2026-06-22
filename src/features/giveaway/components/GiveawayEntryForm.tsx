@@ -189,6 +189,7 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
         studio_slug: studio.studio_slug,
         first_name: form.first_name.trim(), last_name: form.last_name.trim(),
         email: emailLower, phone: form.phone.trim(),
+        instagram_handle: igHandleClean,
         base_entries: 0, bonus_entries: bonusCount,
         action_instagram_follow: igFollowComplete,
         action_post_engagement: form.action_post_engagement,
