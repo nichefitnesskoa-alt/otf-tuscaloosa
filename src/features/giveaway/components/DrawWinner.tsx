@@ -35,7 +35,7 @@ export function DrawWinner({
 }) {
   const prizes = useMemo<Prize[]>(() => {
     const list: Prize[] = [
-      { id: 'membership', label: 'One Month Free Membership', sublabel: getParticipantStudioName(studioSlug) },
+      { id: 'membership', label: 'One Month Free Unlimited Membership', sublabel: getParticipantStudioName(studioSlug) },
     ];
     for (const p of partners) {
       const count = Math.max(1, Math.min(10, p.prize_count ?? 1));
