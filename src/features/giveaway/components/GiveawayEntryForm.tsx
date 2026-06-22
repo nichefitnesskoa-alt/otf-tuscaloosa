@@ -672,7 +672,7 @@ const TITLE_FONT = "'PP Right Grotesk', 'Arial Black', Arial, sans-serif";
 function MobileStackedTitle({ studioName, partners }: { studioName: string; partners: { partner_name: string }[] }) {
   const baseStyle: React.CSSProperties = {
     fontFamily: TITLE_FONT, fontWeight: 900, lineHeight: 0.95,
-    letterSpacing: '0.01em', textTransform: 'uppercase', whiteSpace: 'nowrap', textAlign: 'center',
+    letterSpacing: '0.01em', textTransform: 'uppercase', textAlign: 'center',
   };
 
   const sep = (
@@ -680,11 +680,11 @@ function MobileStackedTitle({ studioName, partners }: { studioName: string; part
   );
   return (
     <div>
-      <FitText as="div" min={24} max={48} style={{ ...baseStyle, color: '#FDF7EA' }}>{studioName}</FitText>
+      <FitText as="div" min={24} max={48} multiline style={{ ...baseStyle, color: '#FDF7EA' }}>{studioName}</FitText>
       {partners.map((p, i) => (
         <div key={i}>
           {sep}
-          <FitText as="div" min={20} max={48} style={{ ...baseStyle, color: '#E8540A' }}>{p.partner_name}</FitText>
+          <FitText as="div" min={20} max={48} multiline style={{ ...baseStyle, color: '#E8540A' }}>{p.partner_name}</FitText>
         </div>
       ))}
     </div>
@@ -692,7 +692,7 @@ function MobileStackedTitle({ studioName, partners }: { studioName: string; part
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen bg-[#1C1C1E] text-[#F5F2EE]">{children}</div>;
+  return <div className="min-h-screen overflow-x-hidden bg-[#1C1C1E] text-[#F5F2EE]">{children}</div>;
 }
 
 function CoBrandBar({ parts }: { parts: string[] }) {
