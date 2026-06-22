@@ -38,13 +38,13 @@ export function DrawWinner({
       { id: 'membership', label: `${getParticipantStudioName(studioSlug)} Membership` },
     ];
     for (const p of partners) {
-      const desc = (p.prize_description || '').trim();
-      if (!desc) continue;
       const count = Math.max(1, Math.min(10, p.prize_count ?? 1));
       for (let i = 0; i < count; i++) {
+        const label = getPartnerPrizeLabel(p, i);
+        if (!label) continue;
         list.push({
           id: count > 1 ? `${p.id}__${i + 1}` : p.id,
-          label: desc,
+          label,
           sublabel: count > 1 ? `${p.partner_name} (winner ${i + 1} of ${count})` : p.partner_name,
         });
       }
