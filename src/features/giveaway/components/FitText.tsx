@@ -70,8 +70,11 @@ export function FitText({ children, min, max, fixed, style, as = 'span', fillRat
         position: 'absolute',
         visibility: 'hidden',
         pointerEvents: 'none',
+        display: 'block',
+        width: '100%',
         whiteSpace: 'normal',
         wordBreak: 'normal',
+        overflowWrap: 'normal',
         fontFamily: 'inherit',
         fontWeight: 'inherit',
         letterSpacing: 'inherit',
@@ -87,13 +90,25 @@ export function FitText({ children, min, max, fixed, style, as = 'span', fillRat
         letterSpacing: 'inherit',
         lineHeight: 'inherit',
       };
+  const multilineDisplayStyle: CSSProperties = multiline
+    ? {
+        whiteSpace: 'normal',
+        wordBreak: 'break-word',
+        overflowWrap: 'break-word',
+        maxWidth: '100%',
+        display: 'block',
+      }
+    : {
+        whiteSpace: 'nowrap',
+        display: 'block',
+      };
 
   return (
     <Tag ref={wrapRef} style={{ ...style, fontSize: size, display: 'block', width: '100%' }}>
       <span ref={measureRef} aria-hidden style={measureStyle}>
         {children}
       </span>
-      <span style={{ whiteSpace: multiline ? 'normal' : 'nowrap', display: 'block' }}>{children}</span>
+      <span style={multilineDisplayStyle}>{children}</span>
     </Tag>
   );
 }
