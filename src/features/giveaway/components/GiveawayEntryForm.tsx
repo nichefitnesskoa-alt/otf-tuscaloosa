@@ -166,7 +166,6 @@ export function GiveawayEntryForm({ slug, previewMode, entrySlug }: Props) {
   // ACTIONS — entry exists (or preview)
   return (
     <Shell>
-      <CoBrandBar parts={coBrandParts} />
       <EntryActions
         slug={slug}
         studio={studio}
