@@ -1,0 +1,1 @@
+ALTER TABLE public.giveaway_partners ADD COLUMN IF NOT EXISTS prize_labels jsonb;
