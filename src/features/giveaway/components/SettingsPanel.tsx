@@ -405,7 +405,7 @@ function PartnerCard({ partner, onEdit, onDelete }: { partner: GiveawayPartner; 
           <p className="text-lg font-black text-[#F5F2EE] truncate">{partner.partner_name}</p>
           {partner.prize_description && (
             <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-bold uppercase tracking-wider text-[#E8540A] bg-[#E8540A]/10 border border-[#E8540A]/40 rounded px-2 py-0.5">
-              <Gift className="h-3 w-3" /> Prize: {partner.prize_description}
+              <Gift className="h-3 w-3" /> Prize: {partner.prize_description}{(partner.prize_count ?? 1) > 1 ? ` × ${partner.prize_count}` : ''}
             </span>
           )}
           {partner.partner_ig_handle && (
