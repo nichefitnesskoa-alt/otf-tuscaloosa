@@ -137,15 +137,35 @@ export async function updateBookingFieldsFromPipeline(params: BookingFieldParams
   if (error) throw error;
 }
 
-// ── Sync intro_owner from run to booking (with audit) ──
+// ── Canonical intro-owner write path ──
+// Used by EVERY surface that edits intro_owner (Pipeline spreadsheet inline,
+// Edit Booking dialog, Set Owner dialog, Edit Run dialog, sync-from-run).
+// Updates booking AND runs AND any 2nd-intro children in one atomic-ish pass
+// so Per-SA aggregation (reads run.intro_owner) and drilldowns (read
+// booking.intro_owner) can never disagree. Pass `null` to clear/unlock.
 
-export async function syncIntroOwnerToBooking(
+export interface SetIntroOwnerOptions {
+  /** Editor display name for audit. */
+  editor?: string;
+  /** Edit reason for audit. */
+  reason?: string;
+  /** If true (default), sets intro_owner_locked. Pass false to leave unlocked. */
+  lock?: boolean;
+  /** Source component label for outcome_events audit. */
+  source?: string;
+}
+
+export async function setIntroOwnerForJourney(
   bookingId: string,
-  introOwner: string,
-  editor: string = 'System',
+  newOwner: string | null,
+  opts: SetIntroOwnerOptions = {},
 ): Promise<boolean> {
+  const editor = opts.editor || 'System';
+  const lock = newOwner == null ? false : (opts.lock ?? true);
+  const source = opts.source || 'Pipeline:setIntroOwnerForJourney';
+  const reason = opts.reason || (newOwner == null ? 'Cleared intro owner' : 'Set intro owner');
+
   try {
-    // Fetch previous owner for audit trail
     let previousOwner: string | null = null;
     try {
       const { data } = await supabase
@@ -158,24 +178,9 @@ export async function syncIntroOwnerToBooking(
       // non-critical: proceed with sync even if audit fetch fails
     }
 
-    const { error } = await supabase
-      .from('intros_booked')
-      .update({
-        intro_owner: introOwner,
-        intro_owner_locked: true,
-        last_edited_at: new Date().toISOString(),
-        last_edited_by: `${editor} (Auto-Sync)`,
-        edit_reason: 'Synced intro_owner from linked run',
-      })
-      .eq('id', bookingId);
-    if (error) throw error;
-
-    // Keep run-level intro_owner in lockstep with the booking.
-    // useDashboardMetrics (Per-SA Performance) and useLeadMeasures read
-    // intros_run.intro_owner directly. Without this update the prior owner
-    // stays in the Studio table and the new owner never appears.
-    // Walk forward to any 2nd intros that originated from this booking so
-    // total-journey sales attribute to the corrected intro_owner too.
+    // Collect every booking id in the chain: this booking + any 2nd intros
+    // originating from it. Sales credited via a 2nd-intro chain must
+    // attribute to the same (corrected) owner.
     const linkedBookingIds = new Set<string>([bookingId]);
     try {
       const { data: secondIntros } = await supabase
@@ -186,38 +191,69 @@ export async function syncIntroOwnerToBooking(
         if (row?.id) linkedBookingIds.add(row.id);
       }
     } catch {
-      // non-critical: failure here shouldn't block the primary sync
+      // non-critical
     }
 
+    // 1) Booking + children
+    const { error: bookingErr } = await supabase
+      .from('intros_booked')
+      .update({
+        intro_owner: newOwner,
+        intro_owner_locked: lock,
+        last_edited_at: new Date().toISOString(),
+        last_edited_by: editor,
+        edit_reason: reason,
+      })
+      .in('id', Array.from(linkedBookingIds));
+    if (bookingErr) throw bookingErr;
+
+    // 2) Every run linked to any booking in the chain
     const { error: runErr } = await supabase
       .from('intros_run')
-      .update({ intro_owner: introOwner })
+      .update({ intro_owner: newOwner })
       .in('linked_intro_booked_id', Array.from(linkedBookingIds));
     if (runErr) throw runErr;
 
-    // Best-effort audit log into outcome_events
+    // 3) Audit
     try {
       await supabase.from('outcome_events').insert({
         booking_id: bookingId,
         old_result: null,
         new_result: 'owner_sync',
-        edited_by: `${editor} (Auto-Sync)`,
-        source_component: 'Pipeline:syncIntroOwner',
-        edit_reason: `Owner sync: ${previousOwner ?? '(none)'} → ${introOwner}`,
+        edited_by: editor,
+        source_component: source,
+        edit_reason: `Owner: ${previousOwner ?? '(none)'} → ${newOwner ?? '(cleared)'}`,
         metadata: {
           action_type: 'owner_sync',
           previous_owner: previousOwner,
-          new_owner: introOwner,
+          new_owner: newOwner,
           linked_booking_ids: Array.from(linkedBookingIds),
         },
       });
     } catch {
-      console.warn('Audit log for owner sync failed (non-critical)');
+      console.warn('Audit log for owner change failed (non-critical)');
     }
 
     return true;
   } catch (error) {
-    console.error('Error syncing intro_owner:', error);
+    console.error('Error setting intro_owner for journey:', error);
     return false;
   }
+}
+
+/**
+ * @deprecated Use `setIntroOwnerForJourney`. Kept as a thin alias so older
+ * call sites keep working until they're migrated.
+ */
+export async function syncIntroOwnerToBooking(
+  bookingId: string,
+  introOwner: string,
+  editor: string = 'System',
+): Promise<boolean> {
+  return setIntroOwnerForJourney(bookingId, introOwner, {
+    editor: `${editor} (Auto-Sync)`,
+    reason: 'Synced intro_owner from linked run',
+    source: 'Pipeline:syncIntroOwner',
+    lock: true,
+  });
 }
