@@ -73,7 +73,7 @@ function toDialogRow(p: SaLeadPersonRow, sa: string): SourcedLeadCsvRow {
     first_name: first || '',
     last_name: rest.join(' '),
     phone: p.phone || '',
-    email: null,
+    email: p.email ?? null,
     source: p.source,
     sourced_by_sa: sa,
     booked_intro_id: p.booked ? p.booking_id : null,
