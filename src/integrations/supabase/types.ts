@@ -1340,6 +1340,7 @@ export type Database = {
       }
       giveaway_studios: {
         Row: {
+          action_labels: Json
           action_verification_modes: Json
           countdown_duration_days: number
           countdown_mode: string
@@ -1413,6 +1414,7 @@ export type Database = {
           winner_structure: string
         }
         Insert: {
+          action_labels?: Json
           action_verification_modes?: Json
           countdown_duration_days?: number
           countdown_mode?: string
@@ -1486,6 +1488,7 @@ export type Database = {
           winner_structure?: string
         }
         Update: {
+          action_labels?: Json
           action_verification_modes?: Json
           countdown_duration_days?: number
           countdown_mode?: string

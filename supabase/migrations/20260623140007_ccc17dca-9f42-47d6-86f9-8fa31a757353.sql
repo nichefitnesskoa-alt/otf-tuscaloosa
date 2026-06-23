@@ -1,0 +1,1 @@
+ALTER TABLE public.giveaway_studios ADD COLUMN IF NOT EXISTS action_labels jsonb NOT NULL DEFAULT '{}'::jsonb;
