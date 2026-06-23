@@ -99,6 +99,45 @@ function RemoveButton({ onRemove, confirm, name }: {
   );
 }
 
+function ReassignButton({ onReassign, choices, currentSa, name }: {
+  onReassign: (newSa: string) => void | Promise<void>;
+  choices: string[];
+  currentSa?: string;
+  name: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  const opts = choices.filter(c => c && c !== currentSa);
+  const handle = async (v: string) => {
+    if (!v || busy) return;
+    setBusy(true);
+    try {
+      await onReassign(v);
+      toast.success(`Credited ${name} to ${v}.`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not reassign.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+      <Select onValueChange={handle} disabled={busy || opts.length === 0}>
+        <SelectTrigger
+          aria-label={`Reassign ${name} to another SA`}
+          className="w-9 h-9 p-0 justify-center border-border hover:border-primary/60 cursor-pointer [&>svg]:hidden"
+        >
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserCog className="w-4 h-4" />}
+        </SelectTrigger>
+        <SelectContent>
+          {opts.map(n => (
+            <SelectItem key={n} value={n} className="text-xs">{n}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 function Body({ rows, emptyText, footer, subtitle, scopeBadge }: {
   rows: PersonRow[]; emptyText?: string; footer?: ReactNode; subtitle?: string; scopeBadge?: string;
 }) {
