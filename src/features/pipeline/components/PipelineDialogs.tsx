@@ -449,13 +449,12 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
             <Button disabled={isSaving} onClick={() => withSave(async () => {
               const isClearing = !newIntroOwner || newIntroOwner === '__CLEAR__';
               if (booking.intro_owner_locked && !isClearing && !ownerOverrideReason) { toast.error('Override reason required'); return; }
-              await supabase.from('intros_booked').update({
-                intro_owner: isClearing ? null : newIntroOwner,
-                intro_owner_locked: !isClearing,
-                last_edited_at: new Date().toISOString(),
-                last_edited_by: userName,
-                edit_reason: ownerOverrideReason || (isClearing ? 'Cleared intro owner' : 'Set intro owner'),
-              }).eq('id', booking.id);
+              await setIntroOwnerForJourney(booking.id, isClearing ? null : newIntroOwner, {
+                editor: userName,
+                reason: ownerOverrideReason || (isClearing ? 'Cleared intro owner' : 'Set intro owner'),
+                source: 'PipelineDialogs:SetOwner',
+                lock: !isClearing,
+              });
               toast.success(isClearing ? 'Intro owner cleared' : `Intro owner set to ${newIntroOwner}`);
               setNewIntroOwner(''); setOwnerOverrideReason('');
             })}>
