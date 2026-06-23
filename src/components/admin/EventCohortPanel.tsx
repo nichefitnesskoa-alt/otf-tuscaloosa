@@ -43,6 +43,8 @@ function useCohort(eventId: string | null) {
   return useQuery<CohortBookingRow[]>({
     queryKey: ['event-cohort', eventId],
     enabled: !!eventId,
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async () => {
       const { data, error } = await supabase
         .from('intros_booked')
