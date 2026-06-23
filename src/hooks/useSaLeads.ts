@@ -142,6 +142,50 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
       });
     }
 
+    // ── 3) VIP registrants → credit SA who set up the VIP class ───────────
+    const { data: regRows } = await supabase
+      .from('vip_registrations')
+      .select('id, first_name, last_name, vip_session_id, booking_id, is_group_contact, created_at')
+      .gte('created_at', startIso)
+      .lte('created_at', endIso)
+      .eq('is_group_contact', false)
+      .is('booking_id', null) // booked attendees counted via candidateBookings
+      .not('vip_session_id', 'is', null);
+
+    const regSessionIds = Array.from(new Set(
+      ((regRows as any[]) || []).map(r => r.vip_session_id).filter((x): x is string => !!x),
+    ));
+    const regSessionMap = new Map<string, VipSessionLite>();
+    if (regSessionIds.length) {
+      // Reuse already-fetched sessions when overlap; fetch any missing.
+      const missing = regSessionIds.filter(id => !sessionMap.has(id));
+      if (missing.length) {
+        const { data: more } = await supabase
+          .from('vip_sessions')
+          .select('id, sa_setup_name')
+          .in('id', missing);
+        ((more as any[]) || []).forEach(s =>
+          regSessionMap.set(s.id, { id: s.id, sa_setup_name: s.sa_setup_name ?? null }),
+        );
+      }
+      sessionMap.forEach((v, k) => { if (regSessionIds.includes(k)) regSessionMap.set(k, v); });
+    }
+
+    for (const r of (regRows as any[]) || []) {
+      const sess = regSessionMap.get(r.vip_session_id);
+      const sa = sess?.sa_setup_name?.trim() || null;
+      if (!sa || PHANTOM_BOOKED_BY.has(sa)) continue;
+      const name = `${r.first_name || ''} ${r.last_name || ''}`.trim() || 'VIP guest';
+      push(sa, {
+        id: `vip-${r.id}`,
+        name,
+        source: 'VIP Class (Registrant)',
+        created_at: r.created_at,
+        booked: false,
+        booking_id: null,
+      });
+    }
+
     const rowsOut = Array.from(out.values())
       .sort((a, b) => b.count - a.count || a.sa.localeCompare(b.sa));
     setRows(rowsOut);
