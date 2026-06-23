@@ -8,11 +8,13 @@ import { isSaleInRange, isMembershipSale } from '@/lib/sales-detection';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 import { didIntroActuallyRun } from '@/lib/canon/introRules';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
+import { resolvePromotedOrphanBookingIds, isFirstIntroForMetrics } from '@/lib/intros/orphanedFirstIntros';
 import { walkJourneyChain } from '@/lib/intros/journey';
 import { PersonListDrillDown, DrillNumber, PersonRow } from './PersonListDrillDown';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
+import { formatTime12h } from '@/lib/datetime/formatTime';
 import type { DateRange } from '@/lib/pay-period';
 
 export interface PerSAMetrics {
