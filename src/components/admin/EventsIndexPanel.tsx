@@ -11,8 +11,8 @@
  *
  * No new totals logic. No fake revenue/ROI.
  */
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ListChecks, CalendarDays, DollarSign, ChevronRight, Loader2 } from 'lucide-react';
