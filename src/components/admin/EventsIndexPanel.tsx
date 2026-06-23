@@ -69,6 +69,20 @@ interface Props {
 export function EventsIndexPanel({ selectedEventId, onSelectEvent }: Props) {
   const { data: events = [], isLoading: eventsLoading } = useEvents();
   const { data: tagged = [], isLoading: bookingsLoading } = useAllEventTaggedBookings();
+  const queryClient = useQueryClient();
+
+  // Realtime: keep the events index totals coherent with Pipeline writes
+  // (new event-tagged booking, outcome flip, soft-delete).
+  useEffect(() => {
+    const channel = supabase
+      .channel('events-index-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' },
+        () => queryClient.invalidateQueries({ queryKey: ['event-cohort'] }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_run' },
+        () => queryClient.invalidateQueries({ queryKey: ['event-cohort'] }))
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const totalsByEvent = useMemo(() => {
     const map = new Map<string, EventTotals>();
