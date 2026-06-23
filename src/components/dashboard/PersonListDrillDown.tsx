@@ -8,11 +8,14 @@
  * underlined numerals, disabled-when-zero state, and accessible label.
  */
 import { ReactNode, useState, MouseEvent } from 'react';
-import { Trash2, Loader2 } from 'lucide-react';
+import { Trash2, Loader2, UserCog } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger,
+} from '@/components/ui/select';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { OutcomeEditButton } from '@/components/shared/OutcomeEditButton';
@@ -35,6 +38,12 @@ export interface PersonRow {
   onRemove?: () => void | Promise<void>;
   /** Confirm message shown before onRemove runs. Defaults to a generic one. */
   removeConfirm?: string;
+  /** Admin-only reassign handler. When set with reassignChoices, renders a
+   *  small picker to credit this row to a different SA (no delete/recreate). */
+  onReassign?: (newSa: string) => void | Promise<void>;
+  reassignChoices?: string[];
+  /** Current SA (excluded from the picker choices). */
+  currentSa?: string;
 }
 
 interface Props {
@@ -87,6 +96,45 @@ function RemoveButton({ onRemove, confirm, name }: {
     >
       {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
     </button>
+  );
+}
+
+function ReassignButton({ onReassign, choices, currentSa, name }: {
+  onReassign: (newSa: string) => void | Promise<void>;
+  choices: string[];
+  currentSa?: string;
+  name: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  const opts = choices.filter(c => c && c !== currentSa);
+  const handle = async (v: string) => {
+    if (!v || busy) return;
+    setBusy(true);
+    try {
+      await onReassign(v);
+      toast.success(`Credited ${name} to ${v}.`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not reassign.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+      <Select onValueChange={handle} disabled={busy || opts.length === 0}>
+        <SelectTrigger
+          aria-label={`Reassign ${name} to another SA`}
+          className="w-9 h-9 p-0 justify-center border-border hover:border-primary/60 cursor-pointer [&>svg]:hidden"
+        >
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserCog className="w-4 h-4" />}
+        </SelectTrigger>
+        <SelectContent>
+          {opts.map(n => (
+            <SelectItem key={n} value={n} className="text-xs">{n}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -151,6 +199,14 @@ function Body({ rows, emptyText, footer, subtitle, scopeBadge }: {
                       {r.subtitle && <p className="text-[10px] text-muted-foreground font-normal">{r.subtitle}</p>}
                     </NameEl>
                     {rightSlot}
+                    {r.onReassign && r.reassignChoices && r.reassignChoices.length > 0 && (
+                      <ReassignButton
+                        onReassign={r.onReassign}
+                        choices={r.reassignChoices}
+                        currentSa={r.currentSa}
+                        name={r.name}
+                      />
+                    )}
                     {r.onRemove && (
                       <RemoveButton
                         onRemove={r.onRemove}
@@ -198,6 +254,14 @@ function Body({ rows, emptyText, footer, subtitle, scopeBadge }: {
             return (
               <div key={r.id} className="flex items-stretch gap-2">
                 {clickable}
+                {r.onReassign && r.reassignChoices && r.reassignChoices.length > 0 && (
+                  <ReassignButton
+                    onReassign={r.onReassign}
+                    choices={r.reassignChoices}
+                    currentSa={r.currentSa}
+                    name={r.name}
+                  />
+                )}
                 {r.onRemove && (
                   <RemoveButton
                     onRemove={r.onRemove}

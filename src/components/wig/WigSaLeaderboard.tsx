@@ -11,7 +11,7 @@ import { parseLocalDate } from '@/lib/utils';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 import { PersonJourneyCard } from '@/components/person/PersonJourneyCard';
 import { useSaAllBooked } from '@/hooks/useSaAllBooked';
-import { useSaLeads, removeSelfSourcedRow } from '@/hooks/useSaLeads';
+import { useSaLeads, removeSelfSourcedRow, reassignSelfSourcedRow } from '@/hooks/useSaLeads';
 import { useSaSales } from '@/hooks/useSaSales';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import type { DateRange } from '@/lib/pay-period';
@@ -70,7 +70,11 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = isAdminCheck(user);
-  const { salesAssociates: activeSas } = useActiveStaff();
+  const { salesAssociates: activeSas, allActive } = useActiveStaff();
+  const reassignChoices = useMemo(
+    () => (allActive || []).filter(n => n && n !== 'Koa'),
+    [allActive],
+  );
   const rangeStart = dateRange ? format(dateRange.start, 'yyyy-MM-dd') : '2020-01-01';
   const rangeEnd = dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
 
@@ -236,6 +240,11 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         onClick: p.booking_id ? () => setJourneyBookingId(p.booking_id!) : undefined,
         onRemove: isAdmin ? () => removeSelfSourcedRow(p.id).then(() => sourcedLeads.refetch()) : undefined,
         removeConfirm: `Remove ${p.name} from ${r.sa}'s self-sourced count?\n\nThis won't delete the booking or the lead — it just excludes it from this metric.`,
+        onReassign: isAdmin && !p.id.startsWith('vip-')
+          ? (newSa: string) => reassignSelfSourcedRow(p.id, newSa).then(() => sourcedLeads.refetch())
+          : undefined,
+        reassignChoices: isAdmin ? reassignChoices : undefined,
+        currentSa: r.sa,
       })));
     }
     const saRows = drill.sa ? booked.rows.filter(r => r.sa === drill.sa) : booked.rows;
@@ -255,7 +264,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
       }),
     );
     return flat.sort((a, b) => a._src.localeCompare(b._src)).map(({ _src, ...row }) => row);
-  }, [drill, booked.rows, sourcedLeads.rows, sales.rows]);
+  }, [drill, booked.rows, sourcedLeads.rows, sales.rows, isAdmin, reassignChoices]);
 
   const drillTitle = drill
     ? `${drill.sa ?? 'Studio'} · ${drill.bucket === 'sales' ? 'Sales' : drill.bucket === 'sourced' ? 'Self-sourced leads' : 'Booked intros'}`
