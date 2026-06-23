@@ -92,11 +92,14 @@ describe('computeFunnelBothRows — Alexa orphan-chain regression', () => {
 });
 
 /**
- * Once a person's 2nd intro has occurred, they should drop out of the 1st
- * Intro row (otherwise the same human is counted in both rows).
+ * Same-period 1st + 2nd intro for one person must both count.
+ * Studio Scoreboard counts every 1st intro that ran; the Funnel 1st row
+ * must agree. (Previously the funnel suppressed the 1st row entry to
+ * avoid double-counting the person across rows — that hid real ran
+ * intros and made the Scoreboard and Funnel disagree by 1.)
  */
-describe('computeFunnelBothRows — person collapses to 2nd row after 2nd intro', () => {
-  it('excludes the 1st booking from the 1st row when the 2nd has passed', () => {
+describe('computeFunnelBothRows — 1st intro counts even when 2nd has happened in range', () => {
+  it('keeps the 1st-intro entry in the 1st row and counts the 2nd in the 2nd row', () => {
     const introsBooked: any[] = [
       {
         id: 'first-may1',
@@ -146,8 +149,8 @@ describe('computeFunnelBothRows — person collapses to 2nd row after 2nd intro'
 
     const { first, second } = computeFunnelBothRows(introsBooked, introsRun, dateRange);
 
-    expect(first.booked).toBe(0);
-    expect(first.showed).toBe(0);
+    expect(first.booked).toBe(1);
+    expect(first.showed).toBe(1);
     expect(first.sold).toBe(0);
     expect(second.booked).toBe(1);
     expect(second.showed).toBe(1);
