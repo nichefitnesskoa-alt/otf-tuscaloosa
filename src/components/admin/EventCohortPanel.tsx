@@ -82,6 +82,21 @@ export function EventCohortPanel({ eventId: controlledEventId, onEventIdChange }
   };
   const { data: cohort = [], isLoading: cohortLoading } = useCohort(eventId);
   const [selectedPerson, setSelectedPerson] = useState<SelectedPerson | null>(null);
+  const queryClient = useQueryClient();
+
+  // Realtime: when any intros_booked / intros_run row changes (new event tag,
+  // outcome change, soft-delete), refresh cohort + events index totals so the
+  // admin tab never falls out of sync with Pipeline writes.
+  useEffect(() => {
+    const channel = supabase
+      .channel('event-cohort-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' },
+        () => queryClient.invalidateQueries({ queryKey: ['event-cohort'] }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_run' },
+        () => queryClient.invalidateQueries({ queryKey: ['event-cohort'] }))
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const selectedEvent = events.find(e => e.id === eventId);
 
