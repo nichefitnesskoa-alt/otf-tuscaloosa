@@ -127,6 +127,15 @@ export function SourcedLeadsDialog({ open, onOpenChange, initialRange }: Props) 
 
   const { rows: saRows, loading } = useSaLeads(rangeStart, rangeEnd);
 
+  // Match the WIG SA Leaderboard scope: only active SAs, and exclude Koa
+  // (Admin, not on the SA leaderboard). Same filter as WigSaLeaderboard,
+  // so the dialog total equals the WIG tile total.
+  const { salesAssociates: activeSas } = useActiveStaff();
+  const activeSet = useMemo(
+    () => new Set((activeSas || []).filter(n => n !== 'Koa')),
+    [activeSas],
+  );
+
   // Flatten useSaLeads → one row per person, tagged with their SA.
   // Apply local patches (optimistic Mindbody-import toggles) on top.
   const [localPatches, setLocalPatches] = useState<Map<string, Partial<SourcedLeadCsvRow>>>(new Map());
@@ -137,6 +146,7 @@ export function SourcedLeadsDialog({ open, onOpenChange, initialRange }: Props) 
   const allRows = useMemo<SourcedLeadCsvRow[]>(() => {
     const out: SourcedLeadCsvRow[] = [];
     for (const r of saRows) {
+      if (!activeSet.has(r.sa)) continue;
       for (const p of r.people) {
         const base = toDialogRow(p, r.sa);
         const patch = localPatches.get(base.id);
