@@ -64,7 +64,7 @@ function useCohort(eventId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_time, booking_status_canon, coach_name, phone, email, deleted_at, intros_run(id, result, result_canon, buy_date, membership_type)' as any)
+        .select('id, member_name, class_date, intro_time, booking_status_canon, coach_name, phone, email, deleted_at, intros_run(id, result, result_canon, buy_date)' as any)
         .eq('event_id', eventId!)
         .is('deleted_at', null);
       if (error) throw error;
@@ -118,8 +118,8 @@ export function EventCohortPanel({ eventId: controlledEventId, onEventIdChange }
 
   const totals = useMemo(() => {
     const booked = cohort.length;
-    const showed = cohort.filter(b => b.booking_status_canon === 'SHOWED').length;
-    const noShow = cohort.filter(b => b.booking_status_canon === 'NO_SHOW').length;
+    const showed = cohort.filter(b => didAttendEvent(b)).length;
+    const noShow = cohort.filter(b => !didAttendEvent(b) && (b.booking_status_canon === 'NO_SHOW' || b.runs.some(r => (r.result_canon || '').toUpperCase() === 'NO_SHOW'))).length;
     const bought = cohort.filter(b => b.runs.some(r => isCloseRun(r as any))).length;
     return { booked, showed, noShow, bought };
   }, [cohort]);
@@ -176,8 +176,9 @@ export function EventCohortPanel({ eventId: controlledEventId, onEventIdChange }
               <div className="space-y-1.5">
                 {cohort.map(b => {
                   const sold = b.runs.find(r => isCloseRun(r as any));
-                  const showedLabel = b.booking_status_canon === 'SHOWED' ? 'Showed' :
-                    b.booking_status_canon === 'NO_SHOW' ? 'No-show' :
+                  const attended = didAttendEvent(b);
+                  const showedLabel = attended ? 'Showed' :
+                    (b.booking_status_canon === 'NO_SHOW' || b.runs.some(r => (r.result_canon || '').toUpperCase() === 'NO_SHOW')) ? 'No-show' :
                     b.booking_status_canon === 'CANCELLED' ? 'Cancelled' : 'Booked';
                   return (
                     <button
