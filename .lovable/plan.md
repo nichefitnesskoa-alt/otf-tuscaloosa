@@ -1,98 +1,89 @@
-## Root cause
 
-`NOT_INTERESTED` is currently in `NON_RAN_RESULT_CANONS` inside `src/lib/canon/introRules.ts`.
+## What's actually broken
 
-That means the canonical helper `didIntroActuallyRun()` returns `false` for Lia and Christian even though they physically attended. Any surface using that helper then drops them from showed/ran counts and close-rate denominators.
+All four issues trace back to the same root: **`intros_run.intro_owner` and `intros_booked.intro_owner` are allowed to drift apart**, and three different edit paths in Pipeline only update one of them. Per-SA Performance is aggregated off `run.intro_owner`, but the drilldown is rendered off `booking.intro_owner` — so the count and the names disagree, and the journey-sale path for 2nd intros makes it worse.
 
-Current DB truth for Turbo Coffee:
+DB-verified examples (current data):
 
-| Person | booking_status_canon | result_canon | physical attendance |
-|---|---|---|---|
-| Lia Jacques | NOT_INTERESTED | NOT_INTERESTED | yes |
-| Christian Kazoleas | NOT_INTERESTED | NOT_INTERESTED | yes |
-| Anna Pauley | SECOND_INTRO_SCHEDULED | SECOND_INTRO_SCHEDULED | yes |
-| Emma Hensley | ACTIVE | NO_SHOW | no |
+- **Anna Pauley** (`4a0621c1…`) — booking.intro_owner=`Grace F`, booked_by=`Jayna`, run.intro_owner=`Grace F`. The 6/17 run is `SECOND_INTRO_SCHEDULED` (counts as ran). She belongs in **Grace F · Ran = 1** — never under Koa.
+- **Stephanie Wang** — 1st booking owned by Madison (no run yet); 2nd booking `95ec34da` ran 6/22 with `BASIC` sale. Per-SA counts the 2nd-intro sale under Madison via run.intro_owner, but the drilldown walks chains from 1st-intro bookings and the date/range can hide it — hence "Madison · 1 ran, no name."
+- **Koa · 2 ran** is stale: Koa has 0 first-intro runs in the active range; the 2 is being pulled from `effectiveRan = max(ran, sales)` + 2nd-intro sale counting paths that don't reconcile with the drilldown's 1st-intro-only iteration.
 
-## REACH MAP for system-wide ran/showed change
+Three different intro_owner write paths today:
+1. `PipelineSpreadsheet.tsx:683` inline cell edit — writes only `intros_booked.intro_owner`.
+2. `PipelineDialogs.tsx:163` Edit Booking dialog — writes only `intros_booked.intro_owner` (+ `_locked`).
+3. `PipelineDialogs.tsx:451` Manage Owner dialog — writes only `intros_booked.intro_owner`.
+4. `PipelineDialogs.tsx:254` Edit Run dialog — writes `intros_run.intro_owner` and syncs to booking (only path that does both).
+5. `pipelineActions.ts:140` `syncIntroOwnerFromRun` — also does both, but only called from one place.
 
-- Tables touched: none directly. Data read from `intros_booked`, `intros_run`.
-- Hooks/queries that read these tables:
-  - `src/hooks/useDashboardMetrics.ts` — Studio lead source, Per-SA, studio run totals, close-rate inputs.
-  - `src/hooks/useLeadMeasures.ts` — coach lead measure/run counts.
-  - `src/hooks/useMeetingAgenda.ts` — meeting recap/run summaries.
-  - `src/hooks/useFvTrendData.ts` — FV trend run exclusions.
-  - `src/features/myDay/useUpcomingIntrosData.ts` — upcoming/ran classification and SQL exclusion list derived from canon set.
-  - `src/features/myDay/useWinTheDayItems.ts` — parent ran detection.
-  - `src/pages/Wig.tsx` — WIG funnel and run counts, some inline no-show checks.
-  - `src/components/dashboard/ConversionFunnel.tsx` — conversion funnel showed lists, currently partially inline.
-  - `src/features/pipeline/selectors.ts` and `PipelineSpreadsheet.tsx` — completed/showed journey states.
-  - `src/components/admin/EventCohortPanel.tsx`, `EventsIndexPanel.tsx` — event cohort/showed totals.
-- Components that display derived data:
-  - WIG tab funnel/drilldowns.
-  - Studio Lead Source Analytics.
-  - Studio Conversion Funnel.
-  - Studio Per-SA / Per-Coach close-rate surfaces.
-  - Admin Events index and Event Cohort panel.
-  - Pipeline status/table totals.
-  - My Day completed/ran counts.
-  - Coach/meeting lead-measure summaries.
-- Metrics/helpers that derive from these tables:
-  - `didIntroActuallyRun` / `NON_RAN_RESULT_CANONS` in `src/lib/canon/introRules.ts`.
-  - `isSecondIntroBooking` relies on whether a parent intro actually ran.
-  - `resolvePromotedOrphanBookingIds` / journey logic depends on ran detection.
-  - `isCloseRun`, `isSaleInRange`, `getRunSaleDate` remain unchanged.
-- React Query/cache keys likely holding affected data:
-  - DataContext intros cache where used.
-  - `['dashboard-metrics', ...]` style hooks if present.
-  - `['event-cohort', eventId]`, `['event-cohort', 'all-tagged']`.
-  - My Day/upcoming intros query keys.
-  - Pipeline query keys.
-- Cross-page surfaces affected:
-  - WIG, Studio, Admin Events, Pipeline, My Day, Coach lead measures, Meeting agenda, close-rate denominators.
-- DB triggers that fire: none, because this is a read/classification logic fix only.
+Result: change owner in any of the first three places → booking shows new owner everywhere (Pipeline card, PersonJourneyCard, Per-SA drilldown) while the run stays on the old owner (Per-SA count, commission, GroupMe). That's exactly the Koa/Grace F symptom.
 
 ## Plan
 
-1. **Fix the canonical rule at the root**
-   - Remove `NOT_INTERESTED` from `NON_RAN_RESULT_CANONS`.
-   - Remove `not interested` / `showed up - not interested` from `NON_RAN_RESULT_DISPLAY`.
-   - Update the JSDoc so only these are non-ran: `NO_SHOW`, `PLANNING_RESCHEDULE`, `UNRESOLVED`, `VIP_CLASS_INTRO`.
-   - This makes `didIntroActuallyRun()` match the studio rule: physical show-up counts, even if they did not buy.
+### 1. Single canonical helper for intro_owner changes
 
-2. **Remove duplicate event-specific attendance logic**
-   - Replace inline `didAttendEvent()` logic in `EventCohortPanel.tsx` and `EventsIndexPanel.tsx` with the canonical `didIntroActuallyRun()`.
-   - Event showed totals will then agree with Studio/WIG by construction.
+Add `setIntroOwnerForJourney(rootBookingId, newOwner, { reason })` in `src/features/pipeline/pipelineActions.ts`. It walks the journey chain (via `resolveJourneyChainsForBookings` / `walkJourneyChain`) and atomically updates:
 
-3. **Normalize inline funnel checks that bypass canon**
-   - In `ConversionFunnel.tsx`, replace `r.result !== 'No-show'` showed checks with `didIntroActuallyRun(r)` plus existing date-range checks.
-   - Audit `Wig.tsx` and `PipelineSpreadsheet.tsx` inline `result !== 'No-show'` cases. Update only the places that are computing showed/ran/completed metrics, not label rendering.
+- `intros_booked.intro_owner` + `intro_owner_locked` on the root **and every 2nd-intro child** in the chain
+- `intros_run.intro_owner` on every run linked to any booking in the chain
+- Writes an audit row (`edit_reason`, `last_edited_by`, `last_edited_at`)
+- Invalidates every React Query key the booking/run reads (introsBooked, introsRun, perSA, perCoach, WIG, commission, follow-up)
 
-4. **Keep true non-attendance excluded**
-   - No-shows remain excluded.
-   - Planning/reschedule remains excluded.
-   - Unresolved remains excluded.
-   - VIP class intro remains excluded from standard intro metrics.
+Rewire all five edit surfaces to call this helper. Delete the inline `supabase.from('intros_booked').update({ intro_owner })` calls.
 
-5. **Update project memory for future agents**
-   - Update `mem://logic/intro-ran-detection` so it explicitly says: `NOT_INTERESTED` means physically attended and counts as ran/showed and coach close-rate denominator.
+### 2. Per-SA aggregation and drilldown read from the same source
 
-6. **Verify with real DB rows and cross-page numbers**
-   - Re-query the exact Turbo Coffee rows for Lia, Christian, Anna, Emma.
-   - Confirm canonical helper behavior on those result canons.
-   - Confirm Studio Lead Source Event shows 4 booked / 3 showed / 0 sold.
-   - Confirm Studio Conversion Funnel showed drilldowns include Lia and Christian where date range includes June 20, 2026.
-   - Confirm Admin Events Turbo Coffee row and Event Cohort panel show 4 booked / 3 showed / 1 no-show / 0 bought.
-   - Confirm coach close-rate denominator for James includes Lia and Christian as ran/showed intros.
+In `src/hooks/useDashboardMetrics.ts` (perSA block, lines 262–330) and `src/components/dashboard/PerSATable.tsx` (drillRows, lines 55–112), both must derive ownership from the **chain root's `intros_booked.intro_owner`** — never from `intros_run.intro_owner` and never from `booked_by`/`sa_working_shift` fallbacks for the count.
 
-## Files expected to change
+Concretely:
 
-- `src/lib/canon/introRules.ts`
-- `src/components/admin/EventCohortPanel.tsx`
-- `src/components/admin/EventsIndexPanel.tsx`
-- `src/components/dashboard/ConversionFunnel.tsx`
-- likely `src/pages/Wig.tsx` and/or `src/features/pipeline/components/PipelineSpreadsheet.tsx` if their showed metrics bypass canon
-- `mem://logic/intro-ran-detection`
+- Aggregation: group runs by their chain root (use `walkJourneyChain` / `resolveJourneyChainsForBookings`), attribute the chain's ran + sale to `rootBooking.intro_owner`. Drop the `run.intro_owner === saName` filter and the `effectiveRan = max(ran, sales)` fudge — if the chain ran or sold, count exactly that, once.
+- Drilldown: iterate the same chain roots filtered by `rootBooking.intro_owner === sa`. Remove the `intro_owner || booked_by || sa_working_shift` fallback so it can't disagree with the count.
+- Sale-only contributions from a 2nd intro whose root isn't owned by the same SA now attribute to the root's owner (matches "commission attributes to intro_owner" and "Total Journey: 1st → any sale").
 
-## Done condition
+Coherence proof at the end will name the specific rows: Anna Pauley → Grace F (1 ran, 0 sales); Stephanie Wang → Madison (1 ran via journey, 1 sale, name present in drilldown); Koa → 0/0 in the active range (row drops out).
 
-I will not report this done until the final response includes a COHERENCE PROOF block with the specific Turbo Coffee DB rows and the matching cross-page numbers.
+### 3. Drilldown row shows class time
+
+In `PerSATable.tsx` rows.push subtitle (line 105), append `intro_time`:
+
+```
+`${format(parseLocalDate(b.class_date), 'MMM d')} · ${formatTime(b.intro_time)}${b.lead_source ? ' · ' + b.lead_source : ''}${journeySale && !directSale ? ' · via 2nd intro' : ''}`
+```
+
+Use existing `src/lib/datetime/formatTime.ts` so it renders "4:15 PM".
+
+### 4. "Open in Pipeline" deep-links to the person
+
+- `PersonJourneyCard.tsx:657` already navigates `/pipeline?focus=${booking.id}` but Pipeline ignores the param.
+- In `PipelinePage.tsx`, read `?focus=<bookingId>` (and accept `?leadId=` used by Milestones) on mount, resolve to the person, expand that row in `PipelineSpreadsheet`, scroll it into view, and clear the param.
+- Add the matching prop wiring on `PipelineSpreadsheet` (`focusBookingId`) — open the row's expand panel and `scrollIntoView({ block: 'center' })`.
+
+### Files to touch
+
+- `src/features/pipeline/pipelineActions.ts` — add `setIntroOwnerForJourney`
+- `src/features/pipeline/components/PipelineSpreadsheet.tsx` — use helper; accept `focusBookingId`, expand + scroll
+- `src/features/pipeline/components/PipelineDialogs.tsx` — Edit Booking, Manage Owner, Edit Run dialogs all call helper
+- `src/features/pipeline/PipelinePage.tsx` — read `?focus=` / `?leadId=`, pass down
+- `src/hooks/useDashboardMetrics.ts` — perSA chain-based aggregation
+- `src/components/dashboard/PerSATable.tsx` — chain-based drilldown, add intro_time
+- `mem://logic/canon-lists/canonical-helpers-registry` — register `setIntroOwnerForJourney`
+
+### Closing proof I'll produce
+
+```
+COHERENCE PROOF
+- DB verification:
+  - Anna Pauley booking 4a06… intro_owner=Grace F, run 9323e79c intro_owner=Grace F (already aligned)
+  - Stephanie Wang root 23e07c48 owner=Madison; 2nd intro 95ec34da BASIC sale 6/22 → attributed to Madison
+  - Koa June first-intro runs that actually ran = 0
+- Cross-page check:
+  - Per-SA Koa: 0 ran / 0 sales (row removed)
+  - Per-SA Grace F: includes Anna Pauley in Ran drilldown w/ "Jun 17 · 4:15 PM · Event"
+  - Per-SA Madison: 1 ran / 1 sale, drilldown shows Stephanie Wang
+  - Pipeline owner edit (any of 3 paths) → run.intro_owner matches booking.intro_owner immediately
+  - Open in Pipeline from PersonJourneyCard → row expanded + scrolled
+- All agree: yes
+```
+
+No DB schema changes. No commission math change beyond the attribution being correct again.
