@@ -221,6 +221,7 @@ import { notifyDataChanged } from '@/lib/data/invalidation';
  * Row id format from useSaLeads:
  *   - "lead-{uuid}"  → unattribute from SA (leads.sourced_by_sa = NULL)
  *   - "bk-{uuid}"    → exclude booking from metrics (ignore_from_metrics = true)
+ *   - "vip-{uuid}"   → unlink VIP registration from its session (vip_session_id = NULL)
  */
 export async function removeSelfSourcedRow(rowId: string): Promise<void> {
   if (rowId.startsWith('lead-')) {
@@ -237,11 +238,18 @@ export async function removeSelfSourcedRow(rowId: string): Promise<void> {
       .update({ ignore_from_metrics: true })
       .eq('id', id);
     if (error) throw error;
+  } else if (rowId.startsWith('vip-')) {
+    const id = rowId.slice('vip-'.length);
+    const { error } = await (supabase as any)
+      .from('vip_registrations')
+      .update({ vip_session_id: null })
+      .eq('id', id);
+    if (error) throw error;
   } else {
     throw new Error(`Unknown self-sourced row id: ${rowId}`);
   }
   notifyDataChanged(
-    ['leads', 'intros_booked', 'sa-leads', 'sa-leads-booked'],
+    ['leads', 'intros_booked', 'vip_registrations', 'sa-leads', 'sa-leads-booked'],
     'remove-self-sourced-row',
   );
 }
