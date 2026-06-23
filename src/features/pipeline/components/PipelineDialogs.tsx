@@ -196,12 +196,14 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 editedBy: userName,
                 editReason: editBookingReason || 'Pipeline edit',
               });
-              // Separately update intro_owner since it's not in updateBookingFieldsFromPipeline signature
+              // Canonical owner write: updates booking + every linked run +
+              // 2nd-intro children so Per-SA count and drilldown can't drift.
               const anyBooking = editBooking as any;
-              await supabase.from('intros_booked').update({
-                intro_owner: anyBooking.intro_owner || null,
-                intro_owner_locked: !!anyBooking.intro_owner,
-              }).eq('id', editBooking.id);
+              await setIntroOwnerForJourney(editBooking.id, anyBooking.intro_owner || null, {
+                editor: userName,
+                reason: editBookingReason || 'Owner edited via Edit Booking dialog',
+                source: 'PipelineDialogs:EditBooking',
+              });
               toast.success('Booking updated');
               setEditBooking(null);
             })}>
