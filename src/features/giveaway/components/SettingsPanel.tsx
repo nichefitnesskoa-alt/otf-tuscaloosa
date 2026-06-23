@@ -592,10 +592,10 @@ function PartnerForm({
   );
 }
 
-const BUILT_IN_ACTIONS: { key: string; label: string; defaultMode: 'checkbox' | 'screenshot' }[] = [
-  { key: 'post_engagement', label: 'Like, comment & tag a friend', defaultMode: 'checkbox' },
-  { key: 'story_share', label: 'Share to your story', defaultMode: 'checkbox' },
-  { key: 'free_class', label: 'Post a Class Story', defaultMode: 'checkbox' },
+const BUILT_IN_ACTIONS: { key: BuiltInActionKey; defaultMode: 'checkbox' | 'screenshot' }[] = [
+  { key: 'post_engagement', defaultMode: 'checkbox' },
+  { key: 'story_share', defaultMode: 'checkbox' },
+  { key: 'free_class', defaultMode: 'checkbox' },
 ];
 
 function VerificationMethodsSection({
@@ -610,16 +610,23 @@ function VerificationMethodsSection({
   const [modes, setModes] = useState<Record<string, 'checkbox' | 'screenshot'>>(
     studio.action_verification_modes ?? {},
   );
+  const [labels, setLabels] = useState<Record<string, { title?: string; description?: string }>>(
+    studio.action_labels ?? {},
+  );
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
     setModes(studio.action_verification_modes ?? {});
-  }, [studio.id, studio.action_verification_modes]);
+    setLabels(studio.action_labels ?? {});
+  }, [studio.id, studio.action_verification_modes, studio.action_labels]);
 
   const rows = [
-    ...BUILT_IN_ACTIONS.map(a => ({ key: a.key, label: a.label, defaultMode: a.defaultMode })),
-    ...partners.map(p => ({ key: `partner:${p.id}`, label: `Visit ${p.partner_name}`, defaultMode: 'screenshot' as const })),
+    ...BUILT_IN_ACTIONS.map(a => {
+      const l = getActionLabel(labels, a.key, BUILT_IN_ACTION_DEFAULTS[a.key]);
+      return { key: a.key as string, label: l.title, description: l.description, defaultMode: a.defaultMode, editable: true, builtInKey: a.key };
+    }),
+    ...partners.map(p => ({ key: `partner:${p.id}`, label: `Visit ${p.partner_name}`, description: '', defaultMode: 'screenshot' as const, editable: false, builtInKey: null as BuiltInActionKey | null })),
   ];
 
   const getMode = (key: string, defaultMode: 'checkbox' | 'screenshot') => {
@@ -631,12 +638,23 @@ function VerificationMethodsSection({
     setModes(curr => ({ ...curr, [key]: mode }));
   };
 
+  const setLabelField = (key: BuiltInActionKey, field: 'title' | 'description', value: string) => {
+    setLabels(curr => ({ ...curr, [key]: { ...(curr[key] ?? {}), [field]: value } }));
+  };
+
   const save = async () => {
     setSaving(true);
     setMsg(null);
+    // Trim and drop empty entries so defaults take over
+    const cleanLabels: Record<string, { title?: string; description?: string }> = {};
+    for (const [k, v] of Object.entries(labels)) {
+      const t = (v?.title ?? '').trim();
+      const d = (v?.description ?? '').trim();
+      if (t || d) cleanLabels[k] = { ...(t ? { title: t } : {}), ...(d ? { description: d } : {}) };
+    }
     const { error } = await supabase
       .from('giveaway_studios' as any)
-      .update({ action_verification_modes: modes })
+      .update({ action_verification_modes: modes, action_labels: cleanLabels })
       .eq('id', studio.id);
     setSaving(false);
     setMsg(error ? error.message : 'Saved');
@@ -647,38 +665,67 @@ function VerificationMethodsSection({
   return (
     <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-6 space-y-4">
       <div>
-        <h2 className="text-xl font-black">Verification Method</h2>
+        <h2 className="text-xl font-black">Action Requirements</h2>
         <p className="text-sm text-[#F5F2EE]/60 mt-1">
-          Per-action: require a screenshot upload, or accept a self-checked box with a verification warning.
+          Rename each action and choose how it's verified — a screenshot upload, or a self-checked box.
         </p>
       </div>
 
-      <ul className="space-y-2">
+      <ul className="space-y-3">
         {rows.map(row => {
           const mode = getMode(row.key, row.defaultMode);
           return (
-            <li key={row.key} className="rounded-lg border border-[#3a3a3c] bg-[#2a2a2c] p-3 flex flex-wrap items-center gap-3 justify-between">
-              <div className="min-w-0 flex-1">
-                <p className="font-bold text-[#F5F2EE] text-sm truncate">{row.label}</p>
-                <p className="text-[11px] text-[#F5F2EE]/50">
-                  Default: {row.defaultMode === 'checkbox' ? 'Checkbox' : 'Screenshot Upload'}
-                </p>
-              </div>
-              <div className="inline-flex rounded-lg border border-[#3a3a3c] overflow-hidden flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setMode(row.key, 'checkbox')}
-                  className={`min-h-[40px] px-3 text-xs font-bold cursor-pointer ${mode === 'checkbox' ? 'bg-[#E8540A] text-white' : 'bg-[#2a2a2c] text-[#F5F2EE]/70 hover:bg-[#3a3a3c]'}`}
-                >
-                  Checkbox
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode(row.key, 'screenshot')}
-                  className={`min-h-[40px] px-3 text-xs font-bold cursor-pointer ${mode === 'screenshot' ? 'bg-[#E8540A] text-white' : 'bg-[#2a2a2c] text-[#F5F2EE]/70 hover:bg-[#3a3a3c]'}`}
-                >
-                  Screenshot
-                </button>
+            <li key={row.key} className="rounded-lg border border-[#3a3a3c] bg-[#2a2a2c] p-3 space-y-3">
+              <div className="flex flex-wrap items-start gap-3 justify-between">
+                <div className="min-w-0 flex-1">
+                  {row.editable && row.builtInKey ? (
+                    <div className="space-y-2">
+                      <label className="block">
+                        <span className="block text-[10px] uppercase tracking-wider text-[#F5F2EE]/50 font-bold mb-1">Title</span>
+                        <input
+                          value={labels[row.builtInKey]?.title ?? ''}
+                          onChange={(ev) => setLabelField(row.builtInKey!, 'title', ev.target.value)}
+                          placeholder={BUILT_IN_ACTION_DEFAULTS[row.builtInKey].title}
+                          className="w-full min-h-[40px] rounded-lg bg-[#181819] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none px-3 text-[#F5F2EE] text-sm font-bold"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="block text-[10px] uppercase tracking-wider text-[#F5F2EE]/50 font-bold mb-1">Description</span>
+                        <textarea
+                          value={labels[row.builtInKey]?.description ?? ''}
+                          onChange={(ev) => setLabelField(row.builtInKey!, 'description', ev.target.value)}
+                          placeholder={BUILT_IN_ACTION_DEFAULTS[row.builtInKey].description}
+                          rows={2}
+                          className="w-full rounded-lg bg-[#181819] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none px-3 py-2 text-[#F5F2EE]/90 text-sm"
+                        />
+                      </label>
+                      <p className="text-[10px] text-[#F5F2EE]/40">Leave blank to use the default.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="font-bold text-[#F5F2EE] text-sm truncate">{row.label}</p>
+                      <p className="text-[11px] text-[#F5F2EE]/50">
+                        Default: {row.defaultMode === 'checkbox' ? 'Checkbox' : 'Screenshot Upload'} · Title set on the Partner card
+                      </p>
+                    </>
+                  )}
+                </div>
+                <div className="inline-flex rounded-lg border border-[#3a3a3c] overflow-hidden flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setMode(row.key, 'checkbox')}
+                    className={`min-h-[40px] px-3 text-xs font-bold cursor-pointer ${mode === 'checkbox' ? 'bg-[#E8540A] text-white' : 'bg-[#2a2a2c] text-[#F5F2EE]/70 hover:bg-[#3a3a3c]'}`}
+                  >
+                    Checkbox
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode(row.key, 'screenshot')}
+                    className={`min-h-[40px] px-3 text-xs font-bold cursor-pointer ${mode === 'screenshot' ? 'bg-[#E8540A] text-white' : 'bg-[#2a2a2c] text-[#F5F2EE]/70 hover:bg-[#3a3a3c]'}`}
+                  >
+                    Screenshot
+                  </button>
+                </div>
               </div>
             </li>
           );
@@ -688,7 +735,7 @@ function VerificationMethodsSection({
       <div className="flex items-center gap-3 pt-1">
         <button onClick={save} disabled={saving}
           className="min-h-[44px] px-5 rounded-lg bg-[#E8540A] hover:bg-[#ff6a1f] text-white font-bold cursor-pointer disabled:opacity-60">
-          {saving ? 'Saving…' : 'Save Verification Methods'}
+          {saving ? 'Saving…' : 'Save Action Requirements'}
         </button>
         {msg && <span className="text-sm text-emerald-400">{msg}</span>}
       </div>
