@@ -254,6 +254,14 @@ function Body({ rows, emptyText, footer, subtitle, scopeBadge }: {
             return (
               <div key={r.id} className="flex items-stretch gap-2">
                 {clickable}
+                {r.onReassign && r.reassignChoices && r.reassignChoices.length > 0 && (
+                  <ReassignButton
+                    onReassign={r.onReassign}
+                    choices={r.reassignChoices}
+                    currentSa={r.currentSa}
+                    name={r.name}
+                  />
+                )}
                 {r.onRemove && (
                   <RemoveButton
                     onRemove={r.onRemove}
