@@ -45,6 +45,8 @@ export interface SaLeadPersonRow {
   booking_id: string | null;
   /** Contact phone (when available) — surfaced for the sourced-leads explorer. */
   phone: string | null;
+  /** Contact email (when available) — surfaced for the sourced-leads explorer. */
+  email: string | null;
   /** Manual "imported to Mindbody" mark. Booked rows are implicitly imported
    *  regardless of these fields. Lives on leads.* or vip_registrations.*. */
   mindbody_imported_at: string | null;
@@ -76,7 +78,7 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
     // ── 1) Sourced lead rows ────────────────────────────────────────────────
     const { data: leadRows } = await supabase
       .from('leads')
-      .select('id, first_name, last_name, phone, source, sourced_by_sa, created_at, booked_intro_id, mindbody_imported_at, mindbody_imported_by')
+      .select('id, first_name, last_name, phone, email, source, sourced_by_sa, created_at, booked_intro_id, mindbody_imported_at, mindbody_imported_by')
       .not('sourced_by_sa', 'is', null)
       .gte('created_at', startIso)
       .lte('created_at', endIso);
@@ -89,7 +91,7 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
     // ── 2) SGL bookings whose booking_id is NOT already represented by a lead row
     const { data: sglBookings } = await supabase
       .from('intros_booked')
-      .select('id, lead_source, booked_by, vip_session_id, created_at, deleted_at, ignore_from_metrics, member_name, originating_booking_id, phone')
+      .select('id, lead_source, booked_by, vip_session_id, created_at, deleted_at, ignore_from_metrics, member_name, originating_booking_id, phone, email')
       .gte('created_at', startIso)
       .lte('created_at', endIso)
       .is('deleted_at', null);
@@ -136,6 +138,7 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
         booked: !!l.booked_intro_id,
         booking_id: l.booked_intro_id,
         phone: l.phone ?? null,
+        email: (l as any).email ?? null,
         mindbody_imported_at: (l as any).mindbody_imported_at ?? null,
         mindbody_imported_by: (l as any).mindbody_imported_by ?? null,
       });
@@ -152,6 +155,7 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
         booked: true,
         booking_id: b.id,
         phone: (b as any).phone ?? null,
+        email: (b as any).email ?? null,
         mindbody_imported_at: null,
         mindbody_imported_by: null,
       });
@@ -160,7 +164,7 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
     // ── 3) VIP registrants → credit SA who set up the VIP class ───────────
     const { data: regRows } = await supabase
       .from('vip_registrations')
-      .select('id, first_name, last_name, phone, vip_session_id, booking_id, is_group_contact, created_at, mindbody_imported_at, mindbody_imported_by')
+      .select('id, first_name, last_name, phone, email, vip_session_id, booking_id, is_group_contact, created_at, mindbody_imported_at, mindbody_imported_by')
       .gte('created_at', startIso)
       .lte('created_at', endIso)
       .eq('is_group_contact', false)
@@ -199,6 +203,7 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
         booked: false,
         booking_id: null,
         phone: r.phone ?? null,
+        email: r.email ?? null,
         mindbody_imported_at: r.mindbody_imported_at ?? null,
         mindbody_imported_by: r.mindbody_imported_by ?? null,
       });

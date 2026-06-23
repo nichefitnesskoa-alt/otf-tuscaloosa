@@ -73,7 +73,7 @@ function toDialogRow(p: SaLeadPersonRow, sa: string): SourcedLeadCsvRow {
     first_name: first || '',
     last_name: rest.join(' '),
     phone: p.phone || '',
-    email: null,
+    email: p.email ?? null,
     source: p.source,
     sourced_by_sa: sa,
     booked_intro_id: p.booked ? p.booking_id : null,
@@ -420,7 +420,9 @@ function LeadRow({
           )}
         </div>
         <div className="text-xs text-muted-foreground truncate">
-          {l.phone}{l.source ? ` · ${l.source}` : ''}{showSa && l.sourced_by_sa ? ` · ${l.sourced_by_sa}` : ''}
+          {[l.phone, l.email].filter(Boolean).join(' · ')}
+          {l.source ? ` · ${l.source}` : ''}
+          {showSa && l.sourced_by_sa ? ` · ${l.sourced_by_sa}` : ''}
         </div>
         {!isBooked && l.mindbody_imported_at && (
           <div className="text-[11px] text-muted-foreground/80">
