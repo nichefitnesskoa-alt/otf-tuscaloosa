@@ -9,7 +9,7 @@ import { getRunSaleDate, isRunInRange, isSaleInRange } from '@/lib/sales-detecti
 import { didIntroActuallyRun } from '@/lib/canon/introRules';
 import { isCloseRun } from '@/lib/intros/close-detection';
 import { EXCLUDED_SA_NAMES } from '@/lib/studio-metrics';
-import { getTodayYMD } from '@/lib/dateUtils';
+import { getTodayYMD, hasClassTimePassed } from '@/lib/dateUtils';
 import { resolvePromotedOrphanBookingIds, isFirstIntroForMetrics } from '@/lib/intros/orphanedFirstIntros';
 
 interface StudioMetrics {
