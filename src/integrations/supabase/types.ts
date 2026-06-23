@@ -2216,6 +2216,8 @@ export type Database = {
           id: string
           last_name: string
           lost_reason: string | null
+          mindbody_imported_at: string | null
+          mindbody_imported_by: string | null
           phone: string
           source: string
           sourced_by_sa: string | null
@@ -2237,6 +2239,8 @@ export type Database = {
           id?: string
           last_name: string
           lost_reason?: string | null
+          mindbody_imported_at?: string | null
+          mindbody_imported_by?: string | null
           phone: string
           source?: string
           sourced_by_sa?: string | null
@@ -2258,6 +2262,8 @@ export type Database = {
           id?: string
           last_name?: string
           lost_reason?: string | null
+          mindbody_imported_at?: string | null
+          mindbody_imported_by?: string | null
           phone?: string
           source?: string
           sourced_by_sa?: string | null

@@ -1,12 +1,20 @@
 /**
  * Pure CSV builder for the self-sourced leads explorer.
- * Mirrors the format style used by src/features/giveaway/lib/csvExport.ts.
+ *
+ * `SourcedLeadCsvRow` is the union shape used by the dialog: it can represent
+ * either an actual row from `leads` (source_type='lead') OR a synthetic row
+ * derived from an `intros_booked` record where an SA was the booker but no
+ * separate leads row was ever created (source_type='booking').
  */
 import { format } from 'date-fns';
 import type { SourcedLeadRow } from '@/lib/sa/sourcedLeadsToText';
 
 export interface SourcedLeadCsvRow extends SourcedLeadRow {
   stage?: string | null;
+  mindbody_imported_at?: string | null;
+  mindbody_imported_by?: string | null;
+  /** 'lead' = real leads row. 'booking' = synthetic, derived from intros_booked. */
+  source_type: 'lead' | 'booking';
 }
 
 function esc(v: unknown): string {
@@ -32,18 +40,24 @@ function ymdCentral(iso: string): string {
 
 const HEADERS = [
   'first_name', 'last_name', 'phone', 'email', 'source',
-  'sourced_by_sa', 'created_at_central', 'stage',
-  'booked', 'booked_intro_id', 'text_archived_at', 'text_archived_reason',
+  'sourced_by_sa', 'created_at_central', 'stage', 'source_type',
+  'booked', 'booked_intro_id',
+  'in_mindbody', 'mindbody_imported_at_central', 'mindbody_imported_by',
+  'text_archived_at', 'text_archived_reason',
 ];
 
 export function buildSourcedLeadsCsv(rows: SourcedLeadCsvRow[]): string {
   const lines = [HEADERS.join(',')];
   for (const r of rows) {
+    const inMindbody = !!r.booked_intro_id || !!r.mindbody_imported_at;
     lines.push([
       r.first_name, r.last_name, r.phone, r.email ?? '', r.source ?? '',
-      r.sourced_by_sa ?? '', ymdCentral(r.created_at), r.stage ?? '',
+      r.sourced_by_sa ?? '', ymdCentral(r.created_at), r.stage ?? '', r.source_type,
       r.booked_intro_id ? 'yes' : 'no',
       r.booked_intro_id ?? '',
+      inMindbody ? 'yes' : 'no',
+      r.mindbody_imported_at ? ymdCentral(r.mindbody_imported_at) : '',
+      r.mindbody_imported_by ?? '',
       r.text_archived_at ? ymdCentral(r.text_archived_at) : '',
       r.text_archived_reason ?? '',
     ].map(esc).join(','));
