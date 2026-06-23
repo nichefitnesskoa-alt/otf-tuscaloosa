@@ -264,7 +264,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
       }),
     );
     return flat.sort((a, b) => a._src.localeCompare(b._src)).map(({ _src, ...row }) => row);
-  }, [drill, booked.rows, sourcedLeads.rows, sales.rows]);
+  }, [drill, booked.rows, sourcedLeads.rows, sales.rows, isAdmin, reassignChoices]);
 
   const drillTitle = drill
     ? `${drill.sa ?? 'Studio'} · ${drill.bucket === 'sales' ? 'Sales' : drill.bucket === 'sourced' ? 'Self-sourced leads' : 'Booked intros'}`
