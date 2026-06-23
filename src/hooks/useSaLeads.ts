@@ -31,7 +31,10 @@ import {
 import { DATA_CHANGED_EVENT, type DataChangedDetail } from '@/lib/data/invalidation';
 
 export interface SaLeadPersonRow {
-  /** Stable key for drill-down lists. */
+  /** Stable key for drill-down lists. Prefix indicates source:
+   *   lead-{id} — leads row
+   *   bk-{id}   — intros_booked row (no separate leads row)
+   *   vip-{id}  — vip_registrations row (unbooked) */
   id: string;
   name: string;
   source: string | null;
@@ -40,6 +43,12 @@ export interface SaLeadPersonRow {
   booked: boolean;
   /** Linked booking id when `booked` is true, for journey navigation. */
   booking_id: string | null;
+  /** Contact phone (when available) — surfaced for the sourced-leads explorer. */
+  phone: string | null;
+  /** Manual "imported to Mindbody" mark. Booked rows are implicitly imported
+   *  regardless of these fields. Lives on leads.* or vip_registrations.*. */
+  mindbody_imported_at: string | null;
+  mindbody_imported_by: string | null;
 }
 
 export interface SaLeadsRow {
