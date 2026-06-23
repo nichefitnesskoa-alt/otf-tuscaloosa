@@ -357,6 +357,9 @@ export function SourcedLeadsDialog({ open, onOpenChange, initialRange }: Props) 
                             showSa={false}
                             onToggleImported={setImported}
                             isPending={isPending(l.id)}
+                            admin={admin}
+                            reassignChoices={reassignChoices}
+                            onReassign={handleReassign}
                           />
                         ))}
                       </div>
