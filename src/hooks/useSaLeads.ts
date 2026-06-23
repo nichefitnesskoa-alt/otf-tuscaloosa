@@ -135,6 +135,9 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
         created_at: l.created_at,
         booked: !!l.booked_intro_id,
         booking_id: l.booked_intro_id,
+        phone: l.phone ?? null,
+        mindbody_imported_at: (l as any).mindbody_imported_at ?? null,
+        mindbody_imported_by: (l as any).mindbody_imported_by ?? null,
       });
     }
 
@@ -148,6 +151,9 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
         created_at: b.created_at,
         booked: true,
         booking_id: b.id,
+        phone: (b as any).phone ?? null,
+        mindbody_imported_at: null,
+        mindbody_imported_by: null,
       });
     }
 
