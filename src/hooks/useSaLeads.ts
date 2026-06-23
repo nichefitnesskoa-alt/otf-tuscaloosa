@@ -198,6 +198,9 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
         created_at: r.created_at,
         booked: false,
         booking_id: null,
+        phone: r.phone ?? null,
+        mindbody_imported_at: r.mindbody_imported_at ?? null,
+        mindbody_imported_by: r.mindbody_imported_by ?? null,
       });
     }
 
