@@ -256,6 +256,7 @@ function getSortValue(j: ClientJourney, key: string): string | number | boolean 
 
 export function PipelineSpreadsheet({
   journeys, vipInfoMap, scriptActionsMap, isLoading, activeTab, isOnline, onOpenDialog, onRefresh, onOpenScript,
+  focusBookingId, onFocusConsumed,
 }: PipelineSpreadsheetProps) {
   const { user } = useAuth();
   const parentRef = useRef<HTMLDivElement>(null);
