@@ -142,11 +142,26 @@ export function SourcedLeadsDialog({ open, onOpenChange, initialRange }: Props) 
   // Match the WIG SA Leaderboard scope: only active SAs, and exclude Koa
   // (Admin, not on the SA leaderboard). Same filter as WigSaLeaderboard,
   // so the dialog total equals the WIG tile total.
-  const { salesAssociates: activeSas } = useActiveStaff();
+  const { salesAssociates: activeSas, allActive } = useActiveStaff();
   const activeSet = useMemo(
     () => new Set((activeSas || []).filter(n => n !== 'Koa')),
     [activeSas],
   );
+  const { user } = useAuth();
+  const admin = isAdmin(user);
+  const reassignChoices = useMemo(
+    () => (allActive || []).filter(n => n !== 'Koa'),
+    [allActive],
+  );
+
+  const handleReassign = async (rowId: string, newSa: string) => {
+    try {
+      await reassignSelfSourcedRow(rowId, newSa);
+      toast({ title: 'Reassigned', description: `Credited to ${newSa}.` });
+    } catch (e: any) {
+      toast({ title: 'Could not reassign', description: e?.message || String(e), variant: 'destructive' });
+    }
+  };
 
   // Flatten useSaLeads → one row per person, tagged with their SA.
   // Apply local patches (optimistic Mindbody-import toggles) on top.
