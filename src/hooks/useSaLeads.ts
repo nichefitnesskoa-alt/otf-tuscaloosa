@@ -155,6 +155,7 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
         booked: true,
         booking_id: b.id,
         phone: (b as any).phone ?? null,
+        email: (b as any).email ?? null,
         mindbody_imported_at: null,
         mindbody_imported_by: null,
       });
