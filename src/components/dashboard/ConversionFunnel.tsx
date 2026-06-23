@@ -10,8 +10,10 @@ import { isWithinInterval, format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { FunnelDrillSheet, DrillPerson } from './FunnelDrillSheet';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
-import { resolvePromotedOrphanBookingIds } from '@/lib/intros/orphanedFirstIntros';
+import { resolvePromotedOrphanBookingIds, isFirstIntroForMetrics } from '@/lib/intros/orphanedFirstIntros';
 import { isSecondIntroBooking } from '@/lib/intros/secondIntroDetection';
+import { didIntroActuallyRun } from '@/lib/canon/introRules';
+import { hasClassTimePassed } from '@/lib/dateUtils';
 
 interface ConversionFunnelProps {
   dateRange?: DateRange | null;
@@ -136,61 +138,24 @@ export function computeFunnelBothRows(
     personBookingDates.set(key, existing.sort());
   });
 
-  const isFirstBooking = (b: IntroBooked): boolean => {
-    // Promoted orphan: already chosen as the canonical 1st intro for the chain.
-    if (promotedOrphanIds.has(b.id)) return true;
-    // Canonical 2nd-intro check — when the parent intro actually ran,
-    // this is a real 2nd intro (not a 1st).
-    if (bookingIsSecond.get(b.id)) return false;
-    // When parent did NOT run (no-show / cancelled / rescheduled) OR
-    // there's no orig link at all, this booking is its own chain root
-    // → counts as a 1st intro.
-    if ((b as any).originating_booking_id && !(b as any).referred_by_member_name) {
-      return true; // parent didn't run → child is a fresh 1st intro
-    }
-    const key = bookingPersonKey.get(b.id)!;
-    const dates = personBookingDates.get(key) || [];
-    return dates[0] === b.class_date;
-  };
+  // Canonical 1st-intro check — routes through the same helper Studio
+  // Scoreboard / Per-SA / Per-Coach use so all surfaces agree.
+  const isFirstBooking = (b: IntroBooked): boolean =>
+    isFirstIntroForMetrics(b as any, promotedOrphanIds);
 
   const now = new Date();
-
-  const hasBookingPassed = (b: IntroBooked): boolean => {
-    const [y, m, d] = b.class_date.split('-').map(Number);
-    const introTime = (b as any).intro_time as string | null | undefined;
-    if (introTime) {
-      const match = introTime.match(/(\d{1,2}):(\d{2})/);
-      if (match) {
-        const scheduled = new Date(y, m - 1, d, +match[1], +match[2]);
-        return scheduled <= now;
-      }
-    }
-    // No start time: treat as end of day
-    return new Date(y, m - 1, d, 23, 59, 59) <= now;
-  };
-
-  // Persons whose 2nd intro has already happened (booking passed). Once a
-  // person has had their 2nd intro, they should NOT also appear in the 1st
-  // Intro row — they're now represented by the 2nd Intro row. This prevents
-  // the same person from being counted in both rows of the funnel.
-  const personHasPassedSecond = new Set<string>();
-  activeBookings.forEach(b => {
-    if (!bookingIsSecond.get(b.id)) return;
-    if (!hasBookingPassed(b)) return;
-    const key = bookingPersonKey.get(b.id);
-    if (key) personHasPassedSecond.add(key);
-  });
+  const hasBookingPassed = (b: IntroBooked): boolean => hasClassTimePassed(b as any, now);
 
   const firstBookings = activeBookings.filter(b => {
     if (!isFirstBooking(b)) return false;
     if (!isInRange(b.class_date, dateRange || null)) return false;
     if (!hasBookingPassed(b)) return false;
-    const key = bookingPersonKey.get(b.id);
-    if (key && personHasPassedSecond.has(key)) return false;
     return true;
   });
   const secondBookings = activeBookings.filter(b =>
-    !isFirstBooking(b) && isInRange(b.class_date, dateRange || null) && hasBookingPassed(b)
+    !isFirstBooking(b) && !promotedOrphanIds.has(b.id)
+    && bookingIsSecond.get(b.id)
+    && isInRange(b.class_date, dateRange || null) && hasBookingPassed(b)
   );
 
   const firstBP: DrillPerson[] = firstBookings.map(b => ({ name: b.member_name, date: b.class_date, detail: b.lead_source }));
@@ -200,7 +165,7 @@ export function computeFunnelBothRows(
   const firstSP: DrillPerson[] = [];
   firstBookings.forEach(b => {
     const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id);
-    const showedRun = runs.find(r => r.result !== 'No-show' && isRunInRange(r, dateRange || null));
+    const showedRun = runs.find(r => didIntroActuallyRun(r) && isRunInRange(r, dateRange || null));
     if (showedRun) {
       firstShowed++;
       const detailText = isMembershipSale(showedRun.result) ? showedRun.result : ((showedRun as any).primary_objection || showedRun.result || undefined);
@@ -212,7 +177,7 @@ export function computeFunnelBothRows(
   const secondSP: DrillPerson[] = [];
   secondBookings.forEach(b => {
     const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id);
-    const showedRun = runs.find(r => r.result !== 'No-show' && isRunInRange(r, dateRange || null));
+    const showedRun = runs.find(r => didIntroActuallyRun(r) && isRunInRange(r, dateRange || null));
     if (showedRun) {
       secondShowed++;
       const detailText = isMembershipSale(showedRun.result) ? showedRun.result : ((showedRun as any).primary_objection || showedRun.result || undefined);

@@ -87,6 +87,32 @@ export function parseLocalDate(s: string | null | undefined): Date | null {
   return new Date(y, m - 1, d, 12, 0, 0, 0); // noon to dodge DST edges
 }
 
+/**
+ * Canonical "has this class already started?" check.
+ *
+ * Single source of truth — used by Studio Scoreboard's pastAndTodayBookings
+ * AND by Conversion Funnel's first/second-intro gating so both surfaces
+ * agree on which classes count as "passed". Time-aware: if intro_time is
+ * present we compare against scheduled start; otherwise we treat the class
+ * as passed at end-of-day local. Anchored to local (Central) time.
+ */
+export function hasClassTimePassed(
+  booking: { class_date?: string | null; intro_time?: string | null } | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!booking?.class_date) return false;
+  const [y, m, d] = booking.class_date.split('-').map(Number);
+  if (!y || !m || !d) return false;
+  const introTime = booking.intro_time || null;
+  if (introTime) {
+    const match = introTime.match(/(\d{1,2}):(\d{2})/);
+    if (match) {
+      return new Date(y, m - 1, d, +match[1], +match[2]) <= now;
+    }
+  }
+  return new Date(y, m - 1, d, 23, 59, 59) <= now;
+}
+
 /** Returns current month as YYYY-MM in Central Time */
 export function getCurrentMonthYear(): string {
   return format(getNowCentral(), 'yyyy-MM');
