@@ -36,6 +36,8 @@ interface TaggedBookingRow {
 function useAllEventTaggedBookings() {
   return useQuery<TaggedBookingRow[]>({
     queryKey: ['event-cohort', 'all-tagged'],
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async () => {
       const { data, error } = await supabase
         .from('intros_booked')
