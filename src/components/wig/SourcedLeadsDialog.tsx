@@ -26,6 +26,7 @@ import {
   getCurrentPayPeriod,
 } from '@/lib/pay-period';
 import { useSaLeads, type SaLeadPersonRow } from '@/hooks/useSaLeads';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useMarkLeadImported } from '@/hooks/useMarkLeadImported';
 import { downloadSourcedLeadsCsv, type SourcedLeadCsvRow } from '@/lib/sa/sourcedLeadsCsv';
 import { format } from 'date-fns';
