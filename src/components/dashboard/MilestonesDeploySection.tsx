@@ -15,6 +15,13 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { PersonListDrillDown } from './PersonListDrillDown';
+import { DateRangeFilter } from './DateRangeFilter';
+import {
+  type DatePreset,
+  type DateRange,
+  getDateRangeForPreset,
+  getCurrentPayPeriod,
+} from '@/lib/pay-period';
 
 interface MilestoneRow {
   id: string;
@@ -90,8 +97,24 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const [editSaving, setEditSaving] = useState(false);
   const [editCelebrated, setEditCelebrated] = useState(false);
 
-  const rangeStartYMD = dateRange ? format(dateRange.start, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-01');
-  const rangeEndYMD = dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+  // If a parent passes dateRange, follow it (parent-controlled).
+  // Otherwise, render our own picker (defaults to current pay period
+  // so MyDay shows the active payout window, not just "this month").
+  const isControlled = !!dateRange;
+  const [preset, setPreset] = useState<DatePreset>('pay_period');
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
+
+  const ownRange = useMemo<DateRange>(() => {
+    const r = getDateRangeForPreset(preset, customRange);
+    return r ?? customRange ?? getCurrentPayPeriod();
+  }, [preset, customRange]);
+
+  const effectiveRange: DateRange = isControlled
+    ? (dateRange as DateRange)
+    : ownRange;
+
+  const rangeStartYMD = format(effectiveRange.start, 'yyyy-MM-dd');
+  const rangeEndYMD = format(effectiveRange.end, 'yyyy-MM-dd');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -395,7 +418,18 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
 
   return (
     <div className="space-y-4">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Milestones</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Milestones</p>
+        {!isControlled && (
+          <DateRangeFilter
+            preset={preset}
+            customRange={customRange}
+            onPresetChange={setPreset}
+            onCustomRangeChange={(r) => { setCustomRange(r); setPreset('custom'); }}
+            dateRange={effectiveRange}
+          />
+        )}
+      </div>
 
       {/* Weekly summary */}
       <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
