@@ -104,9 +104,10 @@ export function EventsIndexPanel({ selectedEventId, onSelectEvent }: Props) {
       if (!b.event_id) continue;
       const t = map.get(b.event_id) || emptyTotals();
       t.booked += 1;
-      if (b.booking_status_canon === 'SHOWED') t.showed += 1;
-      if (b.booking_status_canon === 'NO_SHOW') t.noShow += 1;
+      const attended = didAttendEvent(b);
       const runs = b.intros_run || [];
+      if (attended) t.showed += 1;
+      else if (b.booking_status_canon === 'NO_SHOW' || runs.some(r => (r.result_canon || '').toUpperCase() === 'NO_SHOW')) t.noShow += 1;
       if (runs.some(r => isCloseRun(r as any))) t.bought += 1;
       map.set(b.event_id, t);
     }
