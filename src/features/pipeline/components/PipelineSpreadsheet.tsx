@@ -681,8 +681,13 @@ function ExpandedRowDetail({
               if (!val) return;
               const latestBooking = journey.bookings[0];
               if (!latestBooking) return;
-              await supabase.from('intros_booked').update({ intro_owner: val }).eq('id', latestBooking.id);
-              toast.success(`Owner set to ${val}`);
+              const ok = await setIntroOwnerForJourney(latestBooking.id, val, {
+                editor: 'Pipeline (inline)',
+                reason: 'Owner edited inline in Pipeline',
+                source: 'PipelineSpreadsheet:inline',
+              });
+              if (ok) toast.success(`Owner set to ${val}`);
+              else toast.error('Failed to set owner');
               setEditingOwner(false);
               handleRefresh();
             }}
