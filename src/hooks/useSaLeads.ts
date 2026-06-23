@@ -5,19 +5,19 @@
  *
  * Sources counted:
  *   1. `leads` rows where `sourced_by_sa` is set AND `source` passes
- *      `isSelfSourcedLeadSource` (matches the canonical predicate used by
- *      the booked-SGL path so the two stay coherent).
+ *      `isSelfSourcedLeadSource`.
  *   2. `intros_booked` rows where the source passes the same predicate but
- *      no `leads` row is linked to that booking via `booked_intro_id` — this
- *      covers historical/auto-imported SGL bookings that never got a leads
- *      row tagged with sourced_by_sa. Without this, the Leads count would
- *      understate the true number of self-sourced people.
+ *      no `leads` row is linked to that booking via `booked_intro_id`.
+ *   3. `vip_registrations` rows (is_group_contact=false) attributed to the
+ *      `vip_sessions.sa_setup_name` of the linked session. Credits the SA
+ *      who set up the VIP class for every attendee they sourced, even
+ *      before any of them book a 1:1 intro. Dedup: if registration.booking_id
+ *      is set, the booking path already counts that person — skip.
  *
- * A person who appears in both (lead row → booked) counts ONCE; the lead
- * row wins because it carries the sourced_by_sa attribution.
+ * A person who appears in multiple sources counts ONCE.
  *
- * Date field: `leads.created_at` for lead rows, `intros_booked.created_at`
- * for unlinked SGL bookings.
+ * Date field: `leads.created_at`, `intros_booked.created_at`,
+ * `vip_registrations.created_at`.
  */
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
