@@ -199,6 +199,14 @@ function Body({ rows, emptyText, footer, subtitle, scopeBadge }: {
                       {r.subtitle && <p className="text-[10px] text-muted-foreground font-normal">{r.subtitle}</p>}
                     </NameEl>
                     {rightSlot}
+                    {r.onReassign && r.reassignChoices && r.reassignChoices.length > 0 && (
+                      <ReassignButton
+                        onReassign={r.onReassign}
+                        choices={r.reassignChoices}
+                        currentSa={r.currentSa}
+                        name={r.name}
+                      />
+                    )}
                     {r.onRemove && (
                       <RemoveButton
                         onRemove={r.onRemove}
