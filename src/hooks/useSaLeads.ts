@@ -164,7 +164,7 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
     // ── 3) VIP registrants → credit SA who set up the VIP class ───────────
     const { data: regRows } = await supabase
       .from('vip_registrations')
-      .select('id, first_name, last_name, phone, vip_session_id, booking_id, is_group_contact, created_at, mindbody_imported_at, mindbody_imported_by')
+      .select('id, first_name, last_name, phone, email, vip_session_id, booking_id, is_group_contact, created_at, mindbody_imported_at, mindbody_imported_by')
       .gte('created_at', startIso)
       .lte('created_at', endIso)
       .eq('is_group_contact', false)
