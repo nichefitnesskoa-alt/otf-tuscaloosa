@@ -277,3 +277,40 @@ export async function removeSelfSourcedRow(rowId: string): Promise<void> {
   );
 }
 
+/**
+ * Admin reassign: change which SA is credited for a self-sourced row.
+ *
+ * - "lead-{uuid}"  → leads.sourced_by_sa = newSa
+ * - "bk-{uuid}"    → intros_booked.booked_by = newSa (best-effort; VIP
+ *                    bookings credit via vip_sessions.sa_setup_name, so
+ *                    those reassignments may not move the WIG credit).
+ * - "vip-{uuid}"   → not supported here (would re-credit the whole session).
+ */
+export async function reassignSelfSourcedRow(rowId: string, newSa: string): Promise<void> {
+  const sa = (newSa || '').trim();
+  if (!sa) throw new Error('Pick an SA');
+  if (rowId.startsWith('lead-')) {
+    const id = rowId.slice('lead-'.length);
+    const { error } = await supabase
+      .from('leads')
+      .update({ sourced_by_sa: sa })
+      .eq('id', id);
+    if (error) throw error;
+  } else if (rowId.startsWith('bk-')) {
+    const id = rowId.slice('bk-'.length);
+    const { error } = await supabase
+      .from('intros_booked')
+      .update({ booked_by: sa })
+      .eq('id', id);
+    if (error) throw error;
+  } else if (rowId.startsWith('vip-')) {
+    throw new Error('VIP registrants are credited via the VIP session setup — reassign that on the VIP session instead.');
+  } else {
+    throw new Error(`Unknown self-sourced row id: ${rowId}`);
+  }
+  notifyDataChanged(
+    ['leads', 'intros_booked', 'sa-leads', 'sa-leads-booked'],
+    'reassign-self-sourced-row',
+  );
+}
+
