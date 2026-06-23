@@ -459,7 +459,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           scopeBadge="WIG drilldown"
         />
       )}
-      <SourcedLeadsDialog open={sourcedLeadsOpen} onOpenChange={setSourcedLeadsOpen} />
+      <SourcedLeadsDialog open={sourcedLeadsOpen} onOpenChange={setSourcedLeadsOpen} initialRange={dateRange} />
     </>
   );
 }

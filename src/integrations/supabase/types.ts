@@ -3971,6 +3971,8 @@ export type Database = {
           is_group_contact: boolean
           last_name: string | null
           membership_type: string | null
+          mindbody_imported_at: string | null
+          mindbody_imported_by: string | null
           outcome: string | null
           outcome_logged_at: string | null
           outcome_logged_by: string | null
@@ -3998,6 +4000,8 @@ export type Database = {
           is_group_contact?: boolean
           last_name?: string | null
           membership_type?: string | null
+          mindbody_imported_at?: string | null
+          mindbody_imported_by?: string | null
           outcome?: string | null
           outcome_logged_at?: string | null
           outcome_logged_by?: string | null
@@ -4025,6 +4029,8 @@ export type Database = {
           is_group_contact?: boolean
           last_name?: string | null
           membership_type?: string | null
+          mindbody_imported_at?: string | null
+          mindbody_imported_by?: string | null
           outcome?: string | null
           outcome_logged_at?: string | null
           outcome_logged_by?: string | null

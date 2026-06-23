@@ -1,16 +1,19 @@
 /**
- * Self-sourced leads explorer dialog (WIG SA Leaderboard → "Sourced Leads" button).
+ * Self-sourced leads explorer dialog (WIG SA Leaderboard → "Sourced Leads").
  *
- * - Date range picker (presets + custom) drives the query.
+ * Reads from the SAME hook the WIG tile aggregates (`useSaLeads`) so the
+ * dialog total always equals the WIG tile total for the same date range.
+ * No separate counting logic.
+ *
+ * - Defaults to the WIG-selected date range (passed via prop), with the
+ *   picker still available to switch.
  * - Status filter: Needs Mindbody import / Already in Mindbody / All.
  * - Total tile + grouped-by-SA / flat-list toggle.
- * - Per-lead "Imported to Mindbody" checkbox (writes leads.mindbody_imported_at).
+ * - Per-row "Imported to Mindbody" checkbox writes to leads or
+ *   vip_registrations depending on the row's source.
  * - Download CSV of current filtered set.
- *
- * The row set is the UNION of `leads` rows with sourced_by_sa AND
- * `intros_booked` rows with booked_by — see useSourcedLeadsInRange.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -22,7 +25,8 @@ import {
   getDateRangeForPreset,
   getCurrentPayPeriod,
 } from '@/lib/pay-period';
-import { useSourcedLeadsInRange } from '@/hooks/useSourcedLeadsInRange';
+import { useSaLeads, type SaLeadPersonRow } from '@/hooks/useSaLeads';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useMarkLeadImported } from '@/hooks/useMarkLeadImported';
 import { downloadSourcedLeadsCsv, type SourcedLeadCsvRow } from '@/lib/sa/sourcedLeadsCsv';
 import { format } from 'date-fns';
@@ -31,6 +35,9 @@ import { cn } from '@/lib/utils';
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  /** Date range currently selected on the WIG page — the dialog opens to
+   *  this exact range so its total matches the WIG tile by default. */
+  initialRange?: DateRange;
 }
 
 type View = 'grouped' | 'flat';
@@ -45,31 +52,121 @@ function fmtCentralDate(iso: string): string {
   } catch { return iso; }
 }
 
-/** A row is "in Mindbody" if it's booked (auto-imported via Mindbody booking) OR
- *  manually marked imported by an SA. */
 function isInMindbody(r: SourcedLeadCsvRow): boolean {
   return !!r.booked_intro_id || !!r.mindbody_imported_at;
 }
 
-export function SourcedLeadsDialog({ open, onOpenChange }: Props) {
-  const [preset, setPreset] = useState<DatePreset>('pay_period');
-  const [customRange, setCustomRange] = useState<DateRange | undefined>();
+/** Map a SaLeadPersonRow + sa name → the row shape the dialog renders. */
+function toDialogRow(p: SaLeadPersonRow, sa: string): SourcedLeadCsvRow {
+  let source_type: SourcedLeadCsvRow['source_type'] = 'lead';
+  if (p.id.startsWith('bk-')) source_type = 'booking';
+  else if (p.id.startsWith('vip-')) source_type = 'vip_registrant';
+  const [first, ...rest] = (p.name || '').split(' ');
+  return {
+    id: p.id,
+    first_name: first || '',
+    last_name: rest.join(' '),
+    phone: p.phone || '',
+    email: null,
+    source: p.source,
+    sourced_by_sa: sa,
+    booked_intro_id: p.booked ? p.booking_id : null,
+    text_archived_at: null,
+    text_archived_reason: null,
+    created_at: p.created_at,
+    stage: p.booked ? 'booked' : null,
+    mindbody_imported_at: p.mindbody_imported_at,
+    mindbody_imported_by: p.mindbody_imported_by,
+    source_type,
+  };
+}
+
+/** Match a date preset against the incoming initialRange so the picker
+ *  shows the right chip when the dialog opens. */
+function detectPreset(r: DateRange | undefined): DatePreset {
+  if (!r) return 'pay_period';
+  const start = r.start;
+  const end = r.end;
+  // Calendar month?
+  if (
+    start.getDate() === 1 &&
+    end.getMonth() === start.getMonth() &&
+    end.getFullYear() === start.getFullYear()
+  ) {
+    return 'this_month';
+  }
+  return 'custom';
+}
+
+export function SourcedLeadsDialog({ open, onOpenChange, initialRange }: Props) {
+  const [preset, setPreset] = useState<DatePreset>(() => detectPreset(initialRange));
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(initialRange);
   const [view, setView] = useState<View>('grouped');
   const [status, setStatus] = useState<StatusFilter>('needs');
   const [expandedSa, setExpandedSa] = useState<Record<string, boolean>>({});
 
+  // When the dialog opens, sync to the latest WIG range. Don't override the
+  // user's choices once the dialog is already open.
+  useEffect(() => {
+    if (!open || !initialRange) return;
+    setPreset(detectPreset(initialRange));
+    setCustomRange(initialRange);
+  }, [open, initialRange]);
+
   const dateRange = useMemo<DateRange>(() => {
     const r = getDateRangeForPreset(preset, customRange);
-    return r ?? getCurrentPayPeriod();
+    return r ?? customRange ?? getCurrentPayPeriod();
   }, [preset, customRange]);
 
-  const startIso = preset === 'all_time' ? null : dateRange.start.toISOString();
-  const endIso = preset === 'all_time' ? null : dateRange.end.toISOString();
+  const rangeStart = preset === 'all_time'
+    ? '2020-01-01'
+    : format(dateRange.start, 'yyyy-MM-dd');
+  const rangeEnd = preset === 'all_time'
+    ? format(new Date(), 'yyyy-MM-dd')
+    : format(dateRange.end, 'yyyy-MM-dd');
 
-  const { rows: allRows, loading, patchRow } = useSourcedLeadsInRange(startIso, endIso);
+  const { rows: saRows, loading } = useSaLeads(rangeStart, rangeEnd);
+
+  // Match the WIG SA Leaderboard scope: only active SAs, and exclude Koa
+  // (Admin, not on the SA leaderboard). Same filter as WigSaLeaderboard,
+  // so the dialog total equals the WIG tile total.
+  const { salesAssociates: activeSas } = useActiveStaff();
+  const activeSet = useMemo(
+    () => new Set((activeSas || []).filter(n => n !== 'Koa')),
+    [activeSas],
+  );
+
+  // Flatten useSaLeads → one row per person, tagged with their SA.
+  // Apply local patches (optimistic Mindbody-import toggles) on top.
+  const [localPatches, setLocalPatches] = useState<Map<string, Partial<SourcedLeadCsvRow>>>(new Map());
+  // Clear patches whenever the source data refetches (refetch will already
+  // contain any persisted writes).
+  useEffect(() => { setLocalPatches(new Map()); }, [saRows]);
+
+  const allRows = useMemo<SourcedLeadCsvRow[]>(() => {
+    const out: SourcedLeadCsvRow[] = [];
+    for (const r of saRows) {
+      if (!activeSet.has(r.sa)) continue;
+      for (const p of r.people) {
+        const base = toDialogRow(p, r.sa);
+        const patch = localPatches.get(base.id);
+        out.push(patch ? { ...base, ...patch } : base);
+      }
+    }
+    // Newest first.
+    return out.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  }, [saRows, localPatches]);
+
+  const patchRow = (id: string, patch: Partial<SourcedLeadCsvRow>) => {
+    setLocalPatches(prev => {
+      const next = new Map(prev);
+      next.set(id, { ...(next.get(id) || {}), ...patch });
+      return next;
+    });
+  };
+
   const { setImported, isPending } = useMarkLeadImported({ patchRow });
 
-  // Apply status filter
   const rows = useMemo(() => {
     if (status === 'all') return allRows;
     if (status === 'needs') return allRows.filter(r => !isInMindbody(r));
@@ -96,7 +193,9 @@ export function SourcedLeadsDialog({ open, onOpenChange }: Props) {
   }, [rows]);
 
   const handleDownload = () => {
-    const label = preset === 'all_time' ? 'all-time' : `${format(dateRange.start, 'yyyy-MM-dd')}_to_${format(dateRange.end, 'yyyy-MM-dd')}`;
+    const label = preset === 'all_time'
+      ? 'all-time'
+      : `${format(dateRange.start, 'yyyy-MM-dd')}_to_${format(dateRange.end, 'yyyy-MM-dd')}`;
     downloadSourcedLeadsCsv(rows, label);
   };
 
@@ -306,8 +405,8 @@ function LeadRow({
           {!isBooked && l.mindbody_imported_at && (
             <span className="ml-2 text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded">In Mindbody</span>
           )}
-          {l.text_archived_at && (
-            <span className="ml-2 text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">Archived</span>
+          {l.source_type === 'vip_registrant' && (
+            <span className="ml-2 text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">VIP</span>
           )}
         </div>
         <div className="text-xs text-muted-foreground truncate">
