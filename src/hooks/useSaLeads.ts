@@ -91,7 +91,7 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
     // ── 2) SGL bookings whose booking_id is NOT already represented by a lead row
     const { data: sglBookings } = await supabase
       .from('intros_booked')
-      .select('id, lead_source, booked_by, vip_session_id, created_at, deleted_at, ignore_from_metrics, member_name, originating_booking_id, phone')
+      .select('id, lead_source, booked_by, vip_session_id, created_at, deleted_at, ignore_from_metrics, member_name, originating_booking_id, phone, email')
       .gte('created_at', startIso)
       .lte('created_at', endIso)
       .is('deleted_at', null);
