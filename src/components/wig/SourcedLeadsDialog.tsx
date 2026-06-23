@@ -53,7 +53,13 @@ function fmtCentralDate(iso: string): string {
 }
 
 function isInMindbody(r: SourcedLeadCsvRow): boolean {
-  return !!r.booked_intro_id || !!r.mindbody_imported_at;
+  // VIP registrants register via the VIP form which writes them into
+  // Mindbody automatically — always treat as already imported.
+  return (
+    !!r.booked_intro_id ||
+    !!r.mindbody_imported_at ||
+    r.source_type === 'vip_registrant'
+  );
 }
 
 /** Map a SaLeadPersonRow + sa name → the row shape the dialog renders. */
