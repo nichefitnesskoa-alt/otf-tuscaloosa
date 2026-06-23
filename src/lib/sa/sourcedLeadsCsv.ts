@@ -1,20 +1,35 @@
 /**
  * Pure CSV builder for the self-sourced leads explorer.
  *
- * `SourcedLeadCsvRow` is the union shape used by the dialog: it can represent
- * either an actual row from `leads` (source_type='lead') OR a synthetic row
- * derived from an `intros_booked` record where an SA was the booker but no
- * separate leads row was ever created (source_type='booking').
+ * `SourcedLeadCsvRow` is the union shape used by the dialog. It is now
+ * derived from `useSaLeads.SaLeadPersonRow` so the dialog total always
+ * matches the WIG tile total — same source, same counting rules.
+ *
+ * source_type:
+ *   - 'lead'           → real leads row (id starts with `lead-`)
+ *   - 'booking'        → intros_booked row with no separate lead (id `bk-`)
+ *   - 'vip_registrant' → vip_registrations row, unbooked (id `vip-`)
  */
 import { format } from 'date-fns';
-import type { SourcedLeadRow } from '@/lib/sa/sourcedLeadsToText';
 
-export interface SourcedLeadCsvRow extends SourcedLeadRow {
+export interface SourcedLeadCsvRow {
+  /** Stable id — keep the source-prefixed form from useSaLeads so the UI
+   *  can branch checkbox writes correctly. */
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  email: string | null;
+  source: string | null;
+  sourced_by_sa: string | null;
+  booked_intro_id: string | null;
+  text_archived_at: string | null;
+  text_archived_reason?: string | null;
+  created_at: string;
   stage?: string | null;
-  mindbody_imported_at?: string | null;
-  mindbody_imported_by?: string | null;
-  /** 'lead' = real leads row. 'booking' = synthetic, derived from intros_booked. */
-  source_type: 'lead' | 'booking';
+  mindbody_imported_at: string | null;
+  mindbody_imported_by: string | null;
+  source_type: 'lead' | 'booking' | 'vip_registrant';
 }
 
 function esc(v: unknown): string {
