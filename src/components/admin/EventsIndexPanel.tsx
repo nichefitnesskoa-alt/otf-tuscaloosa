@@ -11,8 +11,8 @@
  *
  * No new totals logic. No fake revenue/ROI.
  */
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ListChecks, CalendarDays, DollarSign, ChevronRight, Loader2 } from 'lucide-react';
@@ -36,6 +36,8 @@ interface TaggedBookingRow {
 function useAllEventTaggedBookings() {
   return useQuery<TaggedBookingRow[]>({
     queryKey: ['event-cohort', 'all-tagged'],
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async () => {
       const { data, error } = await supabase
         .from('intros_booked')
@@ -67,6 +69,20 @@ interface Props {
 export function EventsIndexPanel({ selectedEventId, onSelectEvent }: Props) {
   const { data: events = [], isLoading: eventsLoading } = useEvents();
   const { data: tagged = [], isLoading: bookingsLoading } = useAllEventTaggedBookings();
+  const queryClient = useQueryClient();
+
+  // Realtime: keep the events index totals coherent with Pipeline writes
+  // (new event-tagged booking, outcome flip, soft-delete).
+  useEffect(() => {
+    const channel = supabase
+      .channel('events-index-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' },
+        () => queryClient.invalidateQueries({ queryKey: ['event-cohort'] }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_run' },
+        () => queryClient.invalidateQueries({ queryKey: ['event-cohort'] }))
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const totalsByEvent = useMemo(() => {
     const map = new Map<string, EventTotals>();

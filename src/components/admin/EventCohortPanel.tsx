@@ -6,8 +6,8 @@
  * + canonical helpers (didIntroActuallyRun, isCloseRun, buy_date).
  * No revenue/ROI — real counts vs cost only.
  */
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +43,8 @@ function useCohort(eventId: string | null) {
   return useQuery<CohortBookingRow[]>({
     queryKey: ['event-cohort', eventId],
     enabled: !!eventId,
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async () => {
       const { data, error } = await supabase
         .from('intros_booked')
@@ -80,6 +82,21 @@ export function EventCohortPanel({ eventId: controlledEventId, onEventIdChange }
   };
   const { data: cohort = [], isLoading: cohortLoading } = useCohort(eventId);
   const [selectedPerson, setSelectedPerson] = useState<SelectedPerson | null>(null);
+  const queryClient = useQueryClient();
+
+  // Realtime: when any intros_booked / intros_run row changes (new event tag,
+  // outcome change, soft-delete), refresh cohort + events index totals so the
+  // admin tab never falls out of sync with Pipeline writes.
+  useEffect(() => {
+    const channel = supabase
+      .channel('event-cohort-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' },
+        () => queryClient.invalidateQueries({ queryKey: ['event-cohort'] }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_run' },
+        () => queryClient.invalidateQueries({ queryKey: ['event-cohort'] }))
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const selectedEvent = events.find(e => e.id === eventId);
 
