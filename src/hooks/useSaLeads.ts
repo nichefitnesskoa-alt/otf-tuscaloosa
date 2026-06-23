@@ -78,7 +78,7 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
     // ── 1) Sourced lead rows ────────────────────────────────────────────────
     const { data: leadRows } = await supabase
       .from('leads')
-      .select('id, first_name, last_name, phone, source, sourced_by_sa, created_at, booked_intro_id, mindbody_imported_at, mindbody_imported_by')
+      .select('id, first_name, last_name, phone, email, source, sourced_by_sa, created_at, booked_intro_id, mindbody_imported_at, mindbody_imported_by')
       .not('sourced_by_sa', 'is', null)
       .gte('created_at', startIso)
       .lte('created_at', endIso);
