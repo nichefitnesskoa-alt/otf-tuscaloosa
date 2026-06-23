@@ -8,11 +8,13 @@ import { isSaleInRange, isMembershipSale } from '@/lib/sales-detection';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 import { didIntroActuallyRun } from '@/lib/canon/introRules';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
+import { resolvePromotedOrphanBookingIds, isFirstIntroForMetrics } from '@/lib/intros/orphanedFirstIntros';
 import { walkJourneyChain } from '@/lib/intros/journey';
 import { PersonListDrillDown, DrillNumber, PersonRow } from './PersonListDrillDown';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
+import { formatTime12h } from '@/lib/datetime/formatTime';
 import type { DateRange } from '@/lib/pay-period';
 
 export interface PerSAMetrics {
@@ -59,10 +61,20 @@ export function PerSATable({ data, dateRange }: PerSATableProps) {
       if (!dateRange || !dateStr) return true;
       try { const d = parseLocalDate(dateStr); return d >= dateRange.start && d <= dateRange.end; } catch { return false; }
     };
-    // First-intro bookings owned by this SA
+
+    // Apply same exclusions / promoted-orphan rule as the aggregation, so the
+    // drilldown can never include or exclude a row the count doesn't.
+    const promotedOrphanIds = resolvePromotedOrphanBookingIds(
+      (introsBooked as any[]) || [],
+      (introsRun as any[]) || [],
+    );
+
+    // First-intro chain roots owned by this SA (includes promoted orphans
+    // whose original 1st intro was excluded — e.g. a 2nd intro after a
+    // soft-deleted original).
     const firstByOwner = (introsBooked || []).filter((b: any) => {
       if (isBookingExcludedFromMetrics(b)) return false;
-      if ((b as any).originating_booking_id && !(b as any).referred_by_member_name) return false;
+      if (!isFirstIntroForMetrics(b, promotedOrphanIds)) return false;
       const owner = (b as any).intro_owner || (b as any).booked_by || b.sa_working_shift;
       return owner === sa;
     });
@@ -94,15 +106,31 @@ export function PerSATable({ data, dateRange }: PerSATableProps) {
             (isSaleInRange(r as any, dateRange ?? null) || inRange((r as any).run_date)),
           )
         : undefined;
+      // Also check chain for any ran outcome (e.g. 2nd intro that ran)
+      const journeyRan = !ranInRange
+        ? chain.runs.some(r =>
+            r.linked_intro_booked_id !== b.id &&
+            didIntroActuallyRun(r as any) &&
+            inRange((r as any).run_date),
+          )
+        : false;
       const sale = directSale || journeySale;
-      const include = drill.metric === 'sales' ? !!sale : (ranInRange || !!sale);
+      const ran = ranInRange || journeyRan;
+      const include = drill.metric === 'sales' ? !!sale : (ran || !!sale);
       if (!include) return;
       const lastRun = runs[runs.length - 1];
       const label = sale ? 'SALE' : labelForRun(lastRun);
+      const dateLabel = b.class_date ? format(parseLocalDate(b.class_date), 'MMM d') : '—';
+      const timeLabel = b.intro_time ? formatTime12h(b.intro_time) : null;
+      const subtitleParts = [
+        timeLabel ? `${dateLabel} · ${timeLabel}` : dateLabel,
+        b.lead_source || null,
+        journeySale && !directSale ? 'via 2nd intro' : null,
+      ].filter(Boolean) as string[];
       rows.push({
         id: b.id,
         name: b.member_name || 'Unknown',
-        subtitle: `${b.class_date ? format(parseLocalDate(b.class_date), 'MMM d') : '—'}${b.lead_source ? ' · ' + b.lead_source : ''}${journeySale && !directSale ? ' · via 2nd intro' : ''}`,
+        subtitle: subtitleParts.join(' · '),
         rightLabel: label,
         rightTone: sale ? 'success' : label === 'No Show' ? 'muted' : label === 'Follow-Up' ? 'warning' : 'primary',
         onClick: () => journey.openByBooking(b.id),

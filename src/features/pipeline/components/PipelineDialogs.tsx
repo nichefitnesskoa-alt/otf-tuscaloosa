@@ -34,7 +34,7 @@ import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 import { EventPicker } from '@/components/events/EventPicker';
 import { getLocalDateString } from '../helpers';
 import { capitalizeName } from '@/lib/utils';
-import { updateOutcomeFromPipeline, updateBookingFieldsFromPipeline, syncIntroOwnerToBooking, assertNoOutcomeOwnedFields } from '../pipelineActions';
+import { updateOutcomeFromPipeline, updateBookingFieldsFromPipeline, syncIntroOwnerToBooking, setIntroOwnerForJourney, assertNoOutcomeOwnedFields } from '../pipelineActions';
 import { normalizeBookingStatus, normalizeIntroResultStrict } from '@/lib/domain/outcomes/types';
 import type { ClientJourney, PipelineBooking, PipelineRun } from '../pipelineTypes';
 
@@ -196,12 +196,14 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 editedBy: userName,
                 editReason: editBookingReason || 'Pipeline edit',
               });
-              // Separately update intro_owner since it's not in updateBookingFieldsFromPipeline signature
+              // Canonical owner write: updates booking + every linked run +
+              // 2nd-intro children so Per-SA count and drilldown can't drift.
               const anyBooking = editBooking as any;
-              await supabase.from('intros_booked').update({
-                intro_owner: anyBooking.intro_owner || null,
-                intro_owner_locked: !!anyBooking.intro_owner,
-              }).eq('id', editBooking.id);
+              await setIntroOwnerForJourney(editBooking.id, anyBooking.intro_owner || null, {
+                editor: userName,
+                reason: editBookingReason || 'Owner edited via Edit Booking dialog',
+                source: 'PipelineDialogs:EditBooking',
+              });
               toast.success('Booking updated');
               setEditBooking(null);
             })}>
@@ -447,13 +449,12 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
             <Button disabled={isSaving} onClick={() => withSave(async () => {
               const isClearing = !newIntroOwner || newIntroOwner === '__CLEAR__';
               if (booking.intro_owner_locked && !isClearing && !ownerOverrideReason) { toast.error('Override reason required'); return; }
-              await supabase.from('intros_booked').update({
-                intro_owner: isClearing ? null : newIntroOwner,
-                intro_owner_locked: !isClearing,
-                last_edited_at: new Date().toISOString(),
-                last_edited_by: userName,
-                edit_reason: ownerOverrideReason || (isClearing ? 'Cleared intro owner' : 'Set intro owner'),
-              }).eq('id', booking.id);
+              await setIntroOwnerForJourney(booking.id, isClearing ? null : newIntroOwner, {
+                editor: userName,
+                reason: ownerOverrideReason || (isClearing ? 'Cleared intro owner' : 'Set intro owner'),
+                source: 'PipelineDialogs:SetOwner',
+                lock: !isClearing,
+              });
               toast.success(isClearing ? 'Intro owner cleared' : `Intro owner set to ${newIntroOwner}`);
               setNewIntroOwner(''); setOwnerOverrideReason('');
             })}>

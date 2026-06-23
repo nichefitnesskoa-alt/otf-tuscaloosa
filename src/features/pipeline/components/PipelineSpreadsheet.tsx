@@ -27,6 +27,7 @@ import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 import type { ClientJourney, PipelineBooking, PipelineRun, JourneyTab, VipInfo, PipelineScriptAction } from '../pipelineTypes';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
+import { setIntroOwnerForJourney } from '../pipelineActions';
 
 interface PipelineSpreadsheetProps {
   journeys: ClientJourney[];
@@ -38,6 +39,10 @@ interface PipelineSpreadsheetProps {
   onOpenDialog: (type: string, data?: any) => void;
   onRefresh: () => Promise<void>;
   onOpenScript?: (journey: ClientJourney) => void;
+  /** Booking id to auto-expand + scroll into view (from `?focus=` deep link). */
+  focusBookingId?: string | null;
+  /** Called once the focus is consumed so the URL param can be cleared. */
+  onFocusConsumed?: () => void;
 }
 
 type SortDir = 'asc' | 'desc';
@@ -251,6 +256,7 @@ function getSortValue(j: ClientJourney, key: string): string | number | boolean 
 
 export function PipelineSpreadsheet({
   journeys, vipInfoMap, scriptActionsMap, isLoading, activeTab, isOnline, onOpenDialog, onRefresh, onOpenScript,
+  focusBookingId, onFocusConsumed,
 }: PipelineSpreadsheetProps) {
   const { user } = useAuth();
   const parentRef = useRef<HTMLDivElement>(null);
@@ -295,6 +301,23 @@ export function PipelineSpreadsheet({
   useEffect(() => {
     virtualizer.measure();
   }, [expandedKey, virtualizer]);
+
+  // Deep-link: when a focusBookingId arrives, find the journey containing
+  // that booking, expand it, scroll it into view, then clear the URL param.
+  useEffect(() => {
+    if (!focusBookingId || !sorted.length) return;
+    const index = sorted.findIndex(j =>
+      j.bookings?.some((b: any) => b.id === focusBookingId),
+    );
+    if (index < 0) return;
+    const key = sorted[index].memberKey;
+    setExpandedKey(key);
+    // Defer scroll so virtualizer has the new size measured.
+    requestAnimationFrame(() => {
+      try { virtualizer.scrollToIndex(index, { align: 'center' }); } catch { /* noop */ }
+      onFocusConsumed?.();
+    });
+  }, [focusBookingId, sorted, virtualizer, onFocusConsumed]);
 
   // By Source: analytics summary view
   if (activeTab === 'by_lead_source') {
@@ -680,8 +703,13 @@ function ExpandedRowDetail({
               if (!val) return;
               const latestBooking = journey.bookings[0];
               if (!latestBooking) return;
-              await supabase.from('intros_booked').update({ intro_owner: val }).eq('id', latestBooking.id);
-              toast.success(`Owner set to ${val}`);
+              const ok = await setIntroOwnerForJourney(latestBooking.id, val, {
+                editor: 'Pipeline (inline)',
+                reason: 'Owner edited inline in Pipeline',
+                source: 'PipelineSpreadsheet:inline',
+              });
+              if (ok) toast.success(`Owner set to ${val}`);
+              else toast.error('Failed to set owner');
               setEditingOwner(false);
               handleRefresh();
             }}
