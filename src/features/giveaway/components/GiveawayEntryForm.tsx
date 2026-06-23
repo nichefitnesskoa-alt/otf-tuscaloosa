@@ -17,6 +17,7 @@ import { getGiveawayEndAt } from '../lib/endAt';
 
 import { getGiveawayTitle, getCoBrandParts } from '../lib/giveawayTitle';
 import { getEntryFormPrizeFraming } from '../lib/winnerCopy';
+import { BUILT_IN_ACTION_DEFAULTS, getActionLabel } from '../lib/actionLabels';
 
 
 interface PartnerActionState {
