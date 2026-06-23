@@ -39,6 +39,10 @@ interface PipelineSpreadsheetProps {
   onOpenDialog: (type: string, data?: any) => void;
   onRefresh: () => Promise<void>;
   onOpenScript?: (journey: ClientJourney) => void;
+  /** Booking id to auto-expand + scroll into view (from `?focus=` deep link). */
+  focusBookingId?: string | null;
+  /** Called once the focus is consumed so the URL param can be cleared. */
+  onFocusConsumed?: () => void;
 }
 
 type SortDir = 'asc' | 'desc';
