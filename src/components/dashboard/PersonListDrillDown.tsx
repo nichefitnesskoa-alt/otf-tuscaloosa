@@ -38,6 +38,12 @@ export interface PersonRow {
   onRemove?: () => void | Promise<void>;
   /** Confirm message shown before onRemove runs. Defaults to a generic one. */
   removeConfirm?: string;
+  /** Admin-only reassign handler. When set with reassignChoices, renders a
+   *  small picker to credit this row to a different SA (no delete/recreate). */
+  onReassign?: (newSa: string) => void | Promise<void>;
+  reassignChoices?: string[];
+  /** Current SA (excluded from the picker choices). */
+  currentSa?: string;
 }
 
 interface Props {
