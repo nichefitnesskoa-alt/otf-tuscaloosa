@@ -418,7 +418,18 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
 
   return (
     <div className="space-y-4">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Milestones</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Milestones</p>
+        {!isControlled && (
+          <DateRangeFilter
+            preset={preset}
+            customRange={customRange}
+            onPresetChange={setPreset}
+            onCustomRangeChange={(r) => { setCustomRange(r); setPreset('custom'); }}
+            dateRange={effectiveRange}
+          />
+        )}
+      </div>
 
       {/* Weekly summary */}
       <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
