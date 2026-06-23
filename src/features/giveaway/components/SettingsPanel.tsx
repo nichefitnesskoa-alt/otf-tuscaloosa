@@ -10,6 +10,7 @@ import {
 import { getGiveawayTitle, type TitleFormat } from '../lib/giveawayTitle';
 import { PartnerDeckSettings } from './PartnerDeckSettings';
 import { getGiveawayEndAt, type CountdownMode } from '../lib/endAt';
+import { BUILT_IN_ACTION_DEFAULTS, getActionLabel, type BuiltInActionKey } from '../lib/actionLabels';
 
 export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onSaved: () => void }) {
   const [duration, setDuration] = useState<number>(studio.countdown_duration_days);
