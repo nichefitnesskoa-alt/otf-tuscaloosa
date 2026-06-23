@@ -194,19 +194,8 @@ export function useDashboardMetrics(
     const todayYMD = getTodayYMD();
     const now = new Date();
 
-    const hasBookingPassed = (b: IntroBooked): boolean => {
-      const [y, m, d] = b.class_date.split('-').map(Number);
-      const introTime = (b as any).intro_time as string | null | undefined;
-      if (introTime) {
-        const match = introTime.match(/(\d{1,2}):(\d{2})/);
-        if (match) {
-          const scheduled = new Date(y, m - 1, d, +match[1], +match[2]);
-          return scheduled <= now;
-        }
-      }
-      // No start time: treat as end of day
-      return new Date(y, m - 1, d, 23, 59, 59) <= now;
-    };
+    const hasBookingPassed = (b: IntroBooked): boolean =>
+      hasClassTimePassed(b as any, now);
 
     // Past bookings + today's bookings that have passed their scheduled time.
     const pastAndTodayBookings = firstIntroBookings.filter(b => {
