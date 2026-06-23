@@ -199,7 +199,7 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
       const detail = (e as CustomEvent<DataChangedDetail>).detail;
       const scopes = detail?.scopes;
       if (!scopes || scopes.some(s =>
-        ['leads', 'intros_booked', 'vip_sessions', 'sa-leads', 'sa-leads-booked'].includes(s),
+        ['leads', 'intros_booked', 'vip_sessions', 'vip_registrations', 'sa-leads', 'sa-leads-booked'].includes(s),
       )) {
         fetchData();
       }
