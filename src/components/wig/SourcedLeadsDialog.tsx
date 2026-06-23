@@ -375,9 +375,11 @@ function LeadRow({
   isPending: boolean;
 }) {
   const inMindbody = isInMindbody(l);
-  // Booked rows (real or synthetic-from-bookings) are implicitly in Mindbody —
+  // Booked rows AND VIP registrants are implicitly in Mindbody —
   // checkbox shows checked + disabled, no write target.
   const isBooked = !!l.booked_intro_id;
+  const isVip = l.source_type === 'vip_registrant';
+  const lockedInMindbody = isBooked || isVip;
 
   return (
     <div className="flex items-center gap-3 px-3 py-2 text-sm">
@@ -385,11 +387,13 @@ function LeadRow({
         <label
           className={cn(
             'flex items-center justify-center min-w-[44px] min-h-[44px] -my-2 -ml-3 pl-3',
-            isBooked ? 'cursor-not-allowed' : 'cursor-pointer',
+            lockedInMindbody ? 'cursor-not-allowed' : 'cursor-pointer',
           )}
           title={
             isBooked
               ? 'Already in Mindbody (booked)'
+              : isVip
+              ? 'Already in Mindbody (VIP registrant)'
               : inMindbody
               ? 'Mark not yet imported'
               : 'Mark imported to Mindbody'
@@ -397,7 +401,7 @@ function LeadRow({
         >
           <Checkbox
             checked={inMindbody}
-            disabled={isBooked || isPending}
+            disabled={lockedInMindbody || isPending}
             onCheckedChange={(v) => onToggleImported(l.id, v === true)}
           />
         </label>
@@ -408,11 +412,11 @@ function LeadRow({
           {isBooked && (
             <span className="ml-2 text-xs bg-success/20 text-success px-1.5 py-0.5 rounded">Booked</span>
           )}
-          {!isBooked && l.mindbody_imported_at && (
+          {!isBooked && !isVip && l.mindbody_imported_at && (
             <span className="ml-2 text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded">In Mindbody</span>
           )}
-          {l.source_type === 'vip_registrant' && (
-            <span className="ml-2 text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">VIP</span>
+          {isVip && (
+            <span className="ml-2 text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded">VIP · In Mindbody</span>
           )}
         </div>
         <div className="text-xs text-muted-foreground truncate">
