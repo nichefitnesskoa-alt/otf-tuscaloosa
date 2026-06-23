@@ -45,6 +45,8 @@ export interface SaLeadPersonRow {
   booking_id: string | null;
   /** Contact phone (when available) — surfaced for the sourced-leads explorer. */
   phone: string | null;
+  /** Contact email (when available) — surfaced for the sourced-leads explorer. */
+  email: string | null;
   /** Manual "imported to Mindbody" mark. Booked rows are implicitly imported
    *  regardless of these fields. Lives on leads.* or vip_registrations.*. */
   mindbody_imported_at: string | null;
