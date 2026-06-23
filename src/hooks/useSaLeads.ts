@@ -203,6 +203,7 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
         booked: false,
         booking_id: null,
         phone: r.phone ?? null,
+        email: r.email ?? null,
         mindbody_imported_at: r.mindbody_imported_at ?? null,
         mindbody_imported_by: r.mindbody_imported_by ?? null,
       });
