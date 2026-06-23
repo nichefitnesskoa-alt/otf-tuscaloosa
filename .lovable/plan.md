@@ -1,50 +1,91 @@
 ## Goal
-Add an "Export CSV" button at the top-right of the SA Leaderboard section on the WIG tab that exports self-sourced leads with a date range picker and drilldown view.
 
-## What gets counted (canonical definition)
-A "self-sourced lead" = a row in the `leads` table where `sourced_by_sa` is set to a real SA (not a phantom name like Self-booked / System / Unknown). This is the same definition already used by `useSourcedLeadsToText` and `isSelfSourcedLeadSource` in `src/lib/sa/sourcedLeadsToText.ts` and `src/lib/sa/leadsBooked.ts` — we will reuse those helpers (no new logic) so this surface always agrees with the existing Sourced Leads system.
+Three changes to the Self-Sourced Leads dialog:
 
-Date filter: `leads.created_at` converted to America/Chicago day.
+1. **Explain the 53 vs 72 gap** and optionally widen the definition.
+2. **Filter for "already booked"** so Koa can hide leads that don't need Mindbody import.
+3. **Per-lead "Imported to Mindbody" checkbox** so SAs can mark each one off as they import.
 
-## UI
+## Why 53, not 72
 
-**Location:** Top-right of the SA Leaderboard card header on the WIG tab (`src/components/wig/WigSaLeaderboard.tsx`, around line 351).
+A `leads` row only exists when an SA logs a lead *before* a booking. When an SA creates an intro booking directly (no prior lead), the credit lives on `intros_booked.booked_by`, not on `leads.sourced_by_sa`. The auto-link trigger only fires when phone matches an existing lead.
 
-**Button:** "Sourced Leads" with a download icon, 44px tap target, OTF Orange.
+DB right now:
 
-**Click → opens a drawer/dialog** with:
+- `leads` with `sourced_by_sa` set (real SA): **53**
+- `intros_booked` with `booked_by` set (real SA, not deleted): **641** all-time
 
-1. **Date range picker** at top (shadcn Calendar, range mode, defaults to current pay period). Presets: This Week, This Pay Period, This Month, All-time, Custom.
-2. **Total tile**: big number = total self-sourced leads in range. Click toggles drilldown open.
-3. **Drilldown** with view toggle (segmented control):
-   - **Grouped by SA** (default): rows of `SA name | count`, expand to show that SA's leads.
-   - **Flat list**: every lead — `Name | Phone | Source | SA | Created (CST) | Booked? | Stage`.
-4. **Download CSV** button (top-right of dialog): exports the current view/filter to `/sourced-leads-{range}.csv`.
+So the 72 you remember likely includes SA-booked intros that never had a separate lead row.
 
-## CSV columns
-`first_name, last_name, phone, email, source, sourced_by_sa, created_at_central, stage, booked_intro_id, text_archived_at, text_archived_reason`
+## Decision needed (one question, embedded in this plan)
+
+Pick the definition of "self-generated" the dialog uses. The plan below assumes **(B)** since it matches your "should be 72" expectation.
+
+- **(A) Leads-only (current):** 53 all-time. Narrow. Misses SA-booked-direct intros.
+- **(B) Union — leads + SA-booked intros (recommended):** every record where an SA was responsible for generating the business, deduped by phone (lead wins if both exist, so booked status carries over). This is the count that aligns with how SAs actually work.
+
+If you want (A), the rest of the plan still applies — just smaller numbers.
+
+## UI changes (SourcedLeadsDialog)
+
+**Controls row** (next to SA/All-leads toggle): a small "Status" segmented control:
+
+- **Needs Mindbody import** (default) — hides rows that are already booked OR already marked imported
+- **Already in Mindbody** — only booked or marked-imported
+- **All** — everything
+
+Total tile reflects the active filter. Grouped-by-SA counts and CSV export both respect it.
+
+**Per-lead checkbox** on the left of every row (44px tap target):
+
+- Checked = `mindbody_imported_at` is set
+- Toggle = optimistic write to `leads.mindbody_imported_at` + `mindbody_imported_by` (current user name from `useAuth`)
+- Under the name when checked: "Imported {date} by {name}"
+- **Booked rows**: checkbox is auto-checked, disabled, labeled "In Mindbody (booked)" — they're implicitly already in Mindbody, no action needed
+
+**For (B) union rows that come from `intros_booked` (no lead row):** they show booked badge + disabled checkbox same as above. No write target needed because they're already booked.
+
+## Data changes
+
+Add to `leads`:
+
+- `mindbody_imported_at timestamptz`
+- `mindbody_imported_by text`
+
+No backfill — NULL means "not yet imported." No RLS change.
 
 ## Files
 
 **New**
-- `src/components/wig/SourcedLeadsDialog.tsx` — dialog with date picker, total tile, toggle, drilldown, CSV download.
-- `src/hooks/useSourcedLeadsInRange.ts` — fetches `leads` rows with `sourced_by_sa` not null AND not in `PHANTOM_BOOKED_BY`, filtered by `created_at` in the chosen CST range. Wraps React Query.
-- `src/lib/sa/sourcedLeadsCsv.ts` — pure CSV builder (mirrors `src/features/giveaway/lib/csvExport.ts` style).
+
+- `src/hooks/useMarkLeadImported.ts` — optimistic toggle, invalidates sourced-leads query key.
 
 **Edited**
-- `src/components/wig/WigSaLeaderboard.tsx` — add "Sourced Leads" button in the SA Leaderboard header (right side), wire to dialog.
 
-## Canonical reuse (no new logic)
-- Phantom-name filtering: `PHANTOM_BOOKED_BY` from `src/lib/sa/leadsBooked.ts`.
-- "Self-sourced" predicate: `isSelfSourcedLeadSource` from same file (applied to `leads.source` so the count agrees with the booked-SGL definition).
-- Central-time day boundaries: existing helpers in `src/lib/dateUtils.ts`.
-- Pay-period range default: `src/lib/pay-period.ts`.
+- `src/components/wig/SourcedLeadsDialog.tsx` — status filter, checkbox column, filtered total/grouped/CSV.
+- `src/hooks/useSourcedLeadsInRange.ts` — select the two new columns; if (B) chosen, also fetch `intros_booked` rows with `booked_by` set in range and union them by phone.
+- `src/lib/sa/sourcedLeadsCsv.ts` — add `mindbody_imported_at`, `mindbody_imported_by`, `source_type` (`'lead'` | `'booking'`) columns.
+- Migration: add the two `leads` columns.
 
-## Coherence check before done
-Run real DB query for the chosen default range and confirm:
-- Dialog total === SUM of per-SA counts in grouped view === row count in flat view === row count in CSV.
-- Per-SA counts in dialog match the SA Leaderboard "Sourced" column for the same date range.
-- User-stated expectation: ~72 for whatever range produces that number — we'll verify which range yields 72 once built and surface it as a preset if needed.
+## Canonical reuse
+
+- Booked detection: existing `booked_intro_id` (auto-set by trigger).
+- Phantom-name filter: existing `PHANTOM_BOOKED_BY`.
+- Current user for `mindbody_imported_by`: `useAuth().user.name` (same pattern as other write paths).
+- Date range / pay period: existing helpers.
+
+## Coherence proof (before done)
+
+- `read_query` confirms the two new columns exist.
+- Toggle checkbox → re-open dialog → state persists.
+- Filter math: `Needs import + Already in Mindbody = All` for every range tested.
+- Grouped-by-SA sum equals total tile for every filter.
+- CSV row count matches on-screen count for the active filter.
+- If (B): union de-dupe by phone — no lead appears twice; counts on the SA Leaderboard "Sourced" column still reconcile (we'll note any intentional difference).
 
 ## Out of scope
-- No changes to existing leaderboard counts, no schema changes, no new tables, no edits to other pages.
+
+No Mindbody API integration (manual checkoff only). No changes to the SA Leaderboard counts unless (B) requires it — if so, called out explicitly with cross-page numbers in the proof.  
+  
+  
+I want **(B) Union — leads + SA-booked intros (recommended):** every record where an SA was responsible for generating the business, deduped by phone (lead wins if both exist, so booked status carries over). This is the count that aligns with how SAs actually work.  
