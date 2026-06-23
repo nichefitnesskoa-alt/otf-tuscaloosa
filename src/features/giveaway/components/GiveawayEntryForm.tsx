@@ -558,45 +558,54 @@ function EntryActions({
           </AchievementCard>
         </div>
 
-        <AchievementCard number={2} title="Like, comment & tag a friend"
-          description="Like our giveaway post, leave a comment, and tag a local friend."
-          unlocked={e.action_post_engagement}>
-          <ActionVerification
-            mode={getActionMode(studio.action_verification_modes, 'post_engagement', 'checkbox')}
-            studioSlug={studio.studio_slug} draftId={e.id} actionType="post_engagement"
-            checked={e.action_post_engagement} screenshotUrl={e.action_post_engagement_screenshot_url}
-            onCheckboxChange={(checked) => patchAndRecompute({ action_post_engagement: checked, action_post_engagement_screenshot_url: null })}
-            onUploaded={(url) => patchAndRecompute({ action_post_engagement: true, action_post_engagement_screenshot_url: url })}
-            previewMode={previewMode}
-          />
-        </AchievementCard>
+        {(() => {
+          const l = getActionLabel(studio.action_labels, 'post_engagement', BUILT_IN_ACTION_DEFAULTS.post_engagement);
+          return (
+            <AchievementCard number={2} title={l.title} description={l.description} unlocked={e.action_post_engagement}>
+              <ActionVerification
+                mode={getActionMode(studio.action_verification_modes, 'post_engagement', 'checkbox')}
+                studioSlug={studio.studio_slug} draftId={e.id} actionType="post_engagement"
+                checked={e.action_post_engagement} screenshotUrl={e.action_post_engagement_screenshot_url}
+                onCheckboxChange={(checked) => patchAndRecompute({ action_post_engagement: checked, action_post_engagement_screenshot_url: null })}
+                onUploaded={(url) => patchAndRecompute({ action_post_engagement: true, action_post_engagement_screenshot_url: url })}
+                previewMode={previewMode}
+              />
+            </AchievementCard>
+          );
+        })()}
 
-        <AchievementCard number={3} title="Share to your story"
-          description="Share our giveaway post to your Instagram story."
-          unlocked={e.action_story_share}>
-          <ActionVerification
-            mode={getActionMode(studio.action_verification_modes, 'story_share', 'checkbox')}
-            studioSlug={studio.studio_slug} draftId={e.id} actionType="story_share"
-            checked={e.action_story_share} screenshotUrl={e.action_story_share_screenshot_url}
-            onCheckboxChange={(checked) => patchAndRecompute({ action_story_share: checked, action_story_share_screenshot_url: null })}
-            onUploaded={(url) => patchAndRecompute({ action_story_share: true, action_story_share_screenshot_url: url })}
-            previewMode={previewMode}
-          />
-        </AchievementCard>
+        {(() => {
+          const l = getActionLabel(studio.action_labels, 'story_share', BUILT_IN_ACTION_DEFAULTS.story_share);
+          return (
+            <AchievementCard number={3} title={l.title} description={l.description} unlocked={e.action_story_share}>
+              <ActionVerification
+                mode={getActionMode(studio.action_verification_modes, 'story_share', 'checkbox')}
+                studioSlug={studio.studio_slug} draftId={e.id} actionType="story_share"
+                checked={e.action_story_share} screenshotUrl={e.action_story_share_screenshot_url}
+                onCheckboxChange={(checked) => patchAndRecompute({ action_story_share: checked, action_story_share_screenshot_url: null })}
+                onUploaded={(url) => patchAndRecompute({ action_story_share: true, action_story_share_screenshot_url: url })}
+                previewMode={previewMode}
+              />
+            </AchievementCard>
+          );
+        })()}
 
-        <AchievementCard number={4} title="Post a Class Story"
-          description="Post a story of you taking a class and tag us."
-          unlocked={e.action_free_class}>
-          <ActionVerification
-            mode={getActionMode(studio.action_verification_modes, 'free_class', 'checkbox')}
-            studioSlug={studio.studio_slug} draftId={e.id} actionType="free_class"
-            checked={e.action_free_class} screenshotUrl={e.action_free_class_screenshot_url}
-            onCheckboxChange={(checked) => patchAndRecompute({ action_free_class: checked, action_free_class_screenshot_url: null })}
-            onUploaded={(url) => patchAndRecompute({ action_free_class: true, action_free_class_screenshot_url: url })}
-            screenshotLabel="Tap to upload story screenshot"
-            previewMode={previewMode}
-          />
-        </AchievementCard>
+        {(() => {
+          const l = getActionLabel(studio.action_labels, 'free_class', BUILT_IN_ACTION_DEFAULTS.free_class);
+          return (
+            <AchievementCard number={4} title={l.title} description={l.description} unlocked={e.action_free_class}>
+              <ActionVerification
+                mode={getActionMode(studio.action_verification_modes, 'free_class', 'checkbox')}
+                studioSlug={studio.studio_slug} draftId={e.id} actionType="free_class"
+                checked={e.action_free_class} screenshotUrl={e.action_free_class_screenshot_url}
+                onCheckboxChange={(checked) => patchAndRecompute({ action_free_class: checked, action_free_class_screenshot_url: null })}
+                onUploaded={(url) => patchAndRecompute({ action_free_class: true, action_free_class_screenshot_url: url })}
+                screenshotLabel="Tap to upload story screenshot"
+                previewMode={previewMode}
+              />
+            </AchievementCard>
+          );
+        })()}
 
         {partners.map((p, idx) => {
           const list: PartnerActionState[] = Array.isArray(e.partner_actions) ? e.partner_actions : [];
