@@ -35,9 +35,25 @@ interface CohortBookingRow {
     result: string | null;
     result_canon: string | null;
     buy_date: string | null;
-    membership_type: string | null;
   }>;
 }
+
+/**
+ * Event-attendance helper: a person "showed" to an event if they physically
+ * came to their intro class. Per studio policy this includes outcomes that
+ * happen AFTER showing up (NOT_INTERESTED, SECOND_INTRO_SCHEDULED) — the
+ * intro literally ran.
+ */
+function didAttendEvent(b: { booking_status_canon: string; runs: Array<{ result_canon: string | null; result: string | null }> }): boolean {
+  const bc = (b.booking_status_canon || '').toUpperCase();
+  if (bc === 'SHOWED' || bc === 'NOT_INTERESTED' || bc === 'SECOND_INTRO_SCHEDULED' || bc === 'PURCHASED' || bc === 'CLOSED_PURCHASED' || bc === 'PLANNING_TO_BUY' || bc === 'FOLLOW_UP_NEEDED' || bc === 'ON_5_CLASS_PACK') return true;
+  return b.runs.some(r => {
+    const rc = (r.result_canon || '').toUpperCase();
+    if (rc === 'NO_SHOW' || rc === 'PLANNING_RESCHEDULE' || rc === 'UNRESOLVED' || rc === 'VIP_CLASS_INTRO') return false;
+    return !!rc || !!r.result;
+  });
+}
+
 
 function useCohort(eventId: string | null) {
   return useQuery<CohortBookingRow[]>({
