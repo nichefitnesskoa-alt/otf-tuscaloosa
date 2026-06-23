@@ -70,7 +70,11 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = isAdminCheck(user);
-  const { salesAssociates: activeSas } = useActiveStaff();
+  const { salesAssociates: activeSas, allActive } = useActiveStaff();
+  const reassignChoices = useMemo(
+    () => (allActive || []).filter(n => n && n !== 'Koa'),
+    [allActive],
+  );
   const rangeStart = dateRange ? format(dateRange.start, 'yyyy-MM-dd') : '2020-01-01';
   const rangeEnd = dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
 
