@@ -129,53 +129,47 @@ export async function resolvePerson(
   if (seedPhone10) {
     const e164 = `+1${seedPhone10}`;
     const last4 = seedPhone10.slice(-4);
-    queries.push(
-      supabase
+    queries.push((async () => {
+      const { data } = await supabase
         .from('intros_booked')
         .select('id, created_at, member_name, phone, phone_e164, email')
-        .or(`phone_e164.eq.${e164},phone.ilike.%${last4}%`)
-        .then(({ data }) => {
-          for (const r of data || []) {
-            const ten = stripCountryCode((r as any).phone_e164 || (r as any).phone);
-            if (ten === seedPhone10) upsert(r, 'phone');
-          }
-        }),
-    );
+        .or(`phone_e164.eq.${e164},phone.ilike.%${last4}%`);
+      for (const r of data || []) {
+        const ten = stripCountryCode((r as any).phone_e164 || (r as any).phone);
+        if (ten === seedPhone10) upsert(r, 'phone');
+      }
+    })());
   }
 
   if (seedEmail) {
-    queries.push(
-      supabase
+    queries.push((async () => {
+      const { data } = await supabase
         .from('intros_booked')
         .select('id, created_at, member_name, phone, phone_e164, email')
-        .ilike('email', seedEmail)
-        .then(({ data }) => {
-          for (const r of data || []) {
-            if (normEmail((r as any).email) === seedEmail) upsert(r, 'email');
-          }
-        }),
-    );
+        .ilike('email', seedEmail);
+      for (const r of data || []) {
+        if (normEmail((r as any).email) === seedEmail) upsert(r, 'email');
+      }
+    })());
   }
 
   if (seedNameNorm) {
-    queries.push(
-      supabase
+    queries.push((async () => {
+      const { data } = await supabase
         .from('intros_booked')
         .select('id, created_at, member_name, phone, phone_e164, email')
-        .ilike('member_name', seedName!.trim())
-        .then(({ data }) => {
-          for (const r of data || []) {
-            if (normName((r as any).member_name) !== seedNameNorm) continue;
-            const rPhone = stripCountryCode((r as any).phone_e164 || (r as any).phone);
-            const rEmail = normEmail((r as any).email);
-            // Risk control: if candidate has a phone/email that contradicts
-            // the seed's phone/email, treat as a different person.
-            if (seedPhone10 && rPhone && rPhone !== seedPhone10) continue;
-            if (seedEmail && rEmail && rEmail !== seedEmail) continue;
-            upsert(r, 'name');
-          }
-        }),
-    );
+        .ilike('member_name', seedName!.trim());
+      for (const r of data || []) {
+        if (normName((r as any).member_name) !== seedNameNorm) continue;
+        const rPhone = stripCountryCode((r as any).phone_e164 || (r as any).phone);
+        const rEmail = normEmail((r as any).email);
+        // Risk control: if candidate has a phone/email that contradicts
+        // the seed's phone/email, treat as a different person.
+        if (seedPhone10 && rPhone && rPhone !== seedPhone10) continue;
+        if (seedEmail && rEmail && rEmail !== seedEmail) continue;
+        upsert(r, 'name');
+      }
+    })());
   }
 
   await Promise.all(queries);
