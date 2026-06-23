@@ -302,6 +302,23 @@ export function PipelineSpreadsheet({
     virtualizer.measure();
   }, [expandedKey, virtualizer]);
 
+  // Deep-link: when a focusBookingId arrives, find the journey containing
+  // that booking, expand it, scroll it into view, then clear the URL param.
+  useEffect(() => {
+    if (!focusBookingId || !sorted.length) return;
+    const index = sorted.findIndex(j =>
+      j.bookings?.some((b: any) => b.id === focusBookingId),
+    );
+    if (index < 0) return;
+    const key = sorted[index].memberKey;
+    setExpandedKey(key);
+    // Defer scroll so virtualizer has the new size measured.
+    requestAnimationFrame(() => {
+      try { virtualizer.scrollToIndex(index, { align: 'center' }); } catch { /* noop */ }
+      onFocusConsumed?.();
+    });
+  }, [focusBookingId, sorted, virtualizer, onFocusConsumed]);
+
   // By Source: analytics summary view
   if (activeTab === 'by_lead_source') {
     return <><BySourceTable journeys={journeys} isLoading={isLoading} onOpenDialog={onOpenDialog} isOnline={isOnline} vipInfoMap={vipInfoMap} />{journeyCard.element}</>;
