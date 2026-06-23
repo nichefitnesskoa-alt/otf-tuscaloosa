@@ -395,18 +395,25 @@ function LeadRow({
   showSa,
   onToggleImported,
   isPending,
+  admin,
+  reassignChoices,
+  onReassign,
 }: {
   l: SourcedLeadCsvRow;
   showSa: boolean;
   onToggleImported: (id: string, imported: boolean) => void;
   isPending: boolean;
+  admin: boolean;
+  reassignChoices: string[];
+  onReassign: (rowId: string, newSa: string) => void;
 }) {
   const inMindbody = isInMindbody(l);
-  // Booked rows AND VIP registrants are implicitly in Mindbody —
-  // checkbox shows checked + disabled, no write target.
   const isBooked = !!l.booked_intro_id;
   const isVip = l.source_type === 'vip_registrant';
   const lockedInMindbody = isBooked || isVip;
+  // VIP registrants are credited via vip_sessions.sa_setup_name — that
+  // belongs on the VIP session, not here.
+  const canReassign = admin && !isVip;
 
   return (
     <div className="flex items-center gap-3 px-3 py-2 text-sm">
@@ -458,6 +465,23 @@ function LeadRow({
           </div>
         )}
       </div>
+      {canReassign && (
+        <div className="flex-shrink-0" title="Reassign credit (Admin)">
+          <Select
+            value={l.sourced_by_sa || ''}
+            onValueChange={(v) => { if (v && v !== l.sourced_by_sa) onReassign(l.id, v); }}
+          >
+            <SelectTrigger className="h-8 w-[130px] text-xs">
+              <SelectValue placeholder="Credit to…" />
+            </SelectTrigger>
+            <SelectContent>
+              {reassignChoices.map(n => (
+                <SelectItem key={n} value={n} className="text-xs">{n}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="text-xs text-muted-foreground whitespace-nowrap">
         {fmtCentralDate(l.created_at)}
       </div>
