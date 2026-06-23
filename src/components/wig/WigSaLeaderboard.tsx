@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Users, Pencil, Check, Trophy } from 'lucide-react';
+import { Loader2, Users, Pencil, Check, Trophy, Download } from 'lucide-react';
+import { SourcedLeadsDialog } from '@/components/wig/SourcedLeadsDialog';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
@@ -79,6 +80,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
 
   const [drill, setDrill] = useState<{ sa: string | null; bucket: DrillBucket } | null>(null);
   const [journeyBookingId, setJourneyBookingId] = useState<string | null>(null);
+  const [sourcedLeadsOpen, setSourcedLeadsOpen] = useState(false);
 
   const yyyymm = useMemo(() => (
     dateRange ? format(dateRange.start, 'yyyy-MM') : format(getNowCentral(), 'yyyy-MM')
@@ -346,13 +348,27 @@ export function WigSaLeaderboard({ dateRange }: Props) {
       {/* ===== SA Leaderboard ===== */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
-            SA Leaderboard
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Self-generated leads — the one number SAs control. Tap an SA to open their page; tap a number to see who.
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary" />
+                SA Leaderboard
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Self-generated leads — the one number SAs control. Tap an SA to open their page; tap a number to see who.
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setSourcedLeadsOpen(true)}
+              className="min-h-[44px] shrink-0 cursor-pointer"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Sourced Leads
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {(booked.loading || sales.loading || sourcedLeads.loading) ? (
@@ -443,6 +459,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           scopeBadge="WIG drilldown"
         />
       )}
+      <SourcedLeadsDialog open={sourcedLeadsOpen} onOpenChange={setSourcedLeadsOpen} />
     </>
   );
 }
