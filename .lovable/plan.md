@@ -1,34 +1,98 @@
-REACH MAP for event cohort/showed counting
-- Tables touched: `events`, `intros_booked`, `intros_run`.
-- Hooks/queries that read these tables: `useEvents`, `EventCohortPanel.useCohort`, `EventsIndexPanel.useAllEventTaggedBookings`, WIG lead/booking hooks that read intro attribution.
-- Components that display this data: Admin Events index, Admin Event Cohort, Person Journey drawer, WIG/event-derived self-generated lead counts.
-- Metrics/helpers derived from this data: event booked/showed/no-show/bought totals, close detection via `isCloseRun`, intro attendance/showed logic.
-- React Query keys: `['events']`, `['event-cohort', eventId]`, `['event-cohort', 'all-tagged']`, WIG lead keys touched by event/VIP attribution.
-- Cross-page surfaces affected: Admin Events, Event Cohort, WIG self-generated leads, Pipeline tagging/outcome writes.
-- DB triggers: existing intro booking/run change triggers and realtime publication on `intros_booked` + `intros_run`.
+## Root cause
 
-Root cause found
-- The Events queries are failing in the browser because they request `intros_run.membership_type`, but that column does not exist. React Query falls back to empty arrays, so the UI shows `0 booked` even though the database has 4 Turbo Coffee rows.
-- Turbo Coffee has 4 non-deleted bookings in the database: Emma Hensley, Anna Pauley, Christian Kazoleas, Lia Jacques.
-- Current showed counting only checks `booking_status_canon === 'SHOWED'`, so `NOT_INTERESTED` and `SECOND_INTRO_SCHEDULED` are excluded even though they showed up.
+`NOT_INTERESTED` is currently in `NON_RAN_RESULT_CANONS` inside `src/lib/canon/introRules.ts`.
 
-Plan
-1. Remove the bad `membership_type` field from both Admin Event queries so tagged bookings load again.
-2. Add one canonical event attendance helper, for Events only, that counts showed as:
-   - `booking_status_canon = SHOWED`
-   - `booking_status_canon = NOT_INTERESTED`
-   - `booking_status_canon = SECOND_INTRO_SCHEDULED`
-   - matching run outcomes that mean the person attended, including `NOT_INTERESTED` and `SECOND_INTRO_SCHEDULED`
-3. Update both Admin Event surfaces to use that helper for the showed tile and row badge, so All Events and the selected Event Cohort agree.
-4. Keep no-show and bought logic unchanged, except they will work again once the query stops failing.
-5. Verify with real data:
-   - Turbo Coffee loads 4 booked.
-   - Turbo Coffee counts 3 showed: Anna, Christian, Lia.
-   - Emma remains booked/no-show according to the current booking/run data.
-   - Admin Events index and Event Cohort show the same numbers.
-6. Check WIG/event self-generated lead connection after the Events fix and include any needed query invalidation or attribution alignment if the same broken event query is reused there.
+That means the canonical helper `didIntroActuallyRun()` returns `false` for Lia and Christian even though they physically attended. Any surface using that helper then drops them from showed/ran counts and close-rate denominators.
 
-COHERENCE PROOF target after implementation
-- DB verification: Turbo Coffee event row and all 4 linked `intros_booked` rows named.
-- Cross-page check: Admin Events row and Event Cohort panel show the same booked/showed/no-show/bought totals; WIG event/self-generated lead count checked against the same rows.
-- Files expected: `src/components/admin/EventCohortPanel.tsx`, `src/components/admin/EventsIndexPanel.tsx`, plus a small canonical helper if no existing event helper exists.
+Current DB truth for Turbo Coffee:
+
+| Person | booking_status_canon | result_canon | physical attendance |
+|---|---|---|---|
+| Lia Jacques | NOT_INTERESTED | NOT_INTERESTED | yes |
+| Christian Kazoleas | NOT_INTERESTED | NOT_INTERESTED | yes |
+| Anna Pauley | SECOND_INTRO_SCHEDULED | SECOND_INTRO_SCHEDULED | yes |
+| Emma Hensley | ACTIVE | NO_SHOW | no |
+
+## REACH MAP for system-wide ran/showed change
+
+- Tables touched: none directly. Data read from `intros_booked`, `intros_run`.
+- Hooks/queries that read these tables:
+  - `src/hooks/useDashboardMetrics.ts` — Studio lead source, Per-SA, studio run totals, close-rate inputs.
+  - `src/hooks/useLeadMeasures.ts` — coach lead measure/run counts.
+  - `src/hooks/useMeetingAgenda.ts` — meeting recap/run summaries.
+  - `src/hooks/useFvTrendData.ts` — FV trend run exclusions.
+  - `src/features/myDay/useUpcomingIntrosData.ts` — upcoming/ran classification and SQL exclusion list derived from canon set.
+  - `src/features/myDay/useWinTheDayItems.ts` — parent ran detection.
+  - `src/pages/Wig.tsx` — WIG funnel and run counts, some inline no-show checks.
+  - `src/components/dashboard/ConversionFunnel.tsx` — conversion funnel showed lists, currently partially inline.
+  - `src/features/pipeline/selectors.ts` and `PipelineSpreadsheet.tsx` — completed/showed journey states.
+  - `src/components/admin/EventCohortPanel.tsx`, `EventsIndexPanel.tsx` — event cohort/showed totals.
+- Components that display derived data:
+  - WIG tab funnel/drilldowns.
+  - Studio Lead Source Analytics.
+  - Studio Conversion Funnel.
+  - Studio Per-SA / Per-Coach close-rate surfaces.
+  - Admin Events index and Event Cohort panel.
+  - Pipeline status/table totals.
+  - My Day completed/ran counts.
+  - Coach/meeting lead-measure summaries.
+- Metrics/helpers that derive from these tables:
+  - `didIntroActuallyRun` / `NON_RAN_RESULT_CANONS` in `src/lib/canon/introRules.ts`.
+  - `isSecondIntroBooking` relies on whether a parent intro actually ran.
+  - `resolvePromotedOrphanBookingIds` / journey logic depends on ran detection.
+  - `isCloseRun`, `isSaleInRange`, `getRunSaleDate` remain unchanged.
+- React Query/cache keys likely holding affected data:
+  - DataContext intros cache where used.
+  - `['dashboard-metrics', ...]` style hooks if present.
+  - `['event-cohort', eventId]`, `['event-cohort', 'all-tagged']`.
+  - My Day/upcoming intros query keys.
+  - Pipeline query keys.
+- Cross-page surfaces affected:
+  - WIG, Studio, Admin Events, Pipeline, My Day, Coach lead measures, Meeting agenda, close-rate denominators.
+- DB triggers that fire: none, because this is a read/classification logic fix only.
+
+## Plan
+
+1. **Fix the canonical rule at the root**
+   - Remove `NOT_INTERESTED` from `NON_RAN_RESULT_CANONS`.
+   - Remove `not interested` / `showed up - not interested` from `NON_RAN_RESULT_DISPLAY`.
+   - Update the JSDoc so only these are non-ran: `NO_SHOW`, `PLANNING_RESCHEDULE`, `UNRESOLVED`, `VIP_CLASS_INTRO`.
+   - This makes `didIntroActuallyRun()` match the studio rule: physical show-up counts, even if they did not buy.
+
+2. **Remove duplicate event-specific attendance logic**
+   - Replace inline `didAttendEvent()` logic in `EventCohortPanel.tsx` and `EventsIndexPanel.tsx` with the canonical `didIntroActuallyRun()`.
+   - Event showed totals will then agree with Studio/WIG by construction.
+
+3. **Normalize inline funnel checks that bypass canon**
+   - In `ConversionFunnel.tsx`, replace `r.result !== 'No-show'` showed checks with `didIntroActuallyRun(r)` plus existing date-range checks.
+   - Audit `Wig.tsx` and `PipelineSpreadsheet.tsx` inline `result !== 'No-show'` cases. Update only the places that are computing showed/ran/completed metrics, not label rendering.
+
+4. **Keep true non-attendance excluded**
+   - No-shows remain excluded.
+   - Planning/reschedule remains excluded.
+   - Unresolved remains excluded.
+   - VIP class intro remains excluded from standard intro metrics.
+
+5. **Update project memory for future agents**
+   - Update `mem://logic/intro-ran-detection` so it explicitly says: `NOT_INTERESTED` means physically attended and counts as ran/showed and coach close-rate denominator.
+
+6. **Verify with real DB rows and cross-page numbers**
+   - Re-query the exact Turbo Coffee rows for Lia, Christian, Anna, Emma.
+   - Confirm canonical helper behavior on those result canons.
+   - Confirm Studio Lead Source Event shows 4 booked / 3 showed / 0 sold.
+   - Confirm Studio Conversion Funnel showed drilldowns include Lia and Christian where date range includes June 20, 2026.
+   - Confirm Admin Events Turbo Coffee row and Event Cohort panel show 4 booked / 3 showed / 1 no-show / 0 bought.
+   - Confirm coach close-rate denominator for James includes Lia and Christian as ran/showed intros.
+
+## Files expected to change
+
+- `src/lib/canon/introRules.ts`
+- `src/components/admin/EventCohortPanel.tsx`
+- `src/components/admin/EventsIndexPanel.tsx`
+- `src/components/dashboard/ConversionFunnel.tsx`
+- likely `src/pages/Wig.tsx` and/or `src/features/pipeline/components/PipelineSpreadsheet.tsx` if their showed metrics bypass canon
+- `mem://logic/intro-ran-detection`
+
+## Done condition
+
+I will not report this done until the final response includes a COHERENCE PROOF block with the specific Turbo Coffee DB rows and the matching cross-page numbers.
