@@ -55,6 +55,25 @@ export default function PipelinePage() {
   const { lastSyncAt, pendingQueueCount } = useData();
   const isOnline = useOnlineStatus();
   const pipeline = usePipelineData();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Deep-link target: `/pipeline?focus=<bookingId>` or legacy `?leadId=`.
+  // Used by PersonJourneyCard "Open in Pipeline" and Milestones.
+  const focusBookingId = searchParams.get('focus') || searchParams.get('leadId');
+
+  // When the booking exists, force the spreadsheet tab so it's visible.
+  useEffect(() => {
+    if (focusBookingId && pipeline.activeTab === 'sales') {
+      pipeline.setActiveTab('all');
+    }
+  }, [focusBookingId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const clearFocus = () => {
+    if (!searchParams.get('focus') && !searchParams.get('leadId')) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('focus');
+    next.delete('leadId');
+    setSearchParams(next, { replace: true });
+  };
 
   // Dialog state
   const [dialogState, setDialogState] = useState<{
