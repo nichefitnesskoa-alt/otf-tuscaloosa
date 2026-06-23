@@ -8,11 +8,14 @@
  * underlined numerals, disabled-when-zero state, and accessible label.
  */
 import { ReactNode, useState, MouseEvent } from 'react';
-import { Trash2, Loader2 } from 'lucide-react';
+import { Trash2, Loader2, UserCog } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger,
+} from '@/components/ui/select';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { OutcomeEditButton } from '@/components/shared/OutcomeEditButton';
