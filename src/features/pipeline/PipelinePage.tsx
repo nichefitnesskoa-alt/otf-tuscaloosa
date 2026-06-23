@@ -214,6 +214,8 @@ export default function PipelinePage() {
               onOpenDialog={openDialog}
               onRefresh={pipeline.silentRefreshAll}
               onOpenScript={(j) => setScriptJourney(j)}
+              focusBookingId={focusBookingId}
+              onFocusConsumed={clearFocus}
             />
           )}
         </CardContent>
