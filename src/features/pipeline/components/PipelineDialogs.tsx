@@ -34,7 +34,7 @@ import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 import { EventPicker } from '@/components/events/EventPicker';
 import { getLocalDateString } from '../helpers';
 import { capitalizeName } from '@/lib/utils';
-import { updateOutcomeFromPipeline, updateBookingFieldsFromPipeline, syncIntroOwnerToBooking, assertNoOutcomeOwnedFields } from '../pipelineActions';
+import { updateOutcomeFromPipeline, updateBookingFieldsFromPipeline, syncIntroOwnerToBooking, setIntroOwnerForJourney, assertNoOutcomeOwnedFields } from '../pipelineActions';
 import { normalizeBookingStatus, normalizeIntroResultStrict } from '@/lib/domain/outcomes/types';
 import type { ClientJourney, PipelineBooking, PipelineRun } from '../pipelineTypes';
 
