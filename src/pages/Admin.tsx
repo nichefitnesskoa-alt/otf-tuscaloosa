@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, FileSpreadsheet, Database, Users, BarChart3, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown, Gift, CalendarDays } from 'lucide-react';
+import { Settings, FileSpreadsheet, Database, Users, BarChart3, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown, Gift, CalendarDays, ClipboardList } from 'lucide-react';
 import GiveawaysAdminTab from '@/components/admin/GiveawaysAdminTab';
+import { MindbodyImportsPanel } from '@/components/admin/MindbodyImportsPanel';
 import { Navigate, useNavigate } from 'react-router-dom';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -499,6 +500,7 @@ export default function Admin() {
     { value: 'overview', label: 'Overview', icon: <FileSpreadsheet className="w-4 h-4" /> },
     { value: 'objections', label: 'Objections', icon: <AlertTriangle className="w-4 h-4" /> },
     { value: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
+    { value: 'mindbody_imports', label: 'Mindbody Imports', icon: <ClipboardList className="w-4 h-4" /> },
     { value: 'referrals', label: 'Referrals', icon: <Users className="w-4 h-4" /> },
     { value: 'stories', label: 'Stories', icon: <BookOpen className="w-4 h-4" /> },
     { value: 'scripts', label: 'Scripts', icon: <FileText className="w-4 h-4" /> },
@@ -618,6 +620,12 @@ export default function Admin() {
           <QuestionnaireSlugBackfillCard />
           <ArchiveOldDmLeads />
         </TabsContent>
+
+        {/* Mindbody Imports Tab */}
+        <TabsContent value="mindbody_imports" className="space-y-4">
+          <MindbodyImportsPanel />
+        </TabsContent>
+
 
         {/* Stories Tab */}
         <TabsContent value="stories" className="space-y-4">
