@@ -769,7 +769,8 @@ export function VipSchedulerTab() {
                         </div>
                       )}
                     </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Inline Mark Reserved form */}
                   {markingId === s.id && (
