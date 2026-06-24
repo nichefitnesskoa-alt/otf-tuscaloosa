@@ -136,6 +136,9 @@ export function VipSchedulerTab() {
   const [regLoading, setRegLoading] = useState(false);
   const [regCounts, setRegCounts] = useState<Record<string, number>>({});
   const [regEstimates, setRegEstimates] = useState<Record<string, number>>({});
+  // Per-session derived attendance from logged outcomes (showed/booked_intro/purchased).
+  // Falls back to vip_sessions.actual_attendance only when no outcomes are logged.
+  const [outcomeAttendance, setOutcomeAttendance] = useState<Record<string, { attended: number; anyLogged: boolean }>>({});
 
   // Add slot form state
   const [newDate, setNewDate] = useState('');
@@ -253,17 +256,28 @@ export function VipSchedulerTab() {
 
     const counts: Record<string, number> = {};
     const estimates: Record<string, number> = {};
+    const attended: Record<string, { attended: number; anyLogged: boolean }> = {};
     if (data && data.length > 0) {
       const ids = data.map((s: any) => s.id);
       const { data: regs } = await sb
         .from('vip_registrations')
-        .select('vip_session_id, is_group_contact, attending_class')
+        .select('vip_session_id, is_group_contact, attending_class, outcome')
         .in('vip_session_id', ids);
+      const ATTENDED_OUTCOMES = new Set(['showed', 'booked_intro', 'purchased']);
       for (const r of (regs || []) as any[]) {
         if (!r.vip_session_id) continue;
-        // Group contact only counts when "Also attending the class" is on.
-        if (!isCountedAsMember(r)) continue;
-        counts[r.vip_session_id] = (counts[r.vip_session_id] || 0) + 1;
+        // Registered count: group contacts only count if "Also attending" is on.
+        if (isCountedAsMember(r)) {
+          counts[r.vip_session_id] = (counts[r.vip_session_id] || 0) + 1;
+        }
+        // Outcome-derived attendance: count anyone (including group contact who attended)
+        // whose outcome marks them present.
+        const slot = attended[r.vip_session_id] || { attended: 0, anyLogged: false };
+        if (r.outcome) {
+          slot.anyLogged = true;
+          if (ATTENDED_OUTCOMES.has(r.outcome)) slot.attended += 1;
+        }
+        attended[r.vip_session_id] = slot;
       }
       // Estimated group size lives on vip_sessions, not vip_registrations.
       // Group contact counts as +1 when "Also attending the class" is toggled on the session.
@@ -276,6 +290,7 @@ export function VipSchedulerTab() {
     }
     setRegCounts(counts);
     setRegEstimates(estimates);
+    setOutcomeAttendance(attended);
     setLoading(false);
   }, []);
 
@@ -704,10 +719,21 @@ export function VipSchedulerTab() {
                     );
                   })()}
 
-                  {isPast && s.status === 'reserved' && (
+                  {isPast && s.status === 'reserved' && (() => {
+                    const outc = outcomeAttendance[s.id];
+                    const autoCount = outc?.anyLogged ? outc.attended : null;
+                    return (
                     <div className="flex items-center gap-2 pt-1 border-t">
                       {attendanceSaved === s.id ? (
                         <span className="text-xs text-success flex items-center gap-1"><Check className="w-3 h-3" /> Saved</span>
+                      ) : autoCount != null ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium">Attendance: {autoCount}</span>
+                          <span className="text-[10px] text-muted-foreground">Auto-counted from outcomes</span>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Override manually" onClick={() => { setAttendanceId(s.id); setAttendanceValue(String(autoCount)); }}>
+                            <Pencil className="w-3 h-3" />
+                          </Button>
+                        </div>
                       ) : s.actual_attendance != null ? (
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-medium">Attendance: {s.actual_attendance}</span>
@@ -743,7 +769,8 @@ export function VipSchedulerTab() {
                         </div>
                       )}
                     </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Inline Mark Reserved form */}
                   {markingId === s.id && (
