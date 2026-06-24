@@ -93,7 +93,8 @@ Deno.serve(async (req) => {
       const min = m || "00";
       const ampm = hour >= 12 ? "pm" : "am";
       const h12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-      const slug = `vip-${month}${day}-${h12}${min !== "00" ? min : ""}${ampm}`;
+      const year = dd.getFullYear();
+      const slug = `vip-${year}-${month}${day}-${h12}${min !== "00" ? min : ""}${ampm}`;
 
       toInsert.push({
         vip_class_name: `VIP ${dayNames[dd.getDay()]} ${month.charAt(0).toUpperCase() + month.slice(1)} ${day}`,
