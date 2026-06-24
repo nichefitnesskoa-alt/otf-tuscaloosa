@@ -18,6 +18,7 @@ export interface MindbodyImportRow {
   leadId: string | null;
   name: string;
   phone: string | null;
+  email: string | null;
   importedBy: string;
   importedAt: string;          // ISO UTC
   sourceLabel: string;         // "Lead — Instagram" / "VIP — Bama Dining"
