@@ -19,11 +19,19 @@ export default function GiveawayAdminPage() {
   const { partners } = useGiveawayPartners(studioSlug);
   const [tab, setTab] = useState<'entries' | 'settings'>('entries');
 
-  const totalPool = useMemo(() => entries.reduce((s, e) => s + e.total_entries, 0), [entries]);
-  const eligibleCount = useMemo(() => entries.filter(e => e.total_entries > 0).length, [entries]);
+  const totalPool = useMemo(
+    () => entries.filter(e => e.action_instagram_follow).reduce((s, e) => s + e.total_entries, 0),
+    [entries],
+  );
+  const eligibleCount = useMemo(
+    () => entries.filter(e => e.total_entries > 0 && e.action_instagram_follow).length,
+    [entries],
+  );
   const drawEntries = useMemo(() => entries.map(e => ({
     id: e.id, name: `${e.first_name} ${e.last_name}`, total_entries: e.total_entries,
+    action_instagram_follow: e.action_instagram_follow,
   })), [entries]);
+
 
   if (!studio) {
     return <div className="min-h-screen bg-[#1C1C1E] text-[#F5F2EE] flex items-center justify-center">Loading…</div>;
