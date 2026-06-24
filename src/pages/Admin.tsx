@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, FileSpreadsheet, Database, Users, BarChart3, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown, Gift, CalendarDays } from 'lucide-react';
+import { Settings, FileSpreadsheet, Database, Users, BarChart3, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown, Gift, CalendarDays, ClipboardList } from 'lucide-react';
 import GiveawaysAdminTab from '@/components/admin/GiveawaysAdminTab';
+import { MindbodyImportsPanel } from '@/components/admin/MindbodyImportsPanel';
 import { Navigate, useNavigate } from 'react-router-dom';
 
 import { supabase } from '@/integrations/supabase/client';
