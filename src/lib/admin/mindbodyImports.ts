@@ -95,7 +95,7 @@ export function groupBySa(rows: MindbodyImportRow[]): Array<{ sa: string; rows: 
 }
 
 export function toCsv(rows: MindbodyImportRow[]): string {
-  const header = ['Date (CT)', 'Time (CT)', 'Name', 'Phone', 'Imported By', 'Source'];
+  const header = ['Date (CT)', 'Time (CT)', 'Name', 'Phone', 'Email', 'Imported By', 'Source'];
   const esc = (v: string) => `"${(v || '').replace(/"/g, '""')}"`;
   const lines = [header.map(esc).join(',')];
   const fmtDate = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -107,6 +107,7 @@ export function toCsv(rows: MindbodyImportRow[]): string {
       fmtTime.format(d),
       r.name,
       r.phone || '',
+      r.email || '',
       r.importedBy,
       r.sourceLabel,
     ].map(esc).join(','));
