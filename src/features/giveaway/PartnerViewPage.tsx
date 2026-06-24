@@ -13,8 +13,15 @@ export default function PartnerViewPage() {
   const { entries } = useGiveawayEntries(studioSlug);
   const { partners } = useGiveawayPartners(studioSlug);
 
-  const totalPool = useMemo(() => entries.reduce((s, e) => s + e.total_entries, 0), [entries]);
-  const eligibleCount = useMemo(() => entries.filter(e => e.total_entries > 0).length, [entries]);
+  const totalPool = useMemo(
+    () => entries.filter(e => e.action_instagram_follow).reduce((s, e) => s + e.total_entries, 0),
+    [entries],
+  );
+  const eligibleCount = useMemo(
+    () => entries.filter(e => e.total_entries > 0 && e.action_instagram_follow).length,
+    [entries],
+  );
+
 
   if (!studio || !studioSlug) {
     return <div className="min-h-screen bg-[#1C1C1E] text-[#F5F2EE] flex items-center justify-center font-body">Loading…</div>;
