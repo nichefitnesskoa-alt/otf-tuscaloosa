@@ -256,17 +256,28 @@ export function VipSchedulerTab() {
 
     const counts: Record<string, number> = {};
     const estimates: Record<string, number> = {};
+    const attended: Record<string, { attended: number; anyLogged: boolean }> = {};
     if (data && data.length > 0) {
       const ids = data.map((s: any) => s.id);
       const { data: regs } = await sb
         .from('vip_registrations')
-        .select('vip_session_id, is_group_contact, attending_class')
+        .select('vip_session_id, is_group_contact, attending_class, outcome')
         .in('vip_session_id', ids);
+      const ATTENDED_OUTCOMES = new Set(['showed', 'booked_intro', 'purchased']);
       for (const r of (regs || []) as any[]) {
         if (!r.vip_session_id) continue;
-        // Group contact only counts when "Also attending the class" is on.
-        if (!isCountedAsMember(r)) continue;
-        counts[r.vip_session_id] = (counts[r.vip_session_id] || 0) + 1;
+        // Registered count: group contacts only count if "Also attending" is on.
+        if (isCountedAsMember(r)) {
+          counts[r.vip_session_id] = (counts[r.vip_session_id] || 0) + 1;
+        }
+        // Outcome-derived attendance: count anyone (including group contact who attended)
+        // whose outcome marks them present.
+        const slot = attended[r.vip_session_id] || { attended: 0, anyLogged: false };
+        if (r.outcome) {
+          slot.anyLogged = true;
+          if (ATTENDED_OUTCOMES.has(r.outcome)) slot.attended += 1;
+        }
+        attended[r.vip_session_id] = slot;
       }
       // Estimated group size lives on vip_sessions, not vip_registrations.
       // Group contact counts as +1 when "Also attending the class" is toggled on the session.
@@ -279,6 +290,7 @@ export function VipSchedulerTab() {
     }
     setRegCounts(counts);
     setRegEstimates(estimates);
+    setOutcomeAttendance(attended);
     setLoading(false);
   }, []);
 
