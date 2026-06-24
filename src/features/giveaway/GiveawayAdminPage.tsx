@@ -62,7 +62,8 @@ export default function GiveawayAdminPage() {
                 <p className="text-sm text-[#F5F2EE]/60 mt-1">
                   <span className="text-[#E8540A] font-bold text-base">{totalPool}</span> total entries in pool · {eligibleCount} eligible · {entries.length} participants
                 </p>
-                <p className="text-xs text-[#F5F2EE]/50 mt-1">Each entry = one ticket. Participants with 0 entries cannot win.</p>
+                <p className="text-xs text-[#F5F2EE]/50 mt-1">Each entry = one ticket. Must complete the Instagram follow to be eligible to win.</p>
+
               </div>
               <button
                 onClick={() => downloadEntriesCsv(entries as any, studio.studio_slug, partners)}
