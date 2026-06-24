@@ -70,6 +70,7 @@ export async function fetchMindbodyImports(
       leadId: null,
       name,
       phone: r.phone || null,
+      email: r.email || null,
       importedBy: r.mindbody_imported_by || '(unknown)',
       importedAt: r.mindbody_imported_at,
       sourceLabel: r.vip_class_name ? `VIP — ${r.vip_class_name}` : 'VIP',
