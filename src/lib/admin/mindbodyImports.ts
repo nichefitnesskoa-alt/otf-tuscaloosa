@@ -18,6 +18,7 @@ export interface MindbodyImportRow {
   leadId: string | null;
   name: string;
   phone: string | null;
+  email: string | null;
   importedBy: string;
   importedAt: string;          // ISO UTC
   sourceLabel: string;         // "Lead — Instagram" / "VIP — Bama Dining"
@@ -32,13 +33,13 @@ export async function fetchMindbodyImports(
   const [leadsRes, vipRes] = await Promise.all([
     sb
       .from('leads')
-      .select('id, first_name, last_name, phone, source, mindbody_imported_at, mindbody_imported_by')
+      .select('id, first_name, last_name, phone, email, source, mindbody_imported_at, mindbody_imported_by')
       .gte('mindbody_imported_at', startISO)
       .lt('mindbody_imported_at', endISO)
       .order('mindbody_imported_at', { ascending: true }),
     sb
       .from('vip_registrations')
-      .select('id, first_name, last_name, phone, vip_class_name, vip_session_id, mindbody_imported_at, mindbody_imported_by')
+      .select('id, first_name, last_name, phone, email, vip_class_name, vip_session_id, mindbody_imported_at, mindbody_imported_by')
       .gte('mindbody_imported_at', startISO)
       .lt('mindbody_imported_at', endISO)
       .order('mindbody_imported_at', { ascending: true }),
@@ -54,6 +55,7 @@ export async function fetchMindbodyImports(
       leadId: l.id,
       name,
       phone: l.phone || null,
+      email: l.email || null,
       importedBy: l.mindbody_imported_by || '(unknown)',
       importedAt: l.mindbody_imported_at,
       sourceLabel: l.source ? `Lead — ${l.source}` : 'Lead',
@@ -68,6 +70,7 @@ export async function fetchMindbodyImports(
       leadId: null,
       name,
       phone: r.phone || null,
+      email: r.email || null,
       importedBy: r.mindbody_imported_by || '(unknown)',
       importedAt: r.mindbody_imported_at,
       sourceLabel: r.vip_class_name ? `VIP — ${r.vip_class_name}` : 'VIP',
@@ -92,7 +95,7 @@ export function groupBySa(rows: MindbodyImportRow[]): Array<{ sa: string; rows: 
 }
 
 export function toCsv(rows: MindbodyImportRow[]): string {
-  const header = ['Date (CT)', 'Time (CT)', 'Name', 'Phone', 'Imported By', 'Source'];
+  const header = ['Date (CT)', 'Time (CT)', 'Name', 'Phone', 'Email', 'Imported By', 'Source'];
   const esc = (v: string) => `"${(v || '').replace(/"/g, '""')}"`;
   const lines = [header.map(esc).join(',')];
   const fmtDate = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -104,6 +107,7 @@ export function toCsv(rows: MindbodyImportRow[]): string {
       fmtTime.format(d),
       r.name,
       r.phone || '',
+      r.email || '',
       r.importedBy,
       r.sourceLabel,
     ].map(esc).join(','));
