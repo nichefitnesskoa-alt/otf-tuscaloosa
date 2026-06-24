@@ -39,7 +39,7 @@ export async function fetchMindbodyImports(
       .order('mindbody_imported_at', { ascending: true }),
     sb
       .from('vip_registrations')
-      .select('id, first_name, last_name, phone, vip_class_name, vip_session_id, mindbody_imported_at, mindbody_imported_by')
+      .select('id, first_name, last_name, phone, email, vip_class_name, vip_session_id, mindbody_imported_at, mindbody_imported_by')
       .gte('mindbody_imported_at', startISO)
       .lt('mindbody_imported_at', endISO)
       .order('mindbody_imported_at', { ascending: true }),
