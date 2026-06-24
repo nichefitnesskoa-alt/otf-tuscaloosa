@@ -500,6 +500,7 @@ export default function Admin() {
     { value: 'overview', label: 'Overview', icon: <FileSpreadsheet className="w-4 h-4" /> },
     { value: 'objections', label: 'Objections', icon: <AlertTriangle className="w-4 h-4" /> },
     { value: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
+    { value: 'mindbody_imports', label: 'Mindbody Imports', icon: <ClipboardList className="w-4 h-4" /> },
     { value: 'referrals', label: 'Referrals', icon: <Users className="w-4 h-4" /> },
     { value: 'stories', label: 'Stories', icon: <BookOpen className="w-4 h-4" /> },
     { value: 'scripts', label: 'Scripts', icon: <FileText className="w-4 h-4" /> },
