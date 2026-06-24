@@ -719,10 +719,21 @@ export function VipSchedulerTab() {
                     );
                   })()}
 
-                  {isPast && s.status === 'reserved' && (
+                  {isPast && s.status === 'reserved' && (() => {
+                    const outc = outcomeAttendance[s.id];
+                    const autoCount = outc?.anyLogged ? outc.attended : null;
+                    return (
                     <div className="flex items-center gap-2 pt-1 border-t">
                       {attendanceSaved === s.id ? (
                         <span className="text-xs text-success flex items-center gap-1"><Check className="w-3 h-3" /> Saved</span>
+                      ) : autoCount != null ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium">Attendance: {autoCount}</span>
+                          <span className="text-[10px] text-muted-foreground">Auto-counted from outcomes</span>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Override manually" onClick={() => { setAttendanceId(s.id); setAttendanceValue(String(autoCount)); }}>
+                            <Pencil className="w-3 h-3" />
+                          </Button>
+                        </div>
                       ) : s.actual_attendance != null ? (
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-medium">Attendance: {s.actual_attendance}</span>
