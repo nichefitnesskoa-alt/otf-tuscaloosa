@@ -55,6 +55,7 @@ export async function fetchMindbodyImports(
       leadId: l.id,
       name,
       phone: l.phone || null,
+      email: l.email || null,
       importedBy: l.mindbody_imported_by || '(unknown)',
       importedAt: l.mindbody_imported_at,
       sourceLabel: l.source ? `Lead — ${l.source}` : 'Lead',
