@@ -683,10 +683,14 @@ function EntryActions({
         </div>
 
         {entry && (
-          <div className="md:col-span-2 rounded-xl border border-[#E8540A]/40 bg-[#E8540A]/5 p-4 flex items-center gap-3 flex-wrap">
-            <Check className="h-5 w-5 text-[#E8540A] flex-shrink-0" />
+          <div className={`md:col-span-2 rounded-xl border p-4 flex items-center gap-3 flex-wrap ${igFollowComplete ? 'border-[#E8540A]/40 bg-[#E8540A]/5' : 'border-[#3a3a3c] bg-[#1f1f21]'}`}>
+            <Check className={`h-5 w-5 flex-shrink-0 ${igFollowComplete ? 'text-[#E8540A]' : 'text-[#8E8E93]'}`} />
             <p className="font-body text-sm text-[#F5F2EE] flex-1 min-w-[200px]">
-              You're in with <span className="font-bold text-[#E8540A]">{bonusCount}</span> {bonusCount === 1 ? 'entry' : 'entries'}. Anything you check off saves automatically.
+              {igFollowComplete ? (
+                <>You're eligible with <span className="font-bold text-[#E8540A]">{bonusCount}</span> {bonusCount === 1 ? 'entry' : 'entries'}. Anything you check off saves automatically.</>
+              ) : (
+                <>Not eligible yet — finish Step 1 (Follow on Instagram) to be entered to win. Bonus actions saved: <span className="font-bold text-[#E8540A]">{bonusCount}</span>.</>
+              )}
             </p>
             <button
               onClick={copyLink}
@@ -696,6 +700,7 @@ function EntryActions({
             </button>
           </div>
         )}
+
       </div>
     </div>
   );
