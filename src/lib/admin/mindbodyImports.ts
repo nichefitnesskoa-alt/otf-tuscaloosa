@@ -33,7 +33,7 @@ export async function fetchMindbodyImports(
   const [leadsRes, vipRes] = await Promise.all([
     sb
       .from('leads')
-      .select('id, first_name, last_name, phone, source, mindbody_imported_at, mindbody_imported_by')
+      .select('id, first_name, last_name, phone, email, source, mindbody_imported_at, mindbody_imported_by')
       .gte('mindbody_imported_at', startISO)
       .lt('mindbody_imported_at', endISO)
       .order('mindbody_imported_at', { ascending: true }),
