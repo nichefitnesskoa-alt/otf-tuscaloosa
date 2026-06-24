@@ -136,6 +136,9 @@ export function VipSchedulerTab() {
   const [regLoading, setRegLoading] = useState(false);
   const [regCounts, setRegCounts] = useState<Record<string, number>>({});
   const [regEstimates, setRegEstimates] = useState<Record<string, number>>({});
+  // Per-session derived attendance from logged outcomes (showed/booked_intro/purchased).
+  // Falls back to vip_sessions.actual_attendance only when no outcomes are logged.
+  const [outcomeAttendance, setOutcomeAttendance] = useState<Record<string, { attended: number; anyLogged: boolean }>>({});
 
   // Add slot form state
   const [newDate, setNewDate] = useState('');
