@@ -2,11 +2,18 @@ export interface DrawEntry {
   id: string;
   name: string;
   total_entries: number;
+  /** Hard requirement: must have completed the Instagram follow action to be eligible. */
+  action_instagram_follow?: boolean;
 }
 
-/** Only entries with > 0 tickets and not in excludeIds are eligible. */
+/** Only entries with > 0 tickets, completed IG follow, and not in excludeIds are eligible. */
 export function eligibleEntries(entries: DrawEntry[], excludeIds?: Set<string>): DrawEntry[] {
-  return entries.filter(e => e.total_entries > 0 && !(excludeIds?.has(e.id)));
+  return entries.filter(
+    e =>
+      e.total_entries > 0 &&
+      e.action_instagram_follow === true &&
+      !(excludeIds?.has(e.id))
+  );
 }
 
 export function buildTicketPool(entries: DrawEntry[], excludeIds?: Set<string>): DrawEntry[] {

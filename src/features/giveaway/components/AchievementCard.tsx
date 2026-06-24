@@ -8,15 +8,19 @@ interface Props {
   description: string;
   unlocked: boolean;
   children: ReactNode;
+  badge?: 'required' | 'bonus';
 }
 
-export function AchievementCard({ number, title, description, unlocked, children }: Props) {
+export function AchievementCard({ number, title, description, unlocked, children, badge }: Props) {
+  const isRequired = badge === 'required';
   return (
     <motion.div
       initial={false}
       animate={{
-        borderColor: unlocked ? '#E8540A' : '#3a3a3c',
-        backgroundColor: unlocked ? 'rgba(232,84,10,0.08)' : '#1f1f21',
+        borderColor: unlocked ? '#E8540A' : isRequired ? '#E8540A' : '#3a3a3c',
+        backgroundColor: unlocked
+          ? 'rgba(232,84,10,0.08)'
+          : isRequired ? 'rgba(232,84,10,0.04)' : '#1f1f21',
       }}
       transition={{ duration: 0.3 }}
       className="rounded-xl border-2 p-4 sm:p-5"
@@ -30,8 +34,20 @@ export function AchievementCard({ number, title, description, unlocked, children
           {unlocked ? <Check className="h-5 w-5" /> : number}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-display font-bold text-[#F5F2EE] text-base md:text-lg leading-tight uppercase" style={{ letterSpacing: '0.01em' }}>{title}</h3>
+          <div className="flex items-start justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
+              <h3 className="font-display font-bold text-[#F5F2EE] text-base md:text-lg leading-tight uppercase" style={{ letterSpacing: '0.01em' }}>{title}</h3>
+              {badge === 'required' && (
+                <span className="font-display text-[10px] font-black bg-[#E8540A] text-white px-2 py-0.5 rounded uppercase tracking-wider whitespace-nowrap">
+                  Required to win
+                </span>
+              )}
+              {badge === 'bonus' && (
+                <span className="font-display text-[10px] font-black border border-[#E8540A] text-[#E8540A] px-2 py-0.5 rounded uppercase tracking-wider whitespace-nowrap">
+                  Bonus entry
+                </span>
+              )}
+            </div>
             <AnimatePresence>
               {unlocked && (
                 <motion.span

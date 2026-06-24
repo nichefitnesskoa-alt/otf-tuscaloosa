@@ -524,16 +524,27 @@ function EntryActions({
         );
       })()}
 
+      <div className="mb-4 rounded-xl border-2 border-[#E8540A] bg-[#E8540A]/10 p-4">
+        <p className="font-display font-black text-[#E8540A] text-sm md:text-base uppercase tracking-wider text-center">
+          Required to win: Follow all accounts in Step 1
+        </p>
+        <p className="font-body text-[12px] md:text-[13px] text-[#F5F2EE]/80 mt-1 text-center">
+          That's the minimum to be eligible. Everything else is bonus entries on top.
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div className="md:col-span-2">
           <AchievementCard
             number={1}
             title="Follow on Instagram"
             description={igAccounts.length > 1
-              ? `Follow ${studioParticipantName} (${studioIgDisplay}) and ${igAccounts.length - 1} partner${igAccounts.length - 1 === 1 ? '' : 's'} on Instagram to earn this entry.`
-              : `Follow ${studioParticipantName} on Instagram (${studioIgDisplay})`}
+              ? `Follow ${studioParticipantName} (${studioIgDisplay}) and ${igAccounts.length - 1} partner${igAccounts.length - 1 === 1 ? '' : 's'} on Instagram. You must complete this to be eligible to win.`
+              : `Follow ${studioParticipantName} on Instagram (${studioIgDisplay}). You must complete this to be eligible to win.`}
             unlocked={igFollowComplete}
+            badge="required"
           >
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {igAccounts.map(acc => {
                 const checked = !!igChecks[acc.handle];
@@ -558,10 +569,23 @@ function EntryActions({
           </AchievementCard>
         </div>
 
+        <div className="md:col-span-2 mt-2">
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-[#3a3a3c]" />
+            <p className="font-display text-[11px] font-black text-[#8E8E93] uppercase tracking-[0.2em]">Bonus entries (optional)</p>
+            <div className="h-px flex-1 bg-[#3a3a3c]" />
+          </div>
+          {!igFollowComplete && (
+            <p className="font-body text-[12px] text-[#E8540A]/90 mt-2 text-center">
+              Complete Step 1 first — bonus entries only count once you're eligible.
+            </p>
+          )}
+        </div>
+
         {(() => {
           const l = getActionLabel(studio.action_labels, 'post_engagement', BUILT_IN_ACTION_DEFAULTS.post_engagement);
           return (
-            <AchievementCard number={2} title={l.title} description={l.description} unlocked={e.action_post_engagement}>
+            <AchievementCard number={2} title={l.title} description={l.description} unlocked={e.action_post_engagement} badge="bonus">
               <ActionVerification
                 mode={getActionMode(studio.action_verification_modes, 'post_engagement', 'checkbox')}
                 studioSlug={studio.studio_slug} draftId={e.id} actionType="post_engagement"
@@ -577,7 +601,7 @@ function EntryActions({
         {(() => {
           const l = getActionLabel(studio.action_labels, 'story_share', BUILT_IN_ACTION_DEFAULTS.story_share);
           return (
-            <AchievementCard number={3} title={l.title} description={l.description} unlocked={e.action_story_share}>
+            <AchievementCard number={3} title={l.title} description={l.description} unlocked={e.action_story_share} badge="bonus">
               <ActionVerification
                 mode={getActionMode(studio.action_verification_modes, 'story_share', 'checkbox')}
                 studioSlug={studio.studio_slug} draftId={e.id} actionType="story_share"
@@ -593,7 +617,7 @@ function EntryActions({
         {(() => {
           const l = getActionLabel(studio.action_labels, 'free_class', BUILT_IN_ACTION_DEFAULTS.free_class);
           return (
-            <AchievementCard number={4} title={l.title} description={l.description} unlocked={e.action_free_class}>
+            <AchievementCard number={4} title={l.title} description={l.description} unlocked={e.action_free_class} badge="bonus">
               <ActionVerification
                 mode={getActionMode(studio.action_verification_modes, 'free_class', 'checkbox')}
                 studioSlug={studio.studio_slug} draftId={e.id} actionType="free_class"
@@ -618,6 +642,7 @@ function EntryActions({
               key={p.id} number={5 + idx} title={`Visit ${p.partner_name}`}
               description={p.receipt_instructions?.trim() || `Visit ${p.partner_name}${mode === 'screenshot' ? ' and upload a photo of your receipt.' : '.'}`}
               unlocked={!!state?.completed}
+              badge="bonus"
             >
               {handle && (
                 <p className="font-body text-xs text-[#8E8E93] mb-2">
@@ -652,15 +677,20 @@ function EntryActions({
           );
         })}
 
+
         <div className="md:col-span-2">
           <LiveEntryCounter entries={bonusCount} max={maxPossible} />
         </div>
 
         {entry && (
-          <div className="md:col-span-2 rounded-xl border border-[#E8540A]/40 bg-[#E8540A]/5 p-4 flex items-center gap-3 flex-wrap">
-            <Check className="h-5 w-5 text-[#E8540A] flex-shrink-0" />
+          <div className={`md:col-span-2 rounded-xl border p-4 flex items-center gap-3 flex-wrap ${igFollowComplete ? 'border-[#E8540A]/40 bg-[#E8540A]/5' : 'border-[#3a3a3c] bg-[#1f1f21]'}`}>
+            <Check className={`h-5 w-5 flex-shrink-0 ${igFollowComplete ? 'text-[#E8540A]' : 'text-[#8E8E93]'}`} />
             <p className="font-body text-sm text-[#F5F2EE] flex-1 min-w-[200px]">
-              You're in with <span className="font-bold text-[#E8540A]">{bonusCount}</span> {bonusCount === 1 ? 'entry' : 'entries'}. Anything you check off saves automatically.
+              {igFollowComplete ? (
+                <>You're eligible with <span className="font-bold text-[#E8540A]">{bonusCount}</span> {bonusCount === 1 ? 'entry' : 'entries'}. Anything you check off saves automatically.</>
+              ) : (
+                <>Not eligible yet — finish Step 1 (Follow on Instagram) to be entered to win. Bonus actions saved: <span className="font-bold text-[#E8540A]">{bonusCount}</span>.</>
+              )}
             </p>
             <button
               onClick={copyLink}
@@ -670,6 +700,7 @@ function EntryActions({
             </button>
           </div>
         )}
+
       </div>
     </div>
   );

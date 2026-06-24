@@ -19,11 +19,19 @@ export default function GiveawayAdminPage() {
   const { partners } = useGiveawayPartners(studioSlug);
   const [tab, setTab] = useState<'entries' | 'settings'>('entries');
 
-  const totalPool = useMemo(() => entries.reduce((s, e) => s + e.total_entries, 0), [entries]);
-  const eligibleCount = useMemo(() => entries.filter(e => e.total_entries > 0).length, [entries]);
+  const totalPool = useMemo(
+    () => entries.filter(e => e.action_instagram_follow).reduce((s, e) => s + e.total_entries, 0),
+    [entries],
+  );
+  const eligibleCount = useMemo(
+    () => entries.filter(e => e.total_entries > 0 && e.action_instagram_follow).length,
+    [entries],
+  );
   const drawEntries = useMemo(() => entries.map(e => ({
     id: e.id, name: `${e.first_name} ${e.last_name}`, total_entries: e.total_entries,
+    action_instagram_follow: e.action_instagram_follow,
   })), [entries]);
+
 
   if (!studio) {
     return <div className="min-h-screen bg-[#1C1C1E] text-[#F5F2EE] flex items-center justify-center">Loading…</div>;
@@ -54,7 +62,8 @@ export default function GiveawayAdminPage() {
                 <p className="text-sm text-[#F5F2EE]/60 mt-1">
                   <span className="text-[#E8540A] font-bold text-base">{totalPool}</span> total entries in pool · {eligibleCount} eligible · {entries.length} participants
                 </p>
-                <p className="text-xs text-[#F5F2EE]/50 mt-1">Each entry = one ticket. Participants with 0 entries cannot win.</p>
+                <p className="text-xs text-[#F5F2EE]/50 mt-1">Each entry = one ticket. Must complete the Instagram follow to be eligible to win.</p>
+
               </div>
               <button
                 onClick={() => downloadEntriesCsv(entries as any, studio.studio_slug, partners)}
