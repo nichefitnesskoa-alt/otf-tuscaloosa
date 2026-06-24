@@ -621,6 +621,12 @@ export default function Admin() {
           <ArchiveOldDmLeads />
         </TabsContent>
 
+        {/* Mindbody Imports Tab */}
+        <TabsContent value="mindbody_imports" className="space-y-4">
+          <MindbodyImportsPanel />
+        </TabsContent>
+
+
         {/* Stories Tab */}
         <TabsContent value="stories" className="space-y-4">
           <SuccessStoriesPanel />
