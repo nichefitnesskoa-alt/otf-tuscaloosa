@@ -569,10 +569,23 @@ function EntryActions({
           </AchievementCard>
         </div>
 
+        <div className="md:col-span-2 mt-2">
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-[#3a3a3c]" />
+            <p className="font-display text-[11px] font-black text-[#8E8E93] uppercase tracking-[0.2em]">Bonus entries (optional)</p>
+            <div className="h-px flex-1 bg-[#3a3a3c]" />
+          </div>
+          {!igFollowComplete && (
+            <p className="font-body text-[12px] text-[#E8540A]/90 mt-2 text-center">
+              Complete Step 1 first — bonus entries only count once you're eligible.
+            </p>
+          )}
+        </div>
+
         {(() => {
           const l = getActionLabel(studio.action_labels, 'post_engagement', BUILT_IN_ACTION_DEFAULTS.post_engagement);
           return (
-            <AchievementCard number={2} title={l.title} description={l.description} unlocked={e.action_post_engagement}>
+            <AchievementCard number={2} title={l.title} description={l.description} unlocked={e.action_post_engagement} badge="bonus">
               <ActionVerification
                 mode={getActionMode(studio.action_verification_modes, 'post_engagement', 'checkbox')}
                 studioSlug={studio.studio_slug} draftId={e.id} actionType="post_engagement"
@@ -588,7 +601,7 @@ function EntryActions({
         {(() => {
           const l = getActionLabel(studio.action_labels, 'story_share', BUILT_IN_ACTION_DEFAULTS.story_share);
           return (
-            <AchievementCard number={3} title={l.title} description={l.description} unlocked={e.action_story_share}>
+            <AchievementCard number={3} title={l.title} description={l.description} unlocked={e.action_story_share} badge="bonus">
               <ActionVerification
                 mode={getActionMode(studio.action_verification_modes, 'story_share', 'checkbox')}
                 studioSlug={studio.studio_slug} draftId={e.id} actionType="story_share"
@@ -604,7 +617,7 @@ function EntryActions({
         {(() => {
           const l = getActionLabel(studio.action_labels, 'free_class', BUILT_IN_ACTION_DEFAULTS.free_class);
           return (
-            <AchievementCard number={4} title={l.title} description={l.description} unlocked={e.action_free_class}>
+            <AchievementCard number={4} title={l.title} description={l.description} unlocked={e.action_free_class} badge="bonus">
               <ActionVerification
                 mode={getActionMode(studio.action_verification_modes, 'free_class', 'checkbox')}
                 studioSlug={studio.studio_slug} draftId={e.id} actionType="free_class"
@@ -629,6 +642,7 @@ function EntryActions({
               key={p.id} number={5 + idx} title={`Visit ${p.partner_name}`}
               description={p.receipt_instructions?.trim() || `Visit ${p.partner_name}${mode === 'screenshot' ? ' and upload a photo of your receipt.' : '.'}`}
               unlocked={!!state?.completed}
+              badge="bonus"
             >
               {handle && (
                 <p className="font-body text-xs text-[#8E8E93] mb-2">
@@ -662,6 +676,7 @@ function EntryActions({
             </AchievementCard>
           );
         })}
+
 
         <div className="md:col-span-2">
           <LiveEntryCounter entries={bonusCount} max={maxPossible} />
