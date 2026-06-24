@@ -524,16 +524,27 @@ function EntryActions({
         );
       })()}
 
+      <div className="mb-4 rounded-xl border-2 border-[#E8540A] bg-[#E8540A]/10 p-4">
+        <p className="font-display font-black text-[#E8540A] text-sm md:text-base uppercase tracking-wider text-center">
+          Required to win: Follow all accounts in Step 1
+        </p>
+        <p className="font-body text-[12px] md:text-[13px] text-[#F5F2EE]/80 mt-1 text-center">
+          That's the minimum to be eligible. Everything else is bonus entries on top.
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div className="md:col-span-2">
           <AchievementCard
             number={1}
             title="Follow on Instagram"
             description={igAccounts.length > 1
-              ? `Follow ${studioParticipantName} (${studioIgDisplay}) and ${igAccounts.length - 1} partner${igAccounts.length - 1 === 1 ? '' : 's'} on Instagram to earn this entry.`
-              : `Follow ${studioParticipantName} on Instagram (${studioIgDisplay})`}
+              ? `Follow ${studioParticipantName} (${studioIgDisplay}) and ${igAccounts.length - 1} partner${igAccounts.length - 1 === 1 ? '' : 's'} on Instagram. You must complete this to be eligible to win.`
+              : `Follow ${studioParticipantName} on Instagram (${studioIgDisplay}). You must complete this to be eligible to win.`}
             unlocked={igFollowComplete}
+            badge="required"
           >
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {igAccounts.map(acc => {
                 const checked = !!igChecks[acc.handle];
