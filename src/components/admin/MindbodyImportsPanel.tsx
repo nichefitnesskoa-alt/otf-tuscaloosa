@@ -105,9 +105,10 @@ export function MindbodyImportsPanel() {
     : `${format(parseLocalDate(startYmd)!, 'MMM d')} – ${format(parseLocalDate(endYmd)!, 'MMM d, yyyy')}`;
 
   const handleCopy = async () => {
-    const lines = visibleRows.map(r =>
-      `${r.name}${r.phone ? ` · ${formatPhoneDisplay(r.phone) || r.phone}` : ''} — ${r.importedBy} (${r.sourceLabel})`,
-    );
+    const lines = visibleRows.map(r => {
+      const contact = [r.phone ? formatPhoneDisplay(r.phone) || r.phone : null, r.email].filter(Boolean).join(' · ');
+      return `${r.name}${contact ? ` · ${contact}` : ''} — ${r.importedBy} (${r.sourceLabel})`;
+    });
     const text = `Imported to Mindbody — ${rangeLabel} (${visibleRows.length} total)\n\n${lines.join('\n')}`;
     await navigator.clipboard.writeText(text);
     setCopied(true);
