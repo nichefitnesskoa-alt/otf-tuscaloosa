@@ -243,17 +243,21 @@ function SaGroupCard({ sa, rows }: { sa: string; rows: MindbodyImportRow[] }) {
       </div>
       <ul className="divide-y">
         {rows.map(r => (
-          <li key={`${r.kind}-${r.id}`} className="px-4 py-2 flex items-center gap-3 text-sm">
-            <span className="font-medium flex-1 truncate">{r.name}</span>
-            <span className="text-muted-foreground text-xs hidden sm:inline">
-              {r.phone ? (formatPhoneDisplay(r.phone) || r.phone) : '—'}
-            </span>
-            <Badge variant="outline" className="text-[10px]">
-              {r.kind === 'vip' ? `VIP${r.vipGroup ? ` · ${r.vipGroup}` : ''}` : 'Lead'}
-            </Badge>
-            <span className="text-xs text-muted-foreground w-20 text-right">
-              {fmtTime.format(new Date(r.importedAt))}
-            </span>
+          <li key={`${r.kind}-${r.id}`} className="px-4 py-2 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-sm">
+            <div className="flex-1 min-w-0">
+              <div className="font-medium truncate">{r.name}</div>
+              <div className="text-xs text-muted-foreground truncate">
+                {[r.phone ? formatPhoneDisplay(r.phone) || r.phone : null, r.email].filter(Boolean).join(' · ') || '—'}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <Badge variant="outline" className="text-[10px]">
+                {r.kind === 'vip' ? `VIP${r.vipGroup ? ` · ${r.vipGroup}` : ''}` : 'Lead'}
+              </Badge>
+              <span className="text-xs text-muted-foreground w-20 text-right">
+                {fmtTime.format(new Date(r.importedAt))}
+              </span>
+            </div>
           </li>
         ))}
       </ul>
