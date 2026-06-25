@@ -1,75 +1,57 @@
-## Goal
+# Plan: Add Lead from WIG + Require Email/Phone + Rename Mindbody → OrangeBook
 
-Add an in-app "Imported to Mindbody" report so Koa can pull who-was-checked-off-by-whom without asking each time. Covers both `leads.mindbody_imported_at` (sourced leads checked off in the WIG drilldown / SourcedLeadsDialog) and `vip_registrations.mindbody_imported_at` (VIP roster check-offs) — so it stays coherent with both surfaces that already write the flag.
+## 1. "Add Lead" button in WIG SA Leaderboard
 
-## Where it lives
+In `src/components/wig/WigSaLeaderboard.tsx`, place a new **+ Add Lead** button next to the existing **Sourced Leads** button in the SA Leaderboard `CardHeader` (line ~370). Clicking it opens `AddLeadDialog`. On success, invalidate the sourced-leads query so the new lead appears immediately in the leaderboard count and the Sourced Leads dialog.
 
-New tab **"Mindbody Imports"** on the existing Admin page (`src/pages/Admin.tsx`), Admin-only (matches existing `is Koa` gate). One screen, no nav reshuffle.
+## 2. Require email AND phone on self-sourced leads
 
-## What it shows
+In `src/components/leads/AddLeadDialog.tsx`:
+- Change the Email label to **Email \*** and add it to the required validation alongside first name, last name, phone.
+- Update toast: "First name, last name, phone, and email are required."
+- Add a short helper line under the form: *"Email and phone are both required so this lead can be imported into OrangeBook."*
 
-Top controls (sticky):
-- Date-range presets: **Yesterday** (default), **Today**, **This week (Mon–today, CST)**, **Last 7 days**, **Custom**.
-- Custom = two shadcn date pickers (with `pointer-events-auto`).
-- "Imported by" filter chip row built from `useActiveStaff().salesAssociates` plus any historical name present in the range (so it never silently drops "Kaiya" if she's been deactivated).
-- Total count pill on the right.
-- **Copy list** and **Download CSV** buttons.
+Out of scope: Mindbody webhook / IG / sheet imports still allow missing emails — the requirement is only for the manual "Add Lead" path triggered from WIG. (Confirm if you also want the rule enforced on Pipeline → New Leads' add path.)
 
-Body:
-- Grouped by SA, descending by count. Each group is a card:
-  - Header: `Kaiya — 19 imported`
-  - Rows: `Name · (phone) · 12:46 PM · [Lead | VIP: <group>]`
-  - Tap row → opens the existing person journey drawer (`PersonJourneyCard`) if a `leads` row exists.
-- Empty state: "No one was checked off as imported in this range."
+## 3. Make "OrangeBook" the system of record copy
 
-## Data source (single query, two tables, one canonical helper)
+Replace user-visible "Mindbody" with "OrangeBook" on the SA-facing surfaces tied to this flow. Internal column names (`mindbody_imported_at`, `mindbody_imported_by`) stay as-is — copy-only change.
 
-New helper `src/lib/admin/mindbodyImports.ts`:
+Files and strings to update:
 
-```ts
-fetchMindbodyImports(rangeStartUtc, rangeEndUtc) → Array<{
-  kind: 'lead' | 'vip',
-  id, name, phone, importedBy, importedAt, sourceLabel
-}>
-```
+**`src/components/wig/WigSaLeaderboard.tsx`** — under the SA Leaderboard description add a clear callout banner:
+> **All leads go in OrangeBook, not Mindbody.** Add every self-sourced lead here, then check it off once it's in OrangeBook.
 
-- Selects from `leads` where `mindbody_imported_at >= start AND < end`, and from `vip_registrations` same, in parallel.
-- Date range is built in America/Chicago (`startOfDayCT` / `endOfDayCT` from `src/lib/dateUtils.ts`), then converted to UTC ISO for the query. No `new Date('YYYY-MM-DD')`.
-- Returns one merged, sorted array.
+**`src/components/wig/SourcedLeadsDialog.tsx`**:
+- Status pills: `Needs import` / `In OrangeBook` / `All` (already says "Needs import"; rename "In Mindbody" → "In OrangeBook").
+- Subheader counts: `need${s} OrangeBook import` / `already in OrangeBook`.
+- Row checkbox tooltip + pill: "Mark imported to OrangeBook" / "Already in OrangeBook (booked)" / "Already in OrangeBook (VIP registrant)" / pill text "In OrangeBook" / "VIP · In OrangeBook".
+- "Imported {date} by {sa}" copy unchanged.
 
-This becomes the single source of truth — if SourcedLeadsDialog or VipRoster ever changes how the flag is written, this helper still reads the same DB columns.
+**`src/components/admin/MindbodyImportsPanel.tsx`** — user-visible strings only:
+- Tab title + header: "OrangeBook Imports".
+- Subtitle: "Everyone an SA checked off as imported to OrangeBook…".
+- Copy-list header: "Imported to OrangeBook — …".
+- CSV filename: `orangebook-imports-…csv`.
+- Component filename + Admin tab label can stay (`MindbodyImportsPanel`) — internal only.
 
-## React Query + realtime
+**`src/pages/Admin.tsx`** — rename the tab trigger label "Mindbody Imports" → "OrangeBook Imports" (icon unchanged).
 
-- Query key: `['mindbody-imports', startISO, endISO]`.
-- Realtime subscriptions on `leads` and `vip_registrations` (filtered on the `mindbody_imported_at` column changing) invalidate the key so a fresh check-off appears live.
-- Same `useEffect`-scoped channel pattern used elsewhere (cleanup on unmount).
+## Verification (COHERENCE PROOF at end of build)
 
-## CSV export
-
-`Date (CT), Time (CT), Name, Phone, Imported By, Source` — written with the existing CSV pattern (`src/lib/sa/sourcedLeadsCsv.ts` shape, not a new lib). Filename `mindbody-imports-YYYY-MM-DD_to_YYYY-MM-DD.csv`.
+- Click **+ Add Lead** from WIG, submit with missing email → blocked with new toast.
+- Submit with email → row appears in DB `leads` (`SELECT id, email, source FROM leads ORDER BY created_at DESC LIMIT 1`), SA leaderboard count increments, Sourced Leads dialog shows it.
+- Confirm every visible "Mindbody" string on WIG SA Leaderboard, Sourced Leads dialog, and Admin → OrangeBook Imports tab now reads "OrangeBook".
+- Confirm the new requirement banner is visible in WIG SA Leaderboard for SA + Admin roles.
 
 ## Files touched
 
-- `src/pages/Admin.tsx` — add tab trigger + content slot
-- `src/components/admin/MindbodyImportsPanel.tsx` (new) — the UI
-- `src/lib/admin/mindbodyImports.ts` (new) — fetch helper + types
+- `src/components/wig/WigSaLeaderboard.tsx` (button + banner + copy)
+- `src/components/leads/AddLeadDialog.tsx` (require email, helper line)
+- `src/components/wig/SourcedLeadsDialog.tsx` (Mindbody → OrangeBook copy)
+- `src/components/admin/MindbodyImportsPanel.tsx` (Mindbody → OrangeBook copy, CSV name)
+- `src/pages/Admin.tsx` (tab label)
 
-## Cross-page coherence
+## Open question
 
-For the chosen date range, the panel's per-SA counts must equal:
-- A direct DB count of `leads` + `vip_registrations` filtered by `mindbody_imported_at` in CST window, grouped by `mindbody_imported_by`.
-- The same set SourcedLeadsDialog uses to render its green "Imported" pills for that date.
-
-Will verify both before reporting done.
-
-## Out of scope
-
-- No DB migration — columns already exist.
-- No change to write paths (`useMarkLeadImported`, VipRoster check-off).
-- No change to WIG tiles or other dashboards.
-- No new role/permission — Admin only.
-
-## Closing-line contract
-
-Will close with COHERENCE PROOF: actual DB row counts per SA for yesterday + the panel's displayed numbers + confirmation they match.
+Should the email-required rule also apply to **Pipeline → New Leads → Add Lead** (same dialog component, different entry point), or only when added from WIG? Easiest is to enforce universally since both call `AddLeadDialog` — confirm if that's okay.

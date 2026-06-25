@@ -45,8 +45,8 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLeadDialog
   };
 
   const handleSubmit = async () => {
-    if (!firstName.trim() || !lastName.trim() || !phone.trim()) {
-      toast.error('First name, last name, and phone are required');
+    if (!firstName.trim() || !lastName.trim() || !phone.trim() || !email.trim()) {
+      toast.error('First name, last name, phone, and email are all required');
       return;
     }
     setSaving(true);
@@ -109,8 +109,11 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLeadDialog
             <Input value={phone} onChange={e => setPhone(formatPhoneAsYouType(e.target.value))} placeholder="(555) 123-4567" type="tel" />
           </div>
           <div>
-            <Label>Email</Label>
+            <Label>Email *</Label>
             <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" type="email" />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Phone and email are both required so this lead can be imported into OrangeBook.
+            </p>
           </div>
           <div>
             <Label>Source</Label>

@@ -109,7 +109,7 @@ export function MindbodyImportsPanel() {
       const contact = [r.phone ? formatPhoneDisplay(r.phone) || r.phone : null, r.email].filter(Boolean).join(' · ');
       return `${r.name}${contact ? ` · ${contact}` : ''} — ${r.importedBy} (${r.sourceLabel})`;
     });
-    const text = `Imported to Mindbody — ${rangeLabel} (${visibleRows.length} total)\n\n${lines.join('\n')}`;
+    const text = `Imported to OrangeBook — ${rangeLabel} (${visibleRows.length} total)\n\n${lines.join('\n')}`;
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
@@ -122,7 +122,7 @@ export function MindbodyImportsPanel() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `mindbody-imports-${startYmd}_to_${endYmd}.csv`;
+    a.download = `orangebook-imports-${startYmd}_to_${endYmd}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -132,11 +132,11 @@ export function MindbodyImportsPanel() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Users className="w-5 h-5" />
-          Mindbody Imports
+          OrangeBook Imports
           <Badge variant="secondary" className="ml-2">{visibleRows.length} people</Badge>
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Everyone an SA checked off as imported to Mindbody. Pulls from both sourced leads and VIP rosters.
+          Everyone an SA checked off as imported to OrangeBook. Pulls from both sourced leads and VIP rosters.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
