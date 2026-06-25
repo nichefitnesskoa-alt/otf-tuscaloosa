@@ -86,6 +86,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const [drill, setDrill] = useState<{ sa: string | null; bucket: DrillBucket } | null>(null);
   const [journeyBookingId, setJourneyBookingId] = useState<string | null>(null);
   const [sourcedLeadsOpen, setSourcedLeadsOpen] = useState(false);
+  const [addLeadOpen, setAddLeadOpen] = useState(false);
 
   const yyyymm = useMemo(() => (
     dateRange ? format(dateRange.start, 'yyyy-MM') : format(getNowCentral(), 'yyyy-MM')
@@ -368,16 +369,34 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                 Self-generated leads — the one number SAs control. Tap an SA to open their page; tap a number to see who.
               </p>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setSourcedLeadsOpen(true)}
-              className="min-h-[44px] shrink-0 cursor-pointer"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Sourced Leads
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setAddLeadOpen(true)}
+                className="min-h-[44px] cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Lead
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setSourcedLeadsOpen(true)}
+                className="min-h-[44px] cursor-pointer"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Sourced Leads
+              </Button>
+            </div>
+          </div>
+          <div className="mt-3 flex items-start gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
+            <AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+            <div className="text-foreground">
+              <span className="font-semibold">All leads go in OrangeBook, not Mindbody.</span>{' '}
+              Add every self-sourced lead here, then check it off in <span className="font-medium">Sourced Leads</span> once it's entered in OrangeBook.
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -470,6 +489,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         />
       )}
       <SourcedLeadsDialog open={sourcedLeadsOpen} onOpenChange={setSourcedLeadsOpen} initialRange={dateRange} />
+      <AddLeadDialog open={addLeadOpen} onOpenChange={setAddLeadOpen} onLeadAdded={() => sourcedLeads.refetch()} />
     </>
   );
 }
