@@ -8,6 +8,7 @@ const MERGE_FIELDS = [
   { field: '{first-intro-coach-full-name}', desc: "First-intro coach's full name (auto)" },
   { field: '{day}', desc: 'Class day (e.g. Tuesday)' },
   { field: '{time}', desc: 'Class time (e.g. 5:30 PM)' },
+  { field: '{arrival-time}', desc: 'Class time minus 30 min (e.g. 5:00 AM)' },
   { field: '{today/tomorrow}', desc: 'Smart: today/tomorrow/day name' },
   { field: '{questionnaire-link}', desc: 'Auto-generated questionnaire link' },
   { field: '{friend-questionnaire-link}', desc: '2nd questionnaire link' },
