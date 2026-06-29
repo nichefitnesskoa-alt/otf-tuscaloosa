@@ -154,15 +154,30 @@ export async function buildScriptContext(opts: BuildContextOpts): Promise<FullSc
     } catch { /* skip */ }
   }
   if (classTime) {
+    const fmt = (h: number, m: number) => {
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+    };
     try {
-      const [h, m] = classTime.split(':');
-      const hour = parseInt(h, 10);
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      const hour12 = hour % 12 || 12;
-      ctx.time = `${hour12}:${m} ${ampm}`;
+      const [hStr, mStr] = classTime.split(':');
+      const hour = parseInt(hStr, 10);
+      const minute = parseInt(mStr, 10);
+      if (!Number.isNaN(hour) && !Number.isNaN(minute)) {
+        ctx.time = fmt(hour, minute);
+        let total = hour * 60 + minute - 30;
+        if (total < 0) total += 24 * 60;
+        ctx['arrival-time'] = fmt(Math.floor(total / 60) % 24, total % 60);
+      } else {
+        ctx.time = classTime;
+        ctx['arrival-time'] = '20–30 min before class';
+      }
     } catch {
       ctx.time = classTime;
+      ctx['arrival-time'] = '20–30 min before class';
     }
+  } else {
+    ctx['arrival-time'] = '20–30 min before class';
   }
 
   let questionnaireId: string | undefined;

@@ -1,57 +1,36 @@
-# Plan: Add Lead from WIG + Require Email/Phone + Rename Mindbody → OrangeBook
+## Goal
+Add an `{arrival-time}` merge field that auto-renders 30 minutes before class start, and update the 1st Intro Booking Confirmation template to use it. The 11:30 dropdown entry is already present — no code change needed there.
 
-## 1. "Add Lead" button in WIG SA Leaderboard
+## Changes
 
-In `src/components/wig/WigSaLeaderboard.tsx`, place a new **+ Add Lead** button next to the existing **Sourced Leads** button in the SA Leaderboard `CardHeader` (line ~370). Clicking it opens `AddLeadDialog`. On success, invalidate the sourced-leads query so the new lead appears immediately in the leaderboard count and the Sourced Leads dialog.
+**1. `src/lib/script-context.ts`** — when `classTime` is present, also compute `arrival-time` as `classTime − 30 min`, formatted the same way as `{time}` (e.g. `5:00 AM`, `12:00 PM`). Edge cases (midnight rollover, missing time) fall back gracefully to "20–30 min before class".
 
-## 2. Require email AND phone on self-sourced leads
+**2. `src/components/scripts/MergeFieldReference.tsx`** — add `{arrival-time}` with description "Class time minus 30 min (e.g. 5:00 AM)" so SAs can insert it into other templates.
 
-In `src/components/leads/AddLeadDialog.tsx`:
-- Change the Email label to **Email \*** and add it to the required validation alongside first name, last name, phone.
-- Update toast: "First name, last name, phone, and email are required."
-- Add a short helper line under the form: *"Email and phone are both required so this lead can be imported into OrangeBook."*
+**3. Database update** (`script_templates` row `1cca9ed8-f127-49cc-a22e-cce61a987e04`, "1st Intro Booking Confirmation") — replace body with:
 
-Out of scope: Mindbody webhook / IG / sheet imports still allow missing emails — the requirement is only for the manual "Add Lead" path triggered from WIG. (Confirm if you also want the rule enforced on Pipeline → New Leads' add path.)
+```
+Hey {first-name}, it's {sa-name} from Orangetheory!
 
-## 3. Make "OrangeBook" the system of record copy
+You're booked {day} at {time}.
 
-Replace user-visible "Mindbody" with "OrangeBook" on the SA-facing surfaces tied to this flow. Internal column names (`mindbody_imported_at`, `mindbody_imported_by`) stay as-is — copy-only change.
+What to expect before your first class!
 
-Files and strings to update:
+-Arrival: Come at {arrival-time} for a tour, heart rate monitor setup, and to meet coach {coach-name}. They'll teach you how the class works. Additionally, we offer a complimentary InBody scan which will give you information about your muscle composition.
 
-**`src/components/wig/WigSaLeaderboard.tsx`** — under the SA Leaderboard description add a clear callout banner:
-> **All leads go in OrangeBook, not Mindbody.** Add every self-sourced lead here, then check it off once it's in OrangeBook.
+-Coach {coach-name} wants to know a little more about you and your fitness goals to help personalize the class your goals
 
-**`src/components/wig/SourcedLeadsDialog.tsx`**:
-- Status pills: `Needs import` / `In OrangeBook` / `All` (already says "Needs import"; rename "In Mindbody" → "In OrangeBook").
-- Subheader counts: `need${s} OrangeBook import` / `already in OrangeBook`.
-- Row checkbox tooltip + pill: "Mark imported to OrangeBook" / "Already in OrangeBook (booked)" / "Already in OrangeBook (VIP registrant)" / pill text "In OrangeBook" / "VIP · In OrangeBook".
-- "Imported {date} by {sa}" copy unchanged.
+{questionnaire-link}
 
-**`src/components/admin/MindbodyImportsPanel.tsx`** — user-visible strings only:
-- Tab title + header: "OrangeBook Imports".
-- Subtitle: "Everyone an SA checked off as imported to OrangeBook…".
-- Copy-list header: "Imported to OrangeBook — …".
-- CSV filename: `orangebook-imports-…csv`.
-- Component filename + Admin tab label can stay (`MindbodyImportsPanel`) — internal only.
+We're so excited for you!
 
-**`src/pages/Admin.tsx`** — rename the tab trigger label "Mindbody Imports" → "OrangeBook Imports" (icon unchanged).
+Reply YES to confirm! or RESCHEDULE to reschedule!
+```
 
-## Verification (COHERENCE PROOF at end of build)
+## Note on 11:30
+`CLASS_TIMES` in `src/types/index.ts` already includes `11:30` with label `11:30 AM`. Per your answer, I'm leaving `src/lib/classSchedule.ts` (today's auto-schedule for milestones/coach-prep) untouched.
 
-- Click **+ Add Lead** from WIG, submit with missing email → blocked with new toast.
-- Submit with email → row appears in DB `leads` (`SELECT id, email, source FROM leads ORDER BY created_at DESC LIMIT 1`), SA leaderboard count increments, Sourced Leads dialog shows it.
-- Confirm every visible "Mindbody" string on WIG SA Leaderboard, Sourced Leads dialog, and Admin → OrangeBook Imports tab now reads "OrangeBook".
-- Confirm the new requirement banner is visible in WIG SA Leaderboard for SA + Admin roles.
-
-## Files touched
-
-- `src/components/wig/WigSaLeaderboard.tsx` (button + banner + copy)
-- `src/components/leads/AddLeadDialog.tsx` (require email, helper line)
-- `src/components/wig/SourcedLeadsDialog.tsx` (Mindbody → OrangeBook copy)
-- `src/components/admin/MindbodyImportsPanel.tsx` (Mindbody → OrangeBook copy, CSV name)
-- `src/pages/Admin.tsx` (tab label)
-
-## Open question
-
-Should the email-required rule also apply to **Pipeline → New Leads → Add Lead** (same dialog component, different entry point), or only when added from WIG? Easiest is to enforce universally since both call `AddLeadDialog` — confirm if that's okay.
+## Coherence proof (after build)
+- Render test: booking at `12:00` → `{arrival-time}` = `11:30 AM`; booking at `05:00` → `{arrival-time}` = `4:30 AM`.
+- DB verify: `SELECT body FROM script_templates WHERE id = '1cca9ed8…'` returns the updated body containing `{arrival-time}`.
+- Scripts page → 1st Intro Booking Confirmation → Generate against a real booking shows the rendered arrival time matching class time − 30 min.
