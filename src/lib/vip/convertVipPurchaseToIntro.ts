@@ -189,7 +189,7 @@ export async function saveVipPurchase(args: SaveArgs): Promise<SaveResult> {
     outcome_logged_by: saName,
   }).eq('id', registrationId);
 
-  return { bookingId: bookingId!, runId: runId! };
+  return { bookingId: bookingId!, runId: runId!, introOwnerSa };
 }
 
 /**
