@@ -62,12 +62,19 @@ export async function saveVipPurchase(args: SaveArgs): Promise<SaveResult> {
   const {
     registrationId, firstName, lastName, phone, email,
     vipSessionId, vipSessionDate, vipSessionTime, vipCoach,
-    membership, saName,
+    membership, saName, vipSetupSaName,
   } = args;
 
   if (!vipCoach) throw new Error('Select a class coach first');
   if (!membership) throw new Error('Select a membership tier');
   if (!vipSessionDate) throw new Error('Missing VIP session date');
+
+  // The SA who gets commission + sales credit is the one who SET UP the VIP
+  // class, never the coach who taught it. Falls back to the SA keying in the
+  // purchase only if setup was never claimed.
+  const introOwnerSa = (vipSetupSaName?.trim()) || saName;
+
+
 
   const memberName = [firstName, lastName].filter(Boolean).join(' ').trim() || 'Unnamed';
   const commission = commissionFor(membership);
