@@ -122,7 +122,8 @@ export async function saveVipPurchase(args: SaveArgs): Promise<SaveResult> {
       class_date: vipSessionDate,
       intro_time: vipSessionTime,
       coach_name: vipCoach,
-      intro_owner: vipCoach,
+      intro_owner: introOwnerSa,
+
       sa_working_shift: saName,
       lead_source: 'VIP Class',
       booked_by: saName,
