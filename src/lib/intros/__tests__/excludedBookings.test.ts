@@ -11,8 +11,8 @@ describe('isBookingExcludedFromMetrics', () => {
     expect(isBookingExcludedFromMetrics({ id: '1', booking_status_canon: 'ACTIVE' })).toBe(false);
     expect(isBookingExcludedFromMetrics({ id: '1', booking_status_canon: 'NO_SHOW' })).toBe(false);
   });
-  it('is_vip excluded', () => {
-    expect(isBookingExcludedFromMetrics({ id: '1', is_vip: true })).toBe(true);
+  it('is_vip is INCLUDED (VIP-sourced intros count toward Studio metrics)', () => {
+    expect(isBookingExcludedFromMetrics({ id: '1', is_vip: true })).toBe(false);
   });
   it('ignore_from_metrics excluded', () => {
     expect(isBookingExcludedFromMetrics({ id: '1', ignore_from_metrics: true })).toBe(true);
