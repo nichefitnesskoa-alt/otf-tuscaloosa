@@ -37,12 +37,21 @@ interface SaveArgs {
   vipCoach: string;
   membership: VipMembershipLabel | string;
   saName: string;
+  /**
+   * The SA who set up the VIP class (vip_sessions.sa_setup_name). This is the
+   * person who gets commission + sales credit — NOT the coach who taught the
+   * class and NOT necessarily the SA keying in the purchase. Falls back to
+   * `saName` only if setup was never claimed.
+   */
+  vipSetupSaName?: string | null;
 }
 
 export interface SaveResult {
   bookingId: string;
   runId: string;
+  introOwnerSa: string;
 }
+
 
 /**
  * Persist a VIP purchase. Creates or updates the linked intros_booked +
@@ -53,12 +62,19 @@ export async function saveVipPurchase(args: SaveArgs): Promise<SaveResult> {
   const {
     registrationId, firstName, lastName, phone, email,
     vipSessionId, vipSessionDate, vipSessionTime, vipCoach,
-    membership, saName,
+    membership, saName, vipSetupSaName,
   } = args;
 
   if (!vipCoach) throw new Error('Select a class coach first');
   if (!membership) throw new Error('Select a membership tier');
   if (!vipSessionDate) throw new Error('Missing VIP session date');
+
+  // The SA who gets commission + sales credit is the one who SET UP the VIP
+  // class, never the coach who taught it. Falls back to the SA keying in the
+  // purchase only if setup was never claimed.
+  const introOwnerSa = (vipSetupSaName?.trim()) || saName;
+
+
 
   const memberName = [firstName, lastName].filter(Boolean).join(' ').trim() || 'Unnamed';
   const commission = commissionFor(membership);
@@ -87,7 +103,8 @@ export async function saveVipPurchase(args: SaveArgs): Promise<SaveResult> {
       class_date: vipSessionDate,
       intro_time: vipSessionTime,
       coach_name: vipCoach,
-      intro_owner: vipCoach,
+      intro_owner: introOwnerSa,
+
       booking_status: 'Active',
       booking_status_canon: 'SHOWED',
       booking_type_canon: 'STANDARD',
@@ -105,7 +122,8 @@ export async function saveVipPurchase(args: SaveArgs): Promise<SaveResult> {
       class_date: vipSessionDate,
       intro_time: vipSessionTime,
       coach_name: vipCoach,
-      intro_owner: vipCoach,
+      intro_owner: introOwnerSa,
+
       sa_working_shift: saName,
       lead_source: 'VIP Class',
       booked_by: saName,
@@ -145,7 +163,7 @@ export async function saveVipPurchase(args: SaveArgs): Promise<SaveResult> {
       run_date: vipSessionDate,
       coach_name: vipCoach,
       sa_name: saName,
-      intro_owner: vipCoach,
+      intro_owner: introOwnerSa,
       result: membership,
       result_canon: 'SALE',
       commission_amount: commission,
@@ -171,7 +189,7 @@ export async function saveVipPurchase(args: SaveArgs): Promise<SaveResult> {
     outcome_logged_by: saName,
   }).eq('id', registrationId);
 
-  return { bookingId: bookingId!, runId: runId! };
+  return { bookingId: bookingId!, runId: runId!, introOwnerSa };
 }
 
 /**

@@ -254,13 +254,16 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
         vipCoach,
         membership,
         saName: userName || 'Unknown',
+        vipSetupSaName: vipSaSetup || null,
       });
       const commission = VIP_MEMBERSHIP_OPTIONS.find(m => m.label === membership)?.commission ?? 0;
       setRegs(curr => curr.map(r => r.id === regId ? {
         ...r, outcome: 'purchased', membership_type: membership, commission_amount: commission,
       } : r));
       setPendingMembership(curr => { const n = { ...curr }; delete n[regId]; return n; });
-      toast.success(`Purchase saved — $${commission.toFixed(2)} to ${vipCoach}`);
+      const creditedSa = vipSaSetup || userName || 'Unknown';
+      toast.success(`Purchase saved — $${commission.toFixed(2)} to ${creditedSa} (Coach: ${vipCoach})`);
+
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || 'Failed to save purchase');
