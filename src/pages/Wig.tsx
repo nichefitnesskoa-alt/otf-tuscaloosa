@@ -416,22 +416,30 @@ export default function Wig() {
         return fallback || null;
       };
 
-      // Fetch linked intros_run rows for showed-intro detection + close coach attribution
+      // Fetch linked intros_run rows for showed-intro detection + close coach attribution.
+      // Pull runs for EVERY in-range booking (1st + 2nd) so Corporate · Last Coach
+      // can attribute per-class without an extra round trip.
       const firstIntroBookingIds = firstIntroBookings.map(b => b.id);
+      const allInRangeBookingIds = allCoachBookings.map(b => b.id);
       const showedBookingIds = new Set<string>();
       const runsByBookingId = new Map<string, any>();
-      if (firstIntroBookingIds.length > 0) {
+      const allRunsByBookingId = new Map<string, any>(); // includes 2nd intros; unfiltered
+      if (allInRangeBookingIds.length > 0) {
         const runBatches: string[][] = [];
-        for (let i = 0; i < firstIntroBookingIds.length; i += 500) runBatches.push(firstIntroBookingIds.slice(i, i + 500));
+        for (let i = 0; i < allInRangeBookingIds.length; i += 500) runBatches.push(allInRangeBookingIds.slice(i, i + 500));
+        const firstIdSet = new Set(firstIntroBookingIds);
         for (const batch of runBatches) {
           const { data: runs } = await supabase
             .from('intros_run')
             .select('linked_intro_booked_id, result, result_canon, coach_name, buy_date, run_date, created_at')
             .in('linked_intro_booked_id', batch);
           (runs || []).forEach((r: any) => {
+            allRunsByBookingId.set(r.linked_intro_booked_id, r);
             if (r.result_canon === 'NO_SHOW' || r.result_canon === 'UNRESOLVED') return;
-            showedBookingIds.add(r.linked_intro_booked_id);
-            runsByBookingId.set(r.linked_intro_booked_id, r);
+            if (firstIdSet.has(r.linked_intro_booked_id)) {
+              showedBookingIds.add(r.linked_intro_booked_id);
+              runsByBookingId.set(r.linked_intro_booked_id, r);
+            }
           });
         }
       }
