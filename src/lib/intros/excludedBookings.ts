@@ -3,15 +3,18 @@
  * performance metrics?" Used by WIG, Per-Coach, Per-SA, Booker tables.
  *
  * Excluded if any of:
- *  - is_vip                                  (VIP class intros never count toward standard metrics)
  *  - ignore_from_metrics                     (manual admin override)
  *  - deleted_at IS NOT NULL                  (soft-deleted)
  *  - booking_status_canon = 'DELETED_SOFT'   (canonical soft-delete flag)
  *  - booking_status_canon contains DUPLICATE / DELETED / DEAD
+ *
+ * NOTE: VIP bookings (is_vip = true) are NO LONGER excluded. VIP-source
+ * intros and their sales count toward Studio Scoreboard, Conversion Funnel,
+ * Per-Coach, and Per-SA close rates. Operational queues (MyDay, Follow-Up,
+ * Questionnaire Hub) still filter VIP via shouldExcludeVipFromFunnel.
  */
 export function isBookingExcludedFromMetrics(b: any): boolean {
   if (!b) return true;
-  if (b.is_vip) return true;
   if (b.ignore_from_metrics) return true;
   if (b.deleted_at) return true;
   const status = (b.booking_status_canon || '').toUpperCase();
