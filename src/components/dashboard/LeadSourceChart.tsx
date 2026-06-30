@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { PersonListDrillDown, PersonRow } from './PersonListDrillDown';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { LeadSourcePerson } from '@/hooks/useDashboardMetrics';
+import { isSglLeadSource } from '@/lib/metrics/sglClassification';
 
 export interface LeadSourceData {
   source: string;
@@ -144,7 +145,7 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
     return sortDesc ? bVal - aVal : aVal - bVal;
   });
 
-  const total = sorted.reduce(
+  const aggregate = (items: LeadSourceData[]) => items.reduce(
     (acc, d) => ({
       booked: acc.booked + d.booked, showed: acc.showed + d.showed, sold: acc.sold + d.sold,
       bookedPeople: [...acc.bookedPeople, ...(d.bookedPeople || [])],
@@ -153,6 +154,9 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
     }),
     { booked: 0, showed: 0, sold: 0, bookedPeople: [] as LeadSourcePerson[], showedPeople: [] as LeadSourcePerson[], soldPeople: [] as LeadSourcePerson[] },
   );
+  const total = aggregate(sorted);
+  const sglTotal = aggregate(sorted.filter(d => isSglLeadSource(d.source)));
+  const nonSglTotal = aggregate(sorted.filter(d => !isSglLeadSource(d.source)));
 
   if (sorted.length === 0) {
     return (
@@ -213,7 +217,18 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
             />
           ))}
 
-          <div className="border-t pt-2">
+          <div className="border-t pt-2 space-y-2">
+            <SourceRow
+              label="SGL Total (Staff-Generated)"
+              data={sglTotal}
+              highlight
+              onBoxClick={(cat) => openDrill('SGL (Staff-Generated)', cat, { source: 'SGL', ...sglTotal, revenue: 0 })}
+            />
+            <SourceRow
+              label="Non-SGL Total (Self-Booked Web)"
+              data={nonSglTotal}
+              onBoxClick={(cat) => openDrill('Non-SGL (Self-Booked Web)', cat, { source: 'Non-SGL', ...nonSglTotal, revenue: 0 })}
+            />
             <SourceRow
               label="Total (All Sources)"
               data={total}
@@ -222,7 +237,9 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
             />
           </div>
 
-          <p className="text-[10px] text-muted-foreground/70 text-center">Tap a number to see people</p>
+          <p className="text-[10px] text-muted-foreground/70 text-center">
+            SGL = staff-generated. Non-SGL = self-booked web form. Tap a number to see people.
+          </p>
         </CardContent>
       </Card>
 
