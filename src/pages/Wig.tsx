@@ -1138,60 +1138,99 @@ export default function Wig() {
 
         {/* ===== COACH TAB ===== */}
         <TabsContent value="coach" className="space-y-4">
-          {/* Coach close-rate HERO — R/Y/G vs adjustable monthly close-% target */}
-          <Card className={cn('border-2 ring-2 ring-offset-0', coachHeroCls.ring)}>
-            <CardContent className="p-5">
-              <div className="flex items-center gap-2 mb-1">
-                <UserCheck className={cn('w-5 h-5', coachHeroCls.text)} />
-                <span className="text-sm uppercase tracking-wide font-bold text-muted-foreground">
-                  Studio close rate · {selectedMonthLabel}
-                </span>
+          {/* Studio close-rate HEROS — Internal (Total Journey) + Corporate (Last Coach) */}
+          {(() => {
+            const corpCoached = coachTableTotalsCorporate.coached;
+            const corpCloses = coachTableTotalsCorporate.closes;
+            const corpCloseRate = corpCoached > 0 ? (corpCloses / corpCoached) * 100 : 0;
+            const corpStatus = statusColor(corpCloseRate, targets.coachClose);
+            const corpCls = statusClasses(corpStatus);
+
+            const renderHero = (opts: {
+              kicker: string;
+              rule: string;
+              rate: number;
+              status: typeof coachHeroStatus;
+              cls: typeof coachHeroCls;
+              showEdit: boolean;
+            }) => (
+              <Card className={cn('border-2 ring-2 ring-offset-0', opts.cls.ring)}>
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <UserCheck className={cn('w-5 h-5', opts.cls.text)} />
+                    <span className="text-sm uppercase tracking-wide font-bold text-muted-foreground">
+                      {opts.kicker} · {selectedMonthLabel}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-3 mb-2">
+                    <span className={cn('text-6xl font-black tabular-nums leading-none', opts.cls.text)}>
+                      {opts.rate.toFixed(0)}%
+                    </span>
+                    <span className="text-xl text-muted-foreground">
+                      target {targets.coachClose != null ? `${targets.coachClose}%` : <em className="not-italic text-warning">CONFIRM</em>}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3 leading-snug">{opts.rule}</p>
+                  <div className="w-full h-3 rounded-full bg-secondary overflow-hidden">
+                    <div
+                      className={cn('h-full rounded-full transition-all', opts.cls.bar)}
+                      style={{ width: `${targets.coachClose ? Math.min(100, (opts.rate / targets.coachClose) * 100) : 0}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2 flex-wrap text-[11px] text-muted-foreground">
+                    <span>
+                      {opts.status === 'green' && 'at or above target ✓'}
+                      {opts.status === 'yellow' && 'a little under target'}
+                      {opts.status === 'red' && 'under target — pair coaches with closes'}
+                      {opts.status === 'unset' && 'set target to start'}
+                    </span>
+                    {opts.showEdit && isAdmin && (
+                      editingCloseTarget ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number" min={0} max={100}
+                            value={closeTargetInput}
+                            onChange={e => setCloseTargetInput(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') handleSaveCloseTarget(); if (e.key === 'Escape') setEditingCloseTarget(false); }}
+                            className="w-16 h-7 text-xs"
+                            autoFocus
+                          />
+                          <span className="text-xs">%</span>
+                          <Button size="sm" className="h-7 px-2" onClick={handleSaveCloseTarget}>Save</Button>
+                        </div>
+                      ) : (
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs"
+                          onClick={() => { setCloseTargetInput(targets.coachClose == null ? '' : String(targets.coachClose)); setEditingCloseTarget(true); }}>
+                          {closeTargetSaved ? <><Check className="w-3 h-3 mr-1 text-success" />Saved</> : <><Pencil className="w-3 h-3 mr-1" />Edit target</>}
+                        </Button>
+                      )
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+
+            return (
+              <div className="grid gap-4 md:grid-cols-2">
+                {renderHero({
+                  kicker: 'Studio close rate · Internal · Total Journey',
+                  rule: 'Credit follows the 1st-intro coach. Any sale in the chain counts as a close. How we hold the first impression accountable.',
+                  rate: closeRate,
+                  status: coachHeroStatus,
+                  cls: coachHeroCls,
+                  showEdit: true,
+                })}
+                {renderHero({
+                  kicker: 'Studio close rate · Corporate · Last Coach',
+                  rule: 'OTF corporate logic. Every ran class counts in the denominator; close credit follows the coach of the last class the member attended.',
+                  rate: corpCloseRate,
+                  status: corpStatus,
+                  cls: corpCls,
+                  showEdit: false,
+                })}
               </div>
-              <div className="flex items-baseline gap-3 mb-3">
-                <span className={cn('text-6xl font-black tabular-nums leading-none', coachHeroCls.text)}>
-                  {closeRate.toFixed(0)}%
-                </span>
-                <span className="text-xl text-muted-foreground">
-                  target {targets.coachClose != null ? `${targets.coachClose}%` : <em className="not-italic text-warning">CONFIRM</em>}
-                </span>
-              </div>
-              <div className="w-full h-3 rounded-full bg-secondary overflow-hidden">
-                <div
-                  className={cn('h-full rounded-full transition-all', coachHeroCls.bar)}
-                  style={{ width: `${targets.coachClose ? Math.min(100, (closeRate / targets.coachClose) * 100) : 0}%` }}
-                />
-              </div>
-              <div className="mt-2 flex items-center justify-between gap-2 flex-wrap text-[11px] text-muted-foreground">
-                <span>
-                  {coachHeroStatus === 'green' && 'at or above target ✓'}
-                  {coachHeroStatus === 'yellow' && 'a little under target'}
-                  {coachHeroStatus === 'red' && 'under target — pair coaches with closes'}
-                  {coachHeroStatus === 'unset' && 'set target to start'}
-                </span>
-                {isAdmin && (
-                  editingCloseTarget ? (
-                    <div className="flex items-center gap-1">
-                      <Input
-                        type="number" min={0} max={100}
-                        value={closeTargetInput}
-                        onChange={e => setCloseTargetInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') handleSaveCloseTarget(); if (e.key === 'Escape') setEditingCloseTarget(false); }}
-                        className="w-16 h-7 text-xs"
-                        autoFocus
-                      />
-                      <span className="text-xs">%</span>
-                      <Button size="sm" className="h-7 px-2" onClick={handleSaveCloseTarget}>Save</Button>
-                    </div>
-                  ) : (
-                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs"
-                      onClick={() => { setCloseTargetInput(targets.coachClose == null ? '' : String(targets.coachClose)); setEditingCloseTarget(true); }}>
-                      {closeTargetSaved ? <><Check className="w-3 h-3 mr-1 text-success" />Saved</> : <><Pencil className="w-3 h-3 mr-1" />Edit target</>}
-                    </Button>
-                  )
-                )}
-              </div>
-            </CardContent>
-          </Card>
+            );
+          })()}
 
           {/* Coach — Coached & Closes tables (Internal vs OTF Corporate) */}
           {(() => {
