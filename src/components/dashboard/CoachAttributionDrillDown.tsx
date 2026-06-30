@@ -29,7 +29,7 @@ interface Props {
   onOpenChange: (o: boolean) => void;
   coach: string | null;
   metric: Metric;
-  source: 'wig' | 'studio';
+  source: 'wig' | 'studio' | 'wig-corporate';
   rangeLabel: string;
   attribution: CoachAttribution | null;
 }
