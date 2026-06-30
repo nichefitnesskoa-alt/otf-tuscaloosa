@@ -1,77 +1,56 @@
-## Goal
-Make VIP-class sales attribute commission to the **SA who set up the VIP class** (`vip_sessions.sa_setup_name`), not the coach who taught it. The coach (`vip_sessions.coach_name`, e.g. Koa) keeps the teaching credit for close-rate purposes via the existing VIP-coach override. Studio Scoreboard sales and total commission must include these rows in every date range.
+# Anna 6/30 showing as 1st intro — root cause + fix
 
-## What's wrong today
-`src/lib/vip/convertVipPurchaseToIntro.ts` writes `intro_owner = vipCoach` on both `intros_booked` and `intros_run`. Verified with DB:
+## What's actually in the DB
+Four bookings for Anna Pauley (614-633-6157):
 
-- Nothing Bundt Cakes (2026-06-29): `sa_setup_name = Kaiya`, `coach_name = Koa`, but all 5 SALE runs have `intro_owner = Koa`.
-- Across all VIP-class SALE runs: 5 of 6 are mis-attributed to the coach instead of the setup SA.
+1. **6/17** `4a0621c1` — coach Natalya, status `SECOND_INTRO_SCHEDULED`, no parent. The real ran 1st intro.
+2. **6/23** `4b41faf2` — DELETED_SOFT. Parent = 6/17.
+3. **6/25** `88f67bcd` — DELETED_SOFT. Parent = 6/17.
+4. **6/30** `5fe29115` — ACTIVE (today). Parent = **6/25** (the deleted one).
 
-Consequence: Kaiya gets $0 commission and 0 sales credit; Koa double-counts as SA owner *and* coach. Per-SA leaderboard, commission totals, and Conversion Credit table all show wrong people.
+So 6/30's chain is: `6/30 → 6/25 (deleted) → 6/17 (ran)`. It's a 2nd intro — the rescheduled child of a rescheduled child of the real 6/17 intro.
 
-(Studio totals themselves — `studio.introSales`, `studio.totalCommission` — already include VIP because `isBookingExcludedFromMetrics` and `activeRuns` no longer drop VIP. The fix is purely *attribution*; aggregate Studio numbers will not change, only who owns them.)
+## Why the app shows it as 1st
+`src/lib/intros/secondIntroDetection.ts` bails the moment the immediate parent is excluded:
 
-## Changes
+- Line 66: `if (isBookingExcludedFromMetrics(parent)) return false;` — soft-deleted parents are excluded → returns false.
+- Line 69: same for `NON_RAN_BOOKING_STATUSES` (DELETED_SOFT, CANCELLED, PLANNING_RESCHEDULE).
 
-### 1. `src/lib/vip/convertVipPurchaseToIntro.ts`
-- Add `vipSetupSaName: string | null` to `SaveArgs`.
-- Resolve effective owner once at the top: `const introOwnerSa = (vipSetupSaName?.trim()) || saName;`
-- Replace every `intro_owner: vipCoach` with `intro_owner: introOwnerSa` on both the booking insert/update and the run insert/update paths.
-- Leave `coach_name: vipCoach` everywhere it currently appears (coach credit / VIP override is unchanged).
-- Leave `sa_working_shift` / `booked_by` = `saName` (the SA who keyed the purchase in).
-- Return the resolved `introOwnerSa` in `SaveResult` so the UI can show an honest toast.
+A reschedule chain that goes through a soft-deleted intermediate booking gets treated as a brand-new 1st intro. That's the bug — every time staff delete an intermediate reschedule row, the next booking loses its 2nd-intro status.
 
-### 2. `src/features/myDay/VipRegistrationsSheet.tsx`
-- Extend the session fetch at line 95 to already-include `sa_setup_name` (it does). Store it in local state (`vipSaSetup` already exists).
-- Pass `vipSetupSaName: vipSaSetup || null` into the `saveVipPurchase(...)` call at line 245.
-- Update the success toast: `Purchase saved — $X to ${vipSaSetup || userName} (Coach: ${vipCoach})`.
-- No other behavior changes.
+## Fix
 
-### 3. Backfill existing VIP SALE rows (data migration via insert tool)
-For every row in `intros_run` where:
-- `result_canon = 'SALE'`
-- `vip_session_id IS NOT NULL`
-- `intro_owner IS DISTINCT FROM vip_sessions.sa_setup_name`
-- `vip_sessions.sa_setup_name IS NOT NULL`
+### 1. `src/lib/intros/secondIntroDetection.ts`
+When the immediate parent is "non-qualifying because it never ran" (deleted / cancelled / planning_reschedule / no run yet, i.e. a pure reschedule passthrough), **recurse up to the grandparent** instead of returning false. Stop and return true only when we find an ancestor that actually ran (`didIntroActuallyRun`). Stop and return false only when we hit a true root (no `originating_booking_id`) or a different-member chain.
 
-Set `intro_owner = vs.sa_setup_name`. Apply the identical update to the linked `intros_booked` row (`intros_run.linked_intro_booked_id`). Stamp `last_edited_by = 'System (VIP attribution fix)'`, `edit_reason = 'intro_owner reattributed from coach to SA who set up the VIP class'`, `last_edited_at = now()`.
+Guard with a visited-set to avoid cycles. Keep the "friend booking" (`referred_by_member_name`) short-circuit.
 
-Expected impact:
-- 5 Bundt Cakes runs (Ray/Keke Crumpton, Renita Smith, Marganetta Graham, Jamie Finley): `intro_owner` flips from Koa → Kaiya.
-- Their 5 linked `intros_booked` rows: same flip.
-- 1 already-correct VIP SALE row left untouched.
+`getEffectiveRootBookingId` already loops via `isSecondIntroBooking`, so once the helper is recursive the root walk fixes itself.
 
-## Coherence proof I will run after the change
+### 2. `src/lib/intros/loadIntroClassification.ts`
+Today it fetches only the immediate parents listed in `bookingsInView`. With recursive ancestry, we need the full chain. Change the parent fetch to a loop:
 
-```sql
--- 1. No VIP SALE run is still owned by the coach
-SELECT count(*) FROM intros_run ir
-JOIN vip_sessions vs ON vs.id = ir.vip_session_id
-WHERE ir.result_canon='SALE' AND vs.sa_setup_name IS NOT NULL
-  AND ir.intro_owner = ir.coach_name;
--- expect 0
-
--- 2. Bundt Cakes session is fully attributed to Kaiya
-SELECT member_name, intro_owner, coach_name, commission_amount, buy_date
-FROM intros_run WHERE vip_session_id='e8495208-65bc-4692-b750-35715dad808d'
-  AND result_canon='SALE';
--- expect all 5 → intro_owner='Kaiya', coach_name='Koa', $15, 2026-06-29
-
--- 3. Linked bookings agree
-SELECT count(*) FROM intros_booked ib
-JOIN intros_run ir ON ir.linked_intro_booked_id = ib.id
-WHERE ir.vip_session_id='e8495208-65bc-4692-b750-35715dad808d'
-  AND ir.result_canon='SALE' AND ib.intro_owner <> 'Kaiya';
--- expect 0
+```
+seed missing parent ids → fetch → collect any of their originating_booking_id that aren't loaded yet → fetch again → repeat until no new ids (cap at e.g. 6 hops).
 ```
 
-Cross-page numbers I will name in the closing block (range containing 2026-06-29):
-- **Studio Scoreboard** — `introSales` and `totalCommission` totals: unchanged in aggregate (VIP already counted), but Kaiya's row in Per-SA leaderboard gains +5 sales / +$75 commission; Koa's row loses those 5 / $75 from SA attribution while keeping all 5 as a coach close in Per-Coach.
-- **Per-SA leaderboard** — Kaiya: +5 sales, +$75 commission, close-rate denominator +5 ran (Total Journey).
-- **Per-Coach leaderboard** — Koa: unchanged (VIP coach override already routes these closes to him via `resolveCoachForBooking`).
-- **Conversion Credit / commission report** — $75 moves from Koa's SA bucket to Kaiya's SA bucket; Koa's coach-credit unaffected.
-- **Lead Source Analytics → VIP Class** — Booked 5 / Showed 5 / Sold 5 / 100% unchanged.
-- **VIP Performance dashboard** — unchanged (reads `vip_registrations.outcome` directly).
+Then fetch `intros_run` for **all** ancestor ids, not just direct parents, so `isSecondIntroBooking` can check whether any ancestor's run actually happened.
 
-## Forward behavior after the code change
-Every future VIP purchase logged through `VipRegistrationsSheet` writes `intro_owner = vip_sessions.sa_setup_name` (fallback: the SA who is keying it in if setup was never claimed). Coach credit continues to flow via `coach_name` + the VIP override. No other call sites of `saveVipPurchase` exist (verified via rg).
+### 3. Coherence check after fix
+Re-verify with `read_query` and against the live UI:
+
+- 6/30 booking `5fe29115` → `isSecondIntro = true`.
+- MyDay card for Anna at 4:15 PM today shows the "2nd Intro" badge instead of "1st Intro".
+- Pipeline person sheet still shows Chain 1 / Chain 2 as today (chain numbering is by root, unaffected).
+- Coach View, Per-SA close rate, Conversion Funnel: confirm Anna 6/30 is NOT counted as a new 1st intro denominator (otherwise it would inflate Nathan's denominator and Grace F's denominator a second time for the same person).
+- Anna 6/17 stays the canonical 1st intro for Natalya / Jayna's attribution.
+
+## Files touched
+- `src/lib/intros/secondIntroDetection.ts` — recursive parent walk.
+- `src/lib/intros/loadIntroClassification.ts` — transitive ancestor + run fetch.
+
+## Files NOT touched
+No component changes needed. Every surface (MyDay, Coach View, Pipeline, Follow-Up, Shift View, Per-SA, Conversion Funnel) already routes through `loadIntroClassification` / `isSecondIntroBooking` per the canonical-helpers rule, so this single fix corrects every page at once.
+
+## Out of scope
+Not touching the underlying data — the soft-deleted reschedule rows are correct as-is and are how the studio tracks reschedule history. The classifier is what needs to understand them.

@@ -45,32 +45,44 @@ export async function loadIntroClassification(
   const inViewById = new Map<string, SecondIntroBookingLike>();
   for (const b of bookingsInView) inViewById.set(b.id, b);
 
-  const missingParentIds = new Set<string>();
+  // Walk the originating_booking_id chain transitively. Reschedule chains
+  // can pass through soft-deleted intermediates, so we need every ancestor
+  // — not just the immediate parent — to correctly classify the leaf.
+  const loadedById = new Map<string, SecondIntroBookingLike>(inViewById);
+  const fetchedParents: SecondIntroBookingLike[] = [];
+  let frontier = new Set<string>();
   for (const b of bookingsInView) {
     const pid = b.originating_booking_id;
-    if (pid && !inViewById.has(pid)) missingParentIds.add(pid);
+    if (pid && !loadedById.has(pid)) frontier.add(pid);
   }
-
-  let fetchedParents: SecondIntroBookingLike[] = [];
-  if (missingParentIds.size > 0) {
+  const MAX_HOPS = 8;
+  for (let hop = 0; hop < MAX_HOPS && frontier.size > 0; hop++) {
     const { data } = await supabase
       .from('intros_booked')
       .select('id, member_name, originating_booking_id, referred_by_member_name, booking_status_canon, is_vip, ignore_from_metrics, deleted_at')
-      .in('id', Array.from(missingParentIds));
-    fetchedParents = ((data || []) as any[]) as SecondIntroBookingLike[];
+      .in('id', Array.from(frontier));
+    const rows = ((data || []) as any[]) as SecondIntroBookingLike[];
+    const nextFrontier = new Set<string>();
+    for (const r of rows) {
+      if (!loadedById.has(r.id)) {
+        loadedById.set(r.id, r);
+        fetchedParents.push(r);
+      }
+      const pid = r.originating_booking_id;
+      if (pid && !loadedById.has(pid)) nextFrontier.add(pid);
+    }
+    frontier = nextFrontier;
   }
 
-  // Build the full "all bookings" list passed to canonical helper.
-  const allBookings: SecondIntroBookingLike[] = [
-    ...bookingsInView,
-    ...fetchedParents,
-  ];
-  const allBookingsById = new Map<string, SecondIntroBookingLike>();
-  for (const b of allBookings) allBookingsById.set(b.id, b);
+  const allBookings: SecondIntroBookingLike[] = Array.from(loadedById.values());
+  const allBookingsById = loadedById;
 
-  // Fetch runs for every candidate parent (in-view parents + fetched).
+  // Fetch runs for every loaded ancestor (not just immediate parents) so
+  // the recursive classifier can detect a ran ancestor up the chain.
   const candidateParentIds = new Set<string>();
-  for (const b of bookingsInView) {
+  for (const b of allBookings) {
+    // Any booking that is an ancestor of something else — i.e. anything
+    // referenced as an originating_booking_id by a loaded row.
     const pid = b.originating_booking_id;
     if (pid) candidateParentIds.add(pid);
   }
