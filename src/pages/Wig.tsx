@@ -260,7 +260,10 @@ export default function Wig() {
   const [coachLeadMeasures, setCoachLeadMeasures] = useState<any[]>([]);
   const [coachTableTotals, setCoachTableTotals] = useState<{ coached: number; closes: number }>({ coached: 0, closes: 0 });
   const [coachAttribution, setCoachAttribution] = useState<Map<string, CoachAttribution>>(new Map());
-  const [drill, setDrill] = useState<{ coach: string; metric: 'coached' | 'closes' } | null>(null);
+  const [coachLeadMeasuresCorporate, setCoachLeadMeasuresCorporate] = useState<any[]>([]);
+  const [coachTableTotalsCorporate, setCoachTableTotalsCorporate] = useState<{ coached: number; closes: number }>({ coached: 0, closes: 0 });
+  const [coachAttributionCorporate, setCoachAttributionCorporate] = useState<Map<string, CoachAttribution>>(new Map());
+  const [drill, setDrill] = useState<{ coach: string; metric: 'coached' | 'closes'; mode: 'tj' | 'corp' } | null>(null);
   const [measuresLoading, setMeasuresLoading] = useState(true);
 
   // Close rate reconciles with the Coach — Coached & Closes table directly below it.
@@ -416,22 +419,30 @@ export default function Wig() {
         return fallback || null;
       };
 
-      // Fetch linked intros_run rows for showed-intro detection + close coach attribution
+      // Fetch linked intros_run rows for showed-intro detection + close coach attribution.
+      // Pull runs for EVERY in-range booking (1st + 2nd) so Corporate · Last Coach
+      // can attribute per-class without an extra round trip.
       const firstIntroBookingIds = firstIntroBookings.map(b => b.id);
+      const allInRangeBookingIds = allCoachBookings.map(b => b.id);
       const showedBookingIds = new Set<string>();
       const runsByBookingId = new Map<string, any>();
-      if (firstIntroBookingIds.length > 0) {
+      const allRunsByBookingId = new Map<string, any>(); // includes 2nd intros; unfiltered
+      if (allInRangeBookingIds.length > 0) {
         const runBatches: string[][] = [];
-        for (let i = 0; i < firstIntroBookingIds.length; i += 500) runBatches.push(firstIntroBookingIds.slice(i, i + 500));
+        for (let i = 0; i < allInRangeBookingIds.length; i += 500) runBatches.push(allInRangeBookingIds.slice(i, i + 500));
+        const firstIdSet = new Set(firstIntroBookingIds);
         for (const batch of runBatches) {
           const { data: runs } = await supabase
             .from('intros_run')
             .select('linked_intro_booked_id, result, result_canon, coach_name, buy_date, run_date, created_at')
             .in('linked_intro_booked_id', batch);
           (runs || []).forEach((r: any) => {
+            allRunsByBookingId.set(r.linked_intro_booked_id, r);
             if (r.result_canon === 'NO_SHOW' || r.result_canon === 'UNRESOLVED') return;
-            showedBookingIds.add(r.linked_intro_booked_id);
-            runsByBookingId.set(r.linked_intro_booked_id, r);
+            if (firstIdSet.has(r.linked_intro_booked_id)) {
+              showedBookingIds.add(r.linked_intro_booked_id);
+              runsByBookingId.set(r.linked_intro_booked_id, r);
+            }
           });
         }
       }
@@ -716,6 +727,189 @@ export default function Wig() {
         );
       });
 
+      // ─────────────────────────────────────────────────────────────────────
+      // OTF Corporate · Last Coach attribution
+      //   - Coached = every in-range intro you personally ran (1st + 2nd),
+      //     credited to the coach who ran that specific class.
+      //   - Closes = exactly the same sales Total Journey counted, but
+      //     credited to the coach of the member's LAST attended class
+      //     (walks descendants of the close's root, picks latest class_date
+      //     among ran bookings; falls back to the root if nothing else ran).
+      // ─────────────────────────────────────────────────────────────────────
+      const coachMapCorp = new Map<string, { coached: number }>();
+      const coachCloseMapCorp = new Map<string, { total: number; closed: number }>();
+      const attribMapCorp = new Map<string, CoachAttribution>();
+      const ensureAttribCorp = (n: string): CoachAttribution => {
+        let a = attribMapCorp.get(n);
+        if (!a) { a = { coached: [], closes: [], excluded: [] }; attribMapCorp.set(n, a); }
+        return a;
+      };
+
+      // Coached: iterate every in-range booking that actually ran.
+      allCoachBookings.forEach((b: any) => {
+        const run = allRunsByBookingId.get(b.id);
+        if (!run) return;
+        if (!didIntroActuallyRun(run)) return;
+        // Exclude VIP class intro outcomes from the coached column (matches
+        // Total Journey's exclusion further down for closes).
+        if (run.result_canon === 'VIP_CLASS_INTRO') return;
+        const runCoachRaw = isMissingCoach(b.coach_name)
+          ? (run.coach_name || b.coach_name)
+          : b.coach_name;
+        if (isMissingCoach(runCoachRaw)) return;
+        const cName = resolveCloseCoach(b, runCoachRaw) || runCoachRaw;
+        const ex = coachMapCorp.get(cName) || { coached: 0 };
+        ex.coached++;
+        coachMapCorp.set(cName, ex);
+        ensureAttribCorp(cName).coached.push({
+          bookingId: b.id,
+          member: b.member_name || 'Unknown',
+          classDate: b.class_date,
+          source: b.lead_source,
+          resultLabel: labelFromRun(run),
+        });
+      });
+
+      // Closes: collect every close Total Journey already counted, then
+      // re-attribute to the last-ran booking in the chain.
+      type TJClose = { coach: string; root: AttribIntro };
+      const tjCloses: TJClose[] = [];
+      attribMap.forEach((a, coach) => {
+        a.closes.forEach(c => tjCloses.push({ coach, root: c }));
+      });
+
+      // Fetch all descendants (1 hop) for every TJ close root not already
+      // covered by secondIntroBookingMap (cross-period buy_date sales).
+      const closeRootIds = Array.from(new Set(tjCloses.map(t => t.root.bookingId)));
+      const descendantsByRoot = new Map<string, any[]>();
+      // Seed from in-period second intros we already fetched (id/originating only)
+      // — we'll need richer fields to re-attribute, so fetch fresh below.
+      if (closeRootIds.length > 0) {
+        const descBatches: string[][] = [];
+        for (let i = 0; i < closeRootIds.length; i += 500) descBatches.push(closeRootIds.slice(i, i + 500));
+        for (const batch of descBatches) {
+          const { data: descRows } = await supabase
+            .from('intros_booked')
+            .select('id, member_name, coach_name, originating_booking_id, class_date, lead_source, vip_session_id, booking_status_canon, deleted_at')
+            .in('originating_booking_id', batch);
+          (descRows || []).forEach((d: any) => {
+            const arr = descendantsByRoot.get(d.originating_booking_id) || [];
+            arr.push(d);
+            descendantsByRoot.set(d.originating_booking_id, arr);
+          });
+        }
+        // Walk grandchildren too (up to 3 hops) for deeper chains.
+        let frontier = Array.from(descendantsByRoot.values()).flat().map(d => d.id);
+        for (let hop = 0; hop < 2 && frontier.length > 0; hop++) {
+          const nextFrontier: string[] = [];
+          const hopBatches: string[][] = [];
+          for (let i = 0; i < frontier.length; i += 500) hopBatches.push(frontier.slice(i, i + 500));
+          for (const batch of hopBatches) {
+            const { data: rows } = await supabase
+              .from('intros_booked')
+              .select('id, member_name, coach_name, originating_booking_id, class_date, lead_source, vip_session_id, booking_status_canon, deleted_at')
+              .in('originating_booking_id', batch);
+            (rows || []).forEach((d: any) => {
+              // Find which root this descendant ultimately belongs to.
+              for (const [rootId, kids] of descendantsByRoot.entries()) {
+                if (kids.some(k => k.id === d.originating_booking_id)) {
+                  descendantsByRoot.get(rootId)!.push(d);
+                  nextFrontier.push(d.id);
+                  break;
+                }
+              }
+            });
+          }
+          frontier = nextFrontier;
+        }
+      }
+
+      // Fetch runs for every descendant not already in allRunsByBookingId.
+      const descIds = Array.from(descendantsByRoot.values()).flat().map(d => d.id);
+      const missingDescIds = descIds.filter(id => !allRunsByBookingId.has(id));
+      if (missingDescIds.length > 0) {
+        const drBatches: string[][] = [];
+        for (let i = 0; i < missingDescIds.length; i += 500) drBatches.push(missingDescIds.slice(i, i + 500));
+        for (const batch of drBatches) {
+          const { data: drRuns } = await supabase
+            .from('intros_run')
+            .select('linked_intro_booked_id, result, result_canon, coach_name, buy_date, run_date, created_at')
+            .in('linked_intro_booked_id', batch);
+          (drRuns || []).forEach((r: any) => allRunsByBookingId.set(r.linked_intro_booked_id, r));
+        }
+      }
+
+      // Resolve VIP coach for any descendants on VIP sessions.
+      const newVipIds = Array.from(new Set(
+        Array.from(descendantsByRoot.values()).flat()
+          .filter((d: any) => (d.lead_source || '').startsWith('VIP Class') && d.vip_session_id && !vipCoachMap.has(d.vip_session_id))
+          .map((d: any) => d.vip_session_id as string)
+      ));
+      if (newVipIds.length > 0) {
+        const { data: vipRows } = await (supabase as any)
+          .from('vip_sessions')
+          .select('id, coach_name')
+          .in('id', newVipIds);
+        for (const v of (vipRows || [])) {
+          if (v.coach_name) vipCoachMap.set(v.id, v.coach_name);
+        }
+      }
+
+      // Re-attribute each close to the last-ran booking in its chain.
+      tjCloses.forEach(({ coach: tjCoach, root }) => {
+        // Build chain: root + descendants.
+        const rootRow = bookingByIdMap.get(root.bookingId);
+        const chain: any[] = [];
+        if (rootRow) chain.push(rootRow);
+        const descs = descendantsByRoot.get(root.bookingId) || [];
+        chain.push(...descs);
+
+        // Pick latest class_date among bookings whose run actually ran
+        // (and isn't VIP_CLASS_INTRO).
+        let lastRan: any = null;
+        for (const b of chain) {
+          const r = allRunsByBookingId.get(b.id);
+          if (!r) continue;
+          if (!didIntroActuallyRun(r)) continue;
+          if (r.result_canon === 'VIP_CLASS_INTRO') continue;
+          if (!lastRan || (b.class_date || '') > (lastRan.b.class_date || '')) {
+            lastRan = { b, r };
+          }
+        }
+
+        let creditCoach: string | null;
+        let creditBooking: any;
+        if (lastRan) {
+          const runCoachRaw = isMissingCoach(lastRan.b.coach_name)
+            ? (lastRan.r.coach_name || lastRan.b.coach_name)
+            : lastRan.b.coach_name;
+          creditCoach = isMissingCoach(runCoachRaw)
+            ? tjCoach
+            : (resolveCloseCoach(lastRan.b, runCoachRaw) || runCoachRaw);
+          creditBooking = lastRan.b;
+        } else {
+          // Nothing in the chain ran — fall back to the TJ coach. This keeps
+          // sum(Corp closes) === sum(TJ closes) exactly.
+          creditCoach = tjCoach;
+          creditBooking = rootRow;
+        }
+        if (!creditCoach) creditCoach = tjCoach;
+
+        const ex = coachCloseMapCorp.get(creditCoach) || { total: 0, closed: 0 };
+        ex.total++;
+        ex.closed++;
+        coachCloseMapCorp.set(creditCoach, ex);
+
+        ensureAttribCorp(creditCoach).closes.push({
+          bookingId: creditBooking?.id || root.bookingId,
+          member: creditBooking?.member_name || root.member,
+          classDate: creditBooking?.class_date || root.classDate,
+          buyDate: root.buyDate,
+          source: creditBooking?.lead_source || root.source,
+          resultLabel: 'SALE',
+          via: lastRan && lastRan.b.id !== root.bookingId ? '2nd_intro' : 'direct',
+        });
+      });
 
       const allCoachNames = new Set<string>([...coachMap.keys(), ...coachCloseMap.keys()]);
       const coachData = Array.from(allCoachNames).map(name => {
@@ -736,6 +930,26 @@ export default function Wig() {
       const totalsClosed = coachData.reduce((sum, c) => sum + (c.closes || 0), 0);
       setCoachTableTotals({ coached: totalsCoached, closes: totalsClosed });
       setCoachAttribution(attribMap);
+
+      // Corporate table rows + totals
+      const allCoachNamesCorp = new Set<string>([...coachMapCorp.keys(), ...coachCloseMapCorp.keys()]);
+      const coachDataCorp = Array.from(allCoachNamesCorp).map(name => {
+        const wk = coachMapCorp.get(name) || { coached: 0 };
+        const cl = coachCloseMapCorp.get(name) || { total: 0, closed: 0 };
+        return {
+          name,
+          coached: wk.coached,
+          closes: cl.closed,
+          closeRate: wk.coached > 0 ? (cl.closed / wk.coached) * 100 : (cl.closed > 0 ? 100 : 0),
+          closeTotal: cl.total,
+        };
+      }).filter(c => !isMissingCoach(c.name) && (c.coached > 0 || c.closeTotal > 0)).sort((a, b) => b.coached - a.coached);
+      setCoachLeadMeasuresCorporate(coachDataCorp);
+      setCoachTableTotalsCorporate({
+        coached: coachDataCorp.reduce((s, c) => s + c.coached, 0),
+        closes: coachDataCorp.reduce((s, c) => s + c.closes, 0),
+      });
+      setCoachAttributionCorporate(attribMapCorp);
 
       // Everyone (SA, Coach, Admin) sees the full Coach Stats table on WIG.
       setCoachLeadMeasures(coachData);
@@ -979,26 +1193,23 @@ export default function Wig() {
             </CardContent>
           </Card>
 
-          {/* Coach — Coached & Closes table */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-primary" />
-                Coach Stats
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Lead measure: self-eval every intro you run. Tap a number to drill in.
-              </p>
-            </CardHeader>
-            <CardContent className="p-0">
-              {measuresLoading ? (
-                <div className="flex items-center justify-center py-6">
-                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground mr-2" />
-                  <span className="text-sm text-muted-foreground">Loading…</span>
-                </div>
-              ) : sortedCoachRows.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">No data for this period.</p>
-              ) : (
+          {/* Coach — Coached & Closes tables (Internal vs OTF Corporate) */}
+          {(() => {
+            const renderCoachStatsTable = (
+              rows: typeof sortedCoachRows,
+              mode: 'tj' | 'corp',
+            ) => {
+              const totalCoached = rows.reduce((s, r) => s + (r.coached || 0), 0);
+              const totalCloses = rows.reduce((s, r) => s + (r.closes || 0), 0);
+              const weightedRate = totalCoached > 0 ? (totalCloses / totalCoached) * 100 : 0;
+              const totalUnscored = rows.reduce((s, r) => s + (fv.data?.unscoredByCoach?.get(r.name) ?? 0), 0);
+              const totalScored = Math.max(0, totalCoached - totalUnscored);
+              const wrs = statusColor(weightedRate, targets.coachClose);
+              const wrsCls = statusClasses(wrs);
+              if (rows.length === 0) {
+                return <p className="text-sm text-muted-foreground text-center py-6">No data for this period.</p>;
+              }
+              return (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -1018,7 +1229,7 @@ export default function Wig() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sortedCoachRows.map((row, idx) => {
+                      {rows.map((row, idx) => {
                         const rs = statusColor(row.closeRate, targets.coachClose);
                         const rsCls = statusClasses(rs);
                         const pct = targets.coachClose ? Math.min(100, (row.closeRate / targets.coachClose) * 100) : 0;
@@ -1026,7 +1237,6 @@ export default function Wig() {
                         const scored = Math.max(0, row.coached - unscored);
                         const selfAvg = fv.data?.selfByCoach?.get(row.name);
                         const formalAvg = fv.data?.formalByCoach?.get(row.name);
-                        // Prefer self-eval (the lead measure); fall back to formal.
                         const avgVal = selfAvg?.avg ?? formalAvg?.avg ?? null;
                         return (
                           <TableRow key={row.name} className={cn(rs === 'green' && 'bg-success/5')}>
@@ -1036,7 +1246,7 @@ export default function Wig() {
                               <button
                                 type="button"
                                 disabled={row.coached === 0}
-                                onClick={() => setDrill({ coach: row.name, metric: 'coached' })}
+                                onClick={() => setDrill({ coach: row.name, metric: 'coached', mode })}
                                 className="w-full min-h-[48px] px-3 text-3xl font-black tabular-nums cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
                               >
                                 {row.coached}
@@ -1056,7 +1266,7 @@ export default function Wig() {
                               <button
                                 type="button"
                                 disabled={row.closes === 0}
-                                onClick={() => setDrill({ coach: row.name, metric: 'closes' })}
+                                onClick={() => setDrill({ coach: row.name, metric: 'closes', mode })}
                                 className="w-full min-h-[48px] px-3 text-3xl font-black tabular-nums text-success cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
                               >
                                 {row.closes}
@@ -1073,36 +1283,81 @@ export default function Wig() {
                           </TableRow>
                         );
                       })}
-                      {(() => {
-                        const totalCoached = coachTotalCoached;
-                        const totalCloses = coachTotalCloses;
-                        const weightedRate = coachWeightedRate;
-                        const totalUnscored = sortedCoachRows.reduce((s, r) => s + (fv.data?.unscoredByCoach?.get(r.name) ?? 0), 0);
-                        const totalScored = Math.max(0, totalCoached - totalUnscored);
-                        const wrs = statusColor(weightedRate, targets.coachClose);
-                        const wrsCls = statusClasses(wrs);
-                        return (
-                          <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
-                            <TableCell />
-                            <TableCell className="text-base font-bold whitespace-nowrap">Total</TableCell>
-                            <TableCell className="text-2xl text-center font-black tabular-nums">{totalCoached}</TableCell>
-                            <TableCell className={cn('text-2xl text-center font-black tabular-nums', statusClasses(scoredStatus(totalScored, totalCoached)).text)}>{totalScored}/{totalCoached}</TableCell>
-                            <TableCell className="text-2xl text-center font-black text-muted-foreground">—</TableCell>
-                            <TableCell className="text-2xl text-center font-black text-success tabular-nums">{totalCloses}</TableCell>
-                            <TableCell className="text-2xl text-center font-black">
-                              <span className={wrsCls.text}>{weightedRate.toFixed(0)}%</span>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })()}
+                      <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
+                        <TableCell />
+                        <TableCell className="text-base font-bold whitespace-nowrap">Total</TableCell>
+                        <TableCell className="text-2xl text-center font-black tabular-nums">{totalCoached}</TableCell>
+                        <TableCell className={cn('text-2xl text-center font-black tabular-nums', statusClasses(scoredStatus(totalScored, totalCoached)).text)}>{totalScored}/{totalCoached}</TableCell>
+                        <TableCell className="text-2xl text-center font-black text-muted-foreground">—</TableCell>
+                        <TableCell className="text-2xl text-center font-black text-success tabular-nums">{totalCloses}</TableCell>
+                        <TableCell className="text-2xl text-center font-black">
+                          <span className={wrsCls.text}>{weightedRate.toFixed(0)}%</span>
+                        </TableCell>
+                      </TableRow>
                     </TableBody>
                   </Table>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              );
+            };
+
+            const sortedCorpRows = [...coachLeadMeasuresCorporate].sort(
+              (a, b) => b.closeRate - a.closeRate || b.closes - a.closes,
+            );
+
+            return (
+              <>
+                {/* Internal · Total Journey */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <UserCheck className="w-5 h-5 text-primary" />
+                      Coach Stats — Internal · Total Journey
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-semibold text-foreground">How we hold the first impression accountable.</span>{' '}
+                      Coached counts every 1st intro you ran in range. The close stays with the 1st-intro coach,
+                      even when a 2nd intro is what closed it. Tap any number to drill in.
+                    </p>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {measuresLoading ? (
+                      <div className="flex items-center justify-center py-6">
+                        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground mr-2" />
+                        <span className="text-sm text-muted-foreground">Loading…</span>
+                      </div>
+                    ) : renderCoachStatsTable(sortedCoachRows, 'tj')}
+                  </CardContent>
+                </Card>
+
+                {/* OTF Corporate · Last Coach */}
+                <Card className="border-primary/30">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <UserCheck className="w-5 h-5 text-primary" />
+                      Coach Stats — OTF Corporate · Last Coach
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-semibold text-foreground">How OTF Corporate scores coaches.</span>{' '}
+                      Coached counts every class you personally ran (1st <em>and</em> 2nd intros).
+                      The close goes to the coach of the member's <em>most recent</em> attended class — so if a 2nd intro closed,
+                      the 2nd-intro coach gets the credit. Same total closes as the Internal table, just redistributed.
+                    </p>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {measuresLoading ? (
+                      <div className="flex items-center justify-center py-6">
+                        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground mr-2" />
+                        <span className="text-sm text-muted-foreground">Loading…</span>
+                      </div>
+                    ) : renderCoachStatsTable(sortedCorpRows, 'corp')}
+                  </CardContent>
+                </Card>
+              </>
+            );
+          })()}
         </TabsContent>
       </Tabs>
+
 
 
       <CoachAttributionDrillDown
@@ -1110,10 +1365,13 @@ export default function Wig() {
         onOpenChange={(o) => { if (!o) setDrill(null); }}
         coach={drill?.coach || null}
         metric={drill?.metric || 'coached'}
-        source="wig"
+        source={drill?.mode === 'corp' ? 'wig-corporate' : 'wig'}
         rangeLabel={dateRange ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}` : 'All time'}
-        attribution={drill ? coachAttribution.get(drill.coach) || null : null}
+        attribution={drill
+          ? (drill.mode === 'corp' ? coachAttributionCorporate : coachAttribution).get(drill.coach) || null
+          : null}
       />
+
 
       <PersonListDrillDown
         open={!!saDrill}
