@@ -37,12 +37,21 @@ interface SaveArgs {
   vipCoach: string;
   membership: VipMembershipLabel | string;
   saName: string;
+  /**
+   * The SA who set up the VIP class (vip_sessions.sa_setup_name). This is the
+   * person who gets commission + sales credit — NOT the coach who taught the
+   * class and NOT necessarily the SA keying in the purchase. Falls back to
+   * `saName` only if setup was never claimed.
+   */
+  vipSetupSaName?: string | null;
 }
 
 export interface SaveResult {
   bookingId: string;
   runId: string;
+  introOwnerSa: string;
 }
+
 
 /**
  * Persist a VIP purchase. Creates or updates the linked intros_booked +
