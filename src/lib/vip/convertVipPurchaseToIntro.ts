@@ -103,7 +103,8 @@ export async function saveVipPurchase(args: SaveArgs): Promise<SaveResult> {
       class_date: vipSessionDate,
       intro_time: vipSessionTime,
       coach_name: vipCoach,
-      intro_owner: vipCoach,
+      intro_owner: introOwnerSa,
+
       booking_status: 'Active',
       booking_status_canon: 'SHOWED',
       booking_type_canon: 'STANDARD',
