@@ -62,7 +62,11 @@ export async function saveVipPurchase(args: SaveArgs): Promise<SaveResult> {
 
   const memberName = [firstName, lastName].filter(Boolean).join(' ').trim() || 'Unnamed';
   const commission = commissionFor(membership);
-  const today = new Date().toISOString().slice(0, 10);
+  // Anchor the sale to the VIP class date (the day the transaction actually
+  // happened on the floor) — NOT today. This keeps Studio Scoreboard, Lead
+  // Source Analytics, Per-Coach/Per-SA, WIG sales, commission pay-period
+  // attribution, and Activity Log all aligned with when the sale occurred.
+  const saleDate = vipSessionDate;
 
   // Look up existing pair on this registration
   const { data: regRow } = await sb
