@@ -1,59 +1,71 @@
+
 ## Goal
-Add two summary rows above the existing "Total (All Sources)" row in the Lead Source Analytics card so Koa can see at a glance how many bookings/showed/sold came from self-generated leads (SGL) vs non-SGL (passive web traffic).
 
-## SGL classification rule
-Single canonical helper, used everywhere this distinction is needed.
+Add a second **Coach Stats** table on /wig that mirrors how OTF Corporate scores coaches: every class a member attends counts as a "coached" for the coach who ran it, and the close goes to the coach of the **last** class the member attended. The existing Total Journey table stays exactly as-is.
 
-- **Non-SGL** = `Online Intro Offer (self-booked)` only. This is the one passive web-form source where the lead found us, not the other way around.
-- **SGL** = every other current lead source, including:
-  - Member Referral, Member Referral (5 class pack)
-  - VIP Class
-  - Event
-  - Instagram DM, Instagram DMs
-  - Lead Management
-  - Cold Lead Re-engagement
-  - Manual Entry
-  - My Personal Friend I Invited
-  - Business Partnership Referral
-  - Any `... (Friend)` variant — including `Online Intro Offer (self-booked) (Friend)`, because the "(Friend)" tag means a current member/staff brought them in, which is staff-generated.
+## What you'll see on /wig
 
-Unknown / future sources default to SGL (safer for staff credit), with `Online Intro Offer (self-booked)` as the only hardcoded Non-SGL exception.
+Two stacked tables under the existing Coach Stats card:
 
-## Files
+```text
+COACH STATS
+────────────────────────────────────────────────────────
+[ Internal · Total Journey ]   ← existing table, unchanged
+  Coached = 1st intros only. Close credit stays with the
+  1st-intro coach, even when a 2nd intro closed it.
+  This is how we hold the first impression accountable.
 
-### New: `src/lib/metrics/sglClassification.ts`
-Single source of truth.
-```ts
-export function isSglLeadSource(source: string | null | undefined): boolean {
-  const s = (source ?? '').trim();
-  if (!s) return false;
-  // Only the bare self-booked web form is Non-SGL.
-  // The "(Friend)" variant means a member/staff brought them in → SGL.
-  if (s === 'Online Intro Offer (self-booked)') return false;
-  return true;
-}
-export const NON_SGL_SOURCES = ['Online Intro Offer (self-booked)'];
+[ OTF Corporate · Last Coach ] ← NEW
+  Coached = every intro you personally ran (1st AND 2nd).
+  Close credit goes to the coach of the most recent class
+  the member attended. Matches corporate reporting.
 ```
 
-### Edit: `src/components/dashboard/LeadSourceChart.tsx`
-- Import `isSglLeadSource`.
-- After computing `sorted`, derive two aggregates over the same `LeadSourceData[]` (booked/showed/sold + people arrays concatenated) — `sglTotal` and `nonSglTotal`.
-- Render order inside `<CardContent>`:
-  1. Existing per-source `SourceRow`s
-  2. New separator + two `SourceRow`s: **"SGL Total (Staff-Generated)"** and **"Non-SGL Total (Self-Booked Web)"**, both with `highlight` styling tone (use a subtle differentiator — SGL highlighted green-tinted via existing `highlight` prop; Non-SGL with a neutral border).
-  3. Existing "Total (All Sources)" row (unchanged).
-- Drilldowns on the new rows reuse the existing `openDrill` path with titles `"SGL — Booked/Showed/Sold"` and `"Non-SGL — Booked/Showed/Sold"`, populated from the concatenated people arrays.
-- Small caption under the new rows: `"SGL = staff-generated. Non-SGL = self-booked web form."`
+A short rule chip sits above each table. Targets, R/Y/G coloring, Scored/Avg score, and the drill-down dialog work on both.
 
-No changes to `useDashboardMetrics`, no DB changes, no other surfaces touched. The classification helper is exported so it can be reused later (WIG, Studio funnel) without re-defining the rule.
+## Concrete example (Anna Pauley)
 
-## Coherence proof plan
-After edit, verify with `psql` for the active dashboard date range:
-- SUM(booked) for sources where `isSglLeadSource = true` matches the SGL Total row.
-- SUM(booked) for `Online Intro Offer (self-booked)` matches Non-SGL Total row.
-- SGL + Non-SGL = existing Total (All Sources) for booked, showed, sold.
+Chain: `6/17 ran w/ Koa → 6/30 ran w/ Natalya → SALE`
+
+| Table | Koa | Natalya |
+|---|---|---|
+| Internal · Total Journey | Coached 1, Closes 1 | Coached 0, Closes 0 |
+| OTF Corporate · Last Coach | Coached 1, Closes 0 | Coached 1, Closes 1 |
+
+The 1st intro still counts against Koa as a coached in the corporate table (he ran it), but the close goes to Natalya. Total coached in Corporate ≥ Total coached in Total Journey, because every 2nd-intro run adds another coached row.
+
+## How "Corporate · Last Coach" is computed
+
+1. **Coached denominator** = every booking in range where `didIntroActuallyRun(linkedRun)` is true (1st AND 2nd intros), attributed to the coach who actually ran that specific class (`resolveCloseCoach(booking, runCoach)`). Excludes VIP_CLASS_INTRO, no-show, unresolved, deleted/cancelled — same exclusions used elsewhere.
+2. **Close credit** for any sale in range: walk the chain from the sale's booking, find the **latest** booking whose linked run actually ran, credit that coach. Falls back to the sale-run's own coach if nothing in the chain ran (edge case).
+3. **Scored / Avg score** key off the same per-class attribution (FV scorecards already belong to the coach who ran that class, so this lines up automatically).
+4. **`Closes` count** matches Total Journey's `Closes` total exactly — same sales, just attributed to a different coach.
+
+## Technical changes
+
+- `src/pages/Wig.tsx`
+  - In `loadLeadMeasures`, after the existing Total Journey pass, run a second aggregation:
+    - Coached: iterate every booking in `showedFirstIntroBookings` AND every 2nd-intro booking already fetched into `secondIntroBookingMap`, filter to those whose linked run satisfies `didIntroActuallyRun`, bucket by `resolveCloseCoach(booking, runCoach)`.
+    - Closes: for each sale already collected (`countedRunBookingIds` set + cross-period `buyDateSales`), resolve the **last-ran booking in the chain** with a new `resolveLastRan(rootId)` walker (descends via `originating_booking_id` reverse lookup we already built), credit that coach.
+    - Build a parallel `coachAttributionCorporate` map mirroring `CoachAttribution`, including drill rows for both buckets.
+  - Store results in new state: `coachLeadMeasuresCorporate`, `coachAttributionCorporate`, `coachTotalsCorporate`.
+  - Render a second `<Card>` under the existing one, reusing the same table renderer (extract to a small `<CoachStatsTable>` component to avoid duplication). Header copy per table as shown above.
+  - Wire taps on the corporate table to open `CoachAttributionDrillDown` with the corporate attribution map.
+- `src/components/dashboard/CoachAttributionDrillDown.tsx`
+  - Add `'wig-corporate'` to the `source` prop union. Footer note explains: "Corporate: every class you ran counts as coached; close goes to the coach of the member's last attended class."
+- No DB changes. No changes to Studio, Per-Coach (Studio), ConversionFunnel, MyDay, commission, or any other surface. Total Journey remains canonical for internal logic and pay.
 
 ## Out of scope
-- No changes to attribution, commission, or other pages.
-- No new DB columns. Classification is derived at read time.
-- "(Friend)" variants stay tagged as their own source rows — only the new summary rows aggregate them.
+
+- No change to commission, SA leaderboard, or Studio tab.
+- No new editable target — Corporate table reuses `targets.coachClose` for its R/Y/G bar (we can split later if you want a separate corporate target).
+
+## Coherence checks before reporting done
+
+- Sum of `Closes` in Corporate table === sum of `Closes` in Total Journey table for the same range (same sales, redistributed).
+- Sum of `Coached` in Corporate table ≥ sum of `Coached` in Total Journey table (extra rows from 2nd intros that actually ran). Difference === count of ran 2nd intros in range.
+- Spot-check Anna Pauley: Total Journey credits Koa 1/1; Corporate credits Koa 1/0 and Natalya 1/1.
+- Spot-check a chain with a single ran intro and a sale: both tables credit the same coach with the same numbers.
+- Spot-check a 2nd intro that didn't close: Corporate adds a coached row to the 2nd coach but no close anywhere.
+
+Confirm and I'll build it.
