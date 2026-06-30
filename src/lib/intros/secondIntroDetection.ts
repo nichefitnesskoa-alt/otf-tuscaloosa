@@ -10,8 +10,7 @@
  * deleted, VIP, or otherwise excluded — the child is itself a 1st intro
  * (the person never had a real 1st before).
  */
-import { isBookingExcludedFromMetrics } from './excludedBookings';
-import { didIntroActuallyRun, NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
+import { didIntroActuallyRun } from '@/lib/canon/introRules';
 
 export interface SecondIntroBookingLike {
   id: string;
