@@ -70,7 +70,7 @@ export function CoachAttributionDrillDown({
           </DialogTitle>
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
             <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
-              {source === 'wig' ? 'WIG tab' : 'Studio tab'}
+              {source === 'studio' ? 'Studio tab' : source === 'wig-corporate' ? 'WIG · OTF Corporate' : 'WIG · Internal'}
             </Badge>
             <span>{rangeLabel}</span>
           </div>
