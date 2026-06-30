@@ -59,26 +59,37 @@ export function isSecondIntroBooking(
   if (!child.originating_booking_id) return false;
   if (child.referred_by_member_name) return false;
 
-  const parent = allBookings.find(b => b.id === child.originating_booking_id);
-  if (!parent) return false;
+  const bookingsById = new Map<string, SecondIntroBookingLike>();
+  for (const b of allBookings) bookingsById.set(b.id, b);
 
-  if (nameKey(parent.member_name) !== nameKey(child.member_name)) return false;
-  if (isBookingExcludedFromMetrics(parent)) return false;
+  // Walk up through reschedule-passthrough ancestors (soft-deleted /
+  // cancelled / planning-reschedule / no-run-yet parents) until we find
+  // an ancestor that actually ran (→ true), or until the chain ends
+  // (→ false). Different-member chains short-circuit to false.
+  const visited = new Set<string>([child.id]);
+  let current: SecondIntroBookingLike = child;
 
-  const parentStatus = (parent.booking_status_canon || '').toUpperCase();
-  if (NON_RAN_BOOKING_STATUSES.has(parentStatus)) return false;
+  while (current.originating_booking_id) {
+    const parentId = current.originating_booking_id;
+    if (visited.has(parentId)) return false; // cycle guard
+    visited.add(parentId);
 
-  // The booking might be ACTIVE/SHOWED-canon but the actual run was a
-  // no-show. Look at runs.
-  const parentRuns = allRuns.filter(r => r.linked_intro_booked_id === parent.id);
-  if (parentRuns.length === 0) {
-    // No run yet. If the booking is still ACTIVE and the parent's intro
-    // hasn't happened, the child can't be a 2nd intro yet either. Caller
-    // contexts (MyDay upcoming, etc.) generally want this as "not 2nd".
-    return false;
+    const parent = bookingsById.get(parentId);
+    if (!parent) return false; // parent not loaded → treat as orphan / 1st
+
+    if (nameKey(parent.member_name) !== nameKey(current.member_name)) return false;
+
+    const parentRuns = allRuns.filter(r => r.linked_intro_booked_id === parent.id);
+    const parentRan = parentRuns.some(r => didIntroActuallyRun(r));
+    if (parentRan) return true;
+
+    // Parent didn't run — could be a soft-deleted / cancelled / rescheduled
+    // intermediate reschedule row, or simply hasn't happened yet. Either
+    // way, continue up the chain to see if an earlier ancestor ran.
+    current = parent;
   }
-  const anyRan = parentRuns.some(r => didIntroActuallyRun(r));
-  return anyRan;
+
+  return false;
 }
 
 /**
