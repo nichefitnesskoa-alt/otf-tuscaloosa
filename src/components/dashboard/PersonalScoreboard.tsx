@@ -156,7 +156,7 @@ export function PersonalScoreboard({
             </TooltipProvider>
           </div>
         </div>
-        <p className="text-[10px] opacity-40 text-center mt-3">Excludes VIP events</p>
+        <p className="text-[10px] opacity-40 text-center mt-3">Includes VIP-sourced intros &amp; sales</p>
       </CardContent>
     </Card>
   );

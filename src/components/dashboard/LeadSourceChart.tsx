@@ -222,7 +222,7 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
             />
           </div>
 
-          <p className="text-[10px] text-muted-foreground/70 text-center">Excludes VIP events · Tap a number to see people</p>
+          <p className="text-[10px] text-muted-foreground/70 text-center">Tap a number to see people</p>
         </CardContent>
       </Card>
 
