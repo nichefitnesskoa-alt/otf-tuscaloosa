@@ -151,8 +151,10 @@ export function CoachAttributionDrillDown({
           <div className="flex justify-between"><span>Counted as Close (2nd intro · Total Journey)</span><span className="tabular-nums">{journeyCloses}</span></div>
           <div className="flex justify-between"><span>Excluded</span><span className="tabular-nums">{excluded.length}</span></div>
           <p className="pt-1 italic opacity-80">
-            {source === 'wig'
-              ? 'WIG: only intros that ran (excludes No-Show, Unresolved, VIP Intro). VIP coach takes credit on VIP-class intros.'
+            {source === 'wig-corporate'
+              ? 'OTF Corporate · Last Coach: every class you ran counts as Coached (1st AND 2nd intros). Closes go to the coach of the member\'s most recent attended class. VIP coach overrides apply.'
+              : source === 'wig'
+              ? 'Internal · Total Journey: only 1st intros that ran (excludes No-Show, Unresolved, VIP Intro). Close credit stays with the 1st-intro coach even when a 2nd intro closed it. VIP coach takes credit on VIP-class intros.'
               : 'Studio: every first-intro run in range (VIP Intro excluded). Coach credit follows the run; VIP class coach overrides.'}
           </p>
         </div>
