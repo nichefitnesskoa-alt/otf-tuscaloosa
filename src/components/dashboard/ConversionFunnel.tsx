@@ -53,9 +53,9 @@ export function computeFunnelBothRows(
   const promotedOrphanIds = resolvePromotedOrphanBookingIds(introsBooked as any, introsRun as any);
 
   // Compute exclusion sets first — we need to skip runs/bookings linked to
-  // soft-deleted, duplicate, or VIP rows when classifying journeys. Otherwise
-  // a phantom "Booked 2nd intro" run on a deleted original booking inflates
-  // the funnel by one (this is the Alexa Brodsky regression).
+  // soft-deleted or duplicate rows when classifying journeys.
+  // VIP bookings ARE included: their intros and sales count toward Studio
+  // funnel attribution per system-wide reporting rules.
   const isBookingExcluded = (b: any): boolean => {
     const statusCanon = (b.booking_status_canon || '').toUpperCase();
     const status = (b.booking_status || '').toUpperCase();
@@ -63,7 +63,6 @@ export function computeFunnelBothRows(
     if (statusCanon === 'DELETED_SOFT') return true;
     if (status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return true;
     if (b.ignore_from_metrics) return true;
-    if (b.is_vip === true) return true;
     return false;
   };
   const excludedBookingIds = new Set(
@@ -72,11 +71,8 @@ export function computeFunnelBothRows(
 
   const isRunExcludedFromChain = (r: IntroRun): boolean => {
     const rc = ((r as any).result_canon || '').toUpperCase();
-    if (rc === 'DELETED' || rc === 'VIP_CLASS_INTRO') return true;
+    if (rc === 'DELETED') return true;
     if ((r as any).ignore_from_metrics) return true;
-    // Run links to an excluded booking (e.g. soft-deleted original) — its
-    // chain is already represented by the promoted-orphan child, so we must
-    // not double-count it as a separate ran/2nd-intro signal.
     if (r.linked_intro_booked_id && excludedBookingIds.has(r.linked_intro_booked_id)) return true;
     return false;
   };
@@ -363,7 +359,7 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
             />
           </div>
 
-          <p className="text-[10px] text-muted-foreground/70 text-center">Excludes VIP events · Sale date anchored</p>
+          <p className="text-[10px] text-muted-foreground/70 text-center">Sale date anchored · Includes VIP-sourced intros</p>
         </CardContent>
       </Card>
 

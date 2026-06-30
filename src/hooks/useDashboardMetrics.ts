@@ -142,27 +142,23 @@ export function useDashboardMetrics(
     // Intentionally narrower than EXCLUDED_LEAD_SOURCES in studio-metrics.ts.
     // Booker stats only exclude self-booked and VIP, not Orangebook/Run-first,
     // because those can still be SA-initiated bookings.
-    // Filter out bookings with excluded status, ignored from metrics, or VIP
+    // Filter out bookings with excluded status or ignored from metrics.
+    // VIP bookings ARE included so VIP-sourced intros and sales count toward
+    // Studio metrics. (Operational queues still filter VIP separately.)
     const activeBookings = introsBooked.filter(b => {
-      // Prefer canon field, fall back to legacy
       const canonStatus = (b as any).booking_status_canon as string | undefined;
       const legacyStatus = ((b as any).booking_status || '').toUpperCase();
       const isExcludedStatus = canonStatus 
         ? ['DELETED_SOFT'].includes(canonStatus) || EXCLUDED_STATUSES.some(s => legacyStatus.includes(s.toUpperCase()))
         : EXCLUDED_STATUSES.some(s => legacyStatus.includes(s.toUpperCase()));
       const isIgnored = (b as any).ignore_from_metrics === true;
-      const isVip = (b as any).is_vip === true;
-      return !isExcludedStatus && !isIgnored && !isVip;
+      return !isExcludedStatus && !isIgnored;
     });
-    
-    // Filter out runs that are ignored from metrics or linked to VIP bookings
-    const vipBookingIds = new Set(
-      introsBooked.filter(b => (b as any).is_vip === true).map(b => b.id)
-    );
+
+    // Filter out runs that are ignored from metrics. VIP-linked runs ARE included.
     const activeRuns = introsRun.filter(r => {
       const isIgnored = (r as any).ignore_from_metrics === true;
-      const isVipRun = r.linked_intro_booked_id && vipBookingIds.has(r.linked_intro_booked_id);
-      return !isIgnored && !isVipRun;
+      return !isIgnored;
     });
     
     // Promote orphaned 2nd-intro bookings whose original is excluded (deleted/dup/etc.)
