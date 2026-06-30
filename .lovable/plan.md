@@ -1,56 +1,59 @@
-# Anna 6/30 showing as 1st intro — root cause + fix
+## Goal
+Add two summary rows above the existing "Total (All Sources)" row in the Lead Source Analytics card so Koa can see at a glance how many bookings/showed/sold came from self-generated leads (SGL) vs non-SGL (passive web traffic).
 
-## What's actually in the DB
-Four bookings for Anna Pauley (614-633-6157):
+## SGL classification rule
+Single canonical helper, used everywhere this distinction is needed.
 
-1. **6/17** `4a0621c1` — coach Natalya, status `SECOND_INTRO_SCHEDULED`, no parent. The real ran 1st intro.
-2. **6/23** `4b41faf2` — DELETED_SOFT. Parent = 6/17.
-3. **6/25** `88f67bcd` — DELETED_SOFT. Parent = 6/17.
-4. **6/30** `5fe29115` — ACTIVE (today). Parent = **6/25** (the deleted one).
+- **Non-SGL** = `Online Intro Offer (self-booked)` only. This is the one passive web-form source where the lead found us, not the other way around.
+- **SGL** = every other current lead source, including:
+  - Member Referral, Member Referral (5 class pack)
+  - VIP Class
+  - Event
+  - Instagram DM, Instagram DMs
+  - Lead Management
+  - Cold Lead Re-engagement
+  - Manual Entry
+  - My Personal Friend I Invited
+  - Business Partnership Referral
+  - Any `... (Friend)` variant — including `Online Intro Offer (self-booked) (Friend)`, because the "(Friend)" tag means a current member/staff brought them in, which is staff-generated.
 
-So 6/30's chain is: `6/30 → 6/25 (deleted) → 6/17 (ran)`. It's a 2nd intro — the rescheduled child of a rescheduled child of the real 6/17 intro.
+Unknown / future sources default to SGL (safer for staff credit), with `Online Intro Offer (self-booked)` as the only hardcoded Non-SGL exception.
 
-## Why the app shows it as 1st
-`src/lib/intros/secondIntroDetection.ts` bails the moment the immediate parent is excluded:
+## Files
 
-- Line 66: `if (isBookingExcludedFromMetrics(parent)) return false;` — soft-deleted parents are excluded → returns false.
-- Line 69: same for `NON_RAN_BOOKING_STATUSES` (DELETED_SOFT, CANCELLED, PLANNING_RESCHEDULE).
-
-A reschedule chain that goes through a soft-deleted intermediate booking gets treated as a brand-new 1st intro. That's the bug — every time staff delete an intermediate reschedule row, the next booking loses its 2nd-intro status.
-
-## Fix
-
-### 1. `src/lib/intros/secondIntroDetection.ts`
-When the immediate parent is "non-qualifying because it never ran" (deleted / cancelled / planning_reschedule / no run yet, i.e. a pure reschedule passthrough), **recurse up to the grandparent** instead of returning false. Stop and return true only when we find an ancestor that actually ran (`didIntroActuallyRun`). Stop and return false only when we hit a true root (no `originating_booking_id`) or a different-member chain.
-
-Guard with a visited-set to avoid cycles. Keep the "friend booking" (`referred_by_member_name`) short-circuit.
-
-`getEffectiveRootBookingId` already loops via `isSecondIntroBooking`, so once the helper is recursive the root walk fixes itself.
-
-### 2. `src/lib/intros/loadIntroClassification.ts`
-Today it fetches only the immediate parents listed in `bookingsInView`. With recursive ancestry, we need the full chain. Change the parent fetch to a loop:
-
+### New: `src/lib/metrics/sglClassification.ts`
+Single source of truth.
+```ts
+export function isSglLeadSource(source: string | null | undefined): boolean {
+  const s = (source ?? '').trim();
+  if (!s) return false;
+  // Only the bare self-booked web form is Non-SGL.
+  // The "(Friend)" variant means a member/staff brought them in → SGL.
+  if (s === 'Online Intro Offer (self-booked)') return false;
+  return true;
+}
+export const NON_SGL_SOURCES = ['Online Intro Offer (self-booked)'];
 ```
-seed missing parent ids → fetch → collect any of their originating_booking_id that aren't loaded yet → fetch again → repeat until no new ids (cap at e.g. 6 hops).
-```
 
-Then fetch `intros_run` for **all** ancestor ids, not just direct parents, so `isSecondIntroBooking` can check whether any ancestor's run actually happened.
+### Edit: `src/components/dashboard/LeadSourceChart.tsx`
+- Import `isSglLeadSource`.
+- After computing `sorted`, derive two aggregates over the same `LeadSourceData[]` (booked/showed/sold + people arrays concatenated) — `sglTotal` and `nonSglTotal`.
+- Render order inside `<CardContent>`:
+  1. Existing per-source `SourceRow`s
+  2. New separator + two `SourceRow`s: **"SGL Total (Staff-Generated)"** and **"Non-SGL Total (Self-Booked Web)"**, both with `highlight` styling tone (use a subtle differentiator — SGL highlighted green-tinted via existing `highlight` prop; Non-SGL with a neutral border).
+  3. Existing "Total (All Sources)" row (unchanged).
+- Drilldowns on the new rows reuse the existing `openDrill` path with titles `"SGL — Booked/Showed/Sold"` and `"Non-SGL — Booked/Showed/Sold"`, populated from the concatenated people arrays.
+- Small caption under the new rows: `"SGL = staff-generated. Non-SGL = self-booked web form."`
 
-### 3. Coherence check after fix
-Re-verify with `read_query` and against the live UI:
+No changes to `useDashboardMetrics`, no DB changes, no other surfaces touched. The classification helper is exported so it can be reused later (WIG, Studio funnel) without re-defining the rule.
 
-- 6/30 booking `5fe29115` → `isSecondIntro = true`.
-- MyDay card for Anna at 4:15 PM today shows the "2nd Intro" badge instead of "1st Intro".
-- Pipeline person sheet still shows Chain 1 / Chain 2 as today (chain numbering is by root, unaffected).
-- Coach View, Per-SA close rate, Conversion Funnel: confirm Anna 6/30 is NOT counted as a new 1st intro denominator (otherwise it would inflate Nathan's denominator and Grace F's denominator a second time for the same person).
-- Anna 6/17 stays the canonical 1st intro for Natalya / Jayna's attribution.
-
-## Files touched
-- `src/lib/intros/secondIntroDetection.ts` — recursive parent walk.
-- `src/lib/intros/loadIntroClassification.ts` — transitive ancestor + run fetch.
-
-## Files NOT touched
-No component changes needed. Every surface (MyDay, Coach View, Pipeline, Follow-Up, Shift View, Per-SA, Conversion Funnel) already routes through `loadIntroClassification` / `isSecondIntroBooking` per the canonical-helpers rule, so this single fix corrects every page at once.
+## Coherence proof plan
+After edit, verify with `psql` for the active dashboard date range:
+- SUM(booked) for sources where `isSglLeadSource = true` matches the SGL Total row.
+- SUM(booked) for `Online Intro Offer (self-booked)` matches Non-SGL Total row.
+- SGL + Non-SGL = existing Total (All Sources) for booked, showed, sold.
 
 ## Out of scope
-Not touching the underlying data — the soft-deleted reschedule rows are correct as-is and are how the studio tracks reschedule history. The classifier is what needs to understand them.
+- No changes to attribution, commission, or other pages.
+- No new DB columns. Classification is derived at read time.
+- "(Friend)" variants stay tagged as their own source rows — only the new summary rows aggregate them.
