@@ -163,7 +163,7 @@ export async function saveVipPurchase(args: SaveArgs): Promise<SaveResult> {
       run_date: vipSessionDate,
       coach_name: vipCoach,
       sa_name: saName,
-      intro_owner: vipCoach,
+      intro_owner: introOwnerSa,
       result: membership,
       result_canon: 'SALE',
       commission_amount: commission,
