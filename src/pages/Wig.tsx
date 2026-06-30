@@ -1365,10 +1365,13 @@ export default function Wig() {
         onOpenChange={(o) => { if (!o) setDrill(null); }}
         coach={drill?.coach || null}
         metric={drill?.metric || 'coached'}
-        source="wig"
+        source={drill?.mode === 'corp' ? 'wig-corporate' : 'wig'}
         rangeLabel={dateRange ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}` : 'All time'}
-        attribution={drill ? coachAttribution.get(drill.coach) || null : null}
+        attribution={drill
+          ? (drill.mode === 'corp' ? coachAttributionCorporate : coachAttribution).get(drill.coach) || null
+          : null}
       />
+
 
       <PersonListDrillDown
         open={!!saDrill}
