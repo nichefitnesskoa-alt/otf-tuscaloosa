@@ -1193,26 +1193,23 @@ export default function Wig() {
             </CardContent>
           </Card>
 
-          {/* Coach — Coached & Closes table */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-primary" />
-                Coach Stats
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Lead measure: self-eval every intro you run. Tap a number to drill in.
-              </p>
-            </CardHeader>
-            <CardContent className="p-0">
-              {measuresLoading ? (
-                <div className="flex items-center justify-center py-6">
-                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground mr-2" />
-                  <span className="text-sm text-muted-foreground">Loading…</span>
-                </div>
-              ) : sortedCoachRows.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">No data for this period.</p>
-              ) : (
+          {/* Coach — Coached & Closes tables (Internal vs OTF Corporate) */}
+          {(() => {
+            const renderCoachStatsTable = (
+              rows: typeof sortedCoachRows,
+              mode: 'tj' | 'corp',
+            ) => {
+              const totalCoached = rows.reduce((s, r) => s + (r.coached || 0), 0);
+              const totalCloses = rows.reduce((s, r) => s + (r.closes || 0), 0);
+              const weightedRate = totalCoached > 0 ? (totalCloses / totalCoached) * 100 : 0;
+              const totalUnscored = rows.reduce((s, r) => s + (fv.data?.unscoredByCoach?.get(r.name) ?? 0), 0);
+              const totalScored = Math.max(0, totalCoached - totalUnscored);
+              const wrs = statusColor(weightedRate, targets.coachClose);
+              const wrsCls = statusClasses(wrs);
+              if (rows.length === 0) {
+                return <p className="text-sm text-muted-foreground text-center py-6">No data for this period.</p>;
+              }
+              return (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -1232,7 +1229,7 @@ export default function Wig() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sortedCoachRows.map((row, idx) => {
+                      {rows.map((row, idx) => {
                         const rs = statusColor(row.closeRate, targets.coachClose);
                         const rsCls = statusClasses(rs);
                         const pct = targets.coachClose ? Math.min(100, (row.closeRate / targets.coachClose) * 100) : 0;
@@ -1240,7 +1237,6 @@ export default function Wig() {
                         const scored = Math.max(0, row.coached - unscored);
                         const selfAvg = fv.data?.selfByCoach?.get(row.name);
                         const formalAvg = fv.data?.formalByCoach?.get(row.name);
-                        // Prefer self-eval (the lead measure); fall back to formal.
                         const avgVal = selfAvg?.avg ?? formalAvg?.avg ?? null;
                         return (
                           <TableRow key={row.name} className={cn(rs === 'green' && 'bg-success/5')}>
@@ -1250,7 +1246,7 @@ export default function Wig() {
                               <button
                                 type="button"
                                 disabled={row.coached === 0}
-                                onClick={() => setDrill({ coach: row.name, metric: 'coached' })}
+                                onClick={() => setDrill({ coach: row.name, metric: 'coached', mode })}
                                 className="w-full min-h-[48px] px-3 text-3xl font-black tabular-nums cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
                               >
                                 {row.coached}
@@ -1270,7 +1266,7 @@ export default function Wig() {
                               <button
                                 type="button"
                                 disabled={row.closes === 0}
-                                onClick={() => setDrill({ coach: row.name, metric: 'closes' })}
+                                onClick={() => setDrill({ coach: row.name, metric: 'closes', mode })}
                                 className="w-full min-h-[48px] px-3 text-3xl font-black tabular-nums text-success cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
                               >
                                 {row.closes}
@@ -1287,36 +1283,81 @@ export default function Wig() {
                           </TableRow>
                         );
                       })}
-                      {(() => {
-                        const totalCoached = coachTotalCoached;
-                        const totalCloses = coachTotalCloses;
-                        const weightedRate = coachWeightedRate;
-                        const totalUnscored = sortedCoachRows.reduce((s, r) => s + (fv.data?.unscoredByCoach?.get(r.name) ?? 0), 0);
-                        const totalScored = Math.max(0, totalCoached - totalUnscored);
-                        const wrs = statusColor(weightedRate, targets.coachClose);
-                        const wrsCls = statusClasses(wrs);
-                        return (
-                          <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
-                            <TableCell />
-                            <TableCell className="text-base font-bold whitespace-nowrap">Total</TableCell>
-                            <TableCell className="text-2xl text-center font-black tabular-nums">{totalCoached}</TableCell>
-                            <TableCell className={cn('text-2xl text-center font-black tabular-nums', statusClasses(scoredStatus(totalScored, totalCoached)).text)}>{totalScored}/{totalCoached}</TableCell>
-                            <TableCell className="text-2xl text-center font-black text-muted-foreground">—</TableCell>
-                            <TableCell className="text-2xl text-center font-black text-success tabular-nums">{totalCloses}</TableCell>
-                            <TableCell className="text-2xl text-center font-black">
-                              <span className={wrsCls.text}>{weightedRate.toFixed(0)}%</span>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })()}
+                      <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
+                        <TableCell />
+                        <TableCell className="text-base font-bold whitespace-nowrap">Total</TableCell>
+                        <TableCell className="text-2xl text-center font-black tabular-nums">{totalCoached}</TableCell>
+                        <TableCell className={cn('text-2xl text-center font-black tabular-nums', statusClasses(scoredStatus(totalScored, totalCoached)).text)}>{totalScored}/{totalCoached}</TableCell>
+                        <TableCell className="text-2xl text-center font-black text-muted-foreground">—</TableCell>
+                        <TableCell className="text-2xl text-center font-black text-success tabular-nums">{totalCloses}</TableCell>
+                        <TableCell className="text-2xl text-center font-black">
+                          <span className={wrsCls.text}>{weightedRate.toFixed(0)}%</span>
+                        </TableCell>
+                      </TableRow>
                     </TableBody>
                   </Table>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              );
+            };
+
+            const sortedCorpRows = [...coachLeadMeasuresCorporate].sort(
+              (a, b) => b.closeRate - a.closeRate || b.closes - a.closes,
+            );
+
+            return (
+              <>
+                {/* Internal · Total Journey */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <UserCheck className="w-5 h-5 text-primary" />
+                      Coach Stats — Internal · Total Journey
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-semibold text-foreground">How we hold the first impression accountable.</span>{' '}
+                      Coached counts every 1st intro you ran in range. The close stays with the 1st-intro coach,
+                      even when a 2nd intro is what closed it. Tap any number to drill in.
+                    </p>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {measuresLoading ? (
+                      <div className="flex items-center justify-center py-6">
+                        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground mr-2" />
+                        <span className="text-sm text-muted-foreground">Loading…</span>
+                      </div>
+                    ) : renderCoachStatsTable(sortedCoachRows, 'tj')}
+                  </CardContent>
+                </Card>
+
+                {/* OTF Corporate · Last Coach */}
+                <Card className="border-primary/30">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <UserCheck className="w-5 h-5 text-primary" />
+                      Coach Stats — OTF Corporate · Last Coach
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-semibold text-foreground">How OTF Corporate scores coaches.</span>{' '}
+                      Coached counts every class you personally ran (1st <em>and</em> 2nd intros).
+                      The close goes to the coach of the member's <em>most recent</em> attended class — so if a 2nd intro closed,
+                      the 2nd-intro coach gets the credit. Same total closes as the Internal table, just redistributed.
+                    </p>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {measuresLoading ? (
+                      <div className="flex items-center justify-center py-6">
+                        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground mr-2" />
+                        <span className="text-sm text-muted-foreground">Loading…</span>
+                      </div>
+                    ) : renderCoachStatsTable(sortedCorpRows, 'corp')}
+                  </CardContent>
+                </Card>
+              </>
+            );
+          })()}
         </TabsContent>
       </Tabs>
+
 
 
       <CoachAttributionDrillDown
