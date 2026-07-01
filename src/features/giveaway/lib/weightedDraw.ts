@@ -2,24 +2,27 @@ export interface DrawEntry {
   id: string;
   name: string;
   total_entries: number;
-  /** Hard requirement: must have completed the Instagram follow action to be eligible. */
+  /** Legacy — no longer used to gate eligibility. Follow verification happens in person. */
   action_instagram_follow?: boolean;
 }
 
-/** Only entries with > 0 tickets, completed IG follow, and not in excludeIds are eligible. */
+/**
+ * Everyone who submitted is eligible. Follow verification happens in person at the drawing.
+ * Weight defaults to 1 for entries with zero actions logged.
+ */
+export function effectiveWeight(e: DrawEntry): number {
+  return Math.max(1, e.total_entries || 0);
+}
+
 export function eligibleEntries(entries: DrawEntry[], excludeIds?: Set<string>): DrawEntry[] {
-  return entries.filter(
-    e =>
-      e.total_entries > 0 &&
-      e.action_instagram_follow === true &&
-      !(excludeIds?.has(e.id))
-  );
+  return entries.filter(e => !(excludeIds?.has(e.id)));
 }
 
 export function buildTicketPool(entries: DrawEntry[], excludeIds?: Set<string>): DrawEntry[] {
   const pool: DrawEntry[] = [];
   for (const e of eligibleEntries(entries, excludeIds)) {
-    for (let i = 0; i < e.total_entries; i++) pool.push(e);
+    const w = effectiveWeight(e);
+    for (let i = 0; i < w; i++) pool.push(e);
   }
   return pool;
 }
@@ -32,6 +35,6 @@ export function drawWinner(entries: DrawEntry[], excludeIds?: Set<string>): Draw
 
 export function topWeightedForWheel(entries: DrawEntry[], max = 20, excludeIds?: Set<string>): DrawEntry[] {
   return eligibleEntries(entries, excludeIds)
-    .sort((a, b) => b.total_entries - a.total_entries)
+    .sort((a, b) => effectiveWeight(b) - effectiveWeight(a))
     .slice(0, max);
 }
