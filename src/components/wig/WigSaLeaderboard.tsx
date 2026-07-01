@@ -25,6 +25,8 @@ import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/p
 import {
   loadMonthlyTargets,
   saveMonthlyTarget,
+  loadPerSaOverrides,
+  savePerSaOverride,
   type MonthlyTargets,
   type TargetKind,
 } from '@/lib/wig/targets';
