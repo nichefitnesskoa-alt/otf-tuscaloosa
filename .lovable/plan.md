@@ -1,51 +1,54 @@
 ## Goal
-Add a second row to the **Studio Scoreboard** that mirrors the existing row using the **OTF Corporate · Last Coach** logic (every ran class counts, 1st AND 2nd intros). Keep the current row as **Internal · Total Journey** and clearly label each.
+Change the giveaway drawing flow so:
+1. Every submitted entry is eligible (drop the Instagram-follow requirement — we verify in person).
+2. Prizes are awarded first-come-first-serve: the first person spun picks first, second picks from what's left, etc.
+3. After a spin, an admin can disqualify the winner (e.g. verified they don't actually follow all accounts) and re-spin for that slot.
 
-## Layout
+## Reach map
+Files that gate on `action_instagram_follow` or drive the draw:
+- `src/features/giveaway/GiveawayAdminPage.tsx` — totals, `eligibleCount`, `drawEntries`
+- `src/features/giveaway/components/DrawWinner.tsx` — per-prize draw
+- `src/features/giveaway/components/SpinWheel.tsx` — spin + per-prize selector
+- `src/features/giveaway/lib/weightedDraw.ts` — filter helpers (already gated on the flag — needs to stop)
+- `src/features/giveaway/components/EntriesTable.tsx` — displays eligibility badge
+- `src/features/giveaway/components/GiveawayEntryForm.tsx` — required checkbox
+- `src/features/giveaway/lib/winnerStructure.ts` — rule statement copy
 
-```
-Studio Scoreboard
-─────────────────────────────────────────────
-Internal · Total Journey          (1st intros only)
-  44 Intros Run   20 Sales   45% Close Rate
-  "Close rate is total journey. A sale counts on
-   its first intro's chain…"
+## Changes
 
-─────────────────────────────────────────────
-OTF Corporate · Last Coach        (1st + 2nd intros)
-  57 Intros Run   20 Sales   35% Close Rate
-  "Every ran class counts. This is how OTF
-   corporate measures studio close rate."
-─────────────────────────────────────────────
-Includes VIP-sourced intros & sales
-```
+### 1. Eligibility = submitted
+- `weightedDraw.ts`: remove `action_instagram_follow` filter from `drawWinner` / `topWeightedForWheel`. Only exclude zero-entry rows (all submissions have base_entries=1, so effectively "submitted = in").
+- `GiveawayAdminPage.tsx`: `totalPool` and `eligibleCount` count every entry (no follow gate). Update helper copy to "All submissions eligible — verify follows in person."
+- `GiveawayEntryForm.tsx`: keep the "follow all accounts" checkboxes as encouraged actions for bonus entries, but make the IG-follow checkbox NOT required to submit. Add small note: "We verify in person at the drawing."
+- `EntriesTable.tsx`: replace "Ineligible (no IG follow)" state with a neutral "Follows unverified" indicator so staff know to check at the event.
 
-Both rows share the same Sales count (total memberships sold in range). Only the **Intros Run denominator** changes, which changes the **Close Rate**.
+### 2. First-come-first-serve pick order (Spin Wheel becomes primary)
+Rework `SpinWheel.tsx` per-prize mode into "pick order" mode:
+- Remove the "Spinning for [prize dropdown]" selector.
+- Maintain an ordered `awarded[]` list of `{winner, prizeId|null, disqualified:false}` and a `remainingPrizes[]` list.
+- Flow per spin:
+  1. Admin taps SPIN → wheel picks a winner from remaining eligible pool.
+  2. Winner reveal shows remaining prizes as tap-to-award buttons. Admin taps the prize the winner chose → it's locked to that winner and removed from `remainingPrizes`.
+  3. Winner auto-removed from wheel; SPIN button re-enables until `remainingPrizes` is empty.
+- Below the wheel, show a live "Pick order" list: `1. Jane → Free class at Session Yoga`, `2. Mike → Membership`, etc., with a `Disqualify & re-spin` button on each row.
 
-## Logic
+### 3. Disqualify & re-spin
+- Clicking `Disqualify` on a row: marks that award disqualified, returns the prize to `remainingPrizes`, adds the person to a `disqualified` set so they can't be re-picked, and prompts the admin to SPIN again for that prize slot. New winner then picks (but since only one prize is back on the table, it auto-assigns to that prize with confirmation).
+- Add "Undo disqualification" for accidental clicks (returns them to pool, removes the newly-awarded slot if one exists yet).
 
-### Row 1 — Internal · Total Journey (existing, unchanged)
-- `introsRun` = `pipelineShowed` (1st-intro bookings that ran)
-- `sales` = `studioIntroSales`
-- `closeRate` = sales / max(introsRun, sales)
+### 4. Drop the legacy DrawWinner card
+- `DrawWinner.tsx` duplicates the flow and is confusing next to the wheel. Remove its render from `GiveawayAdminPage.tsx` (keep the file until confirmed unused). Spin wheel is the single source of truth for awarding.
 
-### Row 2 — OTF Corporate · Last Coach (new)
-Add to `useDashboardMetrics.ts` alongside the existing studio block:
-- `introsRunAll` = count of every row in `activeRuns` where `didIntroActuallyRun(r)` is true and `isRunInRange(r, dateRange)` — no 1st-intro filter, includes 2nd intros.
-- `salesAll` = same as `studioIntroSales` (already counts every sale in range).
-- `closeRateAll` = salesAll / max(introsRunAll, salesAll).
+### 5. Copy updates
+- `winnerStructure.ts` `getDrawRuleStatement`: append "Winners pick prizes in the order they're spun. Follow verification happens in person."
+- Admin header helper text: "First person spun picks first. Disqualify and re-spin any winner who doesn't pass in-person verification."
 
-Expose as `studio.introsRunCorporate` / `studio.closingRateCorporate` (sales stays single field).
+## Technical notes
+- State lives in `SpinWheel` local state; nothing persisted to DB (matches current behavior — the draw is a live event tool).
+- No schema changes.
+- No changes to entry submission validation on the server; only the client form requirement is dropped.
 
-### Component
-Update `StudioScoreboard.tsx` props to accept the corporate trio plus the existing trio, render two stacked 3-col rows with a divider and a header label on each row, keep tooltips, keep the VIP footer.
-
-## Files to touch
-- `src/hooks/useDashboardMetrics.ts` — compute `introsRunCorporate` + `closingRateCorporate`, add to returned `studio` object.
-- `src/components/dashboard/StudioScoreboard.tsx` — new props, two-row layout with section labels.
-- `src/pages/Recaps.tsx` + `src/features/myDay/MyDayTopPanel.tsx` — pass the two new props through.
-
-## Coherence
-- Row 2 denominator must equal the **denominator used in the Corporate · Last Coach coach table** on `/wig` (sum of every ran class across all coaches).
-- Row 1 stays equal to the existing Studio Funnel "showed" count.
-- Verify with read_query that `count(ran rows in range) = row2 introsRun` and `count(ran rows linked to 1st-intro bookings) = row1 introsRun`.
+## COHERENCE PROOF (to be produced at build time)
+- DB: `select count(*) from giveaway_entries where studio_slug = <active>` = number shown in admin "eligible" count.
+- Cross-page: Admin `Entries` count == wheel pool count == CSV row count == public entry count.
+- Verify: after disqualifying, prize returns to remaining list AND the person disappears from the wheel on next spin.

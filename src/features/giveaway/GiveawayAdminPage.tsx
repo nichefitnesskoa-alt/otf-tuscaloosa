@@ -4,10 +4,10 @@ import { useGiveawayStudio } from './hooks/useGiveawayStudio';
 import { useGiveawayEntries } from './hooks/useGiveawayEntries';
 import { useGiveawayPartners } from './hooks/useGiveawayPartners';
 import { EntriesTable } from './components/EntriesTable';
-import { DrawWinner } from './components/DrawWinner';
 import { SpinWheel } from './components/SpinWheel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { downloadEntriesCsv } from './lib/csvExport';
+import { effectiveWeight } from './lib/weightedDraw';
 import { Download, Users, Settings as SettingsIcon, Eye, Presentation } from 'lucide-react';
 import { getAdminStudioName } from '@/lib/studioNames';
 
@@ -20,13 +20,10 @@ export default function GiveawayAdminPage() {
   const [tab, setTab] = useState<'entries' | 'settings'>('entries');
 
   const totalPool = useMemo(
-    () => entries.filter(e => e.action_instagram_follow).reduce((s, e) => s + e.total_entries, 0),
+    () => entries.reduce((s, e) => s + effectiveWeight(e as any), 0),
     [entries],
   );
-  const eligibleCount = useMemo(
-    () => entries.filter(e => e.total_entries > 0 && e.action_instagram_follow).length,
-    [entries],
-  );
+  const eligibleCount = entries.length;
   const drawEntries = useMemo(() => entries.map(e => ({
     id: e.id, name: `${e.first_name} ${e.last_name}`, total_entries: e.total_entries,
     action_instagram_follow: e.action_instagram_follow,
@@ -62,7 +59,7 @@ export default function GiveawayAdminPage() {
                 <p className="text-sm text-[#F5F2EE]/60 mt-1">
                   <span className="text-[#E8540A] font-bold text-base">{totalPool}</span> total entries in pool · {eligibleCount} eligible · {entries.length} participants
                 </p>
-                <p className="text-xs text-[#F5F2EE]/50 mt-1">Each entry = one ticket. Must complete the Instagram follow to be eligible to win.</p>
+                <p className="text-xs text-[#F5F2EE]/50 mt-1">Every submission is eligible. Follow verification happens in person at the drawing — disqualify + re-spin if a winner doesn't check out.</p>
 
               </div>
               <button
@@ -74,12 +71,6 @@ export default function GiveawayAdminPage() {
               </button>
             </div>
             <EntriesTable entries={entries} partners={partners} />
-            <DrawWinner
-              entries={drawEntries}
-              partners={partners}
-              winnerStructure={studio.winner_structure ?? 'single'}
-              studioSlug={studio.studio_slug}
-            />
             <SpinWheel
               entries={drawEntries}
               partners={partners}
