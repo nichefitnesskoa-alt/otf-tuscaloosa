@@ -98,8 +98,15 @@ export function WigSaLeaderboard({ dateRange }: Props) {
     saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null,
   });
 
+  const [perSaOverrides, setPerSaOverrides] = useState<Record<string, number>>({});
+
   const refreshTargets = useCallback(async () => {
-    setTargets(await loadMonthlyTargets(yyyymm));
+    const [t, overrides] = await Promise.all([
+      loadMonthlyTargets(yyyymm),
+      loadPerSaOverrides(yyyymm),
+    ]);
+    setTargets(t);
+    setPerSaOverrides(overrides);
   }, [yyyymm]);
   useEffect(() => { refreshTargets(); }, [refreshTargets]);
 
