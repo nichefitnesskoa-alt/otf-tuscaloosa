@@ -139,6 +139,8 @@ export function MyDayTopPanel() {
               introsRun={metrics.studio.introsRun}
               introSales={metrics.studio.introSales}
               closingRate={metrics.studio.closingRate}
+              introsRunCorporate={metrics.studio.introsRunCorporate}
+              closingRateCorporate={metrics.studio.closingRateCorporate}
             />
             <WeeklySchedule />
           </div>
