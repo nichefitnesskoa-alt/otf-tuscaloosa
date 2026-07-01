@@ -20,13 +20,10 @@ export default function GiveawayAdminPage() {
   const [tab, setTab] = useState<'entries' | 'settings'>('entries');
 
   const totalPool = useMemo(
-    () => entries.filter(e => e.action_instagram_follow).reduce((s, e) => s + e.total_entries, 0),
+    () => entries.reduce((s, e) => s + effectiveWeight(e as any), 0),
     [entries],
   );
-  const eligibleCount = useMemo(
-    () => entries.filter(e => e.total_entries > 0 && e.action_instagram_follow).length,
-    [entries],
-  );
+  const eligibleCount = entries.length;
   const drawEntries = useMemo(() => entries.map(e => ({
     id: e.id, name: `${e.first_name} ${e.last_name}`, total_entries: e.total_entries,
     action_instagram_follow: e.action_instagram_follow,
