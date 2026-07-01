@@ -102,3 +102,56 @@ export async function saveMonthlyTarget(
   }
   return { error: (error as any) || null };
 }
+
+/**
+ * Per-SA per-month SGL override. Stored under key:
+ *   sa_sgl_target:YYYY-MM:<saName>
+ * Falls back to the global per-SA target when unset — used so vacationing
+ * SAs (or new hires mid-month) can get a lower/higher individual goal
+ * without changing the whole team's per-SA target.
+ */
+export function perSaOverrideKey(yyyymm: string, saName: string): string {
+  return `${TARGET_KEYS.saSgl}:${yyyymm}:${saName}`;
+}
+
+export async function loadPerSaOverrides(yyyymm: string): Promise<Record<string, number>> {
+  const prefix = `${TARGET_KEYS.saSgl}:${yyyymm}:`;
+  const { data } = await supabase
+    .from('studio_settings')
+    .select('setting_key, setting_value')
+    .like('setting_key', `${prefix}%`);
+  const out: Record<string, number> = {};
+  for (const row of (data as any[]) || []) {
+    const sa = String(row.setting_key).slice(prefix.length);
+    const n = parseIntOrNull(row.setting_value);
+    if (sa && n != null) out[sa] = n;
+  }
+  return out;
+}
+
+export async function savePerSaOverride(
+  yyyymm: string,
+  saName: string,
+  value: number | null,
+  updatedBy: string,
+): Promise<{ error: Error | null }> {
+  const key = perSaOverrideKey(yyyymm, saName);
+  if (value == null) {
+    const { error } = await supabase.from('studio_settings').delete().eq('setting_key', key);
+    if (!error) notifyDataChanged([TARGET_KEYS.saSgl, 'wig_targets'], 'sa-sgl-override-clear');
+    return { error: (error as any) || null };
+  }
+  const { error } = await supabase
+    .from('studio_settings')
+    .upsert(
+      {
+        setting_key: key,
+        setting_value: String(value),
+        updated_by: updatedBy,
+        updated_at: new Date().toISOString(),
+      } as any,
+      { onConflict: 'setting_key' },
+    );
+  if (!error) notifyDataChanged([TARGET_KEYS.saSgl, 'wig_targets'], 'sa-sgl-override-edit');
+  return { error: (error as any) || null };
+}
