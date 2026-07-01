@@ -59,7 +59,7 @@ export default function GiveawayAdminPage() {
                 <p className="text-sm text-[#F5F2EE]/60 mt-1">
                   <span className="text-[#E8540A] font-bold text-base">{totalPool}</span> total entries in pool · {eligibleCount} eligible · {entries.length} participants
                 </p>
-                <p className="text-xs text-[#F5F2EE]/50 mt-1">Each entry = one ticket. Must complete the Instagram follow to be eligible to win.</p>
+                <p className="text-xs text-[#F5F2EE]/50 mt-1">Every submission is eligible. Follow verification happens in person at the drawing — disqualify + re-spin if a winner doesn't check out.</p>
 
               </div>
               <button
@@ -71,12 +71,6 @@ export default function GiveawayAdminPage() {
               </button>
             </div>
             <EntriesTable entries={entries} partners={partners} />
-            <DrawWinner
-              entries={drawEntries}
-              partners={partners}
-              winnerStructure={studio.winner_structure ?? 'single'}
-              studioSlug={studio.studio_slug}
-            />
             <SpinWheel
               entries={drawEntries}
               partners={partners}
