@@ -477,18 +477,18 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                     <TableHead className="text-sm">SA</TableHead>
                     <TableHead className="text-sm text-center">
                       Leads
-                      <div className="text-base font-semibold text-foreground">
-                        need {formatPace(perSaPace.sgl)} today
-                      </div>
-                      <div className="text-sm font-normal text-foreground">
-                        of {targets.saSgl ?? '—'} this month
+                      <div className="text-xs font-normal text-muted-foreground mt-0.5">
+                        individual monthly goal (tap {isAdmin ? 'pencil' : 'admin'} to adjust for vacation, etc.)
                       </div>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sortedRows.map((row, idx) => {
-                    const sglS = statusColor(row.sgl, perSaPace.sgl);
+                    const saTarget = effectiveSaSglTarget(row.name);
+                    const saPace = paceToToday(saTarget, paceAnchor);
+                    const hasOverride = Object.prototype.hasOwnProperty.call(perSaOverrides, row.name);
+                    const isEditingThis = editingSa === row.name;
                     return (
                       <TableRow
                         key={row.name}
@@ -506,12 +506,46 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                           >
                             <div className="text-4xl font-black tabular-nums text-foreground">
                               {row.sgl}
-                              <span className="ml-1 text-sm font-normal text-foreground">/ {formatPace(perSaPace.sgl)}</span>
+                              <span className="ml-1 text-sm font-normal text-foreground">/ {formatPace(saPace)}</span>
                             </div>
                             <div className="mt-1 px-2">
-                              <PaceBar current={row.sgl} target={targets.saSgl} pace={perSaPace.sgl} />
+                              <PaceBar current={row.sgl} target={saTarget} pace={saPace} />
                             </div>
                           </button>
+                          <div className="flex items-center justify-center gap-1.5 pb-2 pt-1 text-xs text-muted-foreground" onClick={e => e.stopPropagation()}>
+                            {isEditingThis ? (
+                              <>
+                                <Input
+                                  type="number" min={0}
+                                  value={saInputVal}
+                                  onChange={e => setSaInputVal(e.target.value)}
+                                  onKeyDown={e => { if (e.key === 'Enter') saveSaEdit(); if (e.key === 'Escape') setEditingSa(null); }}
+                                  className="h-7 w-20 text-xs"
+                                  placeholder={targets.saSgl == null ? '—' : String(targets.saSgl)}
+                                  autoFocus
+                                />
+                                <Button size="sm" className="h-7 px-2 text-xs" onClick={saveSaEdit}>Save</Button>
+                                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingSa(null)}>Cancel</Button>
+                              </>
+                            ) : (
+                              <>
+                                <span>
+                                  goal: <span className={cn('font-semibold', hasOverride ? 'text-primary' : 'text-foreground')}>{saTarget ?? '—'}</span>
+                                  {hasOverride && <span className="ml-1 text-[10px] uppercase tracking-wide text-primary">custom</span>}
+                                </span>
+                                {isAdmin && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 px-1.5"
+                                    onClick={() => openSaEdit(row.name, saTarget)}
+                                  >
+                                    {saSavedFlash === row.name ? <Check className="w-3 h-3 text-success" /> : <Pencil className="w-3 h-3 opacity-60" />}
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
