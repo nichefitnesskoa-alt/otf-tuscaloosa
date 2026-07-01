@@ -17,6 +17,9 @@ interface StudioMetrics {
   introSales: number;
   closingRate: number;
   totalCommission: number;
+  // Corporate · Last Coach view: every ran class (1st + 2nd) in denominator
+  introsRunCorporate: number;
+  closingRateCorporate: number;
 }
 
 interface LeaderEntry {
