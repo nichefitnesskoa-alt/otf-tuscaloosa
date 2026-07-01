@@ -35,6 +35,7 @@ import Apply from "./pages/Apply";
 import NotFound from "./pages/NotFound";
 import GiveawayEntryPage from "./features/giveaway/GiveawayEntryPage";
 import GiveawayAdminPage from "./features/giveaway/GiveawayAdminPage";
+import GiveawaySpinPage from "./features/giveaway/GiveawaySpinPage";
 import GiveawayPreviewPage from "./features/giveaway/GiveawayPreviewPage";
 import PartnerDeckPage from "./features/giveaway/PartnerDeckPage";
 import PartnerDeckAdminPage from "./features/giveaway/PartnerDeckAdminPage";
