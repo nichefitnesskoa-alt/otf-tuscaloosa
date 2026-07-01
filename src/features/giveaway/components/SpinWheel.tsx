@@ -134,9 +134,11 @@ export function SpinWheel({
       ctx.rotate(mid);
       ctx.textAlign = 'right';
       ctx.fillStyle = '#F5F2EE';
-      ctx.font = 'bold 13px system-ui, sans-serif';
-      const name = seg.entry.name.length > 18 ? seg.entry.name.slice(0, 16) + '…' : seg.entry.name;
-      ctx.fillText(name, r - 12, 4);
+      const fontPx = Math.max(13, Math.round(wheelSize * 0.036));
+      ctx.font = `bold ${fontPx}px system-ui, sans-serif`;
+      const maxChars = Math.max(14, Math.round(wheelSize / 22));
+      const name = seg.entry.name.length > maxChars ? seg.entry.name.slice(0, maxChars - 2) + '…' : seg.entry.name;
+      ctx.fillText(name, r - 12, Math.round(fontPx * 0.3));
       ctx.restore();
     });
     ctx.restore();
