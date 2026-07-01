@@ -172,6 +172,7 @@ function AppRoutes() {
       <Route path="/giveaway/:studioSlug" element={<GiveawayEntryPage />} />
       <Route path="/giveaway/:studioSlug/e/:entrySlug" element={<GiveawayEntryPage />} />
       <Route path="/admin/:studioSlug" element={<GiveawayAdminPage />} />
+      <Route path="/admin/:studioSlug/spin" element={<GiveawaySpinPage />} />
       <Route path="/admin/:studioSlug/preview" element={<GiveawayPreviewPage />} />
       <Route path="/admin/:studioSlug/partner-deck" element={<PartnerDeckAdminPage />} />
       <Route path="/admin/:studioSlug/partner-view" element={<PartnerViewPage />} />
