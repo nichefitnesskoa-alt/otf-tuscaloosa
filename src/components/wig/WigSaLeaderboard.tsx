@@ -179,10 +179,36 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   };
 
   // Active SA count (Koa = Admin, not on the SA leaderboard).
-  const activeCount = (activeSas || []).filter(n => n !== 'Koa').length;
+  const rosterSas = useMemo(
+    () => (activeSas || []).filter(n => n !== 'Koa'),
+    [activeSas],
+  );
+  const activeCount = rosterSas.length;
+
+  // Effective per-SA SGL target: per-SA override if set, otherwise the global per-SA target.
+  const effectiveSaSglTarget = useCallback(
+    (sa: string): number | null => {
+      if (Object.prototype.hasOwnProperty.call(perSaOverrides, sa)) return perSaOverrides[sa];
+      return targets.saSgl;
+    },
+    [perSaOverrides, targets.saSgl],
+  );
+
+  // Team SGL target = sum of every active SA's effective target (respects
+  // individual overrides — e.g. vacation goals lower the team target too).
+  const teamSglTarget = useMemo(() => {
+    if (targets.saSgl == null && Object.keys(perSaOverrides).length === 0) return null;
+    let sum = 0;
+    let anyKnown = false;
+    for (const sa of rosterSas) {
+      const t = effectiveSaSglTarget(sa);
+      if (t != null) { sum += t; anyKnown = true; }
+    }
+    return anyKnown ? sum : null;
+  }, [rosterSas, effectiveSaSglTarget, perSaOverrides, targets.saSgl]);
 
   const teamTargets = {
-    sgl: targets.saSgl != null ? targets.saSgl * activeCount : null,
+    sgl: teamSglTarget,
     booked: targets.saBooked != null ? targets.saBooked * activeCount : null,
     sales: targets.saSales != null ? targets.saSales * activeCount : null,
   };
