@@ -252,14 +252,14 @@ export function SpinWheel({
         : (awards.length ? 'SPIN AGAIN' : 'SPIN');
 
   return (
-    <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-6">
+    <div className={fullscreen ? '' : 'rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-6'}>
       <div className="flex items-start justify-between gap-3 mb-2">
         <div>
-          <h2 className="text-2xl font-black">Spin & Award</h2>
-          <p className="text-sm text-[#F5F2EE]/60 mt-1">
+          <h2 className={fullscreen ? 'text-4xl font-black' : 'text-2xl font-black'}>Spin & Award</h2>
+          <p className={fullscreen ? 'text-base text-[#F5F2EE]/60 mt-1' : 'text-sm text-[#F5F2EE]/60 mt-1'}>
             First person spun picks first. All submissions are eligible — verify follows in person.
           </p>
-          <p className="text-xs text-[#E8540A] mt-1 italic">{getDrawRuleStatement(winnerStructure)}</p>
+          <p className={fullscreen ? 'text-sm text-[#E8540A] mt-1 italic' : 'text-xs text-[#E8540A] mt-1 italic'}>{getDrawRuleStatement(winnerStructure)}</p>
         </div>
         {(awards.length > 0 || disqualifiedIds.size > 0) && (
           <button
@@ -271,26 +271,43 @@ export function SpinWheel({
         )}
       </div>
 
-      <div className="mt-4 grid md:grid-cols-2 gap-6">
+      <div className={fullscreen ? 'mt-4 grid lg:grid-cols-[1fr_400px] gap-8 items-start' : 'mt-4 grid md:grid-cols-2 gap-6'}>
         {/* Wheel */}
         <div>
-          <div className="relative mx-auto" style={{ width: 360, maxWidth: '100%' }}>
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-10 w-0 h-0 border-l-[14px] border-l-transparent border-r-[14px] border-r-transparent border-t-[24px] border-t-[#F5F2EE]" />
-            <canvas ref={canvasRef} width={360} height={360} className="w-full h-auto" />
+          <div className="relative mx-auto" style={{ width: wheelSize, maxWidth: '100%' }}>
+            <div
+              className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-10 w-0 h-0 border-transparent border-t-[#F5F2EE]"
+              style={{
+                borderLeftWidth: Math.round(wheelSize * 0.04),
+                borderRightWidth: Math.round(wheelSize * 0.04),
+                borderTopWidth: Math.round(wheelSize * 0.067),
+                borderLeftStyle: 'solid',
+                borderRightStyle: 'solid',
+                borderTopStyle: 'solid',
+                borderLeftColor: 'transparent',
+                borderRightColor: 'transparent',
+              }}
+            />
+            <canvas ref={canvasRef} width={wheelSize} height={wheelSize} className="w-full h-auto" />
           </div>
           <button
             onClick={spin}
             disabled={!canSpin}
-            className="mt-6 w-full min-h-[56px] rounded-xl bg-[#E8540A] hover:bg-[#ff6a1f] disabled:bg-[#3a3a3c] disabled:text-[#F5F2EE]/40 text-white font-black text-sm sm:text-lg tracking-wider cursor-pointer px-3"
+            className={
+              fullscreen
+                ? 'mt-6 w-full min-h-[80px] rounded-xl bg-[#E8540A] hover:bg-[#ff6a1f] disabled:bg-[#3a3a3c] disabled:text-[#F5F2EE]/40 text-white font-black text-2xl tracking-wider cursor-pointer px-3'
+                : 'mt-6 w-full min-h-[56px] rounded-xl bg-[#E8540A] hover:bg-[#ff6a1f] disabled:bg-[#3a3a3c] disabled:text-[#F5F2EE]/40 text-white font-black text-sm sm:text-lg tracking-wider cursor-pointer px-3'
+            }
           >
             {spinButtonLabel}
           </button>
           {perPrize && (
-            <p className="text-xs text-[#F5F2EE]/50 text-center mt-2">
+            <p className={fullscreen ? 'text-sm text-[#F5F2EE]/50 text-center mt-2' : 'text-xs text-[#F5F2EE]/50 text-center mt-2'}>
               {remainingPrizes.length} prize{remainingPrizes.length === 1 ? '' : 's'} left · {segments.length} entrant{segments.length === 1 ? '' : 's'} on wheel
             </p>
           )}
         </div>
+
 
         {/* Awards / prize picker */}
         <div className="space-y-4">
