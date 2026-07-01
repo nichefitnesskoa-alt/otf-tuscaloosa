@@ -8,7 +8,7 @@ import { SpinWheel } from './components/SpinWheel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { downloadEntriesCsv } from './lib/csvExport';
 import { effectiveWeight } from './lib/weightedDraw';
-import { Download, Users, Settings as SettingsIcon, Eye, Presentation } from 'lucide-react';
+import { Download, Users, Settings as SettingsIcon, Eye, Presentation, Sparkles } from 'lucide-react';
 import { getAdminStudioName } from '@/lib/studioNames';
 
 export default function GiveawayAdminPage() {
