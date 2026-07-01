@@ -37,12 +37,12 @@ export const WINNER_STRUCTURE_OPTIONS: WinnerStructureOption[] = [
 export function getDrawRuleStatement(ws: WinnerStructure | null | undefined): string {
   switch (ws) {
     case 'per_prize_with_removal':
-      return 'One winner will be drawn per prize. Winners cannot win twice.';
+      return 'First come, first serve — whoever we spin first picks any remaining prize. No one wins twice.';
     case 'per_prize_allow_repeat':
-      return 'One winner will be drawn per prize. The same person may win multiple prizes.';
+      return 'First come, first serve — whoever we spin first picks any remaining prize. The same person can win more than one.';
     case 'single':
     default:
-      return 'One winner will be drawn to receive all prizes.';
+      return 'One winner takes all prizes.';
   }
 }
 
