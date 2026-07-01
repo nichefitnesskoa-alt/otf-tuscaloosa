@@ -234,6 +234,8 @@ export default function Recaps() {
             introsRun={scoreboardIntrosRun}
             introSales={scoreboardSales}
             closingRate={scoreboardClosingRate}
+            introsRunCorporate={metrics.studio.introsRunCorporate}
+            closingRateCorporate={metrics.studio.closingRateCorporate}
           />
 
           <ConversionFunnel dateRange={dateRange} />

@@ -17,6 +17,9 @@ interface StudioMetrics {
   introSales: number;
   closingRate: number;
   totalCommission: number;
+  // Corporate · Last Coach view: every ran class (1st + 2nd) in denominator
+  introsRunCorporate: number;
+  closingRateCorporate: number;
 }
 
 interface LeaderEntry {
@@ -555,6 +558,15 @@ export function useDashboardMetrics(
     const studioClosingRate = effectiveStudioRan > 0 ? (studioIntroSales / effectiveStudioRan) * 100 : 0;
     const studioCommission = perSAData.reduce((sum, m) => sum + (m.commission || 0), 0);
 
+    // Corporate · Last Coach: every ran class (1st + 2nd intros) counts toward denominator
+    const studioIntrosRunCorporate = activeRuns.filter(r =>
+      didIntroActuallyRun(r) && isRunInRange(r, dateRange)
+    ).length;
+    const effectiveStudioRanCorporate = Math.max(studioIntrosRunCorporate, studioIntroSales);
+    const studioClosingRateCorporate = effectiveStudioRanCorporate > 0
+      ? (studioIntroSales / effectiveStudioRanCorporate) * 100
+      : 0;
+
     // =========================================
     // INDIVIDUAL ACTIVITY TABLE
     // =========================================
@@ -714,6 +726,8 @@ export function useDashboardMetrics(
         introSales: studioIntroSales,
         closingRate: studioClosingRate,
         totalCommission: studioCommission,
+        introsRunCorporate: effectiveStudioRanCorporate,
+        closingRateCorporate: studioClosingRateCorporate,
       },
       perSA: perSAData,
       bookerStats,

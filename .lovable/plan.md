@@ -1,47 +1,51 @@
-# Two Studio Close Rate Tiles on /wig (Coach tab)
+## Goal
+Add a second row to the **Studio Scoreboard** that mirrors the existing row using the **OTF Corporate · Last Coach** logic (every ran class counts, 1st AND 2nd intros). Keep the current row as **Internal · Total Journey** and clearly label each.
 
-Today there's one "Studio Close Rate" tile at the top of the Coach tab, and below it two coach tables: **Internal · Total Journey** and **Corporate · Last Coach**. The tile uses the Total Journey rule only, which doesn't match the corporate table below it.
+## Layout
 
-Add a second studio-level tile so the top of the page mirrors the two tables.
+```
+Studio Scoreboard
+─────────────────────────────────────────────
+Internal · Total Journey          (1st intros only)
+  44 Intros Run   20 Sales   45% Close Rate
+  "Close rate is total journey. A sale counts on
+   its first intro's chain…"
 
-## What the user sees
+─────────────────────────────────────────────
+OTF Corporate · Last Coach        (1st + 2nd intros)
+  57 Intros Run   20 Sales   35% Close Rate
+  "Every ran class counts. This is how OTF
+   corporate measures studio close rate."
+─────────────────────────────────────────────
+Includes VIP-sourced intros & sales
+```
 
-Two tiles stacked (or side-by-side on wide screens) above the Coach Stats tables:
+Both rows share the same Sales count (total memberships sold in range). Only the **Intros Run denominator** changes, which changes the **Close Rate**.
 
-1. **Studio Close Rate — Internal · Total Journey**
-   - Numerator: ran 1st intros in range whose journey chain ended in a SALE
-   - Denominator: ran 1st intros in range
-   - One-line rule: "Credit follows the 1st-intro coach. Any sale in the chain = close."
-   - Keeps the existing target + edit-target control.
+## Logic
 
-2. **Studio Close Rate — Corporate · Last Coach**
-   - Numerator: members whose **last** ran intro in range ended (chain) in a SALE
-   - Denominator: every ran intro in range (1st + 2nd), same universe as the Corporate coach table's "Coached" sum
-   - One-line rule: "OTF corporate logic. Every class counts; close credit follows the last coach."
-   - Same target slider (or its own — see Q1).
+### Row 1 — Internal · Total Journey (existing, unchanged)
+- `introsRun` = `pipelineShowed` (1st-intro bookings that ran)
+- `sales` = `studioIntroSales`
+- `closeRate` = sales / max(introsRun, sales)
 
-Each tile keeps the existing visual: big % + target + progress bar + "at/above/below target" caption.
+### Row 2 — OTF Corporate · Last Coach (new)
+Add to `useDashboardMetrics.ts` alongside the existing studio block:
+- `introsRunAll` = count of every row in `activeRuns` where `didIntroActuallyRun(r)` is true and `isRunInRange(r, dateRange)` — no 1st-intro filter, includes 2nd intros.
+- `salesAll` = same as `studioIntroSales` (already counts every sale in range).
+- `closeRateAll` = salesAll / max(introsRunAll, salesAll).
 
-## Numbers must agree with the tables directly below
+Expose as `studio.introsRunCorporate` / `studio.closingRateCorporate` (sales stays single field).
 
-- Internal tile **closes** = sum of `Closes` column in the Internal coach table.
-- Internal tile **denominator** = sum of `Coached` column in the Internal coach table.
-- Corporate tile **closes** = sum of `Closes` column in the Corporate coach table.
-- Corporate tile **denominator** = sum of `Coached` column in the Corporate coach table.
+### Component
+Update `StudioScoreboard.tsx` props to accept the corporate trio plus the existing trio, render two stacked 3-col rows with a divider and a header label on each row, keep tooltips, keep the VIP footer.
 
-Both totals are already computed in `Wig.tsx` as `coachTableTotals` and `coachTableTotalsCorporate`, so the tiles read straight from those — no new aggregation, guaranteed coherence.
+## Files to touch
+- `src/hooks/useDashboardMetrics.ts` — compute `introsRunCorporate` + `closingRateCorporate`, add to returned `studio` object.
+- `src/components/dashboard/StudioScoreboard.tsx` — new props, two-row layout with section labels.
+- `src/pages/Recaps.tsx` + `src/features/myDay/MyDayTopPanel.tsx` — pass the two new props through.
 
-## Files touched
-
-- `src/pages/Wig.tsx` — replace the single tile with two tiles wired to `coachTableTotals` (Internal) and `coachTableTotalsCorporate` (Corporate). Keep the existing `wigTarget` for Internal; see Q1 for Corporate target.
-- No new helpers needed — both numerators/denominators already exist in state from the previous turn.
-
-## Coherence proof I'll produce when done
-
-- DB: count ran 1st intros + chain-sale closes for June 2026 → matches Internal tile.
-- DB: count all ran intros + last-coach chain-sale closes for June 2026 → matches Corporate tile.
-- Cross-page: Internal tile % == sum of Internal table Close% weighted; Corporate tile % == same for Corporate table.
-
-## One open question
-
-**Q1 — Target for the Corporate tile?** The Internal tile already has a 40% target with an Edit control. For the Corporate tile, do you want: (a) the same 40% target shared, (b) its own separate editable target, or (c) no target shown (just the %)?
+## Coherence
+- Row 2 denominator must equal the **denominator used in the Corporate · Last Coach coach table** on `/wig` (sum of every ran class across all coaches).
+- Row 1 stays equal to the existing Studio Funnel "showed" count.
+- Verify with read_query that `count(ran rows in range) = row2 introsRun` and `count(ran rows linked to 1st-intro bookings) = row1 introsRun`.
