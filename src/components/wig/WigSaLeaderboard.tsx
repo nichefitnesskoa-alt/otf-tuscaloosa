@@ -115,6 +115,11 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const [inputVal, setInputVal] = useState<string>('');
   const [savedFlash, setSavedFlash] = useState<TargetKind | null>(null);
 
+  // Per-SA override editor (individual lead goals — for vacations, new hires, etc.)
+  const [editingSa, setEditingSa] = useState<string | null>(null);
+  const [saInputVal, setSaInputVal] = useState<string>('');
+  const [saSavedFlash, setSaSavedFlash] = useState<string | null>(null);
+
   const openEdit = (k: TargetKind, current: number | null) => {
     setEditing(k);
     setInputVal(current == null ? '' : String(current));
@@ -128,6 +133,27 @@ export function WigSaLeaderboard({ dateRange }: Props) {
     setSavedFlash(editing);
     setEditing(null);
     setTimeout(() => setSavedFlash(null), 2000);
+    refreshTargets();
+  };
+
+  const openSaEdit = (sa: string, current: number | null) => {
+    setEditingSa(sa);
+    setSaInputVal(current == null ? '' : String(current));
+  };
+  const saveSaEdit = async () => {
+    if (!editingSa) return;
+    const trimmed = saInputVal.trim();
+    let val: number | null = null;
+    if (trimmed !== '') {
+      const v = parseInt(trimmed, 10);
+      if (isNaN(v) || v < 0) { toast.error('Enter a number ≥ 0 (or blank to clear)'); return; }
+      val = v;
+    }
+    const { error } = await savePerSaOverride(yyyymm, editingSa, val, user?.name || 'unknown');
+    if (error) { toast.error('Save failed'); return; }
+    setSaSavedFlash(editingSa);
+    setEditingSa(null);
+    setTimeout(() => setSaSavedFlash(null), 2000);
     refreshTargets();
   };
 
