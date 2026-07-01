@@ -726,6 +726,8 @@ export function useDashboardMetrics(
         introSales: studioIntroSales,
         closingRate: studioClosingRate,
         totalCommission: studioCommission,
+        introsRunCorporate: effectiveStudioRanCorporate,
+        closingRateCorporate: studioClosingRateCorporate,
       },
       perSA: perSAData,
       bookerStats,
