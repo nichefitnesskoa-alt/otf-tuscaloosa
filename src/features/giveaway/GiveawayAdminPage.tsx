@@ -44,6 +44,7 @@ export default function GiveawayAdminPage() {
         </div>
         <nav className="flex md:flex-col gap-2">
           <NavBtn active={tab === 'entries'} onClick={() => setTab('entries')} icon={<Users className="h-4 w-4" />}>Entries</NavBtn>
+          <NavBtn active={false} onClick={() => navigate(`/admin/${studioSlug}/spin`)} icon={<Sparkles className="h-4 w-4" />}>Full-Page Spin</NavBtn>
           <NavBtn active={false} onClick={() => navigate(`/admin/${studioSlug}/preview`)} icon={<Eye className="h-4 w-4" />}>Preview</NavBtn>
           <NavBtn active={false} onClick={() => navigate(`/admin/${studioSlug}/partner-deck`)} icon={<Presentation className="h-4 w-4" />}>Partner Deck</NavBtn>
           <NavBtn active={tab === 'settings'} onClick={() => setTab('settings')} icon={<SettingsIcon className="h-4 w-4" />}>Settings</NavBtn>
