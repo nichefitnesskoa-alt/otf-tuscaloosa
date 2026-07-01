@@ -558,6 +558,15 @@ export function useDashboardMetrics(
     const studioClosingRate = effectiveStudioRan > 0 ? (studioIntroSales / effectiveStudioRan) * 100 : 0;
     const studioCommission = perSAData.reduce((sum, m) => sum + (m.commission || 0), 0);
 
+    // Corporate · Last Coach: every ran class (1st + 2nd intros) counts toward denominator
+    const studioIntrosRunCorporate = activeRuns.filter(r =>
+      didIntroActuallyRun(r) && isRunInRange(r, dateRange)
+    ).length;
+    const effectiveStudioRanCorporate = Math.max(studioIntrosRunCorporate, studioIntroSales);
+    const studioClosingRateCorporate = effectiveStudioRanCorporate > 0
+      ? (studioIntroSales / effectiveStudioRanCorporate) * 100
+      : 0;
+
     // =========================================
     // INDIVIDUAL ACTIVITY TABLE
     // =========================================
