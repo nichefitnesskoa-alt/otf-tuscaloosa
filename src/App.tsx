@@ -35,6 +35,7 @@ import Apply from "./pages/Apply";
 import NotFound from "./pages/NotFound";
 import GiveawayEntryPage from "./features/giveaway/GiveawayEntryPage";
 import GiveawayAdminPage from "./features/giveaway/GiveawayAdminPage";
+import GiveawaySpinPage from "./features/giveaway/GiveawaySpinPage";
 import GiveawayPreviewPage from "./features/giveaway/GiveawayPreviewPage";
 import PartnerDeckPage from "./features/giveaway/PartnerDeckPage";
 import PartnerDeckAdminPage from "./features/giveaway/PartnerDeckAdminPage";
@@ -171,6 +172,7 @@ function AppRoutes() {
       <Route path="/giveaway/:studioSlug" element={<GiveawayEntryPage />} />
       <Route path="/giveaway/:studioSlug/e/:entrySlug" element={<GiveawayEntryPage />} />
       <Route path="/admin/:studioSlug" element={<GiveawayAdminPage />} />
+      <Route path="/admin/:studioSlug/spin" element={<GiveawaySpinPage />} />
       <Route path="/admin/:studioSlug/preview" element={<GiveawayPreviewPage />} />
       <Route path="/admin/:studioSlug/partner-deck" element={<PartnerDeckAdminPage />} />
       <Route path="/admin/:studioSlug/partner-view" element={<PartnerViewPage />} />
