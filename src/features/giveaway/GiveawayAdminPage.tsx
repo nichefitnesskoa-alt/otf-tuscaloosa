@@ -4,10 +4,10 @@ import { useGiveawayStudio } from './hooks/useGiveawayStudio';
 import { useGiveawayEntries } from './hooks/useGiveawayEntries';
 import { useGiveawayPartners } from './hooks/useGiveawayPartners';
 import { EntriesTable } from './components/EntriesTable';
-import { DrawWinner } from './components/DrawWinner';
 import { SpinWheel } from './components/SpinWheel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { downloadEntriesCsv } from './lib/csvExport';
+import { effectiveWeight } from './lib/weightedDraw';
 import { Download, Users, Settings as SettingsIcon, Eye, Presentation } from 'lucide-react';
 import { getAdminStudioName } from '@/lib/studioNames';
 
