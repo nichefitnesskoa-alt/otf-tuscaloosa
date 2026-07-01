@@ -27,11 +27,15 @@ export function SpinWheel({
   partners,
   winnerStructure,
   studioSlug,
+  wheelSize = 360,
+  fullscreen = false,
 }: {
   entries: DrawEntry[];
   partners: GiveawayPartner[];
   winnerStructure: WinnerStructure;
   studioSlug: string;
+  wheelSize?: number;
+  fullscreen?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [rotation, setRotation] = useState(0);
