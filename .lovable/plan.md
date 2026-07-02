@@ -1,54 +1,57 @@
-## Goal
-Change the giveaway drawing flow so:
-1. Every submitted entry is eligible (drop the Instagram-follow requirement — we verify in person).
-2. Prizes are awarded first-come-first-serve: the first person spun picks first, second picks from what's left, etc.
-3. After a spin, an admin can disqualify the winner (e.g. verified they don't actually follow all accounts) and re-spin for that slot.
+## Problem
 
-## Reach map
-Files that gate on `action_instagram_follow` or drive the draw:
-- `src/features/giveaway/GiveawayAdminPage.tsx` — totals, `eligibleCount`, `drawEntries`
-- `src/features/giveaway/components/DrawWinner.tsx` — per-prize draw
-- `src/features/giveaway/components/SpinWheel.tsx` — spin + per-prize selector
-- `src/features/giveaway/lib/weightedDraw.ts` — filter helpers (already gated on the flag — needs to stop)
-- `src/features/giveaway/components/EntriesTable.tsx` — displays eligibility badge
-- `src/features/giveaway/components/GiveawayEntryForm.tsx` — required checkbox
-- `src/features/giveaway/lib/winnerStructure.ts` — rule statement copy
+Kaiya's lead entered via WIG's "+ Add Lead" button doesn't show up on the SA leaderboard. Two bugs, one root cause: the WIG dialog and the MyDay entry are not the same code path.
 
-## Changes
+- `WigSaLeaderboard` opens `AddLeadDialog` (`src/components/leads/AddLeadDialog.tsx`).
+- MyDay opens `SelfSourcedLeadEntry` (`src/features/myDay/SelfSourcedLeadEntry.tsx`).
 
-### 1. Eligibility = submitted
-- `weightedDraw.ts`: remove `action_instagram_follow` filter from `drawWinner` / `topWeightedForWheel`. Only exclude zero-entry rows (all submissions have base_entries=1, so effectively "submitted = in").
-- `GiveawayAdminPage.tsx`: `totalPool` and `eligibleCount` count every entry (no follow gate). Update helper copy to "All submissions eligible — verify follows in person."
-- `GiveawayEntryForm.tsx`: keep the "follow all accounts" checkboxes as encouraged actions for bonus entries, but make the IG-follow checkbox NOT required to submit. Add small note: "We verify in person at the drawing."
-- `EntriesTable.tsx`: replace "Ineligible (no IG follow)" state with a neutral "Follows unverified" indicator so staff know to check at the event.
+Only MyDay's writes `sourced_by_sa: user.name`. WIG's does not, so:
+1. The lead is created but has no SA attribution → it never appears in the SA's "Leads" column on the WIG leaderboard (that column filters by `sourced_by_sa`).
+2. WIG's dialog requires email, but the schema doesn't — it's just an over-strict client check that pushed Kaiya into a state where the SA identity was still never captured even if she satisfied it.
+3. WIG's dialog allows inbound sources (Lead Management, Online Intro Offer) that would corrupt the leaderboard if used.
+4. No `notifyDataChanged(['leads','sa-leads'])`, so even a valid write wouldn't refresh the WIG tiles/columns without a hard reload.
 
-### 2. First-come-first-serve pick order (Spin Wheel becomes primary)
-Rework `SpinWheel.tsx` per-prize mode into "pick order" mode:
-- Remove the "Spinning for [prize dropdown]" selector.
-- Maintain an ordered `awarded[]` list of `{winner, prizeId|null, disqualified:false}` and a `remainingPrizes[]` list.
-- Flow per spin:
-  1. Admin taps SPIN → wheel picks a winner from remaining eligible pool.
-  2. Winner reveal shows remaining prizes as tap-to-award buttons. Admin taps the prize the winner chose → it's locked to that winner and removed from `remainingPrizes`.
-  3. Winner auto-removed from wheel; SPIN button re-enables until `remainingPrizes` is empty.
-- Below the wheel, show a live "Pick order" list: `1. Jane → Free class at Session Yoga`, `2. Mike → Membership`, etc., with a `Disqualify & re-spin` button on each row.
+## Fix
 
-### 3. Disqualify & re-spin
-- Clicking `Disqualify` on a row: marks that award disqualified, returns the prize to `remainingPrizes`, adds the person to a `disqualified` set so they can't be re-picked, and prompts the admin to SPIN again for that prize slot. New winner then picks (but since only one prize is back on the table, it auto-assigns to that prize with confirmation).
-- Add "Undo disqualification" for accidental clicks (returns them to pool, removes the newly-awarded slot if one exists yet).
+Make the WIG "+ Add Lead" button use the exact same self-sourced write path as MyDay. One canonical component, one behavior everywhere.
 
-### 4. Drop the legacy DrawWinner card
-- `DrawWinner.tsx` duplicates the flow and is confusing next to the wheel. Remove its render from `GiveawayAdminPage.tsx` (keep the file until confirmed unused). Spin wheel is the single source of truth for awarding.
+### 1. Replace `AddLeadDialog` usage in WIG with the self-sourced flow
+In `src/components/wig/WigSaLeaderboard.tsx`:
+- Remove `import { AddLeadDialog }` and its render.
+- Add a new `SelfSourcedLeadDialog` (thin dialog wrapper around the same form logic MyDay uses) and open it from the "+ Add Lead" button.
 
-### 5. Copy updates
-- `winnerStructure.ts` `getDrawRuleStatement`: append "Winners pick prizes in the order they're spun. Follow verification happens in person."
-- Admin header helper text: "First person spun picks first. Disqualify and re-spin any winner who doesn't pass in-person verification."
+### 2. Extract the self-sourced form into a shared component
+Create `src/components/leads/SelfSourcedLeadForm.tsx` containing the form + submit logic currently inside `SelfSourcedLeadEntry.tsx`. Behavior (identical to MyDay today):
+- Required: first name, last name, phone. Email optional.
+- Source dropdown restricted to `SELF_SOURCED_OPTIONS` (no Lead Management / Online Intro Offer).
+- Writes `sourced_by_sa: user.name`.
+- Inserts activity log row.
+- Calls `notifyDataChanged(['leads','sa-leads'])`.
+- Offers "Save lead" and "Save and book intro" (opens `BookIntroDialog`).
 
-## Technical notes
-- State lives in `SpinWheel` local state; nothing persisted to DB (matches current behavior — the draw is a live event tool).
-- No schema changes.
-- No changes to entry submission validation on the server; only the client form requirement is dropped.
+Refactor `SelfSourcedLeadEntry.tsx` to render this shared form inside its collapsible card so MyDay behavior is unchanged.
 
-## COHERENCE PROOF (to be produced at build time)
-- DB: `select count(*) from giveaway_entries where studio_slug = <active>` = number shown in admin "eligible" count.
-- Cross-page: Admin `Entries` count == wheel pool count == CSV row count == public entry count.
-- Verify: after disqualifying, prize returns to remaining list AND the person disappears from the wheel on next spin.
+Create `src/components/leads/SelfSourcedLeadDialog.tsx` — a Dialog that renders the same shared form, used by WIG. Title: "Log a lead you sourced". Same warning banner about not logging inbound leads.
+
+### 3. Delete the old divergent dialog
+Remove `src/components/leads/AddLeadDialog.tsx` (only WIG referenced it). Any other reference found during implementation gets pointed at the new dialog.
+
+### 4. Refresh after add
+On successful save the dialog calls `sourcedLeads.refetch()` (already wired via the current `onLeadAdded` prop) AND `notifyDataChanged` fires so every WIG consumer of `leads` / `sa-leads` recomputes.
+
+## Coherence check (to run after build)
+
+- Insert a test lead via the new WIG dialog signed in as an SA.
+- `SELECT id, sourced_by_sa FROM leads ORDER BY created_at DESC LIMIT 1;` → confirm `sourced_by_sa` matches signed-in SA.
+- WIG SA leaderboard "Leads" column for that SA → increments by 1 without reload.
+- MyDay "Log a lead you sourced" card → still works, same DB shape.
+- Verify Kaiya's orphaned lead(s): find rows with matching name/phone from today where `sourced_by_sa IS NULL` and back-fill with `sourced_by_sa = 'Kaiya'` so she gets credit.
+
+## Files touched
+
+- `src/components/leads/SelfSourcedLeadForm.tsx` (new)
+- `src/components/leads/SelfSourcedLeadDialog.tsx` (new)
+- `src/features/myDay/SelfSourcedLeadEntry.tsx` (refactor to use shared form)
+- `src/components/wig/WigSaLeaderboard.tsx` (swap dialog)
+- `src/components/leads/AddLeadDialog.tsx` (delete)
+- Data fix: back-fill Kaiya's orphaned lead(s) via `supabase--insert` UPDATE.
