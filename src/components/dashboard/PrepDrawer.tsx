@@ -301,6 +301,15 @@ export function PrepDrawer({
 
   const handlePrint = () => window.print();
 
+  // Auto-print when opened from the "Print Questionnaire" button — fires once per open.
+  useEffect(() => {
+    if (open && autoPrint && !loading) {
+      const t = setTimeout(() => window.print(), 300);
+      return () => clearTimeout(t);
+    }
+  }, [open, autoPrint, loading]);
+
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-lg p-0">
