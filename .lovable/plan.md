@@ -1,57 +1,75 @@
-## Problem
 
-Kaiya's lead entered via WIG's "+ Add Lead" button doesn't show up on the SA leaderboard. Two bugs, one root cause: the WIG dialog and the MyDay entry are not the same code path.
+## 1. Give SAs access to the Intro Scheduler Link
 
-- `WigSaLeaderboard` opens `AddLeadDialog` (`src/components/leads/AddLeadDialog.tsx`).
-- MyDay opens `SelfSourcedLeadEntry` (`src/features/myDay/SelfSourcedLeadEntry.tsx`).
+Assumption: the "Admin" thing SAs need is the **Intro Scheduler Link generator** (`IntroSchedulerLinkCard` — generates their personalized SA-attributed QR/link + source picker). The bookable-schedule editor stays Admin-only.
 
-Only MyDay's writes `sourced_by_sa: user.name`. WIG's does not, so:
-1. The lead is created but has no SA attribution → it never appears in the SA's "Leads" column on the WIG leaderboard (that column filters by `sourced_by_sa`).
-2. WIG's dialog requires email, but the schema doesn't — it's just an over-strict client check that pushed Kaiya into a state where the SA identity was still never captured even if she satisfied it.
-3. WIG's dialog allows inbound sources (Lead Management, Online Intro Offer) that would corrupt the leaderboard if used.
-4. No `notifyDataChanged(['leads','sa-leads'])`, so even a valid write wouldn't refresh the WIG tiles/columns without a hard reload.
+- Add a new "Intro Link" action to `QuickAddFAB` (the bottom-right `+`), which opens a sheet containing `IntroSchedulerLinkCard` pre-scoped to the logged-in SA.
+- Card auto-uses `user.name` as the SA identity so the link is already attributed.
 
-## Fix
+Tell me if you'd rather have it inline on MyDay instead of behind the FAB and I'll move it.
 
-Make the WIG "+ Add Lead" button use the exact same self-sourced write path as MyDay. One canonical component, one behavior everywhere.
+## 2. MyDay page cleanup (`src/features/myDay/MyDayPage.tsx`)
 
-### 1. Replace `AddLeadDialog` usage in WIG with the self-sourced flow
-In `src/components/wig/WigSaLeaderboard.tsx`:
-- Remove `import { AddLeadDialog }` and its render.
-- Add a new `SelfSourcedLeadDialog` (thin dialog wrapper around the same form logic MyDay uses) and open it from the "+ Add Lead" button.
+- Remove the **Activity Tracker** block (`<MyDayShiftSummary compact />`) — that's the Calls / Texts / DMs counter.
+- Remove the floating **End Shift** bar at the bottom (the `CloseOutShift` wrapped in the fixed footer div). End Shift stays reachable via the FAB.
+- Remove **`<SelfSourcedLeadEntry />`** (Log a lead you sourced).
+- Remove both occurrences of **`<SourcedLeadsToText />`** — the standalone section AND the one inside the Follow-Up tab. Delete the import as well.
 
-### 2. Extract the self-sourced form into a shared component
-Create `src/components/leads/SelfSourcedLeadForm.tsx` containing the form + submit logic currently inside `SelfSourcedLeadEntry.tsx`. Behavior (identical to MyDay today):
-- Required: first name, last name, phone. Email optional.
-- Source dropdown restricted to `SELF_SOURCED_OPTIONS` (no Lead Management / Online Intro Offer).
-- Writes `sourced_by_sa: user.name`.
-- Inserts activity log row.
-- Calls `notifyDataChanged(['leads','sa-leads'])`.
-- Offers "Save lead" and "Save and book intro" (opens `BookIntroDialog`).
+## 3. Intro card button rename
 
-Refactor `SelfSourcedLeadEntry.tsx` to render this shared form inside its collapsible card so MyDay behavior is unchanged.
+- In `src/components/myday/MyDayIntroCard.tsx`, rename the primary "Prep" button label to **"Print Questionnaire"** (icon stays, wiring stays — still opens `PrepDrawer` which then triggers print).
+- On drawer open from that button we auto-fire `window.print()` so the SA lands directly on the printable sheet.
 
-Create `src/components/leads/SelfSourcedLeadDialog.tsx` — a Dialog that renders the same shared form, used by WIG. Title: "Log a lead you sourced". Same warning banner about not logging inbound leads.
+## 4. Remove "What would change for you if you got there" question
 
-### 3. Delete the old divergent dialog
-Remove `src/components/leads/AddLeadDialog.tsx` (only WIG referenced it). Any other reference found during implementation gets pointed at the new dialog.
+That's `q5_emotional_driver` on the questionnaire.
 
-### 4. Refresh after add
-On successful save the dialog calls `sourcedLeads.refetch()` (already wired via the current `onLeadAdded` prop) AND `notifyDataChanged` fires so every WIG consumer of `leads` / `sa-leads` recomputes.
+- `src/pages/Questionnaire.tsx`: remove the Q5 field/UI, stop sending `q5_emotional_driver` on submit (write `null`).
+- Keep the DB column (historical data). No migration needed.
+- Remove all reads/displays of `q5_emotional_driver` / `emotionalDriver` from `PrepDrawer.tsx` (both the on-screen prep panels and any print-side reference).
 
-## Coherence check (to run after build)
+## 5. Rewrite the printable sheet (`PrepDrawer.tsx`, lines ~924–1055)
 
-- Insert a test lead via the new WIG dialog signed in as an SA.
-- `SELECT id, sourced_by_sa FROM leads ORDER BY created_at DESC LIMIT 1;` → confirm `sourced_by_sa` matches signed-in SA.
-- WIG SA leaderboard "Leads" column for that SA → increments by 1 without reload.
-- MyDay "Log a lead you sourced" card → still works, same DB shape.
-- Verify Kaiya's orphaned lead(s): find rows with matching name/phone from today where `sourced_by_sa IS NULL` and back-fill with `sourced_by_sa = 'Kaiya'` so she gets credit.
+Replace the entire two-section printable block with a single full-page printout containing ONLY:
 
-## Files touched
+```
+[Member Name]                 [Date] @ [Time]      Coach: [Name]
 
-- `src/components/leads/SelfSourcedLeadForm.tsx` (new)
-- `src/components/leads/SelfSourcedLeadDialog.tsx` (new)
-- `src/features/myDay/SelfSourcedLeadEntry.tsx` (refactor to use shared form)
-- `src/components/wig/WigSaLeaderboard.tsx` (swap dialog)
-- `src/components/leads/AddLeadDialog.tsx` (delete)
-- Data fix: back-fill Kaiya's orphaned lead(s) via `supabase--insert` UPDATE.
+WHAT A 5/5 LOOKS LIKE FOR ME
+  Their answer: <q1_fitness_goal or blank lines>
+  ________________________________________________
+  ________________________________________________
+  ________________________________________________
+
+WHAT'S BEEN HOLDING ME BACK
+  Their answer: <q3_obstacle or blank lines>
+  ________________________________________________
+  ________________________________________________
+  ________________________________________________
+```
+
+Details:
+- Delete the "cut line", "COACH COPY", "THE CLOSE", EIRMA, "IF PRICE/SCHEDULE/HESITATE", meaning/obstacle secondary section — everything shown in your screenshot.
+- Stretch full page: remove `maxHeight: 100vh` + `overflow: hidden` + tight 9.5px font. Use `min-height: 100vh`, generous `padding: 15mm`, headings ~18pt, answers ~13pt with 1.6 line-height.
+- If questionnaire is completed: print their typed answer under each question.
+- If questionnaire is missing/incomplete for that field: print 6–8 blank ruled lines under the question so the member can write in class.
+
+## 6. Files touched
+
+- `src/features/myDay/MyDayPage.tsx`
+- `src/components/dashboard/QuickAddFAB.tsx`
+- `src/components/myday/MyDayIntroCard.tsx`
+- `src/components/dashboard/PrepDrawer.tsx`
+- `src/pages/Questionnaire.tsx`
+
+## 7. Coherence checks before done
+
+- SA logs in → sees "Intro Link" in FAB → opens sheet → link/QR generated with their name pre-filled.
+- MyDay for SA: no Activity Tracker, no End Shift bar, no Log-a-lead card, no Sourced-leads-to-text section (top or in Follow-Up tab). End Shift still reachable from FAB.
+- Intro card button reads "Print Questionnaire"; tapping opens PrepDrawer and triggers print.
+- Print output = 1 full page, 2 questions only, no EIRMA/close/screenshot section.
+- Public `/q/[slug]` questionnaire no longer shows Q5.
+- Existing prep on-screen panels no longer reference emotional_driver.
+
+## Open question (only if you want to change my default)
+Should the Intro Scheduler Link live **in the FAB** (my plan) or as a **card on MyDay** (always visible)? Say the word if you want it on MyDay instead.
