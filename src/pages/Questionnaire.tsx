@@ -811,7 +811,7 @@ export default function Questionnaire() {
         <div className="max-w-md mx-auto flex items-center justify-between">
           <img src={otfLogo} alt="Orangetheory Fitness" className="h-8 object-contain" />
           {step > 0 && step < 8 && (
-            <span className="text-xs font-medium" style={{ color: '#777' }}>{step} of 7</span>
+            <span className="text-xs font-medium" style={{ color: '#777' }}>{displayStep} of 6</span>
           )}
         </div>
         {step > 0 && step < 8 && (
