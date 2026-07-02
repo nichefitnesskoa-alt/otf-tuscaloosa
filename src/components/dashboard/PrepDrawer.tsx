@@ -286,7 +286,7 @@ export function PrepDrawer({
   const hasQ = questionnaire?.status === 'completed' || questionnaire?.status === 'submitted';
   const goal = questionnaire?.q1_fitness_goal;
   const obstacle = questionnaire?.q3_obstacle;
-  const emotionalDriver: string | null = null; // Q5 removed from questionnaire — hide any references
+  const emotionalDriver: string | null = questionnaire?.q5_emotional_driver ?? null;
   const commitment = questionnaire?.q6_weekly_commitment;
   const pastExp = questionnaire?.q4_past_experience;
   const fitnessLevel = questionnaire?.q2_fitness_level ?? null;
