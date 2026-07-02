@@ -158,8 +158,7 @@ export async function resolveIntroLinkCode(code: string): Promise<IntroLinkParam
 
 /** Resolve a friend short code → originator booking id. */
 export async function resolveFriendCode(friendCode: string): Promise<string | null> {
-  const { data } = await supabase
-    .from('intros_booked')
+  const { data } = await (supabase.from('intros_booked') as any)
     .select('id')
     .eq('friend_code', friendCode)
     .maybeSingle();
@@ -168,13 +167,12 @@ export async function resolveFriendCode(friendCode: string): Promise<string | nu
 
 /** Ensure a friend short code exists on a booking, returning it. */
 export async function ensureFriendCode(bookingId: string): Promise<string> {
-  const { data: existing } = await supabase
-    .from('intros_booked')
+  const { data: existing } = await (supabase.from('intros_booked') as any)
     .select('friend_code')
     .eq('id', bookingId)
     .maybeSingle();
   const cur = (existing as any)?.friend_code;
   if (cur) return cur;
-  const { data } = await supabase.rpc('gen_intro_friend_code' as any, { _id: bookingId });
+  const { data } = await (supabase.rpc as any)('gen_intro_friend_code', { _id: bookingId });
   return (data as any) || '';
 }
