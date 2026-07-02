@@ -27,7 +27,11 @@ import {
 } from '@/lib/introScheduler/calendar';
 import {
   buildFriendLinkUrl,
+  buildShortFriendUrl,
   friendSourceFor,
+  resolveIntroLinkCode,
+  resolveFriendCode,
+  ensureFriendCode,
 } from '@/lib/introScheduler/linkUrl';
 import { stripCountryCode } from '@/lib/parsing/phone';
 import { generateUniqueSlug } from '@/lib/utils';
