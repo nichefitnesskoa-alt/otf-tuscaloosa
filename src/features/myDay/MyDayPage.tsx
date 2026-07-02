@@ -349,10 +349,7 @@ export default function MyDayPage() {
         <ShiftChecklist />
       </div>
 
-      {/* ═══ ACTIVITY TRACKER ═══ */}
-      <div className="px-[5px] py-[10px] my-0 pb-0 pr-[5px] pt-0">
-        <MyDayShiftSummary compact />
-      </div>
+      {/* ═══ ACTIVITY TRACKER — removed per SA feedback ═══ */}
 
       {/* ═══ INTERNAL TABS ═══ */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
