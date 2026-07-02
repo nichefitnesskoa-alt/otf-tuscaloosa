@@ -363,8 +363,51 @@ function ClassTimeIntroSelector({
     setExpandedId(prev => prev === id ? null : id);
   };
 
-  const [editBookingId, setEditBookingId] = useState<string | null>(null);
-  const editingIntro = editBookingId ? intros.find(i => i.id === editBookingId) || null : null;
+  const { coaches } = useActiveStaff();
+  const [savingCoachId, setSavingCoachId] = useState<string | null>(null);
+
+  const changeCoach = async (bookingId: string, newCoach: string) => {
+    setSavingCoachId(bookingId);
+    // Optimistic
+    onUpdateBooking(bookingId, { coach_name: newCoach } as any);
+    const { error } = await supabase
+      .from('intros_booked')
+      .update({
+        coach_name: newCoach,
+        last_edited_at: new Date().toISOString(),
+        last_edited_by: userName,
+      } as any)
+      .eq('id', bookingId);
+    setSavingCoachId(null);
+    if (error) {
+      toast.error('Failed to update coach');
+    } else {
+      toast.success(`Coach set to ${newCoach}`);
+    }
+  };
+
+  const CoachSelect = ({ intro }: { intro: CoachBooking }) => {
+    const options = Array.from(new Set([...coaches, intro.coach_name].filter(Boolean))) as string[];
+    return (
+      <Select
+        value={intro.coach_name || ''}
+        onValueChange={(v) => changeCoach(intro.id, v)}
+        disabled={savingCoachId === intro.id}
+      >
+        <SelectTrigger
+          onClick={(e) => e.stopPropagation()}
+          className="h-7 w-auto min-w-[110px] text-xs px-2 py-0 border-primary/30 text-primary bg-transparent"
+        >
+          <SelectValue placeholder="Set coach" />
+        </SelectTrigger>
+        <SelectContent onClick={(e) => e.stopPropagation()}>
+          {options.map(c => (
+            <SelectItem key={c} value={c}>{c}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  };
 
   return (
     <div className="space-y-2">
