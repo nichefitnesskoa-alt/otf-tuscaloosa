@@ -178,7 +178,7 @@ export default function Questionnaire() {
     setSubmitting(true);
     const finalQ1 = q1.map(v => v === 'Other' ? q1Other : v).join(' | ');
     const finalQ3 = q3.map(val => val === 'Other' ? q3Other : val).join(' | ');
-    const finalQ5: string | null = null; // Q5 removed from questionnaire
+    const finalQ5 = q5.length > 0 ? q5.map(v => v === 'Other' ? q5Other : v).join(' | ') : null;
     // Q4: combine Q4a and Q4b
     const finalQ4 = q4b ? `${q4a} | ${q4b}` : q4a;
     // Q6b: pipe-separated days
