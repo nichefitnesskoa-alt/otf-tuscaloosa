@@ -3,7 +3,8 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, CheckCircle, AlertTriangle, LogOut, User, Sun, Moon, Eye } from 'lucide-react';
+import { ChevronDown, CheckCircle, AlertTriangle, LogOut, User, Sun, Moon, Eye, Pencil } from 'lucide-react';
+import { EditBookingDialog } from '@/components/myday/EditBookingDialog';
 
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { Badge } from '@/components/ui/badge';
@@ -87,8 +88,6 @@ export default function CoachView() {
   const [parentBookings, setParentBookings] = useState<SecondIntroBookingLike[]>([]);
   const [parentRuns, setParentRuns] = useState<SecondIntroRunLike[]>([]);
   const [loading, setLoading] = useState(true);
-  // Default to "mine" — user sees only their own intros. Toggle flips to "all".
-  const [coachScope, setCoachScope] = useState<'mine' | 'all'>('mine');
 
   // Week navigation
   const [weekOffset, setWeekOffset] = useState(0);
@@ -158,12 +157,8 @@ export default function CoachView() {
 
   const filteredBookings = useMemo(() => {
     const EXCLUDED_STATUSES = ['DELETED_SOFT', 'CANCELLED', 'PLANNING_RESCHEDULE'];
-    let result = bookings.filter(b => !b.is_vip && !b.deleted_at && !EXCLUDED_STATUSES.includes(b.booking_status_canon));
-    if (coachScope === 'mine' && coachName) {
-      result = result.filter(b => b.coach_name === coachName);
-    }
-    return result;
-  }, [bookings, coachScope, coachName]);
+    return bookings.filter(b => !b.is_vip && !b.deleted_at && !EXCLUDED_STATUSES.includes(b.booking_status_canon));
+  }, [bookings]);
 
   // Day counts for tab badges
   const dayCounts = useMemo(() => {
@@ -280,30 +275,6 @@ export default function CoachView() {
             dayCounts={dayCounts}
           />
 
-          {/* Scope toggle — defaults to "My Intros" */}
-          {allCoachNames.length > 0 && (
-            <div className="inline-flex rounded-md border border-primary/40 p-1 gap-1 bg-transparent">
-              {(['mine', 'all'] as const).map(opt => {
-                const active = coachScope === opt;
-                const label = opt === 'mine' ? 'My Intros' : 'All Intros';
-                return (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setCoachScope(opt)}
-                    className={cn(
-                      'px-4 min-h-[44px] rounded-md text-sm font-semibold border transition-colors',
-                      active
-                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                        : 'bg-primary/15 text-primary border-primary/30 hover:bg-primary/25'
-                    )}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
 
           {/* Selected day content */}
           {loading ? (
@@ -391,6 +362,9 @@ function ClassTimeIntroSelector({
     setExpandedId(prev => prev === id ? null : id);
   };
 
+  const [editBookingId, setEditBookingId] = useState<string | null>(null);
+  const editingIntro = editBookingId ? intros.find(i => i.id === editBookingId) || null : null;
+
   return (
     <div className="space-y-2">
       {intros.map(intro => {
@@ -424,7 +398,14 @@ function ClassTimeIntroSelector({
                   {intro.intro_time ? formatTime(intro.intro_time.substring(0, 5)) : 'TBD'} · Coach: {intro.coach_name}
                 </span>
               </div>
-              <span className="text-[10px] text-muted-foreground italic shrink-0">No prep needed</span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setEditBookingId(intro.id); }}
+                className="shrink-0 inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 border border-primary/30 rounded-md px-2 py-1 min-h-[32px]"
+                title="Edit coach / booking"
+              >
+                <Pencil className="w-3 h-3" /> Edit
+              </button>
             </div>
           );
         }
@@ -471,6 +452,15 @@ function ClassTimeIntroSelector({
                   <span>{intro.intro_time ? formatTime(intro.intro_time.substring(0, 5)) : 'TBD'}</span>
                   <span>·</span>
                   <span>Coach: {intro.coach_name}</span>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); setEditBookingId(intro.id); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setEditBookingId(intro.id); } }}
+                    className="inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 border border-primary/30 rounded-md px-1.5 py-0.5 cursor-pointer"
+                  >
+                    <Pencil className="w-3 h-3" /> Edit
+                  </span>
                 </div>
               </div>
               <ChevronDown className={cn("w-5 h-5 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />
@@ -496,6 +486,24 @@ function ClassTimeIntroSelector({
         );
       })}
       {journey.element}
+      {editingIntro && (
+        <EditBookingDialog
+          open={!!editBookingId}
+          onOpenChange={(o) => { if (!o) setEditBookingId(null); }}
+          bookingId={editingIntro.id}
+          memberName={editingIntro.member_name}
+          coachName={editingIntro.coach_name || ''}
+          introTime={editingIntro.intro_time}
+          leadSource={editingIntro.lead_source || ''}
+          introOwner={editingIntro.intro_owner}
+          bookedBy={null}
+          editedBy={userName}
+          onSaved={() => {
+            onUpdateBooking(editingIntro.id, {});
+            setEditBookingId(null);
+          }}
+        />
+      )}
     </div>
   );
 }
