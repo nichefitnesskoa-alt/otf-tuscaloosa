@@ -21,6 +21,8 @@ export const LEAD_SOURCES = [
   'Event',
   'Instagram DMs',
   'Instagram DMs (Friend)',
+  'Intro Scheduler Link',
+  'Intro Scheduler Link (Friend)',
   'Lead Management',
   'Lead Management (Friend)',
   'Member Referral',
