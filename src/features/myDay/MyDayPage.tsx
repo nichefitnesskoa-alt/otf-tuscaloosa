@@ -63,8 +63,6 @@ import { VipClaimBanner } from './VipClaimBanner';
 
 import { ClassMilestoneChecks } from './ClassMilestoneChecks';
 import { ReferralAskActions } from './ReferralAskActions';
-import { SelfSourcedLeadEntry } from './SelfSourcedLeadEntry';
-import { SourcedLeadsToText } from './SourcedLeadsToText';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 import { IntroLinkBookingBanner } from './IntroLinkBookingBanner';
 
@@ -90,6 +88,7 @@ export default function MyDayPage() {
   // Prep/Script/Coach/Outcome drawer state
   const [prepBookingId, setPrepBookingId] = useState<string | null>(null);
   const [prepIsSecondIntro, setPrepIsSecondIntro] = useState(false);
+  const [prepAutoPrint, setPrepAutoPrint] = useState(false);
   const [scriptBookingId, setScriptBookingId] = useState<string | null>(null);
   const [scriptIsSecondIntro, setScriptIsSecondIntro] = useState(false);
   const [scriptFromFollowUp, setScriptFromFollowUp] = useState(false);
@@ -202,6 +201,7 @@ export default function MyDayPage() {
       const detail = (e as CustomEvent).detail;
       setPrepBookingId(detail.bookingId);
       setPrepIsSecondIntro(!!detail.isSecondIntro);
+      setPrepAutoPrint(!!detail.autoPrint);
     };
     const onScript = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -351,10 +351,7 @@ export default function MyDayPage() {
         <ShiftChecklist />
       </div>
 
-      {/* ═══ ACTIVITY TRACKER ═══ */}
-      <div className="px-[5px] py-[10px] my-0 pb-0 pr-[5px] pt-0">
-        <MyDayShiftSummary compact />
-      </div>
+      {/* ═══ ACTIVITY TRACKER — removed per SA feedback ═══ */}
 
       {/* ═══ INTERNAL TABS ═══ */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -405,7 +402,6 @@ export default function MyDayPage() {
           </TabsContent>
 
           <TabsContent value="followups" className="mt-0 space-y-3">
-            <SourcedLeadsToText compact={false} defaultOpen />
             <FollowUpList onCountChange={setFollowUpsDueCount} onRefresh={fetchMetrics} />
           </TabsContent>
 
@@ -419,16 +415,7 @@ export default function MyDayPage() {
         </div>
       </Tabs>
 
-
-      {/* ═══ LOG A LEAD YOU SOURCED ═══ */}
-      <div className="px-[5px] pt-2">
-        <SelfSourcedLeadEntry />
-      </div>
-
-      {/* ═══ TEXT YOUR SOURCED LEADS ═══ */}
-      <div className="px-[5px] pt-2">
-        <SourcedLeadsToText />
-      </div>
+      {/* Log-a-lead + Sourced-leads-to-text sections removed per SA feedback */}
 
       {/* ═══ CLASS MILESTONE CHECKS ═══ */}
       <div className="px-[5px] py-[10px] my-0 pb-0 pr-[5px] pt-0">
@@ -445,21 +432,7 @@ export default function MyDayPage() {
         <ReferralAskActions />
       </div>
 
-
-      {/* ═══ FLOATING END SHIFT BAR ═══ */}
-      <div className="fixed bottom-[4.5rem] left-0 right-0 z-30 px-4 py-2 bg-background/95 backdrop-blur border-t border-primary/30 shadow-lg">
-        <CloseOutShift
-          completedIntros={completedTodayCount}
-          activeIntros={todayBookingsCount - completedTodayCount}
-          scriptsSent={todayScriptsSent}
-          followUpsSent={todayFollowUpsSent}
-          purchaseCount={purchaseTodayCount}
-          noShowCount={noShowTodayCount}
-          didntBuyCount={didntBuyTodayCount}
-          topObjection={topObjectionToday}
-          asButton
-        />
-      </div>
+      {/* Floating End Shift bar removed — End Shift stays reachable from the FAB. */}
 
       {/* FAB */}
       <QuickAddFAB
@@ -479,7 +452,7 @@ export default function MyDayPage() {
       {prepBooking && (
         <PrepDrawer
           open={!!prepBookingId}
-          onOpenChange={(open) => { if (!open) setPrepBookingId(null); }}
+          onOpenChange={(open) => { if (!open) { setPrepBookingId(null); setPrepAutoPrint(false); } }}
           memberName={prepBooking.member_name}
           memberKey={prepBooking.member_name}
           bookingId={prepBooking.id}
@@ -489,6 +462,7 @@ export default function MyDayPage() {
           leadSource={prepBooking.lead_source}
           isSecondIntro={prepIsSecondIntro}
           originatingBookingId={prepBooking.originating_booking_id}
+          autoPrint={prepAutoPrint}
           phone={null}
           email={null}
         />

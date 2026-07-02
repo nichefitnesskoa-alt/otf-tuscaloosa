@@ -249,7 +249,7 @@ export function MyDayIntroCard({
             onClick={() => onPrep(booking.id)}
           >
             <Eye className="w-3.5 h-3.5" />
-            Prep
+            Print Questionnaire
           </Button>
           <Button
             size="sm"

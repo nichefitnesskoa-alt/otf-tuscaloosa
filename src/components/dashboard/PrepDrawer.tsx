@@ -87,6 +87,7 @@ interface PrepDrawerProps {
   }>;
   onGenerateScript?: () => void;
   onSendQ?: () => void;
+  autoPrint?: boolean;
 }
 
 // ── Objection detection ─────────────────────────────────────────────────────
@@ -155,7 +156,7 @@ function getEirma(
 export function PrepDrawer({
   open, onOpenChange, memberName, memberKey, bookingId, classDate, classTime,
   coachName, leadSource, isSecondIntro, originatingBookingId, phone, email, bookings, runs,
-  onGenerateScript, onSendQ,
+  onGenerateScript, onSendQ, autoPrint,
 }: PrepDrawerProps) {
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(null);
   const [sendLogs, setSendLogs] = useState<SendLogEntry[]>([]);
@@ -285,7 +286,7 @@ export function PrepDrawer({
   const hasQ = questionnaire?.status === 'completed' || questionnaire?.status === 'submitted';
   const goal = questionnaire?.q1_fitness_goal;
   const obstacle = questionnaire?.q3_obstacle;
-  const emotionalDriver = questionnaire?.q5_emotional_driver;
+  const emotionalDriver: string | null = null; // Q5 removed from questionnaire — hide any references
   const commitment = questionnaire?.q6_weekly_commitment;
   const pastExp = questionnaire?.q4_past_experience;
   const fitnessLevel = questionnaire?.q2_fitness_level ?? null;
@@ -299,6 +300,15 @@ export function PrepDrawer({
   const eirma = getEirma(objectionType, goal, commitment, oneLiner || 'achieving your goal');
 
   const handlePrint = () => window.print();
+
+  // Auto-print when opened from the "Print Questionnaire" button — fires once per open.
+  useEffect(() => {
+    if (open && autoPrint && !loading) {
+      const t = setTimeout(() => window.print(), 300);
+      return () => clearTimeout(t);
+    }
+  }, [open, autoPrint, loading]);
+
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -906,155 +916,67 @@ export function PrepDrawer({
           </div>
         </ScrollArea>
 
-        {/* ══════════ PRINT LAYOUT ══════════ */}
+        {/* ══════════ PRINT LAYOUT — full-page 2-question sheet ══════════ */}
         {(() => {
-          const latestRunObjection = defaultRuns.find(r => r.primary_objection)?.primary_objection || null;
-          const printObstacle = latestRunObjection || obstacle;
-          const matchedPlaybooks = matchObstaclesToPlaybooks(printObstacle, objectionPlaybooks);
-          const eirmaPlaybook = matchedPlaybooks[0] || (objectionPlaybooks.length > 0 ? objectionPlaybooks[0] : null);
-          const blankLine = '___________________________________________';
-          const na = 'Not answered';
-          const fs = { fontSize: '9.5px' } as const;
-          const fsSmall = { fontSize: '8.5px' } as const;
-          const fsLabel = { fontSize: '8.5px', color: '#444' } as const;
-          const fsItalic = { fontSize: '8.5px', fontStyle: 'italic' as const, color: '#666' };
-          const meaningValue = saConvMeaning || emotionalDriver || null;
+          const answerStyle = { fontSize: '18px', lineHeight: 1.6, color: '#111', whiteSpace: 'pre-wrap' as const };
+          const blankLines = (
+            <div style={{ marginTop: '8mm' }}>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  style={{ borderBottom: '1px solid #333', height: '10mm' }}
+                />
+              ))}
+            </div>
+          );
 
           return (
-            <div data-print-card className="hidden print:block fixed inset-0 bg-white text-black" style={{ zIndex: 9999, fontSize: '9.5px', fontFamily: 'Arial, Helvetica, sans-serif', maxHeight: '100vh', overflow: 'hidden', lineHeight: 1.45, padding: '3mm 6mm' }}>
-              {/* ═══ SECTION 1 — SA SIDE ═══ */}
-              <div style={{ fontSize: '11px', fontWeight: 'bold', borderBottom: '2px solid black', paddingBottom: '2px', marginBottom: '4px' }}>
-                {firstName} &nbsp;|&nbsp; {classDate} &nbsp;|&nbsp; {classTime ? classTime.substring(0, 5) : '—'} &nbsp;|&nbsp; Coach: {coachName}
-              </div>
-
-              <div style={{ fontWeight: 'bold', fontSize: '10px', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '1px' }}>Their Story</div>
-
-              {/* Field 1 */}
-              <div style={{ marginBottom: '4px' }}>
-                <div style={fsLabel}>What a 5/5 looks like:</div>
-                <div style={fsItalic}>They wrote: {goal || na}</div>
-                <div style={fs}>They said: {blankLine}</div>
-              </div>
-
-              {/* Field 2 */}
-              <div style={{ marginBottom: '4px' }}>
-                <div style={fsLabel}>What it would mean to them:</div>
-                <div style={fsItalic}>They wrote: {emotionalDriver || na}</div>
-                <div style={fs}>They said: {blankLine}</div>
-              </div>
-
-              {/* Field 3 */}
-              <div style={{ marginBottom: '4px' }}>
-                <div style={fsLabel}>What's been holding them back:</div>
-                <div style={fsItalic}>They wrote: {obstacle || na}</div>
-                <div style={fs}>They said: {blankLine}</div>
-              </div>
-
-              {/* Two-column compact details */}
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '4px' }}>
-                <div style={{ flex: 1, ...fsSmall }}>
-                  <div>Fitness level: {fitnessLevel != null ? `${fitnessLevel}/5` : '—'}</div>
-                  <div>Past experience: {pastExp || '—'}</div>
-                  <div>Commitment: {commitment ? `${commitment} days/week` : '—'}</div>
-                  <div>Available days: {questionnaire?.q6b_available_days || '—'}</div>
-                </div>
-                <div style={{ flex: 1, ...fsSmall }}>
-                  <div>Any notes: {coachNotesOnBooking || blankLine}</div>
+            <div
+              data-print-card
+              className="hidden print:block fixed inset-0 bg-white text-black"
+              style={{
+                zIndex: 9999,
+                fontFamily: 'Arial, Helvetica, sans-serif',
+                minHeight: '100vh',
+                padding: '15mm 18mm',
+                color: '#111',
+              }}
+            >
+              {/* Header */}
+              <div style={{ borderBottom: '2px solid #111', paddingBottom: '6mm', marginBottom: '10mm', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <div style={{ fontSize: '26px', fontWeight: 'bold' }}>{memberName}</div>
+                <div style={{ fontSize: '14px', color: '#333' }}>
+                  {classDate}{classTime ? ` @ ${classTime.substring(0, 5)}` : ''}{coachName ? `  ·  Coach: ${coachName}` : ''}
                 </div>
               </div>
 
-              {/* ═══ CUT LINE ═══ */}
-              <div style={{ margin: '4px 0', textAlign: 'center', fontSize: '11px', letterSpacing: '3px', color: '#999' }}>
-                ✂ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+              {/* Q1 — What a 5/5 looks like */}
+              <div style={{ marginBottom: '15mm' }}>
+                <div style={{ fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5mm' }}>
+                  What would a 5/5 fitness level look like for you?
+                </div>
+                {goal ? (
+                  <div style={answerStyle}>{goal}</div>
+                ) : (
+                  blankLines
+                )}
               </div>
 
-              {/* ═══ SECTION 2 — COACH COPY ═══ */}
-              <div style={{ fontSize: '11px', fontWeight: 'bold', borderBottom: '2px solid black', paddingBottom: '2px', marginBottom: '4px' }}>
-                COACH COPY — {firstName} &nbsp;|&nbsp; {classTime ? classTime.substring(0, 5) : '—'}
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px' }}>
-                {/* LEFT COLUMN — WHAT THEY TOLD US */}
-                <div style={{ flex: 1, borderRight: '1px solid #ccc', paddingRight: '8px', ...fs }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '9.5px', marginBottom: '3px', textTransform: 'uppercase' }}>What They Told Us</div>
-                  <div>Fitness level: {fitnessLevel != null ? `${fitnessLevel}/5` : '—'}</div>
-                  <div>Goal: {goal || '—'}</div>
-                  <div>Why: {emotionalDriver || '—'}</div>
-                  <div>Obstacle: {obstacle || '—'}</div>
-                  <div>Commit: {commitment || '—'} | {questionnaire?.q6b_available_days || '—'}</div>
-
-                  {(saConv5of5 || saConvMeaning || saConvObstacle) && (
-                    <div style={{ marginTop: '4px', borderTop: '1px solid #ddd', paddingTop: '3px' }}>
-                      <div style={{ fontStyle: 'italic', ...fsSmall, color: '#444' }}>In conversation they said:</div>
-                      {saConv5of5 && <div>5/5: {saConv5of5}</div>}
-                      {saConvMeaning && <div style={{ fontWeight: 'bold' }}>Meaning: {saConvMeaning}</div>}
-                      {saConvObstacle && <div>Obstacle: {saConvObstacle}</div>}
-                    </div>
-                  )}
-
+              {/* Q2 — What's been holding you back */}
+              <div>
+                <div style={{ fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5mm' }}>
+                  What's been holding you back?
                 </div>
-
-                {/* RIGHT COLUMN — THE CLOSE */}
-                <div style={{ flex: 1, paddingLeft: '4px', ...fs }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '9.5px', marginBottom: '3px', textTransform: 'uppercase' }}>The Close</div>
-
-                  <div style={{ marginBottom: '3px' }}>
-                    <div style={{ fontWeight: 'bold' }}>THE BRIDGE</div>
-                    <div>"That was horrible right?"</div>
-                    <div style={{ ...fsSmall, color: '#555', paddingLeft: '6px' }}>↳ High energy. Big smile. Sarcastic.</div>
-                    <div>Option B: "So — what did that feel like?"</div>
-                    <div style={{ ...fsSmall, color: '#555', paddingLeft: '6px' }}>↳ Let them answer. Do not interrupt.</div>
-                  </div>
-
-                  <div style={{ marginBottom: '3px' }}>
-                    <div style={{ fontWeight: 'bold' }}>THE IDENTITY QUESTION <span style={{ fontWeight: 'normal', fontSize: '8px' }}>(every close, no exceptions)</span></div>
-                    <div>"Based on everything you just did today — what is your gut telling you?"</div>
-                    <div style={{ ...fsSmall, color: '#555', paddingLeft: '6px' }}>↳ Stop. Silence works. Do not fill it.</div>
-                    <div style={{ ...fsSmall, color: '#555', paddingLeft: '6px' }}>↳ If yes — paperwork immediately. No pause.</div>
-                  </div>
-
-                  <div style={{ marginBottom: '3px' }}>
-                    <span style={{ fontWeight: 'bold' }}>IF THEY HESITATE: </span>
-                    "If you come to 12 classes in your first 30 days of Premier and don't love it, we'll give you your money back."
-                    <span style={{ ...fsSmall, color: '#555' }}> ↳ Return to identity question.</span>
-                  </div>
-
-                  <div style={{ marginBottom: '2px' }}>
-                    <span style={{ fontWeight: 'bold' }}>IF PRICE: </span>
-                    "Premier is about $7 a day. Less than most people spend at Starbucks."
-                  </div>
-
-                  <div style={{ marginBottom: '3px' }}>
-                    <span style={{ fontWeight: 'bold' }}>IF SCHEDULE: </span>
-                    "Half our members do mornings, half do evenings. Schedule bends around you."
-                    <span style={{ ...fsSmall, color: '#555' }}> ↳ After yes — paperwork immediately.</span>
-                  </div>
-
-                  {/* AFTER CLASS — EIRMA */}
-                  <div style={{ fontWeight: 'bold', fontSize: '9.5px', marginTop: '4px', marginBottom: '2px', textTransform: 'uppercase', borderTop: '1px solid #ccc', paddingTop: '3px' }}>After Class — EIRMA</div>
-
-                  {eirmaPlaybook ? (
-                    <div style={fsSmall}>
-                      <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>E — </span>"{eirmaPlaybook.empathize_line}"</div>
-                      <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>I — </span>"{eirmaPlaybook.isolate_question}"</div>
-                      <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>R — </span>"{(() => {
-                        const redirectBase = eirmaPlaybook.redirect_framework || '';
-                        if (meaningValue) {
-                          return redirectBase.replace(/\[their goal\]/gi, meaningValue) || `Here's what I know. You told me that if you got there — ${meaningValue}. That's exactly what this does. Classes are 60 minutes. If you block it like a meeting, it happens.`;
-                        }
-                        return redirectBase || 'Here\'s what I know. You told me that if you got there — [what it would mean to them]. That\'s exactly what this does. Classes are 60 minutes. If you block it like a meeting, it happens.';
-                      })()}"</div>
-                      <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>M — </span>"{eirmaPlaybook.suggestion_framework}"</div>
-                      <div><span style={{ fontWeight: 'bold' }}>A — </span>"{eirmaPlaybook.ask_line}"</div>
-                    </div>
-                  ) : (
-                    <div style={{ fontStyle: 'italic', color: '#666', ...fsSmall }}>No objection playbook matched.</div>
-                  )}
-                </div>
+                {obstacle ? (
+                  <div style={answerStyle}>{obstacle}</div>
+                ) : (
+                  blankLines
+                )}
               </div>
             </div>
           );
         })()}
+
       </SheetContent>
 
       <LinkQuestionnaireDialog

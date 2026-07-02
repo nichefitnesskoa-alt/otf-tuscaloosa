@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, X, CalendarPlus, LogOut, ShoppingBag, TrendingUp, Watch, RefreshCw } from 'lucide-react';
+import { Plus, X, CalendarPlus, LogOut, ShoppingBag, TrendingUp, Watch, RefreshCw, QrCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BookIntroSheet } from '@/components/dashboard/BookIntroSheet';
 import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 import { WalkInSaleSheet, UpgradeSheet, HRMAddOnSheet } from '@/components/dashboard/OutsideSaleSheets';
 import { FABFollowUpPurchaseSheet } from '@/components/dashboard/FABFollowUpPurchaseSheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { IntroSchedulerLinkCard } from '@/components/admin/IntroSchedulerLinkCard';
 
 interface QuickAddFABProps {
   onRefresh: () => void;
@@ -39,6 +41,7 @@ export function QuickAddFAB({
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showHRM, setShowHRM] = useState(false);
   const [showFollowUpPurchase, setShowFollowUpPurchase] = useState(false);
+  const [showIntroLink, setShowIntroLink] = useState(false);
 
   const handleBookIntro = () => { setExpanded(false); setShowBookIntro(true); };
   const handleEndShift = () => { setExpanded(false); onEndShift?.(); setShowEndShift(true); };
@@ -46,8 +49,15 @@ export function QuickAddFAB({
   const handleUpgrade = () => { setExpanded(false); setShowUpgrade(true); };
   const handleHRM = () => { setExpanded(false); setShowHRM(true); };
   const handleFollowUpPurchase = () => { setExpanded(false); setShowFollowUpPurchase(true); };
+  const handleIntroLink = () => { setExpanded(false); setShowIntroLink(true); };
 
   const actions = [
+    {
+      icon: QrCode,
+      label: 'My Intro Link',
+      onClick: handleIntroLink,
+      color: 'bg-orange-500 text-white',
+    },
     {
       icon: LogOut,
       label: 'End Shift',
@@ -126,6 +136,18 @@ export function QuickAddFAB({
       <UpgradeSheet open={showUpgrade} onOpenChange={setShowUpgrade} onSaved={onRefresh} />
       <HRMAddOnSheet open={showHRM} onOpenChange={setShowHRM} onSaved={onRefresh} />
       <FABFollowUpPurchaseSheet open={showFollowUpPurchase} onOpenChange={setShowFollowUpPurchase} onSaved={onRefresh} />
+
+      {/* Intro Scheduler Link sheet — gives SAs access to their personal booking link/QR */}
+      <Sheet open={showIntroLink} onOpenChange={setShowIntroLink}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>My Intro Scheduler Link</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            <IntroSchedulerLinkCard />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* End Shift dialog */}
       <CloseOutShift

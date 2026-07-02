@@ -163,12 +163,16 @@ export default function Questionnaire() {
     setShowError(false);
     setDirection(1);
     if (step === 7) { handleSubmit(); return; }
+    // Skip Q5 (emotional driver) — removed per Koa's request
+    if (step === 4) { setStep(6); return; }
     setStep(s => s + 1);
   };
 
   const goBack = () => {
     setShowError(false);
     setDirection(-1);
+    // Skip Q5 on the way back too
+    if (step === 6) { setStep(4); return; }
     setStep(s => Math.max(0, s - 1));
   };
 
@@ -177,7 +181,7 @@ export default function Questionnaire() {
     setSubmitting(true);
     const finalQ1 = q1.map(v => v === 'Other' ? q1Other : v).join(' | ');
     const finalQ3 = q3.map(val => val === 'Other' ? q3Other : val).join(' | ');
-    const finalQ5 = q5.length > 0 ? q5.map(v => v === 'Other' ? q5Other : v).join(' | ') : null;
+    const finalQ5: string | null = null; // Q5 removed from questionnaire
     // Q4: combine Q4a and Q4b
     const finalQ4 = q4b ? `${q4a} | ${q4b}` : q4a;
     // Q6b: pipe-separated days
@@ -256,7 +260,9 @@ export default function Questionnaire() {
 
   if (!data) return null;
 
-  const progress = step === 0 ? 0 : step === 8 ? 100 : (step / 7) * 100;
+  // Q5 is skipped, so effective steps = 6. Map raw step → displayed step number.
+  const displayStep = step > 5 ? step - 1 : step;
+  const progress = step === 0 ? 0 : step === 8 ? 100 : (displayStep / 6) * 100;
 
   const slideVariants = {
     enter: (d: number) => ({ x: d > 0 ? 300 : -300, opacity: 0 }),
@@ -805,7 +811,7 @@ export default function Questionnaire() {
         <div className="max-w-md mx-auto flex items-center justify-between">
           <img src={otfLogo} alt="Orangetheory Fitness" className="h-8 object-contain" />
           {step > 0 && step < 8 && (
-            <span className="text-xs font-medium" style={{ color: '#777' }}>{step} of 7</span>
+            <span className="text-xs font-medium" style={{ color: '#777' }}>{displayStep} of 6</span>
           )}
         </div>
         {step > 0 && step < 8 && (

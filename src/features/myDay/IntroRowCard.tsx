@@ -615,12 +615,12 @@ export default function IntroRowCard({
         style={isInFocusWindow && !prepped ? { animationDuration: '2s' } : undefined}
         onClick={() => {
           window.dispatchEvent(new CustomEvent('myday:open-prep', {
-            detail: { bookingId: item.bookingId, isSecondIntro: item.isSecondIntro },
+            detail: { bookingId: item.bookingId, isSecondIntro: item.isSecondIntro, autoPrint: true },
           }));
         }}
       >
         <Eye className="w-3.5 h-3.5" />
-        Prep
+        Print Questionnaire
       </Button>
       <Button
         size="sm"
