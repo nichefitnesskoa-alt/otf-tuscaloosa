@@ -16,6 +16,7 @@ import Pipeline from "./pages/Pipeline";
 import Wig from "./pages/Wig";
 import Scripts from "./pages/Scripts";
 import Questionnaire from "./pages/Questionnaire";
+import BookIntro from "./pages/BookIntro";
 import SuccessStory from "./pages/SuccessStory";
 import VipRegister from "./pages/VipRegister";
 import VipAvailability from "./pages/VipAvailability";
