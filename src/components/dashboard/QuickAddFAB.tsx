@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, X, CalendarPlus, LogOut, ShoppingBag, TrendingUp, Watch, RefreshCw } from 'lucide-react';
+import { Plus, X, CalendarPlus, LogOut, ShoppingBag, TrendingUp, Watch, RefreshCw, QrCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BookIntroSheet } from '@/components/dashboard/BookIntroSheet';
 import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 import { WalkInSaleSheet, UpgradeSheet, HRMAddOnSheet } from '@/components/dashboard/OutsideSaleSheets';
 import { FABFollowUpPurchaseSheet } from '@/components/dashboard/FABFollowUpPurchaseSheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { IntroSchedulerLinkCard } from '@/components/admin/IntroSchedulerLinkCard';
 
 interface QuickAddFABProps {
   onRefresh: () => void;
