@@ -218,26 +218,27 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Looking For</p>
-              <p className="text-sm">{truncate(q?.q1_fitness_goal, 40) || <span className="text-muted-foreground italic">Not answered</span>}</p>
+              <p className="text-sm whitespace-pre-wrap break-words">{q?.q1_fitness_goal || <span className="text-muted-foreground italic">Not answered</span>}</p>
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Why They Came</p>
-              <p className="text-sm">{truncate(q?.q5_emotional_driver, 40) || <span className="text-muted-foreground italic">Not answered</span>}</p>
+              <p className="text-sm whitespace-pre-wrap break-words">{q?.q5_emotional_driver || <span className="text-muted-foreground italic">Not answered</span>}</p>
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Availability</p>
-              <p className="text-sm">
+              <p className="text-sm whitespace-pre-wrap break-words">
                 {q?.q6_weekly_commitment || q?.q6b_available_days ? (
                   <>
                     {q?.q6_weekly_commitment && <>{q.q6_weekly_commitment} days</>}
                     {q?.q6_weekly_commitment && q?.q6b_available_days && ' · '}
-                    {truncate(q?.q6b_available_days, 20)}
+                    {q?.q6b_available_days}
                   </>
                 ) : (
                   <span className="text-muted-foreground italic">Not answered</span>
                 )}
               </p>
             </div>
+
           </div>
           <p className="text-[10px] text-muted-foreground text-center">From their questionnaire</p>
 
