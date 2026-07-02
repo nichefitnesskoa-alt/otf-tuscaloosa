@@ -1679,6 +1679,101 @@ export type Database = {
         }
         Relationships: []
       }
+      intro_bookable_slot_overrides: {
+        Row: {
+          action: string
+          class_date: string
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          slot_time: string
+        }
+        Insert: {
+          action: string
+          class_date: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          slot_time: string
+        }
+        Update: {
+          action?: string
+          class_date?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          slot_time?: string
+        }
+        Relationships: []
+      }
+      intro_bookable_slots: {
+        Row: {
+          class_label: string | null
+          created_at: string
+          day_of_week: number
+          id: string
+          is_active: boolean
+          is_bookable: boolean
+          slot_time: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          class_label?: string | null
+          created_at?: string
+          day_of_week: number
+          id?: string
+          is_active?: boolean
+          is_bookable?: boolean
+          slot_time: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          class_label?: string | null
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          is_active?: boolean
+          is_bookable?: boolean
+          slot_time?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      intro_booking_seen: {
+        Row: {
+          booking_id: string
+          id: string
+          seen_at: string
+          seen_by: string
+        }
+        Insert: {
+          booking_id: string
+          id?: string
+          seen_at?: string
+          seen_by: string
+        }
+        Update: {
+          booking_id?: string
+          id?: string
+          seen_at?: string
+          seen_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intro_booking_seen_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "intros_booked"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       intro_questionnaires: {
         Row: {
           archived_at: string | null
@@ -1813,8 +1908,10 @@ export type Database = {
           sa_conversation_obstacle: string | null
           sa_objection: string | null
           sa_working_shift: string
+          scheduler_link_sa: string | null
           sheets_row_number: number | null
           shift_recap_id: string | null
+          via_scheduler_link: boolean
           vip_class_name: string | null
           vip_session_id: string | null
           vip_status: string | null
@@ -1883,8 +1980,10 @@ export type Database = {
           sa_conversation_obstacle?: string | null
           sa_objection?: string | null
           sa_working_shift: string
+          scheduler_link_sa?: string | null
           sheets_row_number?: number | null
           shift_recap_id?: string | null
+          via_scheduler_link?: boolean
           vip_class_name?: string | null
           vip_session_id?: string | null
           vip_status?: string | null
@@ -1953,8 +2052,10 @@ export type Database = {
           sa_conversation_obstacle?: string | null
           sa_objection?: string | null
           sa_working_shift?: string
+          scheduler_link_sa?: string | null
           sheets_row_number?: number | null
           shift_recap_id?: string | null
+          via_scheduler_link?: boolean
           vip_class_name?: string | null
           vip_session_id?: string | null
           vip_status?: string | null
