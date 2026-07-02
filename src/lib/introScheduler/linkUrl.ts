@@ -75,17 +75,9 @@ export async function ensureIntroLinkCode(params: {
   const eid = eventId ?? null;
 
   // 1. Already provisioned? Return it.
-  const existingQ = await supabase
-    .from('intro_link_codes' as any)
-    .select('code')
-    .eq('sa_name', saName)
-    .eq('source', source)
-    .is('event_id', eid ? undefined : (null as any));
-  // Supabase JS: .is('event_id', null) if null, otherwise .eq
   const found = await (eid
     ? supabase.from('intro_link_codes' as any).select('code').eq('sa_name', saName).eq('source', source).eq('event_id', eid).maybeSingle()
     : supabase.from('intro_link_codes' as any).select('code').eq('sa_name', saName).eq('source', source).is('event_id', null).maybeSingle());
-  void existingQ;
   if ((found as any).data?.code) return (found as any).data.code as string;
 
   // 2. Compute SA slug — first initial, plus a collision counter if that initial
