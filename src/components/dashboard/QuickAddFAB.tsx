@@ -137,6 +137,18 @@ export function QuickAddFAB({
       <HRMAddOnSheet open={showHRM} onOpenChange={setShowHRM} onSaved={onRefresh} />
       <FABFollowUpPurchaseSheet open={showFollowUpPurchase} onOpenChange={setShowFollowUpPurchase} onSaved={onRefresh} />
 
+      {/* Intro Scheduler Link sheet — gives SAs access to their personal booking link/QR */}
+      <Sheet open={showIntroLink} onOpenChange={setShowIntroLink}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>My Intro Scheduler Link</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            <IntroSchedulerLinkCard />
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* End Shift dialog */}
       <CloseOutShift
         completedIntros={completedIntros}
