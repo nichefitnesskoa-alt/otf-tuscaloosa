@@ -3,8 +3,9 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, CheckCircle, AlertTriangle, LogOut, User, Sun, Moon, Eye, Pencil } from 'lucide-react';
-import { EditBookingDialog } from '@/components/myday/EditBookingDialog';
+import { ChevronDown, CheckCircle, AlertTriangle, LogOut, User, Sun, Moon, Eye } from 'lucide-react';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
+import { toast } from 'sonner';
 
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { Badge } from '@/components/ui/badge';
