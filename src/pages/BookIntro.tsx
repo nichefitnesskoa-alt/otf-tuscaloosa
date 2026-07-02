@@ -297,7 +297,19 @@ export default function BookIntro() {
     memberFirstName: info.firstName,
   } : null;
 
-  const friendUrl = bookingId ? buildFriendLinkUrl(window.location.origin, bookingId) : '';
+  // Auto-mint a short friend code on this booking so the share URL stays clean.
+  useEffect(() => {
+    if (!bookingId || friendShareCode) return;
+    (async () => {
+      const c = await ensureFriendCode(bookingId);
+      if (c) setFriendShareCode(c);
+    })();
+  }, [bookingId, friendShareCode]);
+  const friendUrl = friendShareCode
+    ? buildShortFriendUrl(window.location.origin, friendShareCode)
+    : bookingId
+      ? buildFriendLinkUrl(window.location.origin, bookingId)
+      : '';
 
   const canShareNative = typeof navigator !== 'undefined' && typeof (navigator as any).share === 'function';
 
