@@ -275,30 +275,6 @@ export default function CoachView() {
             dayCounts={dayCounts}
           />
 
-          {/* Scope toggle — defaults to "My Intros" */}
-          {allCoachNames.length > 0 && (
-            <div className="inline-flex rounded-md border border-primary/40 p-1 gap-1 bg-transparent">
-              {(['mine', 'all'] as const).map(opt => {
-                const active = coachScope === opt;
-                const label = opt === 'mine' ? 'My Intros' : 'All Intros';
-                return (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setCoachScope(opt)}
-                    className={cn(
-                      'px-4 min-h-[44px] rounded-md text-sm font-semibold border transition-colors',
-                      active
-                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                        : 'bg-primary/15 text-primary border-primary/30 hover:bg-primary/25'
-                    )}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
 
           {/* Selected day content */}
           {loading ? (
