@@ -664,10 +664,16 @@ export default function Admin() {
           <EventsTabCohortSection />
         </TabsContent>
 
+        <TabsContent value="intro_scheduler" className="space-y-4">
+          <IntroSchedulerLinkCard />
+          <BookableScheduleAdmin />
+        </TabsContent>
+
         {/* Summer Bingo Tab */}
         <TabsContent value="bingo" className="space-y-4">
           <BingoAdminTab />
         </TabsContent>
+
 
 
 
