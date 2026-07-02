@@ -66,6 +66,7 @@ import { ReferralAskActions } from './ReferralAskActions';
 import { SelfSourcedLeadEntry } from './SelfSourcedLeadEntry';
 import { SourcedLeadsToText } from './SourcedLeadsToText';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
+import { IntroLinkBookingBanner } from './IntroLinkBookingBanner';
 
 export default function MyDayPage() {
   const { user } = useAuth();
@@ -337,8 +338,12 @@ export default function MyDayPage() {
       </div>
 
       <OfflineBanner />
+      <div className="px-4 pt-2">
+        <IntroLinkBookingBanner />
+      </div>
       <OwnItMentionsCard />
       <VipClaimBanner />
+
 
 
       {/* ═══ SHIFT TASK CHECKLIST ═══ */}

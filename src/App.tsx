@@ -16,6 +16,7 @@ import Pipeline from "./pages/Pipeline";
 import Wig from "./pages/Wig";
 import Scripts from "./pages/Scripts";
 import Questionnaire from "./pages/Questionnaire";
+import BookIntro from "./pages/BookIntro";
 import SuccessStory from "./pages/SuccessStory";
 import VipRegister from "./pages/VipRegister";
 import VipAvailability from "./pages/VipAvailability";
@@ -160,6 +161,7 @@ function AppRoutes() {
         }
       />
       <Route path="/q/:id" element={<Questionnaire />} />
+      <Route path="/book" element={<BookIntro />} />
       <Route path="/story/:id" element={<SuccessStory />} />
       <Route path="/vip-register" element={<VipRegister />} />
       <Route path="/vip-availability" element={<VipAvailability />} />

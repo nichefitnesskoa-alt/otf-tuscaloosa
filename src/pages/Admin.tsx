@@ -37,6 +37,8 @@ import { EventsAdminPanel } from '@/components/admin/EventsAdminPanel';
 import { EventCohortPanel } from '@/components/admin/EventCohortPanel';
 import { EventsIndexPanel } from '@/components/admin/EventsIndexPanel';
 import { BingoAdminTab } from '@/components/admin/BingoAdminTab';
+import { IntroSchedulerLinkCard } from '@/components/admin/IntroSchedulerLinkCard';
+import { BookableScheduleAdmin } from '@/components/admin/BookableScheduleAdmin';
 
 import {
   DropdownMenu,
@@ -509,6 +511,7 @@ export default function Admin() {
     { value: 'shifts', label: 'Shifts', icon: <ListChecks className="w-4 h-4" /> },
     { value: 'giveaways', label: 'Giveaways', icon: <Gift className="w-4 h-4" /> },
     { value: 'events', label: 'Events', icon: <CalendarDays className="w-4 h-4" /> },
+    { value: 'intro_scheduler', label: 'Intro Scheduler Link', icon: <CalendarDays className="w-4 h-4" /> },
     { value: 'bingo', label: 'Summer Bingo', icon: <Gift className="w-4 h-4" /> },
   ], []);
 
@@ -663,10 +666,16 @@ export default function Admin() {
           <EventsTabCohortSection />
         </TabsContent>
 
+        <TabsContent value="intro_scheduler" className="space-y-4">
+          <IntroSchedulerLinkCard />
+          <BookableScheduleAdmin />
+        </TabsContent>
+
         {/* Summer Bingo Tab */}
         <TabsContent value="bingo" className="space-y-4">
           <BingoAdminTab />
         </TabsContent>
+
 
 
 
