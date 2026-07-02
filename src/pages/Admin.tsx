@@ -509,6 +509,7 @@ export default function Admin() {
     { value: 'shifts', label: 'Shifts', icon: <ListChecks className="w-4 h-4" /> },
     { value: 'giveaways', label: 'Giveaways', icon: <Gift className="w-4 h-4" /> },
     { value: 'events', label: 'Events', icon: <CalendarDays className="w-4 h-4" /> },
+    { value: 'intro_scheduler', label: 'Intro Scheduler Link', icon: <CalendarDays className="w-4 h-4" /> },
     { value: 'bingo', label: 'Summer Bingo', icon: <Gift className="w-4 h-4" /> },
   ], []);
 
