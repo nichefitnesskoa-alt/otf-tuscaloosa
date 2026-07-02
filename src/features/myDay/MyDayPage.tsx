@@ -452,7 +452,7 @@ export default function MyDayPage() {
       {prepBooking && (
         <PrepDrawer
           open={!!prepBookingId}
-          onOpenChange={(open) => { if (!open) setPrepBookingId(null); }}
+          onOpenChange={(open) => { if (!open) { setPrepBookingId(null); setPrepAutoPrint(false); } }}
           memberName={prepBooking.member_name}
           memberKey={prepBooking.member_name}
           bookingId={prepBooking.id}
@@ -462,6 +462,7 @@ export default function MyDayPage() {
           leadSource={prepBooking.lead_source}
           isSecondIntro={prepIsSecondIntro}
           originatingBookingId={prepBooking.originating_booking_id}
+          autoPrint={prepAutoPrint}
           phone={null}
           email={null}
         />
