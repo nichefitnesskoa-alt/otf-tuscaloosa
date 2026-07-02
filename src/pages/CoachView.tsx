@@ -3,8 +3,9 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, CheckCircle, AlertTriangle, LogOut, User, Sun, Moon, Eye, Pencil } from 'lucide-react';
-import { EditBookingDialog } from '@/components/myday/EditBookingDialog';
+import { ChevronDown, CheckCircle, AlertTriangle, LogOut, User, Sun, Moon, Eye } from 'lucide-react';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
+import { toast } from 'sonner';
 
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { Badge } from '@/components/ui/badge';
@@ -362,8 +363,51 @@ function ClassTimeIntroSelector({
     setExpandedId(prev => prev === id ? null : id);
   };
 
-  const [editBookingId, setEditBookingId] = useState<string | null>(null);
-  const editingIntro = editBookingId ? intros.find(i => i.id === editBookingId) || null : null;
+  const { coaches } = useActiveStaff();
+  const [savingCoachId, setSavingCoachId] = useState<string | null>(null);
+
+  const changeCoach = async (bookingId: string, newCoach: string) => {
+    setSavingCoachId(bookingId);
+    // Optimistic
+    onUpdateBooking(bookingId, { coach_name: newCoach } as any);
+    const { error } = await supabase
+      .from('intros_booked')
+      .update({
+        coach_name: newCoach,
+        last_edited_at: new Date().toISOString(),
+        last_edited_by: userName,
+      } as any)
+      .eq('id', bookingId);
+    setSavingCoachId(null);
+    if (error) {
+      toast.error('Failed to update coach');
+    } else {
+      toast.success(`Coach set to ${newCoach}`);
+    }
+  };
+
+  const CoachSelect = ({ intro }: { intro: CoachBooking }) => {
+    const options = Array.from(new Set([...coaches, intro.coach_name].filter(Boolean))) as string[];
+    return (
+      <Select
+        value={intro.coach_name || ''}
+        onValueChange={(v) => changeCoach(intro.id, v)}
+        disabled={savingCoachId === intro.id}
+      >
+        <SelectTrigger
+          onClick={(e) => e.stopPropagation()}
+          className="h-7 w-auto min-w-[110px] text-xs px-2 py-0 border-primary/30 text-primary bg-transparent"
+        >
+          <SelectValue placeholder="Set coach" />
+        </SelectTrigger>
+        <SelectContent onClick={(e) => e.stopPropagation()}>
+          {options.map(c => (
+            <SelectItem key={c} value={c}>{c}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  };
 
   return (
     <div className="space-y-2">
@@ -395,17 +439,10 @@ function ClassTimeIntroSelector({
                 </button>
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">2nd Intro</Badge>
                 <span className="text-xs text-muted-foreground">
-                  {intro.intro_time ? formatTime(intro.intro_time.substring(0, 5)) : 'TBD'} · Coach: {intro.coach_name}
+                  {intro.intro_time ? formatTime(intro.intro_time.substring(0, 5)) : 'TBD'} ·
                 </span>
+                <CoachSelect intro={intro} />
               </div>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setEditBookingId(intro.id); }}
-                className="shrink-0 inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 border border-primary/30 rounded-md px-2 py-1 min-h-[32px]"
-                title="Edit coach / booking"
-              >
-                <Pencil className="w-3 h-3" /> Edit
-              </button>
             </div>
           );
         }
@@ -451,15 +488,9 @@ function ClassTimeIntroSelector({
                 <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
                   <span>{intro.intro_time ? formatTime(intro.intro_time.substring(0, 5)) : 'TBD'}</span>
                   <span>·</span>
-                  <span>Coach: {intro.coach_name}</span>
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => { e.stopPropagation(); setEditBookingId(intro.id); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setEditBookingId(intro.id); } }}
-                    className="inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 border border-primary/30 rounded-md px-1.5 py-0.5 cursor-pointer"
-                  >
-                    <Pencil className="w-3 h-3" /> Edit
+                  <span>Coach:</span>
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <CoachSelect intro={intro} />
                   </span>
                 </div>
               </div>
@@ -486,24 +517,6 @@ function ClassTimeIntroSelector({
         );
       })}
       {journey.element}
-      {editingIntro && (
-        <EditBookingDialog
-          open={!!editBookingId}
-          onOpenChange={(o) => { if (!o) setEditBookingId(null); }}
-          bookingId={editingIntro.id}
-          memberName={editingIntro.member_name}
-          coachName={editingIntro.coach_name || ''}
-          introTime={editingIntro.intro_time}
-          leadSource={editingIntro.lead_source || ''}
-          introOwner={editingIntro.intro_owner}
-          bookedBy={null}
-          editedBy={userName}
-          onSaved={() => {
-            onUpdateBooking(editingIntro.id, {});
-            setEditBookingId(null);
-          }}
-        />
-      )}
     </div>
   );
 }
