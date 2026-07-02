@@ -439,17 +439,10 @@ function ClassTimeIntroSelector({
                 </button>
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">2nd Intro</Badge>
                 <span className="text-xs text-muted-foreground">
-                  {intro.intro_time ? formatTime(intro.intro_time.substring(0, 5)) : 'TBD'} · Coach: {intro.coach_name}
+                  {intro.intro_time ? formatTime(intro.intro_time.substring(0, 5)) : 'TBD'} ·
                 </span>
+                <CoachSelect intro={intro} />
               </div>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setEditBookingId(intro.id); }}
-                className="shrink-0 inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 border border-primary/30 rounded-md px-2 py-1 min-h-[32px]"
-                title="Edit coach / booking"
-              >
-                <Pencil className="w-3 h-3" /> Edit
-              </button>
             </div>
           );
         }
