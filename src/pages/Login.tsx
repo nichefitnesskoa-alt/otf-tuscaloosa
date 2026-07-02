@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,18 +9,20 @@ import { supabase } from '@/integrations/supabase/client';
 
 export default function Login() {
   const [selectedName, setSelectedName] = useState('');
-  const [staffNames, setStaffNames] = useState<string[]>([]);
+  const [staff, setStaff] = useState<{ name: string; role?: string }[]>([]);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  const staffNames = useMemo(() => staff.map(s => s.name), [staff]);
 
   useEffect(() => {
     const fetchStaff = async () => {
       const { data } = await supabase
         .from('staff')
-        .select('name')
+        .select('name, role')
         .eq('is_active', true)
         .order('name');
-      setStaffNames((data || []).map((s: any) => s.name));
+      setStaff((data || []).map((s: any) => ({ name: s.name, role: s.role })));
     };
     fetchStaff();
   }, []);
@@ -28,7 +30,9 @@ export default function Login() {
   const handleLogin = () => {
     if (!selectedName) return;
     login(selectedName);
-    navigate('/my-day');
+    const selectedRole = staff.find(s => s.name === selectedName)?.role;
+    const isCoach = selectedRole === 'Coach';
+    navigate(isCoach ? '/coach-view' : '/wig');
   };
 
   return (
