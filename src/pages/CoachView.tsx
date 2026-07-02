@@ -488,15 +488,9 @@ function ClassTimeIntroSelector({
                 <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
                   <span>{intro.intro_time ? formatTime(intro.intro_time.substring(0, 5)) : 'TBD'}</span>
                   <span>·</span>
-                  <span>Coach: {intro.coach_name}</span>
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => { e.stopPropagation(); setEditBookingId(intro.id); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setEditBookingId(intro.id); } }}
-                    className="inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 border border-primary/30 rounded-md px-1.5 py-0.5 cursor-pointer"
-                  >
-                    <Pencil className="w-3 h-3" /> Edit
+                  <span>Coach:</span>
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <CoachSelect intro={intro} />
                   </span>
                 </div>
               </div>
