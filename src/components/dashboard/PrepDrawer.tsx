@@ -87,6 +87,7 @@ interface PrepDrawerProps {
   }>;
   onGenerateScript?: () => void;
   onSendQ?: () => void;
+  autoPrint?: boolean;
 }
 
 // ── Objection detection ─────────────────────────────────────────────────────
