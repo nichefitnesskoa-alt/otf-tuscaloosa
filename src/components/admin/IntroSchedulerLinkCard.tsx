@@ -7,7 +7,7 @@
  * - Shows link URL, QR (qrcode.react), "Download branded PNG" via downloadBrandedQr,
  *   and a copy-link button.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,9 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/context/AuthContext';
 import { LEAD_SOURCES } from '@/types';
 import { EventPicker } from '@/components/events/EventPicker';
-import { buildIntroLinkUrl } from '@/lib/introScheduler/linkUrl';
+import { buildShortIntroUrl, ensureIntroLinkCode } from '@/lib/introScheduler/linkUrl';
 import { downloadBrandedQr } from '@/lib/vip/qrDownload';
-import { Copy, Download, Link as LinkIcon, QrCode } from 'lucide-react';
+import { Copy, Download, Link as LinkIcon, QrCode, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const DEFAULT_SOURCE = 'Intro Scheduler Link';
@@ -43,14 +43,30 @@ export function IntroSchedulerLinkCard({ saName }: Props) {
     return [DEFAULT_SOURCE, ...sorted];
   }, []);
 
-  const url = useMemo(() => {
-    if (!sa) return '';
-    if (source === 'Event' && !eventId) return '';
-    return buildIntroLinkUrl(window.location.origin, {
-      sa,
-      source,
-      eventId: source === 'Event' ? eventId : null,
-    });
+  const [url, setUrl] = useState<string>('');
+  const [loadingCode, setLoadingCode] = useState(false);
+
+  useEffect(() => {
+    if (!sa) { setUrl(''); return; }
+    if (source === 'Event' && !eventId) { setUrl(''); return; }
+    let cancelled = false;
+    setLoadingCode(true);
+    (async () => {
+      try {
+        const code = await ensureIntroLinkCode({
+          saName: sa,
+          source,
+          eventId: source === 'Event' ? eventId : null,
+        });
+        if (!cancelled) setUrl(buildShortIntroUrl(window.location.origin, code));
+      } catch (e) {
+        console.error('[IntroLink] failed to mint short code', e);
+        if (!cancelled) setUrl('');
+      } finally {
+        if (!cancelled) setLoadingCode(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [sa, source, eventId]);
 
   const canvasId = `intro-link-qr-${sa || 'anon'}`;
@@ -85,6 +101,10 @@ export function IntroSchedulerLinkCard({ saName }: Props) {
           <EventPicker value={eventId} onValueChange={setEventId} required dense />
         )}
       </div>
+
+      {loadingCode && !url && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Generating your link…</div>
+      )}
 
       {url && (
         <>

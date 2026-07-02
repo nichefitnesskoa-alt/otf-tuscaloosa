@@ -697,6 +697,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          short_code: string | null
           updated_at: string
         }
         Insert: {
@@ -707,6 +708,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          short_code?: string | null
           updated_at?: string
         }
         Update: {
@@ -717,6 +719,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          short_code?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1774,6 +1777,38 @@ export type Database = {
           },
         ]
       }
+      intro_link_codes: {
+        Row: {
+          code: string
+          created_at: string
+          event_id: string | null
+          sa_name: string
+          source: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          event_id?: string | null
+          sa_name: string
+          source: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          event_id?: string | null
+          sa_name?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intro_link_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       intro_questionnaires: {
         Row: {
           archived_at: string | null
@@ -1873,6 +1908,7 @@ export type Database = {
           event_id: string | null
           fitness_goal: string | null
           followup_dismissed_at: string | null
+          friend_code: string | null
           id: string
           ignore_from_metrics: boolean | null
           intro_owner: string | null
@@ -1945,6 +1981,7 @@ export type Database = {
           event_id?: string | null
           fitness_goal?: string | null
           followup_dismissed_at?: string | null
+          friend_code?: string | null
           id?: string
           ignore_from_metrics?: boolean | null
           intro_owner?: string | null
@@ -2017,6 +2054,7 @@ export type Database = {
           event_id?: string | null
           fitness_goal?: string | null
           followup_dismissed_at?: string | null
+          friend_code?: string | null
           id?: string
           ignore_from_metrics?: boolean | null
           intro_owner?: string | null
@@ -4358,6 +4396,7 @@ export type Database = {
     Functions: {
       backfill_booking_phones: { Args: { p_days_back?: number }; Returns: Json }
       backfill_questionnaire_slugs: { Args: never; Returns: Json }
+      gen_intro_friend_code: { Args: { _id: string }; Returns: string }
       get_staff_name: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {

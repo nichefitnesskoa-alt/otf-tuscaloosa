@@ -162,6 +162,8 @@ function AppRoutes() {
       />
       <Route path="/q/:id" element={<Questionnaire />} />
       <Route path="/book" element={<BookIntro />} />
+      <Route path="/book-intro/f/:friendCode" element={<BookIntro />} />
+      <Route path="/book-intro/:code" element={<BookIntro />} />
       <Route path="/story/:id" element={<SuccessStory />} />
       <Route path="/vip-register" element={<VipRegister />} />
       <Route path="/vip-availability" element={<VipAvailability />} />
