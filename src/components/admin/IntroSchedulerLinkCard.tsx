@@ -7,7 +7,7 @@
  * - Shows link URL, QR (qrcode.react), "Download branded PNG" via downloadBrandedQr,
  *   and a copy-link button.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,9 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/context/AuthContext';
 import { LEAD_SOURCES } from '@/types';
 import { EventPicker } from '@/components/events/EventPicker';
-import { buildIntroLinkUrl } from '@/lib/introScheduler/linkUrl';
+import { buildShortIntroUrl, ensureIntroLinkCode } from '@/lib/introScheduler/linkUrl';
 import { downloadBrandedQr } from '@/lib/vip/qrDownload';
-import { Copy, Download, Link as LinkIcon, QrCode } from 'lucide-react';
+import { Copy, Download, Link as LinkIcon, QrCode, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const DEFAULT_SOURCE = 'Intro Scheduler Link';
