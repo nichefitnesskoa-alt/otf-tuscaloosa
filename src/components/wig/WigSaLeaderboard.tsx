@@ -584,7 +584,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         />
       )}
       <SourcedLeadsDialog open={sourcedLeadsOpen} onOpenChange={setSourcedLeadsOpen} initialRange={dateRange} />
-      <AddLeadDialog open={addLeadOpen} onOpenChange={setAddLeadOpen} onLeadAdded={() => sourcedLeads.refetch()} />
+      <SelfSourcedLeadDialog open={addLeadOpen} onOpenChange={setAddLeadOpen} onLeadAdded={() => sourcedLeads.refetch()} />
     </>
   );
 }
