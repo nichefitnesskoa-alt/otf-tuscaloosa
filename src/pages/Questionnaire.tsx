@@ -163,18 +163,15 @@ export default function Questionnaire() {
     setShowError(false);
     setDirection(1);
     if (step === 7) { handleSubmit(); return; }
-    // Skip Q5 (emotional driver) — removed per Koa's request
-    if (step === 4) { setStep(6); return; }
     setStep(s => s + 1);
   };
 
   const goBack = () => {
     setShowError(false);
     setDirection(-1);
-    // Skip Q5 on the way back too
-    if (step === 6) { setStep(4); return; }
     setStep(s => Math.max(0, s - 1));
   };
+
 
   const handleSubmit = async () => {
     if (!data) return;
