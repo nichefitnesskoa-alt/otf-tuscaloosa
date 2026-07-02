@@ -400,7 +400,6 @@ export default function MyDayPage() {
           </TabsContent>
 
           <TabsContent value="followups" className="mt-0 space-y-3">
-            <SourcedLeadsToText compact={false} defaultOpen />
             <FollowUpList onCountChange={setFollowUpsDueCount} onRefresh={fetchMetrics} />
           </TabsContent>
 
