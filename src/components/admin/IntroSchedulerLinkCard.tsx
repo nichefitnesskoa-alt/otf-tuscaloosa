@@ -102,6 +102,10 @@ export function IntroSchedulerLinkCard({ saName }: Props) {
         )}
       </div>
 
+      {loadingCode && !url && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Generating your link…</div>
+      )}
+
       {url && (
         <>
           <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-2">
