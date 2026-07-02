@@ -304,7 +304,7 @@ export default function Leads() {
         }}
       />
 
-      <AddLeadDialog open={showAddDialog} onOpenChange={setShowAddDialog} onLeadAdded={refresh} />
+      <SelfSourcedLeadDialog open={showAddDialog} onOpenChange={setShowAddDialog} onLeadAdded={refresh} />
 
       {bookIntroLead && (
         <BookIntroDialog
