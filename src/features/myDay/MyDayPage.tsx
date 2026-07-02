@@ -201,6 +201,7 @@ export default function MyDayPage() {
       const detail = (e as CustomEvent).detail;
       setPrepBookingId(detail.bookingId);
       setPrepIsSecondIntro(!!detail.isSecondIntro);
+      setPrepAutoPrint(!!detail.autoPrint);
     };
     const onScript = (e: Event) => {
       const detail = (e as CustomEvent).detail;
