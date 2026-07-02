@@ -17,20 +17,7 @@ import { EirmaPlaybook } from '@/components/dashboard/EirmaPlaybook';
 import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType } from '@/components/shared/FormHelpers';
 import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 
-// Lead Sources (alphabetized)
-const LEAD_SOURCES = [
-  'Business Partnership Referral',
-  'Event',
-  'Instagram DMs',
-  'Instagram DMs (Friend)',
-  'Lead Management',
-  'Lead Management (Friend)',
-  'Member Referral',
-  'My Personal Friend I Invited',
-  'Online Intro Offer (self-booked)',
-  'Instagram DMs',
-  'VIP Class',
-] as const;
+import { LEAD_SOURCES } from '@/types';
 
 const OBJECTION_CATEGORIES = [
   'Pricing',
