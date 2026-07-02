@@ -43,14 +43,30 @@ export function IntroSchedulerLinkCard({ saName }: Props) {
     return [DEFAULT_SOURCE, ...sorted];
   }, []);
 
-  const url = useMemo(() => {
-    if (!sa) return '';
-    if (source === 'Event' && !eventId) return '';
-    return buildIntroLinkUrl(window.location.origin, {
-      sa,
-      source,
-      eventId: source === 'Event' ? eventId : null,
-    });
+  const [url, setUrl] = useState<string>('');
+  const [loadingCode, setLoadingCode] = useState(false);
+
+  useEffect(() => {
+    if (!sa) { setUrl(''); return; }
+    if (source === 'Event' && !eventId) { setUrl(''); return; }
+    let cancelled = false;
+    setLoadingCode(true);
+    (async () => {
+      try {
+        const code = await ensureIntroLinkCode({
+          saName: sa,
+          source,
+          eventId: source === 'Event' ? eventId : null,
+        });
+        if (!cancelled) setUrl(buildShortIntroUrl(window.location.origin, code));
+      } catch (e) {
+        console.error('[IntroLink] failed to mint short code', e);
+        if (!cancelled) setUrl('');
+      } finally {
+        if (!cancelled) setLoadingCode(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [sa, source, eventId]);
 
   const canvasId = `intro-link-qr-${sa || 'anon'}`;
