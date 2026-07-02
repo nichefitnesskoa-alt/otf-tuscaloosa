@@ -156,7 +156,7 @@ function getEirma(
 export function PrepDrawer({
   open, onOpenChange, memberName, memberKey, bookingId, classDate, classTime,
   coachName, leadSource, isSecondIntro, originatingBookingId, phone, email, bookings, runs,
-  onGenerateScript, onSendQ,
+  onGenerateScript, onSendQ, autoPrint,
 }: PrepDrawerProps) {
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(null);
   const [sendLogs, setSendLogs] = useState<SendLogEntry[]>([]);
