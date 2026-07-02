@@ -337,8 +337,12 @@ export default function MyDayPage() {
       </div>
 
       <OfflineBanner />
+      <div className="px-4 pt-2">
+        <IntroLinkBookingBanner />
+      </div>
       <OwnItMentionsCard />
       <VipClaimBanner />
+
 
 
       {/* ═══ SHIFT TASK CHECKLIST ═══ */}
