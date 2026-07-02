@@ -37,6 +37,8 @@ import { EventsAdminPanel } from '@/components/admin/EventsAdminPanel';
 import { EventCohortPanel } from '@/components/admin/EventCohortPanel';
 import { EventsIndexPanel } from '@/components/admin/EventsIndexPanel';
 import { BingoAdminTab } from '@/components/admin/BingoAdminTab';
+import { IntroSchedulerLinkCard } from '@/components/admin/IntroSchedulerLinkCard';
+import { BookableScheduleAdmin } from '@/components/admin/BookableScheduleAdmin';
 
 import {
   DropdownMenu,
