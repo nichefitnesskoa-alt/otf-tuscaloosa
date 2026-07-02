@@ -257,9 +257,8 @@ export default function Questionnaire() {
 
   if (!data) return null;
 
-  // Q5 is skipped, so effective steps = 6. Map raw step → displayed step number.
-  const displayStep = step > 5 ? step - 1 : step;
-  const progress = step === 0 ? 0 : step === 8 ? 100 : (displayStep / 6) * 100;
+  const progress = step === 0 ? 0 : step === 8 ? 100 : (step / 7) * 100;
+
 
   const slideVariants = {
     enter: (d: number) => ({ x: d > 0 ? 300 : -300, opacity: 0 }),
