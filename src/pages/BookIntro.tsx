@@ -62,10 +62,17 @@ function longDayLabel(ymd: string): string {
 
 export default function BookIntro() {
   const [params] = useSearchParams();
+  const routeParams = useParams<{ code?: string; friendCode?: string }>();
+  const shortCode = routeParams.code || null;
+  const shortFriendCode = routeParams.friendCode || null;
+
   const saParam = params.get('sa') || 'Studio Team';
   const sourceParam = params.get('source') || 'Intro Scheduler Link';
   const eventIdParam = params.get('event_id');
-  const friendOf = params.get('friend_of');
+  const legacyFriendOf = params.get('friend_of');
+
+  const [friendOf, setFriendOf] = useState<string | null>(legacyFriendOf);
+  const [resolvingCode, setResolvingCode] = useState<boolean>(!!(shortCode || shortFriendCode));
 
   const [step, setStep] = useState<Step>('time');
   const [ctx, setCtx] = useState<{
@@ -91,7 +98,41 @@ export default function BookIntro() {
   const [info, setInfo] = useState({ firstName: '', lastName: '', phone: '', email: '' });
   const [saving, setSaving] = useState(false);
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const [friendShareCode, setFriendShareCode] = useState<string | null>(null);
   const [qSlug, setQSlug] = useState<string | null>(null);
+
+  // Resolve short SA link code: /book-intro/<code> → sa / source / event_id
+  useEffect(() => {
+    if (!shortCode) return;
+    (async () => {
+      const resolved = await resolveIntroLinkCode(shortCode);
+      if (resolved) {
+        setCtx(prev => ({
+          ...prev,
+          sa: resolved.sa,
+          source: resolved.source,
+          eventId: resolved.eventId ?? null,
+        }));
+      } else {
+        toast.error('This booking link is no longer valid.');
+      }
+      setResolvingCode(false);
+    })();
+  }, [shortCode]);
+
+  // Resolve short friend code: /book-intro/f/<friendCode> → originator booking id
+  useEffect(() => {
+    if (!shortFriendCode) return;
+    (async () => {
+      const originatorId = await resolveFriendCode(shortFriendCode);
+      if (originatorId) {
+        setFriendOf(originatorId);
+      } else {
+        toast.error('This friend link is no longer valid.');
+      }
+      setResolvingCode(false);
+    })();
+  }, [shortFriendCode]);
 
   // Load originator (friend flow) — lock the time and inherit SA + source
   useEffect(() => {
