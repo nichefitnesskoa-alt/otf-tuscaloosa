@@ -41,6 +41,7 @@ export function QuickAddFAB({
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showHRM, setShowHRM] = useState(false);
   const [showFollowUpPurchase, setShowFollowUpPurchase] = useState(false);
+  const [showIntroLink, setShowIntroLink] = useState(false);
 
   const handleBookIntro = () => { setExpanded(false); setShowBookIntro(true); };
   const handleEndShift = () => { setExpanded(false); onEndShift?.(); setShowEndShift(true); };
@@ -48,8 +49,15 @@ export function QuickAddFAB({
   const handleUpgrade = () => { setExpanded(false); setShowUpgrade(true); };
   const handleHRM = () => { setExpanded(false); setShowHRM(true); };
   const handleFollowUpPurchase = () => { setExpanded(false); setShowFollowUpPurchase(true); };
+  const handleIntroLink = () => { setExpanded(false); setShowIntroLink(true); };
 
   const actions = [
+    {
+      icon: QrCode,
+      label: 'My Intro Link',
+      onClick: handleIntroLink,
+      color: 'bg-orange-500 text-white',
+    },
     {
       icon: LogOut,
       label: 'End Shift',
