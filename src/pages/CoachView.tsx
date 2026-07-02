@@ -362,6 +362,9 @@ function ClassTimeIntroSelector({
     setExpandedId(prev => prev === id ? null : id);
   };
 
+  const [editBookingId, setEditBookingId] = useState<string | null>(null);
+  const editingIntro = editBookingId ? intros.find(i => i.id === editBookingId) || null : null;
+
   return (
     <div className="space-y-2">
       {intros.map(intro => {
