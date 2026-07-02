@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Users, Pencil, Check, Trophy, Download, Plus, AlertCircle } from 'lucide-react';
 import { SourcedLeadsDialog } from '@/components/wig/SourcedLeadsDialog';
-import { AddLeadDialog } from '@/components/leads/AddLeadDialog';
+import { SelfSourcedLeadDialog } from '@/components/leads/SelfSourcedLeadDialog';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
@@ -584,7 +584,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         />
       )}
       <SourcedLeadsDialog open={sourcedLeadsOpen} onOpenChange={setSourcedLeadsOpen} initialRange={dateRange} />
-      <AddLeadDialog open={addLeadOpen} onOpenChange={setAddLeadOpen} onLeadAdded={() => sourcedLeads.refetch()} />
+      <SelfSourcedLeadDialog open={addLeadOpen} onOpenChange={setAddLeadOpen} onLeadAdded={() => sourcedLeads.refetch()} />
     </>
   );
 }

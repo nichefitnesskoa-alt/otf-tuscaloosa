@@ -16,7 +16,7 @@ import { FollowUpQueue } from '@/components/leads/FollowUpQueue';
 import { LeadKanbanBoard } from '@/components/leads/LeadKanbanBoard';
 import { LeadListView } from '@/components/leads/LeadListView';
 import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
-import { AddLeadDialog } from '@/components/leads/AddLeadDialog';
+import { SelfSourcedLeadDialog } from '@/components/leads/SelfSourcedLeadDialog';
 import { MarkLostDialog } from '@/components/leads/MarkLostDialog';
 import { toast } from 'sonner';
 
@@ -304,7 +304,7 @@ export default function Leads() {
         }}
       />
 
-      <AddLeadDialog open={showAddDialog} onOpenChange={setShowAddDialog} onLeadAdded={refresh} />
+      <SelfSourcedLeadDialog open={showAddDialog} onOpenChange={setShowAddDialog} onLeadAdded={refresh} />
 
       {bookIntroLead && (
         <BookIntroDialog
