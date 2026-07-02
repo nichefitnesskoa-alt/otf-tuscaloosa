@@ -486,6 +486,24 @@ function ClassTimeIntroSelector({
         );
       })}
       {journey.element}
+      {editingIntro && (
+        <EditBookingDialog
+          open={!!editBookingId}
+          onOpenChange={(o) => { if (!o) setEditBookingId(null); }}
+          bookingId={editingIntro.id}
+          memberName={editingIntro.member_name}
+          coachName={editingIntro.coach_name || ''}
+          introTime={editingIntro.intro_time}
+          leadSource={editingIntro.lead_source || ''}
+          introOwner={editingIntro.intro_owner}
+          bookedBy={null}
+          editedBy={userName}
+          onSaved={() => {
+            onUpdateBooking(editingIntro.id, {});
+            setEditBookingId(null);
+          }}
+        />
+      )}
     </div>
   );
 }
