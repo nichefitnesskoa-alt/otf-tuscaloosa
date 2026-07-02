@@ -413,16 +413,7 @@ export default function MyDayPage() {
         </div>
       </Tabs>
 
-
-      {/* ═══ LOG A LEAD YOU SOURCED ═══ */}
-      <div className="px-[5px] pt-2">
-        <SelfSourcedLeadEntry />
-      </div>
-
-      {/* ═══ TEXT YOUR SOURCED LEADS ═══ */}
-      <div className="px-[5px] pt-2">
-        <SourcedLeadsToText />
-      </div>
+      {/* Log-a-lead + Sourced-leads-to-text sections removed per SA feedback */}
 
       {/* ═══ CLASS MILESTONE CHECKS ═══ */}
       <div className="px-[5px] py-[10px] my-0 pb-0 pr-[5px] pt-0">
@@ -439,21 +430,7 @@ export default function MyDayPage() {
         <ReferralAskActions />
       </div>
 
-
-      {/* ═══ FLOATING END SHIFT BAR ═══ */}
-      <div className="fixed bottom-[4.5rem] left-0 right-0 z-30 px-4 py-2 bg-background/95 backdrop-blur border-t border-primary/30 shadow-lg">
-        <CloseOutShift
-          completedIntros={completedTodayCount}
-          activeIntros={todayBookingsCount - completedTodayCount}
-          scriptsSent={todayScriptsSent}
-          followUpsSent={todayFollowUpsSent}
-          purchaseCount={purchaseTodayCount}
-          noShowCount={noShowTodayCount}
-          didntBuyCount={didntBuyTodayCount}
-          topObjection={topObjectionToday}
-          asButton
-        />
-      </div>
+      {/* Floating End Shift bar removed — End Shift stays reachable from the FAB. */}
 
       {/* FAB */}
       <QuickAddFAB
