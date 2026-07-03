@@ -1241,18 +1241,18 @@ export default function Wig() {
                   </CardContent>
                 </Card>
 
-                {/* OTF Corporate · Last Coach */}
+                {/* OTF Corporate */}
                 <Card className="border-primary/30">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <UserCheck className="w-5 h-5 text-primary" />
-                      Coach Stats — OTF Corporate · Last Coach
+                      Coach Stats — OTF Corporate
                     </CardTitle>
                     <p className="text-sm text-muted-foreground">
                       <span className="font-semibold text-foreground">How OTF Corporate scores coaches.</span>{' '}
-                      Coached counts every class you personally ran (1st <em>and</em> 2nd intros).
-                      The close goes to the coach of the member's <em>most recent</em> attended class — so if a 2nd intro closed,
-                      the 2nd-intro coach gets the credit. Same total closes as the Internal table, just redistributed.
+                      Only <em>first visits</em> count. 2nd/3rd intros don't go in the denominator, and close credit
+                      follows the coach who ran the first visit — so a coach never gets penalized for a 2nd intro they
+                      inherited, and never gets credit for a chain they didn't originate.
                     </p>
                   </CardHeader>
                   <CardContent className="p-0">
