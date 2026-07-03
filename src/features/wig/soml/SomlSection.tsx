@@ -665,7 +665,7 @@ function PendingReferralsDialog({ open, onClose, saFilter, rows }: PendingReferr
     if (!error && row.booking_id) {
       await supabase
         .from('intros_booked')
-        .update({ referring_member_name: next } as any)
+        .update({ referred_by_member_name: next } as any)
         .eq('id', row.booking_id);
     }
     setSaving(false);
