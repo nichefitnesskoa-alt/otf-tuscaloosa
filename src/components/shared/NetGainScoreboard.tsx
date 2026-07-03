@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  Minus, Plus, Pencil, TrendingUp, TrendingDown, History, Upload, List, Trash2, Loader2,
+  Minus, Plus, Pencil, TrendingUp, TrendingDown, History, Upload, List, Trash2, Loader2, CalendarClock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
