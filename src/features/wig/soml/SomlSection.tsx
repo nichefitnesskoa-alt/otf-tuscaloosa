@@ -649,19 +649,79 @@ function PendingReferralsDialog({ open, onClose, saFilter, rows }: PendingReferr
     not_converted: filtered.filter(r => r.state === 'not_converted'),
   }), [filtered]);
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const saveReferrer = async (row: PendingReferralRow) => {
+    const next = draft.trim();
+    if (!next || next === row.referring_member) { setEditingId(null); return; }
+    setSaving(true);
+    const { error } = await (supabase as any)
+      .from('soml_pending_referrals')
+      .update({ referring_member: next })
+      .eq('id', row.id);
+    // Also patch the booking's referring member field so it stays coherent
+    if (!error && row.booking_id) {
+      await supabase
+        .from('intros_booked')
+        .update({ referring_member_name: next } as any)
+        .eq('id', row.booking_id);
+    }
+    setSaving(false);
+    setEditingId(null);
+    if (error) {
+      toast.error('Could not update referrer');
+    } else {
+      toast.success('Referrer updated');
+      notifySomlChanged();
+    }
+  };
+
   const renderList = (list: PendingReferralRow[], emptyMsg: string) => {
     if (list.length === 0) return <p className="text-xs text-muted-foreground py-2">{emptyMsg}</p>;
     return (
       <div className="divide-y">
         {list.map(r => (
           <div key={r.id} className="py-2 flex items-start justify-between gap-3 text-xs">
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="font-semibold text-foreground truncate">
                 {r.member_name || 'Unnamed intro'}
               </div>
-              <div className="text-muted-foreground truncate">
-                Referred by {r.referring_member} · Credit: {r.credited_sa}
-                {r.class_date && <> · Class {format(new Date(r.class_date + 'T12:00:00'), 'MMM d')}</>}
+              <div className="text-muted-foreground flex items-center gap-1 flex-wrap">
+                <span>Referred by</span>
+                {editingId === r.id ? (
+                  <>
+                    <Input
+                      autoFocus
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveReferrer(r);
+                        if (e.key === 'Escape') setEditingId(null);
+                      }}
+                      className="h-6 text-xs w-40 py-0"
+                      disabled={saving}
+                    />
+                    <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => saveReferrer(r)} disabled={saving}>
+                      <Check className="w-3 h-3" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-medium text-foreground">{r.referring_member || '—'}</span>
+                    <button
+                      type="button"
+                      onClick={() => { setDraft(r.referring_member || ''); setEditingId(r.id); }}
+                      className="text-muted-foreground hover:text-primary"
+                      aria-label="Edit referrer"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  </>
+                )}
+                <span>· Credit: {r.credited_sa}</span>
+                {r.class_date && <span>· Class {format(new Date(r.class_date + 'T12:00:00'), 'MMM d')}</span>}
               </div>
             </div>
             <div className="text-right shrink-0">
