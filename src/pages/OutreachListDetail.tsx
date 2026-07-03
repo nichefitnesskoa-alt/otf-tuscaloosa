@@ -153,11 +153,37 @@ export default function OutreachListDetail() {
   const [rowToDelete, setRowToDelete] = useState<OutreachRow | null>(null);
   const [deletingRow, setDeletingRow] = useState(false);
   const [search, setSearch] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('default');
+  const [sort, setSort] = useState<SortState>(null);
+  const [filters, setFilters] = useState<FilterState>({});
+
+  const setFilter = (col: ColKey, val: string | undefined) => {
+    setFilters(f => {
+      const next = { ...f };
+      if (!val) delete next[col]; else next[col] = val;
+      return next;
+    });
+  };
+  const cycleSort = (col: ColKey) => {
+    setSort(s => {
+      if (!s || s.key !== col) return { key: col, dir: 'asc' };
+      if (s.dir === 'asc') return { key: col, dir: 'desc' };
+      return null;
+    });
+  };
+  const clearAll = () => { setFilters({}); setSort(null); setSearch(''); };
+
+  const rowBoolValue = (r: OutreachRow, col: ColKey): boolean => {
+    if (col === 'churns') return !!r.is_churning;
+    const rowActions = actions.filter(a => a.row_id === r.id);
+    if (col === 'texted') return rowActions.some(a => a.action_type === 'texted');
+    if (col === 'in_person') return rowActions.some(a => a.action_type === 'in_person');
+    if (col === 'not_interested') return rowActions.some(a => a.action_type === 'not_interested');
+    return false;
+  };
 
   const filteredSorted = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const filtered = q
+    let out = q
       ? rows.filter(r =>
           r.client_name.toLowerCase().includes(q) ||
           (r.phone || '').toLowerCase().includes(q) ||
@@ -165,28 +191,72 @@ export default function OutreachListDetail() {
           (r.email || '').toLowerCase().includes(q))
       : [...rows];
 
-    const cmp = (a: OutreachRow, b: OutreachRow) => {
-      switch (sortKey) {
-        case 'name':
-          return a.client_name.localeCompare(b.client_name);
-        case 'amount':
-          return (Number(b.amount) || 0) - (Number(a.amount) || 0);
-        case 'last_30d':
-          return (b.last_30d_count ?? -1) - (a.last_30d_count ?? -1);
-        case 'latest':
-          return (b.latest_workout_date || '').localeCompare(a.latest_workout_date || '');
-        case 'churn':
-          if (a.is_churning !== b.is_churning) return a.is_churning ? -1 : 1;
-          return (a.churn_date || '9999').localeCompare(b.churn_date || '9999');
-        case 'default':
-        default:
-          if (a.is_churning !== b.is_churning) return a.is_churning ? -1 : 1;
-          if (a.is_churning && b.is_churning) return (a.churn_date || '9999').localeCompare(b.churn_date || '9999');
-          return a.client_name.localeCompare(b.client_name);
+    // Per-column filters
+    for (const [k, raw] of Object.entries(filters) as [ColKey, string][]) {
+      if (!raw) continue;
+      const type = COL_TYPES[k];
+      if (type === 'bool') {
+        const want = raw === 'yes';
+        out = out.filter(r => rowBoolValue(r, k) === want);
+      } else if (type === 'number') {
+        const pred = makeNumberPredicate(raw);
+        if (pred) {
+          out = out.filter(r => pred(k === 'amount' ? (r.amount as any) : r.last_30d_count));
+        } else {
+          const s = raw.toLowerCase();
+          out = out.filter(r => String(k === 'amount' ? (r.amount ?? '') : (r.last_30d_count ?? '')).toLowerCase().includes(s));
+        }
+      } else {
+        const s = raw.toLowerCase();
+        out = out.filter(r => {
+          const v = k === 'name' ? r.client_name
+            : k === 'item' ? (r.item || '')
+            : k === 'phone' ? (r.phone || '')
+            : k === 'latest' ? (r.latest_workout_date || '')
+            : '';
+          return v.toLowerCase().includes(s);
+        });
       }
-    };
-    return filtered.sort(cmp);
-  }, [rows, search, sortKey]);
+    }
+
+    // Sort
+    if (sort) {
+      const dir = sort.dir === 'asc' ? 1 : -1;
+      const cmp = (a: OutreachRow, b: OutreachRow) => {
+        switch (sort.key) {
+          case 'name': return a.client_name.localeCompare(b.client_name) * dir;
+          case 'item': return (a.item || '').localeCompare(b.item || '') * dir;
+          case 'phone': return (a.phone || '').localeCompare(b.phone || '') * dir;
+          case 'amount': return ((Number(a.amount) || 0) - (Number(b.amount) || 0)) * dir;
+          case 'last_30d': return ((a.last_30d_count ?? -1) - (b.last_30d_count ?? -1)) * dir;
+          case 'latest': return (a.latest_workout_date || '').localeCompare(b.latest_workout_date || '') * dir;
+          case 'churns': {
+            if (a.is_churning !== b.is_churning) return (a.is_churning ? -1 : 1) * dir;
+            return ((a.churn_date || '9999').localeCompare(b.churn_date || '9999')) * dir;
+          }
+          case 'texted':
+          case 'in_person':
+          case 'not_interested': {
+            const av = rowBoolValue(a, sort.key) ? 1 : 0;
+            const bv = rowBoolValue(b, sort.key) ? 1 : 0;
+            return (bv - av) * dir;
+          }
+        }
+      };
+      out.sort(cmp);
+    } else {
+      // Default: churning first, then A→Z
+      out.sort((a, b) => {
+        if (a.is_churning !== b.is_churning) return a.is_churning ? -1 : 1;
+        if (a.is_churning && b.is_churning) return (a.churn_date || '9999').localeCompare(b.churn_date || '9999');
+        return a.client_name.localeCompare(b.client_name);
+      });
+    }
+    return out;
+  }, [rows, actions, search, sort, filters]);
+
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+
 
   const churnCount = rows.filter(r => r.is_churning).length;
 
