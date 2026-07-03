@@ -284,6 +284,11 @@ export function OutcomeDrawer({
 
   // Planning to Book 2nd Intro: log outcome + create day-2 and day-7 follow-up tasks
     if (isPlanningToBook2ndIntro) {
+      if (isMissingCoach(coachName)) { toast.error('Pick the coach who taught the class before saving'); return; }
+      if (!secondIntroReason) { toast.error("Select what's holding them back"); return; }
+      const objectionValue = secondIntroReason === 'Other'
+        ? (secondIntroReasonOther.trim() || 'Other')
+        : secondIntroReason;
       setSaving(true);
       try {
         // 1. Log the outcome via canonical path
@@ -294,7 +299,7 @@ export function OutcomeDrawer({
           newResult: 'Planning to Book 2nd Intro',
           previousResult: currentResult || null,
           leadSource: leadSource || '',
-          objection: null,
+          objection: objectionValue,
           coachName: coachName || undefined,
           editedBy,
           sourceComponent: 'MyDay-OutcomeDrawer',
@@ -302,6 +307,7 @@ export function OutcomeDrawer({
           runId: existingRunId || undefined,
         });
         if (!result.success) throw new Error(result.error);
+
 
         // 2. Delete existing follow-up queue entries for this booking to avoid duplicate constraint
         await supabase.from('follow_up_queue')
