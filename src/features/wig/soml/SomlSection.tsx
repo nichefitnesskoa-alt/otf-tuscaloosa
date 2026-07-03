@@ -455,6 +455,11 @@ export function SomlSection() {
       <div className="text-[11px] text-muted-foreground">
         Default per-SA target: {defaultPerSa.referrals.toFixed(1)} referrals · {defaultPerSa.upgrades.toFixed(1)} upgrades · {defaultPerSa.sales.toFixed(1)} sales
         {activeCount > 0 && <span className="ml-1">({activeCount} SAs)</span>}
+        {anyOverride && (
+          <span className="ml-1 italic text-primary">
+            — auto-adjusted from {flatPerSa.referrals.toFixed(1)}/{flatPerSa.upgrades.toFixed(1)}/{flatPerSa.sales.toFixed(1)} to cover overrides so team totals still hit the goal.
+          </span>
+        )}
         {isAdmin && <span className="ml-1 italic">— tap a cell to override for one SA.</span>}
       </div>
 
