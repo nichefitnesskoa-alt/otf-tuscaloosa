@@ -1,0 +1,2 @@
+ALTER TABLE public.outreach_row_actions DROP CONSTRAINT IF EXISTS outreach_row_actions_action_type_check;
+ALTER TABLE public.outreach_row_actions ADD CONSTRAINT outreach_row_actions_action_type_check CHECK (action_type IN ('texted','in_person','save_attempt','not_interested'));
