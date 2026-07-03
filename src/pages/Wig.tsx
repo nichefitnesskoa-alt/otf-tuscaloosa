@@ -702,6 +702,13 @@ export default function Wig() {
           const root = (await resolveRoot(r.linked_intro_booked_id)) || linked;
           if (isBookingExcludedFromMetrics(root)) continue;
 
+          // Internal · Total Journey only credits coaches whose ROOT first
+          // intro was in the current window. If the root class is outside
+          // the window (e.g. sale in July but first intro in June), skip —
+          // the root coach's Coached/Close for this member belongs to the
+          // window that contained the first intro, not this one.
+          if (!root.class_date || root.class_date < rangeStart || root.class_date > rangeEnd) continue;
+
           // Coach = root first intro's coach with VIP override (Total Journey),
           // falling back to the sale run's coach if the root has none.
           const cName = resolveCloseCoach(root, root.coach_name || r.coach_name) || r.coach_name;
@@ -723,24 +730,6 @@ export default function Wig() {
             via: isViaSecond ? '2nd_intro' : 'direct',
           });
           countedRunBookingIds.add(r.linked_intro_booked_id);
-
-          // Cross-period close: the root 1st intro is outside the current
-          // window, so it never hit the Coached pass above. Credit the root
-          // coach with the coached count for this member too, so their
-          // denominator reflects the class they actually ran.
-          if (!coachMap.has(cName) || !ensureAttrib(cName).coached.some(c => c.bookingId === root.id)) {
-            const em = coachMap.get(cName) || { coached: 0 };
-            em.coached++;
-            coachMap.set(cName, em);
-            ensureAttrib(cName).coached.push({
-              bookingId: root.id,
-              member: root.member_name || linked.member_name || 'Unknown',
-              classDate: root.class_date || null,
-              source: root.lead_source || null,
-              resultLabel: 'SALE',
-              via2ndIntroSale: isViaSecond,
-            });
-          }
         }
       }
 
