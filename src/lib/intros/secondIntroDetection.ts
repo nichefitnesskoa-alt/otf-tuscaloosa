@@ -56,7 +56,12 @@ export function isSecondIntroBooking(
   allRuns: SecondIntroRunLike[],
 ): boolean {
   if (!child.originating_booking_id) return false;
-  if (child.referred_by_member_name) return false;
+  // NOTE: A referred_by_member_name on its own (with no originating_booking_id)
+  // marks an independent friend booking → always a 1st intro. But when the
+  // booking is ALSO a reschedule of a prior booking for the same member
+  // (originating_booking_id is set), the referrer name is inherited and does
+  // NOT disqualify — the chain walk below handles same-member vs cross-member
+  // correctly by checking name equality at each hop.
 
   const bookingsById = new Map<string, SecondIntroBookingLike>();
   for (const b of allBookings) bookingsById.set(b.id, b);
