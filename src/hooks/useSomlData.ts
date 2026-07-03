@@ -45,11 +45,21 @@ export interface PendingReferralRow {
   class_date?: string | null;
 }
 
+export interface SomlDetailItem {
+  sa: string;
+  member_name: string;
+  date: string | null; // ISO date
+  source: 'auto' | 'manual' | 'legacy';
+}
+
 export interface SomlData {
   config: SomlConfig | null;
   totals: { referrals: number; upgrades: number; sales: number; pending: number };
   rows: SomlSaRow[];
   pendingReferrals: PendingReferralRow[];
+  realizedReferrals: SomlDetailItem[];
+  upgradesList: SomlDetailItem[];
+  salesList: SomlDetailItem[];
   loading: boolean;
   refetch: () => Promise<void>;
 }
@@ -65,6 +75,9 @@ export function useSomlData(): SomlData {
   const [rows, setRows] = useState<SomlSaRow[]>([]);
   const [totals, setTotals] = useState({ referrals: 0, upgrades: 0, sales: 0, pending: 0 });
   const [pendingReferrals, setPendingReferrals] = useState<PendingReferralRow[]>([]);
+  const [realizedReferrals, setRealizedReferrals] = useState<SomlDetailItem[]>([]);
+  const [upgradesList, setUpgradesList] = useState<SomlDetailItem[]>([]);
+  const [salesList, setSalesList] = useState<SomlDetailItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
@@ -78,13 +91,17 @@ export function useSomlData(): SomlData {
       .maybeSingle();
     const cfg = (cfgRow as unknown as SomlConfig | null) || null;
     setConfig(cfg);
-    if (!cfg) { setRows([]); setPendingReferrals([]); setTotals({ referrals: 0, upgrades: 0, sales: 0, pending: 0 }); setLoading(false); return; }
+    if (!cfg) {
+      setRows([]); setPendingReferrals([]);
+      setRealizedReferrals([]); setUpgradesList([]); setSalesList([]);
+      setTotals({ referrals: 0, upgrades: 0, sales: 0, pending: 0 });
+      setLoading(false); return;
+    }
 
     const start = cfg.start_date;
     const end = cfg.end_date;
 
-    // 2. Pending/referral ledger. Realized rows are the automatic referral
-    //    source of truth because reschedules resolve back to the chain root.
+    // 2. Pending/referral ledger.
     const { data: pendingRows } = await (supabase as any)
       .from('soml_pending_referrals')
       .select('id, booking_id, referring_member, credited_sa, state, resolved_outcome, realized_at, created_at')
@@ -104,13 +121,12 @@ export function useSomlData(): SomlData {
       class_date: pendingBookingMap.get(p.booking_id)?.class_date || null,
     }));
 
-    let autoReferralRows: Array<{ sa: string; member_name: string }> = enrichedPending
+    const realizedItems: SomlDetailItem[] = enrichedPending
       .filter(p => p.state === 'realized' && !!p.realized_at && p.realized_at >= start && p.realized_at <= end)
-      .map(p => ({ sa: p.credited_sa, member_name: p.member_name || '' }));
+      .map(p => ({ sa: p.credited_sa, member_name: p.member_name || '', date: p.realized_at, source: 'auto' }));
 
-    // Fallback for any legacy realized referral sale that predates the pending
-    // ledger. Exclude members already represented by the ledger to avoid double count.
-    const ledgerReferralMemberSet = new Set(autoReferralRows.map(r => norm(r.member_name)));
+    // Legacy fallback — realized referral sales not in the pending ledger.
+    const ledgerReferralMemberSet = new Set(realizedItems.map(r => norm(r.member_name)));
     const { data: refBookings } = await supabase
       .from('intros_booked')
       .select('id, member_name, booked_by, intro_owner, lead_source')
@@ -118,12 +134,12 @@ export function useSomlData(): SomlData {
       .is('deleted_at', null);
     const refBookingIds = (refBookings || []).map((b: any) => b.id);
     if (refBookingIds.length) {
-      const saleCanons = Array.from(SALE_CANONS);
+      const saleCanonsX = Array.from(SALE_CANONS);
       const { data: runs } = await supabase
         .from('intros_run')
         .select('id, result_canon, buy_date, run_date, created_at, linked_intro_booked_id, ignore_from_metrics')
         .in('linked_intro_booked_id', refBookingIds)
-        .in('result_canon', saleCanons);
+        .in('result_canon', saleCanonsX);
       const bookingMap = new Map<string, any>((refBookings || []).map((b: any) => [b.id, b]));
       for (const r of (runs || [])) {
         if ((r as any).ignore_from_metrics) continue;
@@ -135,10 +151,10 @@ export function useSomlData(): SomlData {
           ? bk.booked_by
           : bk.intro_owner;
         if (!credit) continue;
-        autoReferralRows.push({ sa: credit, member_name: bk.member_name || '' });
+        realizedItems.push({ sa: credit, member_name: bk.member_name || '', date: saleDate, source: 'legacy' });
       }
     }
-    const autoReferralMemberSet = new Set(autoReferralRows.map(r => norm(r.member_name)));
+    const autoReferralMemberSet = new Set(realizedItems.map(r => norm(r.member_name)));
 
     // 3. Manual referrals — dedup against auto by member_name
     const { data: manualRefs } = await supabase
@@ -146,9 +162,16 @@ export function useSomlData(): SomlData {
       .select('member_name, referred_by, referred_at')
       .gte('referred_at', `${start}T00:00:00-06:00`)
       .lte('referred_at', `${end}T23:59:59-05:00`);
-    const manualReferralRows = ((manualRefs as any[]) || [])
+    const manualReferralItems: SomlDetailItem[] = ((manualRefs as any[]) || [])
       .filter(m => !autoReferralMemberSet.has(norm(m.member_name)))
-      .map(m => ({ sa: m.referred_by as string, member_name: m.member_name as string }));
+      .map(m => ({
+        sa: m.referred_by as string,
+        member_name: m.member_name as string,
+        date: (m.referred_at as string)?.slice(0, 10) || null,
+        source: 'manual' as const,
+      }));
+
+    const allReferralItems: SomlDetailItem[] = [...realizedItems, ...manualReferralItems];
 
     // 4. Upgrades
     const { data: upgrades } = await supabase
@@ -156,13 +179,18 @@ export function useSomlData(): SomlData {
       .select('member_name, upgraded_by, upgraded_at')
       .gte('upgraded_at', `${start}T00:00:00-06:00`)
       .lte('upgraded_at', `${end}T23:59:59-05:00`);
-    const upgradeRows = ((upgrades as any[]) || []).map(u => ({ sa: u.upgraded_by as string }));
+    const upgradeItems: SomlDetailItem[] = ((upgrades as any[]) || []).map(u => ({
+      sa: u.upgraded_by as string,
+      member_name: u.member_name as string,
+      date: (u.upgraded_at as string)?.slice(0, 10) || null,
+      source: 'manual' as const,
+    }));
 
     // 5. Sales — all qualifying sales in window (attributed to intro_owner)
     const saleCanons = Array.from(SALE_CANONS);
     const { data: allSaleRuns } = await supabase
       .from('intros_run')
-      .select('id, result_canon, buy_date, run_date, created_at, linked_intro_booked_id, ignore_from_metrics')
+      .select('id, member_name, result_canon, buy_date, run_date, created_at, linked_intro_booked_id, ignore_from_metrics')
       .in('result_canon', saleCanons);
     const saleBookingIds = Array.from(new Set(((allSaleRuns as any[]) || [])
       .map(r => r.linked_intro_booked_id).filter(Boolean)));
@@ -170,11 +198,11 @@ export function useSomlData(): SomlData {
     if (saleBookingIds.length) {
       const { data: bks } = await supabase
         .from('intros_booked')
-        .select('id, intro_owner, booked_by')
+        .select('id, member_name, intro_owner, booked_by')
         .in('id', saleBookingIds);
       salesBookingMap = new Map(((bks as any[]) || []).map(b => [b.id, b]));
     }
-    const salesRows: Array<{ sa: string }> = [];
+    const salesItems: SomlDetailItem[] = [];
     for (const r of ((allSaleRuns as any[]) || [])) {
       if (r.ignore_from_metrics) continue;
       const d = getRunSaleDate(r);
@@ -182,7 +210,12 @@ export function useSomlData(): SomlData {
       const bk = r.linked_intro_booked_id ? salesBookingMap.get(r.linked_intro_booked_id) : null;
       const credit = bk?.intro_owner || bk?.booked_by;
       if (!credit) continue;
-      salesRows.push({ sa: credit });
+      salesItems.push({
+        sa: credit,
+        member_name: bk?.member_name || r.member_name || '',
+        date: d,
+        source: 'auto',
+      });
     }
 
     // 6. Aggregate per-SA
@@ -192,13 +225,11 @@ export function useSomlData(): SomlData {
       cur[key] += 1;
       byName.set(sa, cur);
     };
-    [...autoReferralRows, ...manualReferralRows].forEach(r => bump(r.sa, 'referrals'));
-    upgradeRows.forEach(r => bump(r.sa, 'upgrades'));
-    salesRows.forEach(r => bump(r.sa, 'sales'));
+    allReferralItems.forEach(r => bump(r.sa, 'referrals'));
+    upgradeItems.forEach(r => bump(r.sa, 'upgrades'));
+    salesItems.forEach(r => bump(r.sa, 'sales'));
 
-    // 7. Pending referrals are purely a display layer, never summed into the
-    //    real Referrals total until the ledger row becomes realized.
-    // Per-SA pending count = state === 'pending' only
+    // 7. Pending display-only
     enrichedPending.filter(p => p.state === 'pending').forEach(p => bump(p.credited_sa, 'pending'));
 
     const rowsOut = Array.from(byName.values())
@@ -218,6 +249,9 @@ export function useSomlData(): SomlData {
 
     setRows(rowsOut);
     setPendingReferrals(enrichedPending);
+    setRealizedReferrals(allReferralItems);
+    setUpgradesList(upgradeItems);
+    setSalesList(salesItems);
     setTotals(t);
     setLoading(false);
   }, []);
@@ -234,7 +268,11 @@ export function useSomlData(): SomlData {
     };
   }, [fetchAll]);
 
-  return { config, totals, rows, pendingReferrals, loading, refetch: fetchAll };
+  return {
+    config, totals, rows, pendingReferrals,
+    realizedReferrals, upgradesList, salesList,
+    loading, refetch: fetchAll,
+  };
 }
 
 export function notifySomlChanged() {

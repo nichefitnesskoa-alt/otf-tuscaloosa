@@ -25,7 +25,7 @@ import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useEffectiveAdmin } from '@/hooks/useViewAsAdmin';
 import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/pace';
 import { getNowCentral } from '@/lib/dateUtils';
-import { useSomlData, notifySomlChanged, type SomlConfig, type PendingReferralRow } from '@/hooks/useSomlData';
+import { useSomlData, notifySomlChanged, type SomlConfig, type PendingReferralRow, type SomlDetailItem } from '@/hooks/useSomlData';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 
 type MetricKey = 'referrals' | 'upgrades' | 'sales';
@@ -39,6 +39,7 @@ interface HeroTileProps {
   isAdmin: boolean;
   onEdit: () => void;
   savedFlash: boolean;
+  onDrilldown?: () => void;
 }
 
 function PaceBar({ current, target, pace, size = 'sm' }: { current: number; target: number | null; pace: number | null; size?: 'sm' | 'lg' }) {
@@ -52,7 +53,7 @@ function PaceBar({ current, target, pace, size = 'sm' }: { current: number; targ
   );
 }
 
-function HeroTile({ label, icon, actual, goal, pace, isAdmin, onEdit, savedFlash }: HeroTileProps) {
+function HeroTile({ label, icon, actual, goal, pace, isAdmin, onEdit, savedFlash, onDrilldown }: HeroTileProps) {
   const status = statusColor(actual, pace);
   const cls = statusClasses(status);
   return (
@@ -76,10 +77,22 @@ function HeroTile({ label, icon, actual, goal, pace, isAdmin, onEdit, savedFlash
             </Tooltip>
           )}
         </div>
-        <div className="flex items-baseline gap-1.5">
+        <button
+          type="button"
+          onClick={onDrilldown}
+          disabled={!onDrilldown || actual === 0}
+          className={cn(
+            'w-full text-left flex items-baseline gap-1.5 rounded-md -mx-1 px-1 py-0.5 transition',
+            onDrilldown && actual > 0 && 'hover:bg-secondary/60 cursor-pointer',
+          )}
+          aria-label={onDrilldown ? `View ${label} details` : undefined}
+        >
           <span className="text-4xl font-black tabular-nums leading-none text-foreground">{actual}</span>
           <span className="text-xs text-muted-foreground">of {goal || '—'}</span>
-        </div>
+          {onDrilldown && actual > 0 && (
+            <span className="ml-auto text-[10px] text-primary underline">View</span>
+          )}
+        </button>
         <div className="text-[11px] text-muted-foreground">
           Pace: <span className={cn('font-bold', cls.text)}>{formatPace(pace)}</span> today
         </div>
@@ -296,7 +309,7 @@ export function SomlSection() {
   const { user } = useAuth();
   const isAdmin = useEffectiveAdmin();
   const { salesAssociates: activeSas } = useActiveStaff();
-  const { config, totals, rows, pendingReferrals, refetch } = useSomlData();
+  const { config, totals, rows, pendingReferrals, realizedReferrals, upgradesList, salesList, refetch } = useSomlData();
 
   const [editMetric, setEditMetric] = useState<MetricKey | null>(null);
   const [editWindowOpen, setEditWindowOpen] = useState(false);
@@ -305,6 +318,7 @@ export function SomlSection() {
   const [overrides, setOverrides] = useState<Record<string, SaOverride>>({});
   const [editCell, setEditCell] = useState<{ sa: string; metric: MetricKey } | null>(null);
   const [pendingDialogSa, setPendingDialogSa] = useState<string | null>(null); // null closed, '' = all, 'name' = one SA
+  const [drilldown, setDrilldown] = useState<{ metric: MetricKey; sa: string } | null>(null); // sa '' = all
 
   const loadOverrides = useCallback(async () => {
     const { data } = await (supabase as any)
@@ -475,18 +489,21 @@ export function SomlSection() {
           actual={totals.referrals} goal={goals.referrals} pace={paces.referrals}
           isAdmin={isAdmin} onEdit={() => openEditMetric('referrals')}
           savedFlash={savedFlash === 'referrals'}
+          onDrilldown={() => setDrilldown({ metric: 'referrals', sa: '' })}
         />
         <HeroTile
           label="Upgrades" icon={<TrendingUp className="w-4 h-4" />}
           actual={totals.upgrades} goal={goals.upgrades} pace={paces.upgrades}
           isAdmin={isAdmin} onEdit={() => openEditMetric('upgrades')}
           savedFlash={savedFlash === 'upgrades'}
+          onDrilldown={() => setDrilldown({ metric: 'upgrades', sa: '' })}
         />
         <HeroTile
           label="Sales" icon={<DollarSign className="w-4 h-4" />}
           actual={totals.sales} goal={goals.sales} pace={paces.sales}
           isAdmin={isAdmin} onEdit={() => openEditMetric('sales')}
           savedFlash={savedFlash === 'sales'}
+          onDrilldown={() => setDrilldown({ metric: 'sales', sa: '' })}
         />
       </div>
 
@@ -566,7 +583,18 @@ export function SomlSection() {
                   return (
                     <TableCell key={k} className="text-center align-middle py-4">
                       <div className="flex items-baseline justify-center gap-2">
-                        <span className="text-3xl md:text-4xl font-black tabular-nums leading-none text-foreground">{r[k]}</span>
+                        <button
+                          type="button"
+                          onClick={() => r[k] > 0 && setDrilldown({ metric: k, sa: r.sa })}
+                          disabled={r[k] === 0}
+                          className={cn(
+                            'text-3xl md:text-4xl font-black tabular-nums leading-none text-foreground rounded px-1',
+                            r[k] > 0 && 'hover:bg-secondary/60 cursor-pointer',
+                          )}
+                          aria-label={r[k] > 0 ? `View ${r.sa}'s ${k}` : undefined}
+                        >
+                          {r[k]}
+                        </button>
                         <span className="text-sm text-muted-foreground tabular-nums">/ {tgt.toFixed(1)}</span>
                         {isAdmin && (
                           <Tooltip>
@@ -627,8 +655,77 @@ export function SomlSection() {
         saFilter={pendingDialogSa || ''}
         rows={pendingReferrals}
       />
+      <SomlDrilldownDialog
+        open={drilldown !== null}
+        onClose={() => setDrilldown(null)}
+        metric={drilldown?.metric || 'referrals'}
+        saFilter={drilldown?.sa || ''}
+        referrals={realizedReferrals}
+        upgrades={upgradesList}
+        sales={salesList}
+      />
     </section>
     </TooltipProvider>
+  );
+}
+
+interface SomlDrilldownDialogProps {
+  open: boolean;
+  onClose: () => void;
+  metric: MetricKey;
+  saFilter: string; // '' = all
+  referrals: SomlDetailItem[];
+  upgrades: SomlDetailItem[];
+  sales: SomlDetailItem[];
+}
+function SomlDrilldownDialog({ open, onClose, metric, saFilter, referrals, upgrades, sales }: SomlDrilldownDialogProps) {
+  const source = metric === 'referrals' ? referrals : metric === 'upgrades' ? upgrades : sales;
+  const filtered = useMemo(() => {
+    const rows = saFilter ? source.filter(r => r.sa === saFilter) : source;
+    return [...rows].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [source, saFilter]);
+  const label = metric === 'referrals' ? 'Referrals' : metric === 'upgrades' ? 'Upgrades' : 'Sales';
+  const dateLabel = metric === 'sales' ? 'Sold' : metric === 'upgrades' ? 'Upgraded' : 'Bought';
+
+  return (
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {saFilter ? `${saFilter}'s ${label.toLowerCase()}` : `All ${label.toLowerCase()}`} · {filtered.length}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="text-[11px] text-muted-foreground mb-2">
+          Summer of More Life window · credit shown per SA.
+        </div>
+        {filtered.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-4 text-center">No {label.toLowerCase()} yet in this window.</p>
+        ) : (
+          <div className="divide-y">
+            {filtered.map((r, i) => (
+              <div key={`${r.member_name}-${r.date}-${i}`} className="py-2 flex items-start justify-between gap-3 text-xs">
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-foreground truncate">
+                    {r.member_name || 'Unnamed member'}
+                  </div>
+                  <div className="text-muted-foreground">
+                    Credit: <span className="text-foreground font-medium">{r.sa}</span>
+                    {r.source === 'manual' && <span className="ml-1 italic">· logged manually</span>}
+                    {r.source === 'legacy' && <span className="ml-1 italic">· legacy</span>}
+                  </div>
+                </div>
+                <div className="text-right shrink-0 text-muted-foreground">
+                  {r.date ? `${dateLabel} ${format(new Date(r.date + 'T12:00:00'), 'MMM d')}` : '—'}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
