@@ -32,6 +32,7 @@ import {
   resolveIntroLinkCode,
   resolveFriendCode,
   ensureFriendCode,
+  PUBLIC_BOOKING_BASE,
 } from '@/lib/introScheduler/linkUrl';
 import { stripCountryCode } from '@/lib/parsing/phone';
 import { generateUniqueSlug } from '@/lib/utils';
