@@ -678,6 +678,20 @@ function PendingReferralsDialog({ open, onClose, saFilter, rows }: PendingReferr
     }
   };
 
+  const dismissReferral = async (row: PendingReferralRow) => {
+    if (!confirm(`Remove ${row.member_name || 'this referral'} from the pending list? This won't count as a referral.`)) return;
+    const { error } = await (supabase as any)
+      .from('soml_pending_referrals')
+      .update({ state: 'not_converted', resolved_outcome: 'Dismissed' })
+      .eq('id', row.id);
+    if (error) {
+      toast.error('Could not dismiss referral');
+    } else {
+      toast.success('Referral dismissed');
+      notifySomlChanged();
+    }
+  };
+
   const renderList = (list: PendingReferralRow[], emptyMsg: string) => {
     if (list.length === 0) return <p className="text-xs text-muted-foreground py-2">{emptyMsg}</p>;
     return (
