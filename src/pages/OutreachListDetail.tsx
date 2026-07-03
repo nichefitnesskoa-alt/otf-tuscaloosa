@@ -143,7 +143,115 @@ function SaveAttemptDialog({
   );
 }
 
+function ColHeader({
+  col, label, align, className, sort, filters, onSort, onFilter,
+}: {
+  col: ColKey;
+  label: string;
+  align: 'left' | 'right' | 'center';
+  className?: string;
+  sort: SortState;
+  filters: FilterState;
+  onSort: (c: ColKey) => void;
+  onFilter: (c: ColKey, v: string | undefined) => void;
+}) {
+  const type = COL_TYPES[col];
+  const active = sort?.key === col;
+  const filterVal = filters[col];
+  const hasFilter = !!filterVal;
+  const [draft, setDraft] = useState('');
+  return (
+    <th className={cn(
+      'px-1 py-2 select-none',
+      align === 'left' && 'text-left',
+      align === 'right' && 'text-right',
+      align === 'center' && 'text-center',
+      className,
+    )}>
+      <div className={cn(
+        'flex items-center gap-0.5',
+        align === 'right' && 'justify-end',
+        align === 'center' && 'justify-center',
+      )}>
+        <button
+          onClick={() => onSort(col)}
+          className={cn(
+            'inline-flex items-center gap-1 px-1 py-0.5 rounded hover:bg-accent hover:text-foreground cursor-pointer',
+            active && 'text-foreground font-bold',
+          )}
+          title={active ? `Sorted ${sort!.dir}. Click to cycle.` : 'Click to sort'}
+        >
+          <span>{label}</span>
+          {active
+            ? (sort!.dir === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)
+            : <ArrowUpDown className="w-3 h-3 opacity-30" />}
+        </button>
+        <Popover onOpenChange={o => { if (o) setDraft(filterVal || ''); }}>
+          <PopoverTrigger asChild>
+            <button
+              className={cn(
+                'inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent cursor-pointer',
+                hasFilter ? 'text-primary' : 'text-muted-foreground/50 hover:text-foreground',
+              )}
+              title={hasFilter ? `Filter: ${filterVal}` : 'Filter this column'}
+            >
+              <Filter className="w-3 h-3" fill={hasFilter ? 'currentColor' : 'none'} />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-2 space-y-2" align="start">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Filter {label}</div>
+            {type === 'bool' ? (
+              <div className="flex gap-1">
+                {(['any', 'yes', 'no'] as BoolFilter[]).map(v => {
+                  const isActive = (v === 'any' ? !filterVal : filterVal === v);
+                  return (
+                    <button
+                      key={v}
+                      onClick={() => onFilter(col, v === 'any' ? undefined : v)}
+                      className={cn(
+                        'flex-1 h-7 rounded border text-xs capitalize cursor-pointer',
+                        isActive ? 'bg-primary/20 border-primary text-primary font-bold' : 'border-border hover:bg-accent',
+                      )}
+                    >
+                      {v}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <>
+                <Input
+                  autoFocus
+                  value={draft}
+                  onChange={e => setDraft(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') onFilter(col, draft.trim() || undefined); }}
+                  placeholder={
+                    type === 'number' ? 'e.g. >5, <=10, =0, 3'
+                      : type === 'date' ? 'e.g. 2026-06'
+                      : 'Contains…'
+                  }
+                  className="h-7 text-xs"
+                />
+                <div className="flex gap-1">
+                  <Button size="sm" className="h-7 text-xs flex-1" onClick={() => onFilter(col, draft.trim() || undefined)}>Apply</Button>
+                  {hasFilter && (
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setDraft(''); onFilter(col, undefined); }}>Clear</Button>
+                  )}
+                </div>
+                {type === 'number' && (
+                  <p className="text-[10px] text-muted-foreground">Comparators: &gt; &lt; &gt;= &lt;= = (or blank contains)</p>
+                )}
+              </>
+            )}
+          </PopoverContent>
+        </Popover>
+      </div>
+    </th>
+  );
+}
+
 export default function OutreachListDetail() {
+
   const { id } = useParams();
   const { user } = useAuth();
   const isAdmin = isAdminCheck(user);
