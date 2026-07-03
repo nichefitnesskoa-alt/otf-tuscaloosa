@@ -58,6 +58,7 @@ export function EditBookingDialog({
   const [source, setSource] = useState(leadSource || '');
   const [owner, setOwner] = useState(introOwner || '');
   const [booker, setBooker] = useState(bookedBy || '');
+  const [referredBy, setReferredBy] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -71,8 +72,9 @@ export function EditBookingDialog({
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const { data } = await sb.from('intros_booked').select('event_id').eq('id', bookingId).maybeSingle();
+      const { data } = await sb.from('intros_booked').select('event_id, referred_by_member_name').eq('id', bookingId).maybeSingle();
       setEventId((data?.event_id as string) || null);
+      setReferredBy((data?.referred_by_member_name as string) || '');
     })();
   }, [open, bookingId]);
 
