@@ -1,55 +1,55 @@
-# Outreach Lists — reusable campaign lists
+# Fix outreach list layout + broken import
 
-## Diagnosis (as requested)
+## What's actually wrong (diagnosed from the DB)
 
-**1. CSV/XLSX import.** The app already uses SheetJS (`xlsx@0.18.5`). The canonical example is `src/components/shared/NetGainScoreboard.tsx` (`XLSX.read`, `XLSX.utils.sheet_to_json`, `<input accept=".csv,.xlsx,.xls">`) and `src/components/admin/MindbodyImportsPanel.tsx`. New feature will reuse this exact pattern — no new parser dep.
+The uploaded spreadsheet has a **title sentence in row 1** ("Cross-referenced against Active Member Detail…") and the **real column headers in row 2** ("Client", "Email", "Phone #", "Item", "Amount", …).
 
-**2. SOML logging flow.** `LogDialog` inside `src/features/wig/soml/SomlSection.tsx` writes to `soml_upgrades` (fields: `member_name`, `upgraded_by`, `notes`, `created_by`) and `soml_manual_referrals` (fields: `member_name`, `referred_by`, `notes`, `created_by`), then calls `notifySomlChanged()` so the scoreboard refetches via `useSomlData`. We will extract `LogDialog` into `src/features/soml/LogSomlDialog.tsx` and reuse it — outreach rows open the identical dialog pre-filled with `member_name`. No change to writes, credit rules, or `useSomlData` aggregation.
+`XLSX.sheet_to_json` used row 1 as the header row, so:
+- Every real column became `__EMPTY`, `__EMPTY_1`, `__EMPTY_2`… and got dumped into `metadata`.
+- `client_name` and `item` both got filled with the title sentence — that's the "cross-reference line" you're seeing.
+- `amount` is 0/blank for everyone because the actual "$169.00" values are hiding in `metadata.__EMPTY_3`.
+- Churn flag is blank because the real "Churning" column landed in `metadata.__EMPTY_10`.
 
-**3. Realtime pattern.** Standard: `supabase.channel(name).on('postgres_changes', {event:'*', schema:'public', table}, cb).subscribe()` inside a `useEffect`, torn down with `removeChannel`. Examples: `useRealtimeMyDay.ts`, `BingoAdminPage.tsx`, `useMyOwnItMentions.ts`. We'll mirror this for `outreach_list_rows` and `outreach_row_actions`.
+So the fix is two things: **fix the importer** so it finds the real header row, and **redesign the detail page** as a spreadsheet-style table with churn visible at a glance.
 
-## Data model (migration — pending approval)
+## 1. Fix the importer (root cause)
 
-- `outreach_lists`: `id`, `name`, `campaign_tag`, `active bool default true`, `created_by`, `created_at`.
-- `outreach_list_rows`: `id`, `list_id fk`, `client_name`, `email`, `phone`, `item`, `amount numeric`, `worked_out_30d bool`, `last_30d_count int`, `latest_workout_date date`, `is_churning bool`, `churn_date date`, `metadata jsonb` (unmapped columns), `created_at`.
-- `outreach_row_actions`: `id`, `row_id fk`, `action_type text` (`texted` | `in_person` | `save_attempt`), `done_by`, `done_at timestamptz default now()`, `notes`.
-- RLS: `authenticated` full CRUD (matches app pattern; no auth.uid in this app). GRANTs to `authenticated` + `service_role`.
-- Add all three tables to `supabase_realtime` publication; `REPLICA IDENTITY FULL` on rows + actions.
+In `OutreachListImport.tsx`:
 
-## Build
+- After `XLSX.utils.sheet_to_json`, detect the real header row by scanning the first ~10 rows using `sheet_to_json(ws, { header: 1 })` (array-of-arrays mode) and picking the first row where any cell matches `/^(client|name|member|full name)/i`.
+- Re-parse the sheet using that row as `range` (skip rows above it).
+- Add a small "Header row" number input in the sheet card so the user can override the auto-detected row (1-indexed) if we guess wrong.
+- Also strip `__EMPTY*` keys from `metadata` so junk never leaks in.
 
-**A. Import wizard** (`/outreach-lists/new`, admin-only)
-- Upload `.csv/.xlsx`. Uses same `XLSX.read` pattern as `NetGainScoreboard`. Multi-sheet files become multiple lists sharing one `campaign_tag`.
-- Two-step: (1) name + `campaign_tag`; (2) per-sheet column mapping UI — dropdowns for `client_name`, `email`, `phone`, `item`, `amount`, `worked_out_30d`, `last_30d_count`, `latest_workout_date`, `is_churning`, `churn_date`. Unmapped columns → `metadata` jsonb (not dropped).
-- Nothing SOML-specific in the code path.
+## 2. Clean up the two bad lists
 
-**B. Outreach Lists page** (`/outreach-lists`, new nav entry — SA + Coach + Admin)
-- Landing: cards grouped by `campaign_tag`, each showing "X of Y contacted" (contacted = row has any action).
-- List detail page has two clearly separate sections:
-  - **Retention / At-risk** (top, red/amber accent card style, warning header "Save calls — not upsells"): `is_churning=true`, sorted by `churn_date` asc. Row action: single **Log Save Attempt** button → inserts `save_attempt` action + optional note.
-  - **Standard outreach** (default card style): `is_churning=false`. Row actions: **Texted** and **In Person** pill buttons. Once tapped, pill shows `✓ Texted · Bri · 2:14p`. Hover/tap shows full attribution list if multiple actions exist.
-- Per row: **Log Upgrade** and **Log Referral** buttons open the extracted `LogSomlDialog` pre-filled with `client_name`. Result writes to `soml_upgrades` / `soml_manual_referrals` exactly as today; `notifySomlChanged()` fires; WIG scoreboard updates.
-- Realtime subscription on `outreach_list_rows` (churn flag edits) and `outreach_row_actions` (live status). All timestamps rendered in CST via existing `dateUtils`.
+They're unrecoverable in place (real values are in `metadata.__EMPTY_*` with no schema guarantees). Simplest safe path: delete the two existing rows for lists `Elite & Basic` and `Premier $139+` (and their `outreach_list_rows`), then re-import the same file with the fixed wizard. I'll do the delete via migration and you re-upload.
 
-**C. Reusability**
-- No SOML strings in schema or page. `campaign_tag` is user-set free text. Future campaigns import via the same wizard, no code change.
+## 3. Redesign detail page as a spreadsheet-style table
 
-## Scope guard
+Replace the stacked cards in `OutreachListDetail.tsx` with a single dense horizontal table. One row per person, churning members flagged inline (not in a separate section) so you see everyone at once and can still tell churns at a glance.
 
-- `SomlSection.tsx` logic is **not touched** except to export `LogDialog` for reuse (rename to `LogSomlDialog`, unchanged behavior). `useSomlData`, `soml_upgrades`, `soml_manual_referrals`, pace/status helpers, credit rules — all unchanged.
-- New nav entry added to `BottomNav.tsx` under existing role-visibility system (new `nav.outreach_lists` perm key).
+Columns (left → right):
+```text
+[⚠]  Name           Item                          Amount   Phone           Last 30d   Latest         Texted   In Person   Actions
+ 🔴  Riemer, Natasha FMF26 Premier Membership     $169.00  (714) 319-5128  1          Jun 12          [ ]      [ ]         Save · Upgrade · Refer
+     Thomas, Emily   Orange Premier Membership    $169.00  (636) 696-9586  19         Jun 30          [ ]      [ ]         Save · Upgrade · Refer
+```
 
-## Coherence proof I will produce before reporting done
+- Churning rows: red left border + red ⚠ + tiny "Churns Jul 20" under the name. Sorted to top by `churn_date` ascending, then everyone else alphabetical.
+- Sticky header row, zebra striping, compact 32–36px row height so ~15+ people fit on screen.
+- Texted / In Person become small checkbox-style pills in their own columns (still live-attributed on hover tooltip).
+- Actions column: three tiny icon buttons (Save call only for churning, Log Upgrade, Log Referral).
+- Remove the two-section split ("Retention" vs "Standard") — replaced by inline churn styling + sort order.
+- Remove the list description/subtitle area entirely (that's where the "cross-reference" sentence was showing up as the list name — after re-import the list name will be clean, but I'll also make sure no long description text is rendered under the H1).
+- Mobile: collapses to a compact card list (name + churn flag + amount + one action row) since a real table won't fit on phones.
 
-1. `read_query` `outreach_lists` after SOML import → two rows, both `campaign_tag='SOML'`, names `"Premier $139+"` and `"Elite & Basic"`.
-2. `read_query` `outreach_list_rows where is_churning=true` for each list → count matches source sheet's churning rows; UI shows them in the retention section sorted by `churn_date` asc.
-3. Playwright as user A marks a row "Texted"; second Playwright context as user B on same list sees the pill flip live with attribution `"Texted · A · <time CST>"`.
-4. From a standard row tap **Log Upgrade** → `LogSomlDialog` opens with `member_name` pre-filled → submit → `read_query soml_upgrades` shows the new row → `useSomlData` totals reflect +1 upgrade on WIG page.
-5. Before/after `read_query` on `soml_config`, `soml_upgrades`, `soml_manual_referrals`, `soml_sa_goals` shows no schema drift and no unexpected mutations from this build.
-6. Closing block: "All agree: yes".
+## Files touched
 
-## Technical notes
+- `src/pages/OutreachListImport.tsx` — header-row detection + override + metadata cleanup
+- `src/pages/OutreachListDetail.tsx` — table layout, inline churn flagging, remove sections
+- New migration — delete the two mis-imported lists and their rows
 
-- New files: `supabase migration`, `src/pages/OutreachLists.tsx`, `src/pages/OutreachListDetail.tsx`, `src/pages/OutreachListImport.tsx`, `src/features/outreach/*` (hooks, row components, retention section, standard section, action pill), `src/features/soml/LogSomlDialog.tsx` (extracted).
-- Edits: `src/App.tsx` (3 routes), `src/components/BottomNav.tsx` (nav entry), `src/lib/auth/roles.ts` (add `nav.outreach_lists`), `src/features/wig/soml/SomlSection.tsx` (import `LogSomlDialog` from new location instead of local copy).
-- Realtime channel names: `outreach-list-<listId>` scoped per detail page; teardown in effect cleanup to avoid the subscription-leak footgun.
+## Not touching
+
+SOML tables, scoreboard, WIG logic, roles, or the `outreach_*` schema itself.
