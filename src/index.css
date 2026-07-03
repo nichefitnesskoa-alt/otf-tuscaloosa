@@ -44,27 +44,27 @@ All colors MUST be HSL.
 @layer base {
   :root {
     /* OTF Brand Colors — Orange #FF6F0D, Bone #FDF7EA, Dark #0A0A0A, Gray #D7D7D7 */
-    /* Light mode: bone page with dark cards/sections (OTF magazine treatment). */
+    /* Light mode: bone page, warm-tinted surfaces + visible borders for separation. */
     --background: 41 82% 96%;
     --foreground: 0 0% 4%;
 
-    /* Cards/popovers/dialogs render dark-on-bone for real contrast */
-    --card: 0 0% 10%;
-    --card-foreground: 41 82% 96%;
+    /* Cards sit ~6% darker than page so they read as distinct surfaces */
+    --card: 41 40% 90%;
+    --card-foreground: 0 0% 4%;
 
-    --popover: 0 0% 10%;
-    --popover-foreground: 41 82% 96%;
+    --popover: 41 40% 90%;
+    --popover-foreground: 0 0% 4%;
 
     /* OTF Orange #FF6F0D */
     --primary: 24 100% 53%;
     --primary-foreground: 0 0% 4%;
 
-    /* Secondary chips: dark surface with bone text */
-    --secondary: 0 0% 14%;
-    --secondary-foreground: 41 82% 96%;
+    /* Secondary chips: warm gray */
+    --secondary: 41 20% 84%;
+    --secondary-foreground: 0 0% 4%;
 
-    --muted: 0 0% 88%;
-    --muted-foreground: 0 0% 25%;
+    --muted: 41 25% 87%;
+    --muted-foreground: 0 0% 30%;
 
     --accent: 24 100% 92%;
     --accent-foreground: 0 0% 4%;
