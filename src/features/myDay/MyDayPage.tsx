@@ -70,6 +70,7 @@ import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploy
 import { IntroLinkBookingBanner } from './IntroLinkBookingBanner';
 
 import { OTF, Theme, brandFont } from '@/lib/otfBrand';
+import { NetGainScoreboard } from '@/components/shared/NetGainScoreboard';
 
 export default function MyDayPage() {
   const { user } = useAuth();
