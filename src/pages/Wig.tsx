@@ -351,7 +351,11 @@ export default function Wig() {
       // coach who ran it. When MULTIPLE children chain back to the same
       // excluded original (e.g. Alexa: a follow-up child + a sale child),
       // we promote exactly ONE — preferring the child that ended in a sale.
-      const candidateChildren = allCoachBookings.filter(b => !!b.originating_booking_id && !b.referred_by_member_name);
+      // A booking with originating_booking_id is ALWAYS a chain child, even
+      // if it inherited referred_by_member_name from its parent (e.g. a
+      // reschedule of a friend-referred first intro). We still consider it
+      // for orphan promotion so the chain walk lands on the right root.
+      const candidateChildren = allCoachBookings.filter(b => !!b.originating_booking_id);
       const originatingIds = Array.from(new Set(
         candidateChildren
           .map(b => b.originating_booking_id)
@@ -719,6 +723,24 @@ export default function Wig() {
             via: isViaSecond ? '2nd_intro' : 'direct',
           });
           countedRunBookingIds.add(r.linked_intro_booked_id);
+
+          // Cross-period close: the root 1st intro is outside the current
+          // window, so it never hit the Coached pass above. Credit the root
+          // coach with the coached count for this member too, so their
+          // denominator reflects the class they actually ran.
+          if (!coachMap.has(cName) || !ensureAttrib(cName).coached.some(c => c.bookingId === root.id)) {
+            const em = coachMap.get(cName) || { coached: 0 };
+            em.coached++;
+            coachMap.set(cName, em);
+            ensureAttrib(cName).coached.push({
+              bookingId: root.id,
+              member: root.member_name || linked.member_name || 'Unknown',
+              classDate: root.class_date || null,
+              source: root.lead_source || null,
+              resultLabel: 'SALE',
+              via2ndIntroSale: isViaSecond,
+            });
+          }
         }
       }
 
@@ -735,186 +757,23 @@ export default function Wig() {
       });
 
       // ─────────────────────────────────────────────────────────────────────
-      // OTF Corporate · Last Coach attribution
-      //   - Coached = every in-range intro you personally ran (1st + 2nd),
-      //     credited to the coach who ran that specific class.
-      //   - Closes = exactly the same sales Total Journey counted, but
-      //     credited to the coach of the member's LAST attended class
-      //     (walks descendants of the close's root, picks latest class_date
-      //     among ran bookings; falls back to the root if nothing else ran).
+      // OTF Corporate scorecard
+      //   OTF scores coaches on the member's FIRST VISIT only. Second/third
+      //   intros aren't counted in the denominator, and close credit follows
+      //   the coach who ran the first visit (i.e. the chain root). This means
+      //   the Corporate table mirrors Total Journey — a 2nd-intro coach never
+      //   picks up Coached or Close credit from a chain they didn't originate.
+      //   Kept as a separate table so it's obvious we're not double-counting
+      //   and so operators can see the "OTF-facing" number explicitly.
       // ─────────────────────────────────────────────────────────────────────
-      const coachMapCorp = new Map<string, { coached: number }>();
-      const coachCloseMapCorp = new Map<string, { total: number; closed: number }>();
+      const coachMapCorp = new Map<string, { coached: number }>(coachMap);
+      const coachCloseMapCorp = new Map<string, { total: number; closed: number }>(coachCloseMap);
       const attribMapCorp = new Map<string, CoachAttribution>();
-      const ensureAttribCorp = (n: string): CoachAttribution => {
-        let a = attribMapCorp.get(n);
-        if (!a) { a = { coached: [], closes: [], excluded: [] }; attribMapCorp.set(n, a); }
-        return a;
-      };
-
-      // Coached: iterate every in-range booking that actually ran.
-      allCoachBookings.forEach((b: any) => {
-        const run = allRunsByBookingId.get(b.id);
-        if (!run) return;
-        if (!didIntroActuallyRun(run)) return;
-        // Exclude VIP class intro outcomes from the coached column (matches
-        // Total Journey's exclusion further down for closes).
-        if (run.result_canon === 'VIP_CLASS_INTRO') return;
-        const runCoachRaw = isMissingCoach(b.coach_name)
-          ? (run.coach_name || b.coach_name)
-          : b.coach_name;
-        if (isMissingCoach(runCoachRaw)) return;
-        const cName = resolveCloseCoach(b, runCoachRaw) || runCoachRaw;
-        const ex = coachMapCorp.get(cName) || { coached: 0 };
-        ex.coached++;
-        coachMapCorp.set(cName, ex);
-        ensureAttribCorp(cName).coached.push({
-          bookingId: b.id,
-          member: b.member_name || 'Unknown',
-          classDate: b.class_date,
-          source: b.lead_source,
-          resultLabel: labelFromRun(run),
-        });
-      });
-
-      // Closes: collect every close Total Journey already counted, then
-      // re-attribute to the last-ran booking in the chain.
-      type TJClose = { coach: string; root: AttribIntro };
-      const tjCloses: TJClose[] = [];
-      attribMap.forEach((a, coach) => {
-        a.closes.forEach(c => tjCloses.push({ coach, root: c }));
-      });
-
-      // Fetch all descendants (1 hop) for every TJ close root not already
-      // covered by secondIntroBookingMap (cross-period buy_date sales).
-      const closeRootIds = Array.from(new Set(tjCloses.map(t => t.root.bookingId)));
-      const descendantsByRoot = new Map<string, any[]>();
-      // Seed from in-period second intros we already fetched (id/originating only)
-      // — we'll need richer fields to re-attribute, so fetch fresh below.
-      if (closeRootIds.length > 0) {
-        const descBatches: string[][] = [];
-        for (let i = 0; i < closeRootIds.length; i += 500) descBatches.push(closeRootIds.slice(i, i + 500));
-        for (const batch of descBatches) {
-          const { data: descRows } = await supabase
-            .from('intros_booked')
-            .select('id, member_name, coach_name, originating_booking_id, class_date, lead_source, vip_session_id, booking_status_canon, deleted_at')
-            .in('originating_booking_id', batch);
-          (descRows || []).forEach((d: any) => {
-            const arr = descendantsByRoot.get(d.originating_booking_id) || [];
-            arr.push(d);
-            descendantsByRoot.set(d.originating_booking_id, arr);
-          });
-        }
-        // Walk grandchildren too (up to 3 hops) for deeper chains.
-        let frontier = Array.from(descendantsByRoot.values()).flat().map(d => d.id);
-        for (let hop = 0; hop < 2 && frontier.length > 0; hop++) {
-          const nextFrontier: string[] = [];
-          const hopBatches: string[][] = [];
-          for (let i = 0; i < frontier.length; i += 500) hopBatches.push(frontier.slice(i, i + 500));
-          for (const batch of hopBatches) {
-            const { data: rows } = await supabase
-              .from('intros_booked')
-              .select('id, member_name, coach_name, originating_booking_id, class_date, lead_source, vip_session_id, booking_status_canon, deleted_at')
-              .in('originating_booking_id', batch);
-            (rows || []).forEach((d: any) => {
-              // Find which root this descendant ultimately belongs to.
-              for (const [rootId, kids] of descendantsByRoot.entries()) {
-                if (kids.some(k => k.id === d.originating_booking_id)) {
-                  descendantsByRoot.get(rootId)!.push(d);
-                  nextFrontier.push(d.id);
-                  break;
-                }
-              }
-            });
-          }
-          frontier = nextFrontier;
-        }
-      }
-
-      // Fetch runs for every descendant not already in allRunsByBookingId.
-      const descIds = Array.from(descendantsByRoot.values()).flat().map(d => d.id);
-      const missingDescIds = descIds.filter(id => !allRunsByBookingId.has(id));
-      if (missingDescIds.length > 0) {
-        const drBatches: string[][] = [];
-        for (let i = 0; i < missingDescIds.length; i += 500) drBatches.push(missingDescIds.slice(i, i + 500));
-        for (const batch of drBatches) {
-          const { data: drRuns } = await supabase
-            .from('intros_run')
-            .select('linked_intro_booked_id, result, result_canon, coach_name, buy_date, run_date, created_at')
-            .in('linked_intro_booked_id', batch);
-          (drRuns || []).forEach((r: any) => allRunsByBookingId.set(r.linked_intro_booked_id, r));
-        }
-      }
-
-      // Resolve VIP coach for any descendants on VIP sessions.
-      const newVipIds = Array.from(new Set(
-        Array.from(descendantsByRoot.values()).flat()
-          .filter((d: any) => (d.lead_source || '').startsWith('VIP Class') && d.vip_session_id && !vipCoachMap.has(d.vip_session_id))
-          .map((d: any) => d.vip_session_id as string)
-      ));
-      if (newVipIds.length > 0) {
-        const { data: vipRows } = await (supabase as any)
-          .from('vip_sessions')
-          .select('id, coach_name')
-          .in('id', newVipIds);
-        for (const v of (vipRows || [])) {
-          if (v.coach_name) vipCoachMap.set(v.id, v.coach_name);
-        }
-      }
-
-      // Re-attribute each close to the last-ran booking in its chain.
-      tjCloses.forEach(({ coach: tjCoach, root }) => {
-        // Build chain: root + descendants.
-        const rootRow = bookingByIdMap.get(root.bookingId);
-        const chain: any[] = [];
-        if (rootRow) chain.push(rootRow);
-        const descs = descendantsByRoot.get(root.bookingId) || [];
-        chain.push(...descs);
-
-        // Pick latest class_date among bookings whose run actually ran
-        // (and isn't VIP_CLASS_INTRO).
-        let lastRan: any = null;
-        for (const b of chain) {
-          const r = allRunsByBookingId.get(b.id);
-          if (!r) continue;
-          if (!didIntroActuallyRun(r)) continue;
-          if (r.result_canon === 'VIP_CLASS_INTRO') continue;
-          if (!lastRan || (b.class_date || '') > (lastRan.b.class_date || '')) {
-            lastRan = { b, r };
-          }
-        }
-
-        let creditCoach: string | null;
-        let creditBooking: any;
-        if (lastRan) {
-          const runCoachRaw = isMissingCoach(lastRan.b.coach_name)
-            ? (lastRan.r.coach_name || lastRan.b.coach_name)
-            : lastRan.b.coach_name;
-          creditCoach = isMissingCoach(runCoachRaw)
-            ? tjCoach
-            : (resolveCloseCoach(lastRan.b, runCoachRaw) || runCoachRaw);
-          creditBooking = lastRan.b;
-        } else {
-          // Nothing in the chain ran — fall back to the TJ coach. This keeps
-          // sum(Corp closes) === sum(TJ closes) exactly.
-          creditCoach = tjCoach;
-          creditBooking = rootRow;
-        }
-        if (!creditCoach) creditCoach = tjCoach;
-
-        const ex = coachCloseMapCorp.get(creditCoach) || { total: 0, closed: 0 };
-        ex.total++;
-        ex.closed++;
-        coachCloseMapCorp.set(creditCoach, ex);
-
-        ensureAttribCorp(creditCoach).closes.push({
-          bookingId: creditBooking?.id || root.bookingId,
-          member: creditBooking?.member_name || root.member,
-          classDate: creditBooking?.class_date || root.classDate,
-          buyDate: root.buyDate,
-          source: creditBooking?.lead_source || root.source,
-          resultLabel: 'SALE',
-          via: lastRan && lastRan.b.id !== root.bookingId ? '2nd_intro' : 'direct',
+      attribMap.forEach((v, k) => {
+        attribMapCorp.set(k, {
+          coached: [...v.coached],
+          closes: [...v.closes],
+          excluded: [...v.excluded],
         });
       });
 
@@ -1235,8 +1094,8 @@ export default function Wig() {
                   showEdit: true,
                 })}
                 {renderHero({
-                  kicker: 'Studio close rate · Corporate · Last Coach',
-                  rule: 'OTF corporate logic. Every ran class counts in the denominator; close credit follows the coach of the last class the member attended.',
+                  kicker: 'Studio close rate · OTF Corporate',
+                  rule: 'OTF scores coaches on the member\'s FIRST visit only. 2nd/3rd intros don\'t count in the denominator, and close credit follows the first-visit coach.',
                   rate: corpCloseRate,
                   status: corpStatus,
                   cls: corpCls,
@@ -1382,18 +1241,18 @@ export default function Wig() {
                   </CardContent>
                 </Card>
 
-                {/* OTF Corporate · Last Coach */}
+                {/* OTF Corporate */}
                 <Card className="border-primary/30">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <UserCheck className="w-5 h-5 text-primary" />
-                      Coach Stats — OTF Corporate · Last Coach
+                      Coach Stats — OTF Corporate
                     </CardTitle>
                     <p className="text-sm text-muted-foreground">
                       <span className="font-semibold text-foreground">How OTF Corporate scores coaches.</span>{' '}
-                      Coached counts every class you personally ran (1st <em>and</em> 2nd intros).
-                      The close goes to the coach of the member's <em>most recent</em> attended class — so if a 2nd intro closed,
-                      the 2nd-intro coach gets the credit. Same total closes as the Internal table, just redistributed.
+                      Only <em>first visits</em> count. 2nd/3rd intros don't go in the denominator, and close credit
+                      follows the coach who ran the first visit — so a coach never gets penalized for a 2nd intro they
+                      inherited, and never gets credit for a chain they didn't originate.
                     </p>
                   </CardHeader>
                   <CardContent className="p-0">
