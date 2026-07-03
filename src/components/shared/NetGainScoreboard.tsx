@@ -286,11 +286,11 @@ export function NetGainScoreboard({ className }: { className?: string }) {
         current={value}
         onSubmit={async (v, note) => { await setAbsolute(v, note); setEditOpen(false); }}
       />
-      <HistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} />
       <UpcomingChurnsDialog
         open={upcomingOpen}
         onClose={() => setUpcomingOpen(false)}
-        churns={pendingChurns}
+        pending={pendingChurns}
+        applied={appliedChurns}
         eomLabel={eomLabel}
       />
       {isAdmin && (
