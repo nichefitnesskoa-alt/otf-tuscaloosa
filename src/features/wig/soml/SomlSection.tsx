@@ -3,7 +3,7 @@
  * Visually distinct block, but reuses the exact pace + status helpers as
  * the Leads scoreboard so the two read as siblings, not different apps.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
