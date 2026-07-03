@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, ChevronDown, ChevronRight, Phone, Copy, ClipboardList, CheckCheck } from 'lucide-react';
 import { stripCountryCode, formatPhoneDisplay } from '@/lib/parsing/phone';
 import { useFollowUpData, type FollowUpItem, type FollowUpType } from './useFollowUpData';
+import { ObjectionChip } from '@/components/shared/ObjectionChip';
+
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { format, differenceInDays, endOfWeek, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
