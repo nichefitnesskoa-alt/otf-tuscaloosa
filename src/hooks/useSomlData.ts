@@ -162,14 +162,38 @@ export function useSomlData(): SomlData {
 
     // 6. Aggregate per-SA
     const byName = new Map<string, SomlSaRow>();
-    const bump = (sa: string, key: 'referrals' | 'upgrades' | 'sales') => {
-      const cur = byName.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0 };
+    const bump = (sa: string, key: 'referrals' | 'upgrades' | 'sales' | 'pending') => {
+      const cur = byName.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0, pending: 0 };
       cur[key] += 1;
       byName.set(sa, cur);
     };
     [...autoReferralRows, ...manualReferralRows].forEach(r => bump(r.sa, 'referrals'));
     upgradeRows.forEach(r => bump(r.sa, 'upgrades'));
     salesRows.forEach(r => bump(r.sa, 'sales'));
+
+    // 7. Pending referrals (book-time visibility). Realized rows are still
+    //    counted by the existing referral logic above — pending is purely a
+    //    display layer, never summed into the real Referrals total.
+    const { data: pendingRows } = await (supabase as any)
+      .from('soml_pending_referrals')
+      .select('id, booking_id, referring_member, credited_sa, state, resolved_outcome, realized_at, created_at')
+      .order('created_at', { ascending: false });
+    const pendingBookingIds = ((pendingRows as any[]) || []).map(p => p.booking_id);
+    let pendingBookingMap = new Map<string, any>();
+    if (pendingBookingIds.length) {
+      const { data: pb } = await supabase
+        .from('intros_booked')
+        .select('id, member_name, class_date')
+        .in('id', pendingBookingIds);
+      pendingBookingMap = new Map(((pb as any[]) || []).map(b => [b.id, b]));
+    }
+    const enrichedPending: PendingReferralRow[] = ((pendingRows as any[]) || []).map(p => ({
+      ...p,
+      member_name: pendingBookingMap.get(p.booking_id)?.member_name || null,
+      class_date: pendingBookingMap.get(p.booking_id)?.class_date || null,
+    }));
+    // Per-SA pending count = state === 'pending' only
+    enrichedPending.filter(p => p.state === 'pending').forEach(p => bump(p.credited_sa, 'pending'));
 
     const rowsOut = Array.from(byName.values())
       .sort((a, b) =>
@@ -181,11 +205,13 @@ export function useSomlData(): SomlData {
         referrals: acc.referrals + r.referrals,
         upgrades: acc.upgrades + r.upgrades,
         sales: acc.sales + r.sales,
+        pending: acc.pending + r.pending,
       }),
-      { referrals: 0, upgrades: 0, sales: 0 },
+      { referrals: 0, upgrades: 0, sales: 0, pending: 0 },
     );
 
     setRows(rowsOut);
+    setPendingReferrals(enrichedPending);
     setTotals(t);
     setLoading(false);
   }, []);
@@ -202,7 +228,7 @@ export function useSomlData(): SomlData {
     };
   }, [fetchAll]);
 
-  return { config, totals, rows, loading, refetch: fetchAll };
+  return { config, totals, rows, pendingReferrals, loading, refetch: fetchAll };
 }
 
 export function notifySomlChanged() {
