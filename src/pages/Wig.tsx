@@ -82,7 +82,7 @@ export default function Wig() {
   const [closeTargetInput, setCloseTargetInput] = useState<string>('');
   const [studioTargetSaved, setStudioTargetSaved] = useState(false);
   const [closeTargetSaved, setCloseTargetSaved] = useState(false);
-  const isAdmin = isAdminCheck(user);
+  const isAdmin = useEffectiveAdmin();
 
   const targetMonthYM = useMemo(() => {
     return dateRange ? format(dateRange.start, 'yyyy-MM') : format(getNowCentral(), 'yyyy-MM');
