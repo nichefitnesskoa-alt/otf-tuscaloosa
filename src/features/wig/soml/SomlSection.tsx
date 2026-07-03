@@ -53,7 +53,7 @@ function PaceBar({ current, target, pace, size = 'sm' }: { current: number; targ
   );
 }
 
-function HeroTile({ label, icon, actual, goal, pace, isAdmin, onEdit, savedFlash }: HeroTileProps) {
+function HeroTile({ label, icon, actual, goal, pace, isAdmin, onEdit, savedFlash, onDrilldown }: HeroTileProps) {
   const status = statusColor(actual, pace);
   const cls = statusClasses(status);
   return (
@@ -77,10 +77,22 @@ function HeroTile({ label, icon, actual, goal, pace, isAdmin, onEdit, savedFlash
             </Tooltip>
           )}
         </div>
-        <div className="flex items-baseline gap-1.5">
+        <button
+          type="button"
+          onClick={onDrilldown}
+          disabled={!onDrilldown || actual === 0}
+          className={cn(
+            'w-full text-left flex items-baseline gap-1.5 rounded-md -mx-1 px-1 py-0.5 transition',
+            onDrilldown && actual > 0 && 'hover:bg-secondary/60 cursor-pointer',
+          )}
+          aria-label={onDrilldown ? `View ${label} details` : undefined}
+        >
           <span className="text-4xl font-black tabular-nums leading-none text-foreground">{actual}</span>
           <span className="text-xs text-muted-foreground">of {goal || '—'}</span>
-        </div>
+          {onDrilldown && actual > 0 && (
+            <span className="ml-auto text-[10px] text-primary underline">View</span>
+          )}
+        </button>
         <div className="text-[11px] text-muted-foreground">
           Pace: <span className={cn('font-bold', cls.text)}>{formatPace(pace)}</span> today
         </div>
