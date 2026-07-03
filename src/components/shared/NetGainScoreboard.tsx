@@ -133,6 +133,13 @@ export function NetGainScoreboard({ className }: { className?: string }) {
   const goalToBreakEven = Math.max(0, scheduledTerminationsLeft - value);
   const eomLabel = format(parseISO(endOfThisMonthCST()), 'MMM d');
 
+  // Next churn at-a-glance
+  const nextChurnDate = pendingChurns[0]?.churn_date ?? null;
+  const nextChurnCount = nextChurnDate
+    ? pendingChurns.filter(c => c.churn_date === nextChurnDate).length
+    : 0;
+  const nextChurnLabel = nextChurnDate ? format(parseISO(nextChurnDate), 'EEE, MMM d') : '';
+
   return (
     <>
       <Card
