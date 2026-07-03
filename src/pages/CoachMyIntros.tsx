@@ -799,9 +799,8 @@ export default function CoachMyIntros() {
                           {intro.saConversation.fiveOfFive && (
                             <p className="text-muted-foreground">What a 5/5 looks like: <strong>{intro.saConversation.fiveOfFive}</strong></p>
                           )}
-                          {intro.saConversation.meaning && (
-                            <p className="text-[#E8540A]">What would change: <strong>{intro.saConversation.meaning}</strong></p>
-                          )}
+                          {/* "What would change" removed per SA request */}
+
                           {intro.saConversation.obstacle && (
                             <p className="text-muted-foreground">What's holding them back: <strong>{intro.saConversation.obstacle}</strong></p>
                           )}
