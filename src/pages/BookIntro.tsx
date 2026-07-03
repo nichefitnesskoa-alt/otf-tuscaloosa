@@ -32,6 +32,7 @@ import {
   resolveIntroLinkCode,
   resolveFriendCode,
   ensureFriendCode,
+  PUBLIC_BOOKING_BASE,
 } from '@/lib/introScheduler/linkUrl';
 import { stripCountryCode } from '@/lib/parsing/phone';
 import { generateUniqueSlug } from '@/lib/utils';
@@ -306,9 +307,9 @@ export default function BookIntro() {
     })();
   }, [bookingId, friendShareCode]);
   const friendUrl = friendShareCode
-    ? buildShortFriendUrl(window.location.origin, friendShareCode)
+    ? buildShortFriendUrl(PUBLIC_BOOKING_BASE, friendShareCode)
     : bookingId
-      ? buildFriendLinkUrl(window.location.origin, bookingId)
+      ? buildFriendLinkUrl(PUBLIC_BOOKING_BASE, bookingId)
       : '';
 
   const canShareNative = typeof navigator !== 'undefined' && typeof (navigator as any).share === 'function';

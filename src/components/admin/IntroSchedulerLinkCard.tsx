@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/context/AuthContext';
 import { LEAD_SOURCES } from '@/types';
 import { EventPicker } from '@/components/events/EventPicker';
-import { buildShortIntroUrl, ensureIntroLinkCode } from '@/lib/introScheduler/linkUrl';
+import { buildShortIntroUrl, ensureIntroLinkCode, PUBLIC_BOOKING_BASE } from '@/lib/introScheduler/linkUrl';
 import { downloadBrandedQr } from '@/lib/vip/qrDownload';
 import { Copy, Download, Link as LinkIcon, QrCode, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -58,7 +58,7 @@ export function IntroSchedulerLinkCard({ saName }: Props) {
           source,
           eventId: source === 'Event' ? eventId : null,
         });
-        if (!cancelled) setUrl(buildShortIntroUrl(window.location.origin, code));
+        if (!cancelled) setUrl(buildShortIntroUrl(PUBLIC_BOOKING_BASE, code));
       } catch (e) {
         console.error('[IntroLink] failed to mint short code', e);
         if (!cancelled) setUrl('');
