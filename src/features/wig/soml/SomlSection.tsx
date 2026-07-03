@@ -489,18 +489,21 @@ export function SomlSection() {
           actual={totals.referrals} goal={goals.referrals} pace={paces.referrals}
           isAdmin={isAdmin} onEdit={() => openEditMetric('referrals')}
           savedFlash={savedFlash === 'referrals'}
+          onDrilldown={() => setDrilldown({ metric: 'referrals', sa: '' })}
         />
         <HeroTile
           label="Upgrades" icon={<TrendingUp className="w-4 h-4" />}
           actual={totals.upgrades} goal={goals.upgrades} pace={paces.upgrades}
           isAdmin={isAdmin} onEdit={() => openEditMetric('upgrades')}
           savedFlash={savedFlash === 'upgrades'}
+          onDrilldown={() => setDrilldown({ metric: 'upgrades', sa: '' })}
         />
         <HeroTile
           label="Sales" icon={<DollarSign className="w-4 h-4" />}
           actual={totals.sales} goal={goals.sales} pace={paces.sales}
           isAdmin={isAdmin} onEdit={() => openEditMetric('sales')}
           savedFlash={savedFlash === 'sales'}
+          onDrilldown={() => setDrilldown({ metric: 'sales', sa: '' })}
         />
       </div>
 
