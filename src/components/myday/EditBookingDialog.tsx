@@ -226,6 +226,22 @@ export function EditBookingDialog({
               <EventPicker value={eventId} onValueChange={setEventId} required />
             )}
 
+            {(source === 'Member Referral' || source === 'Member Referral (5 class pack)') && (
+              <div className="space-y-1.5">
+                <Label className="text-sm">Referred By (Member Name) *</Label>
+                <NameAutocomplete
+                  value={referredBy}
+                  onChange={setReferredBy}
+                  placeholder="Who referred them? (required)"
+                  className={`h-11 ${!referredBy.trim() ? 'ring-1 ring-destructive/40' : ''}`}
+                />
+                {!referredBy.trim() && (
+                  <p className="text-[11px] text-destructive">Required when lead source is Member Referral.</p>
+                )}
+              </div>
+            )}
+
+
             {source !== 'VIP Class' && !showVipPicker && (
               <div>
                 {vipLinkedLabel ? (
