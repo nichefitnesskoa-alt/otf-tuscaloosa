@@ -589,6 +589,17 @@ export function SomlSection() {
                         )}
                       </div>
                       <div className="mt-2 px-2"><PaceBar current={r[k]} target={tgt || null} pace={pace} /></div>
+                      {k === 'referrals' && r.pending > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setPendingDialogSa(r.sa)}
+                          className="mt-1 inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+                          title="counts when they buy"
+                        >
+                          <Clock className="w-3 h-3" />
+                          +{r.pending} pending
+                        </button>
+                      )}
                     </TableCell>
                   );
                 })}
