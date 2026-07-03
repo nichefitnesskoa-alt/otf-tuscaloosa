@@ -20,6 +20,10 @@ import {
   Ban, RotateCcw, Info, ExternalLink, Search, Loader2, XCircle,
 } from 'lucide-react';
 import { StatusBanner } from '@/components/shared/StatusBanner';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { MarkLostDialog } from '@/components/leads/MarkLostDialog';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
@@ -425,6 +429,7 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
   const [bookLead, setBookLead] = useState<Lead | null>(null);
   const [scriptLead, setScriptLead] = useState<Lead | null>(null);
   const [lostLeadId, setLostLeadId] = useState<string | null>(null);
+  const [confirmContactLead, setConfirmContactLead] = useState<Lead | null>(null);
   const [subTab, setSubTab] = useState('non_contacted');
   const [search, setSearch] = useState('');
   const dedupRunning = useRef(false);
@@ -709,8 +714,38 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
           }
           mergeContext={scriptMergeContext}
           leadId={scriptLead.id}
-          onLogged={() => setScriptLead(null)}
+          onLogged={() => {
+            const sent = scriptLead;
+            setScriptLead(null);
+            if (sent && sent.stage === 'new') {
+              setConfirmContactLead(sent);
+            }
+          }}
         />
+      )}
+      {confirmContactLead && (
+        <AlertDialog open={!!confirmContactLead} onOpenChange={open => { if (!open) setConfirmContactLead(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Mark as Contacted?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You just sent a script to {confirmContactLead.first_name} {confirmContactLead.last_name}. Move them to the Contacted list?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Not yet</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  const id = confirmContactLead.id;
+                  setConfirmContactLead(null);
+                  handleAction(id, 'contacted');
+                }}
+              >
+                Yes, mark Contacted
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
       {lostLeadId && (
         <MarkLostDialog
