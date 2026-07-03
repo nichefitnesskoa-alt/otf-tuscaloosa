@@ -50,7 +50,9 @@ export interface FollowUpItem {
   followUpType: FollowUpType;
   transferredFromCoach?: string | null;
   plannedBuyDate?: string | null;
+  primaryObjection?: string | null;
 }
+
 
 const TERMINAL_OUTCOMES = ['Purchased', 'Not Interested'];
 const PURCHASE_RESULTS = ['Premier', 'Elite', 'Basic', 'Premier + OTbeat', 'Elite + OTbeat', 'Basic + OTbeat'];
@@ -277,7 +279,9 @@ export function useFollowUpData() {
           badgeType: undefined,
           followUpType: 'noshow_1st', // will be reassigned below
           transferredFromCoach: transferredMap.get(bookingId) || null,
+          primaryObjection: (r as any).primary_objection ?? null,
         };
+
 
         // No-Show tab — split by 1st/2nd
         if (r.result_canon === 'NO_SHOW' && !hasFutureUnrun) {

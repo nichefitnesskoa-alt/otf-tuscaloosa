@@ -242,47 +242,31 @@ All colors MUST be HSL.
     width: auto !important;
   }
 
-  /* Hide everything except the print layout — spare the portal holding print card */
-  body > *:not([data-radix-portal]:has([data-print-card])) {
-    visibility: hidden !important;
-    position: absolute !important;
-    overflow: hidden !important;
-    height: 0 !important;
+  /* Hide every direct child of <body> except the print card portal.
+     The print card is rendered via createPortal to document.body with
+     id="print-card-root" so this selector is stable. */
+  body > *:not(#print-card-root) {
+    display: none !important;
   }
 
-  /* The print div uses print:block — make it visible and sized to one page */
-  [data-print-card] {
-    visibility: visible !important;
+  #print-card-root {
+    display: block !important;
     position: fixed !important;
     inset: 0 !important;
-    height: 100vh !important;
     width: 100vw !important;
-    overflow: hidden !important;
-    z-index: 99999 !important;
+    height: 100vh !important;
     background: white !important;
-    display: block !important;
+    z-index: 99999 !important;
     page-break-after: avoid !important;
     page-break-inside: avoid !important;
   }
 
-  /* Force single page — no overflow content */
-  [data-print-card] * {
+  #print-card-root * {
+    visibility: visible !important;
     page-break-inside: avoid !important;
   }
 
-  /* Hide Radix overlays, toasts, nav, etc — but keep portal containing print card */
-  [data-radix-portal]:not(:has([data-print-card])),
-  [role="dialog"]:not(:has([data-print-card])),
-  nav,
-  header,
-  .sonner-toast-wrapper {
-    display: none !important;
-  }
 
-  /* Hide sheet chrome inside the print-card portal so only the card shows */
-  [data-radix-portal]:has([data-print-card]) [role="dialog"] > *:not([data-print-card]) {
-    display: none !important;
-  }
 
   /* ── B&W Print Overrides ── */
   /* Beat labels: orange → black bold */

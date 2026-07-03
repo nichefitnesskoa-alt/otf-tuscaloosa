@@ -16,6 +16,8 @@ import { cn, generateSlug } from '@/lib/utils';
 import type { UpcomingIntroItem } from './myDayTypes';
 import { OutcomeDrawer } from '@/components/myday/OutcomeDrawer';
 import { StatusBanner } from '@/components/shared/StatusBanner';
+import { TbdCoachAlert } from '@/components/shared/TbdCoachAlert';
+
 import IntroCard from '@/components/shared/IntroCard';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { LeadSourceTag } from '@/components/dashboard/IntroTypeBadge';
@@ -666,6 +668,15 @@ export default function IntroRowCard({
     <div className={cn("rounded-lg border bg-card overflow-hidden", isInFocusWindow && 'ring-2 ring-orange-500')}>
       {/* Collapsible header — always visible at top of expanded card */}
       {summaryHeaderBar}
+      <div className="px-3 pt-2">
+        <TbdCoachAlert
+          coachName={item.coachName}
+          onFix={() => setOutcomeOpen(true)}
+        />
+      </div>
+
+
+
 
       <IntroCard
         id={`intro-card-${item.bookingId}`}

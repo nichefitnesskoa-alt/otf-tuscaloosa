@@ -19,16 +19,11 @@ import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 
 import { LEAD_SOURCES } from '@/types';
 
-const OBJECTION_CATEGORIES = [
-  'Pricing',
-  'Time',
-  'Shopping Around',
-  'Spousal/Parental',
-  'Think About It',
-  'Out of Town',
-  'None/Closed',
-  'Other',
-] as const;
+import { OBJECTION_OPTIONS } from '@/lib/intros/objections';
+
+// Include "None/Closed" for outcomes with no objection needed.
+const OBJECTION_CATEGORIES = [...OBJECTION_OPTIONS, 'None/Closed'] as const;
+
 
 const OUTCOMES = [
   { label: 'Premier + OTBeat', commission: 15.00 },
@@ -475,13 +470,15 @@ function PrimaryObjectionSection({ intro, index, onUpdate }: {
 
   // Map objection to obstacle trigger for EIRMA lookup
   const objectionToObstacle: Record<string, string> = {
-    'Pricing': 'Too expensive / budget concerns',
-    'Time': 'Schedule is too busy',
-    'Shopping Around': 'comparing options',
-    'Spousal/Parental': 'need to talk to spouse',
-    'Think About It': 'think about it',
-    'Out of Town': 'out of town',
+    'Price': 'Too expensive / budget concerns',
+    'Time / Schedule': 'Schedule is too busy',
+    'Trying other classes first': 'comparing options',
+    'Have to ask spouse': 'need to talk to spouse',
+    'Have to ask parents to pay': 'need to talk to parents',
+    'Thinking About It': 'think about it',
+    'Travel / Moving': 'out of town',
   };
+
 
   const obstacleForEirma = intro.primaryObjection ? objectionToObstacle[intro.primaryObjection] || null : null;
 

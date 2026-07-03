@@ -14,6 +14,8 @@ import { ScorecardFormBody } from '@/components/scorecard/ScorecardForm';
 import { useScorecards } from '@/hooks/useScorecards';
 import { useQueryClient } from '@tanstack/react-query';
 import { canScore, canFormalEval } from '@/lib/auth/roles';
+import { TbdCoachAlert } from '@/components/shared/TbdCoachAlert';
+
 
 interface CoachBooking {
   id: string;
@@ -205,8 +207,11 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
       <div onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} onFocus={e => e.stopPropagation()}>
         <div className="p-4 space-y-4" style={{ fontSize: '15px' }}>
 
+          <TbdCoachAlert coachName={booking.coach_name} />
+
           {/* ══════ SECTION 1 — THEIR STORY ══════ */}
           <h4 className="font-bold text-sm tracking-wide">THEIR STORY</h4>
+
 
           {/* Shoutout consent removed — superseded by FV Scorecard */}
 
@@ -242,22 +247,14 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           </div>
           <p className="text-[10px] text-muted-foreground text-center">From their questionnaire</p>
 
-          {/* ── CONVERSATION ANSWERS ROW — 3 columns (read-only for coach) ── */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* ── CONVERSATION ANSWERS ROW — 2 columns (read-only for coach) ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-brand">
                 What a 5/5 looks like
               </Label>
               <div className="min-h-[60px] rounded-md bg-muted/40 px-3 py-2 text-sm whitespace-pre-wrap">
                 {convGoal || <span className="text-muted-foreground italic">Not yet captured</span>}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs font-semibold text-brand">
-                What would change
-              </Label>
-              <div className="min-h-[60px] rounded-md bg-muted/40 px-3 py-2 text-sm whitespace-pre-wrap">
-                {convMeaning || <span className="text-muted-foreground italic">Not yet captured</span>}
               </div>
             </div>
             <div className="space-y-1">
@@ -270,12 +267,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             </div>
           </div>
 
-          {/* Orange highlight line */}
-          {convMeaning && (
-            <div className="rounded-md px-3 py-2 border border-brand bg-brand-dim">
-              <p className="text-sm font-semibold text-brand">↑ {convMeaning}</p>
-            </div>
-          )}
+
 
 
           {/* Coach Notes (if saved) */}

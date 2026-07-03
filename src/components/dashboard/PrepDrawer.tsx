@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+
 import {
   Sheet,
   SheetContent,
@@ -426,13 +428,13 @@ export function PrepDrawer({
                     </div>
                   </div>
 
-                  {/* THE BRIEF — 3-column conversation fields (matches intro card) */}
+                  {/* THE BRIEF — 2-column conversation fields (matches intro card) */}
                   <div className="rounded-lg border-2 border-blue-300 dark:border-blue-700 overflow-hidden">
                     <div className="px-3 py-2 bg-blue-50/60 dark:bg-blue-950/30">
                       <p className="text-[10px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-300">THE CONVERSATION</p>
                       <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">Fill in during dig deeper — these are the SA conversation fields</p>
                     </div>
-                    <div className="p-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Label className="text-xs font-semibold" style={{ color: '#E8540A' }}>What would a 5/5 look like for you?</Label>
                         {fitnessLevel != null && (
@@ -443,19 +445,6 @@ export function PrepDrawer({
                           onChange={e => setSaConv5of5(e.target.value)}
                           onBlur={() => handleSaveBrief('sa_conversation_5_of_5', saConv5of5 || '')}
                           placeholder="Paint me a picture. What does your life actually look like when you get there?"
-                          className="min-h-[80px] text-xs resize-none border border-input"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs font-semibold" style={{ color: '#E8540A' }}>What would change for you if you got there?</Label>
-                        {emotionalDriver && (
-                          <p className="text-[10px] text-muted-foreground italic">They mentioned: {emotionalDriver.length > 50 ? emotionalDriver.slice(0, 50) + '…' : emotionalDriver}</p>
-                        )}
-                        <Textarea
-                          value={saConvMeaning || ''}
-                          onChange={e => setSaConvMeaning(e.target.value)}
-                          onBlur={() => handleSaveBrief('sa_conversation_meaning', saConvMeaning || '')}
-                          placeholder="What would actually be different? Like in their day to day?"
                           className="min-h-[80px] text-xs resize-none border border-input"
                         />
                       </div>
@@ -474,6 +463,7 @@ export function PrepDrawer({
                       </div>
                     </div>
                   </div>
+
 
                   {/* Coach Notes (if coach added notes) */}
                   {coachNotesOnBooking && (
@@ -536,335 +526,11 @@ export function PrepDrawer({
                     </div>
                   )}
 
-                  {/* THE CLOSE — after dig deeper */}
-                  <div className="rounded-lg border-2 border-primary overflow-hidden">
-                    <div className="px-3 py-2 bg-primary/10">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-primary">THE CLOSE</p>
-                    </div>
-                    <div className="p-3 text-xs space-y-4">
-                      {/* THE BRIDGE */}
-                      <div className="space-y-1">
-                        <p className="font-bold text-foreground">THE BRIDGE</p>
-                        <p className="font-semibold">"That was horrible right?"</p>
-                        <p className="italic text-muted-foreground">↳ High energy only — big smile, sarcastic. If you can't deliver it with genuine energy, use Option B.</p>
-                        <p className="font-semibold">"So — what did that feel like?"</p>
-                        <p className="italic text-muted-foreground">↳ Let them answer fully. Do not interrupt.</p>
-                      </div>
-                      {/* THE IDENTITY QUESTION */}
-                      <div className="space-y-1">
-                        <p className="font-bold text-foreground">THE IDENTITY QUESTION <span className="text-muted-foreground font-normal">(every close — no exceptions)</span></p>
-                        <p className="font-semibold">"Based on everything you just did today — what is your gut telling you?"</p>
-                        <p className="italic text-muted-foreground">↳ Stop. Let silence work. Do not fill it.</p>
-                        <p className="italic text-muted-foreground">↳ If yes — go straight to paperwork. No pause.</p>
-                      </div>
-                      {/* IF THEY HESITATE */}
-                      <div className="space-y-1 border-l-2 border-primary pl-3">
-                        <p className="font-bold text-foreground">IF THEY HESITATE — RISK FREE GUARANTEE</p>
-                        <p className="font-semibold">"If you come to at least 12 classes within your first 30 days of Premier and don't love it, we'll give you your money back. There's no downside to just trying us out for a month."</p>
-                        <p className="italic text-muted-foreground">↳ Then return to the identity question if needed.</p>
-                      </div>
-                      {/* IF THEY RAISE PRICE */}
-                      <div className="space-y-1 border-l-2 border-muted pl-3">
-                        <p className="font-bold text-foreground">IF THEY RAISE PRICE</p>
-                        <p className="font-semibold">"Premier breaks down to about $7 a day. Less than most people spend at Starbucks. Or $200–300 a month on things that don't even move them toward that goal you have."</p>
-                      </div>
-                      {/* IF THEY RAISE SCHEDULE */}
-                      <div className="space-y-1 border-l-2 border-muted pl-3">
-                        <p className="font-bold text-foreground">IF THEY RAISE SCHEDULE</p>
-                        <p className="font-semibold">"Half our members do mornings, half do evenings. The schedule bends around you not the other way around."</p>
-                      </div>
-                      <p className="italic text-muted-foreground">↳ After yes — paperwork immediately. No pause.</p>
-                    </div>
-                  </div>
-
-                  {/* Section 5 — Studio Trend (1st intros only) */}
-                  {!isSecondIntro && studioTrend && (
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Studio Trend This Pay Period</p>
-                      </div>
-                      <p className="text-xs font-medium">Most common objection: <span className="font-bold">{studioTrend.objection}</span> ({studioTrend.percent}% of follow-ups)</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Be ready with: {OBJECTION_TIPS[studioTrend.objection] || OBJECTION_TIPS['Think about it']}
-                      </p>
-                    </div>
-                  )}
+                  {/* THE CLOSE, Studio Trend, COACH CARD, and After Class EIRMA
+                      sections removed per SA request — the drawer now stops at the
+                      Dig Deeper section. Keep Activity Timeline + Action Buttons. */}
                 </div>
 
-                <Separator className="my-2" />
-
-                {/* ══════════ COACH CARD ══════════ */}
-                <div className="space-y-3">
-                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-blue-600 flex items-center gap-1.5">
-                    <Dumbbell className="w-3.5 h-3.5" /> COACH CARD
-                  </h3>
-
-                  {/* 2nd Intro: Previous Visit Data — rich version */}
-                  {isSecondIntro && prevVisitData && (
-                    <div className="rounded-xl p-4 border-2 border-primary bg-primary/5 space-y-2">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-1">FROM THEIR FIRST VISIT</p>
-                      {prevVisitData.classDate && (
-                        <p className="text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground">Date:</span> {prevVisitData.classDate}{prevVisitData.introTime ? ` @ ${prevVisitData.introTime.substring(0, 5)}` : ''}
-                        </p>
-                      )}
-                      {prevVisitData.coachName && (
-                        <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">Coach:</span> {prevVisitData.coachName}</p>
-                      )}
-                      {prevVisitData.leadSource && (
-                        <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">Source:</span> {prevVisitData.leadSource}</p>
-                      )}
-                      {prevVisitData.result && (
-                        <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">Result:</span> {prevVisitData.result}</p>
-                      )}
-                      {prevVisitData.objection && (
-                        <p className="text-base font-bold text-primary">Previous objection: {prevVisitData.objection}</p>
-                      )}
-                      {prevVisitData.notes && (
-                        <p className="text-xs text-foreground">What they said: {prevVisitData.notes}</p>
-                      )}
-                      {prevVisitData.goal && <p className="text-xs text-foreground">Goal: {prevVisitData.goal}</p>}
-                      {prevVisitData.obstacle && <p className="text-xs text-foreground">Obstacle: {prevVisitData.obstacle}</p>}
-                      {prevVisitData.why && <p className="text-xs text-foreground">Why: {prevVisitData.why}</p>}
-                      {!prevVisitData.classDate && !prevVisitData.result && !prevVisitData.objection && (
-                        <p className="text-xs text-muted-foreground">No previous data found</p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* THE SPINE */}
-                  <div className="rounded-xl p-4 border-2 border-blue-400 dark:border-blue-600 bg-blue-50/50 dark:bg-blue-950/20 text-center">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-blue-800 dark:text-blue-300 mb-2">THE SPINE</p>
-                    <p className="text-sm font-bold leading-snug text-blue-900 dark:text-blue-100">
-                      "By the end of this class {firstName} should have a story worth telling about themselves."
-                    </p>
-                  </div>
-
-                  {/* THE CONVERSATION (read-only view for coach) */}
-                  <div className="rounded-lg border border-blue-200 dark:border-blue-800 overflow-hidden">
-                    <div className="px-3 py-2 bg-blue-50/50 dark:bg-blue-950/30">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-300">THE CONVERSATION</p>
-                      <p className="text-[10px] text-blue-600 dark:text-blue-400">SA fills this in during dig deeper</p>
-                    </div>
-                    <div className="p-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                      <div>
-                        <span className="font-bold text-blue-800 dark:text-blue-300">5/5 Vision:</span>
-                        <p>{saConv5of5 || '—'}</p>
-                      </div>
-                      <div>
-                        <span className="font-bold text-blue-800 dark:text-blue-300">What would change:</span>
-                        <p>{saConvMeaning || '—'}</p>
-                      </div>
-                      <div>
-                        <span className="font-bold text-blue-800 dark:text-blue-300">Holding them back:</span>
-                        <p>{saConvObstacle || '—'}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* WHAT THEY TOLD US — Coach view (read-only) */}
-                  <div className="rounded-lg border overflow-hidden">
-                    <div className="px-3 py-2 bg-muted/40">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-                        <ClipboardList className="w-3.5 h-3.5" /> WHAT THEY TOLD US
-                      </p>
-                    </div>
-                    <div className="p-3 space-y-1.5 text-xs">
-                      {hasQ ? (
-                        <>
-                          {fitnessLevel != null && (
-                            <div><span className="text-muted-foreground">Level:</span> <span className="font-semibold">{fitnessLevel}/5</span></div>
-                          )}
-                          {goal && (
-                            <div><span className="text-muted-foreground">Goal:</span> <span className="font-semibold">"{goal}"</span></div>
-                          )}
-                          {emotionalDriver && (
-                            <div><span className="text-muted-foreground">Why:</span> <span className="font-semibold">"{emotionalDriver}"</span></div>
-                          )}
-                          {obstacle && (
-                            <div><span className="text-muted-foreground">Potential Objection:</span> <span className="font-semibold">"{obstacle}"</span></div>
-                          )}
-                          {commitment && (
-                            <div><span className="text-muted-foreground">Commit:</span> <span className="font-semibold">{commitment} days/week</span>{questionnaire?.q6b_available_days ? ` | Days: ${questionnaire.q6b_available_days}` : ''}</div>
-                          )}
-                          {questionnaire?.q7_coach_notes && (
-                            <div><span className="text-muted-foreground">Notes:</span> <span className="font-semibold">"{questionnaire.q7_coach_notes}"</span></div>
-                          )}
-                        </>
-                      ) : (
-                        <p className="text-muted-foreground italic">No questionnaire answers yet</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* THE ARC */}
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-blue-800 dark:text-blue-300">THE ARC</p>
-
-                    {/* PRE-ENTRY */}
-                    <div className="rounded-lg border overflow-hidden">
-                      <div className="px-3 py-1.5 bg-blue-100/50 dark:bg-blue-950/30">
-                        <p className="text-[10px] font-bold uppercase text-blue-800 dark:text-blue-300">PRE-ENTRY — The Initiation</p>
-                      </div>
-                      <div className="p-3 text-xs space-y-1.5">
-                        <p>While the intro is on their tour Koa or SA briefs the room.</p>
-                        <p className="italic">"We have a first-timer today. When they hit their all-out — make some noise. Make them feel like they belong here."</p>
-                        <p className="text-muted-foreground">Raffle is live from this moment.</p>
-                      </div>
-                    </div>
-
-                    {/* ACT 1 */}
-                    <div className="rounded-lg border overflow-hidden">
-                      <div className="px-3 py-1.5 bg-blue-100/50 dark:bg-blue-950/30">
-                        <p className="text-[10px] font-bold uppercase text-blue-800 dark:text-blue-300">ACT 1 — The Threshold + Tiny Win</p>
-                      </div>
-                      <div className="p-3 text-xs space-y-1.5">
-                        <p>When they step on the treadmill for the first time mark it.</p>
-                        <p className="italic">"This is it. Everything starts here."</p>
-                        <p>First treadmill block — call their base pace then quietly say <span className="italic">"you can go one higher."</span></p>
-                        <p>Let them do it. Don't celebrate loudly. Just nod. This is theirs alone.</p>
-                        <p className="text-muted-foreground">They bank a private win before the difficulty hits.</p>
-                      </div>
-                    </div>
-
-                    {/* ACT 2 — Struggle Hold — temporarily hidden */}
-                    {/* <div className="rounded-lg border overflow-hidden">
-                      <div className="px-3 py-1.5 bg-blue-100/50 dark:bg-blue-950/30">
-                        <p className="text-[10px] font-bold uppercase text-blue-800 dark:text-blue-300">ACT 2 — The Struggle Hold + Mirror Drop</p>
-                      </div>
-                      <div className="p-3 text-xs space-y-1.5">
-                        <p>Block two — hold back encouragement deliberately. No rescue. No coaching in.</p>
-                        <p>Let them feel the difficulty. This is the valley. The all-out needs a valley to land.</p>
-                        <p>Once during this block appear next to them.</p>
-                        <p>Drop one sentence using their exact words from the brief:</p>
-                        <p className="italic font-semibold">"That's what {buyingCriteria ? `${buyingCriteria}` : '[their buying criteria]'} looks like right now."</p>
-                        <p className="text-muted-foreground">Say it quietly. Move on. It should feel like coincidence. It isn't.</p>
-                      </div>
-                    </div> */}
-
-                    {/* THE FOURTH QUARTER */}
-                    <div className="rounded-lg border-2 border-primary overflow-hidden">
-                      <div className="px-3 py-1.5 bg-primary/10">
-                        <p className="text-[10px] font-bold uppercase text-primary">THE FOURTH QUARTER — ALL-OUT CALLOUT (non-negotiable)</p>
-                      </div>
-                      <div className="p-3 text-xs space-y-3">
-                        {/* DRUMROLL — temporarily hidden */}
-                        {/* <p className="font-bold text-foreground">If class has a traditional all-out:</p>
-                        <div className="space-y-2 ml-1">
-                          <div>
-                            <p className="font-bold text-primary">DRUMROLL</p>
-                            <p>One sentence on the mic as the all-out starts:</p>
-                            <p className="italic">"First-timer in the house — {firstName} let's go."</p>
-                            <p className="text-muted-foreground">Keep it fuel not spotlight. Slot it into your natural callout flow.</p>
-                          </div>
-                          <div>
-                            <p className="font-bold text-primary">DURING</p>
-                            <p>Weave their name and goal language into your normal encouragement:</p>
-                            <p className="italic">"{firstName} — this is what {buyingCriteria ? `${buyingCriteria}` : '[their words]'} looks like. Don't stop."</p>
-                          </div> */}
-                        <div className="space-y-2 ml-1">
-                          <div>
-                            <p className="font-bold text-primary">CALLOUT</p>
-                            <p className="italic font-semibold">"Everybody — {firstName} just hit their first all-out. Let's go."</p>
-                            <p className="text-muted-foreground italic">↳ Hold the mic. Let the room respond fully. Don't rush it. Studio-wide celebration. Let it sink in before moving on.</p>
-                          </div>
-                          {/* AFTERGLOW — temporarily hidden */}
-                          {/* <div>
-                            <p className="font-bold text-primary">AFTERGLOW</p>
-                            <p className="italic font-semibold">"Lock in what you just felt. That's all you."</p>
-                          </div> */}
-                        </div>
-
-                        {/* SEED 1 hidden above; no-traditional-all-out fallback — temporarily hidden */}
-                        {/* <Separator />
-                        <div>
-                          <p className="font-bold text-foreground">If class has no traditional all-out:</p>
-                          <p className="mt-1">Identify the hardest push in the final 30-60 seconds of the last treadmill block.</p>
-                          <p>That moment is the all-out. Run the exact same four-beat sequence.</p>
-                          <p className="text-muted-foreground">DRUMROLL → DURING → CALLOUT → AFTERGLOW</p>
-                          <p className="text-muted-foreground">Same words. Same energy. Same non-negotiable.</p>
-                        </div> */}
-                      </div>
-                    </div>
-
-                    {/* VETERAN TORCH PASS — temporarily hidden */}
-                    {/* <div className="rounded-lg border overflow-hidden">
-                      <div className="px-3 py-1.5 bg-blue-100/50 dark:bg-blue-950/30">
-                        <p className="text-[10px] font-bold uppercase text-blue-800 dark:text-blue-300">VETERAN TORCH PASS</p>
-                      </div>
-                      <div className="p-3 text-xs space-y-1.5">
-                        <p className="italic text-muted-foreground">↳ Before class — pull one member aside. Best pick: someone who joined in the last 90 days and is still coming consistently. They remember the feeling. Their credibility with the intro is highest.</p>
-                        <p className="font-semibold">"Would you say one thing to our first-timer at the end? Just: I remember my first. Welcome."</p>
-                      </div>
-                    </div> */}
-                  </div>
-
-                  <Separator />
-
-                  {/* THE PERFORMANCE SUMMARY */}
-                  <div className="rounded-lg border overflow-hidden">
-                    <div className="px-3 py-2 bg-emerald-100/50 dark:bg-emerald-950/30">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">THE PERFORMANCE SUMMARY</p>
-                    </div>
-                    <div className="p-3 text-xs space-y-1.5">
-                      <p className="italic text-muted-foreground">↳ TV screen. Intro + SA both present.</p>
-                      <p className="font-bold text-foreground leading-relaxed">
-                        "You came in looking for {buyingCriteria || '[their words]'}. You found it in that [moment]."
-                      </p>
-                      <p className="italic text-muted-foreground">↳ [moment] = the all-out callout if it was the clear peak. If a different moment defined their class — name that instead. Use what you actually saw.</p>
-                      <p className="font-bold text-foreground">"That's you."</p>
-                      <p className="italic text-muted-foreground">↳ Stop. Stay silent. Do not fill the silence. Let it land completely before moving to the handoff.</p>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* STANDOUT MEMBER */}
-                  <div className="rounded-lg border overflow-hidden">
-                    <div className="px-3 py-2 bg-muted/40">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">STANDOUT MEMBER</p>
-                    </div>
-                    <div className="p-3 text-xs space-y-1.5">
-                      <p>After the intro leaves SA asks:</p>
-                      <p className="italic">"Was there a member who made you feel especially welcome today?"</p>
-                      <p>If they name someone SA texts that member:</p>
-                      <p className="italic">"hey — {firstName.toLowerCase()} just left and before they walked out they asked me who made them feel the most welcome today. they said you. I just wanted you to know that."</p>
-                      <p className="text-muted-foreground">Name goes on the Member of the Moment board for the week.</p>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator className="my-2" />
-
-                {/* After Class EIRMA */}
-                <div className="space-y-3">
-                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                    AFTER CLASS — EIRMA
-                  </h3>
-                  <Badge variant="outline" className="text-xs px-2">
-                    Most likely objection: {eirma.label}
-                  </Badge>
-                  <div className="space-y-2">
-                    {[
-                      { step: 'E', label: 'Empathize', line: eirma.e, color: 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800' },
-                      { step: 'I', label: 'Isolate', line: eirma.i, color: 'bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-800' },
-                      { step: 'R', label: 'Redirect', line: eirma.r, color: 'bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800' },
-                      { step: 'M', label: 'Membership', line: eirma.m, color: 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800' },
-                      { step: 'A', label: 'Ask', line: eirma.a, color: 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800' },
-                    ].map(({ step, label, line, color }) => (
-                      <div key={step} className={`rounded-lg border p-2.5 ${color}`}>
-                        <div className="flex items-baseline gap-2 mb-1">
-                          <span className="font-black text-sm w-4">{step}</span>
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{label}</span>
-                        </div>
-                        <p className="text-xs leading-relaxed pl-6">{line}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
 
                 {/* Activity Timeline */}
                 {(sendLogs.length > 0 || defaultRuns.length > 0 || defaultBookings.length > 1) && (
@@ -917,29 +583,35 @@ export function PrepDrawer({
         </ScrollArea>
 
         {/* ══════════ PRINT LAYOUT — full-page 2-question sheet ══════════ */}
-        {(() => {
+        {/* Rendered via body-level portal so the print CSS in index.css that
+            hides every non-print-card body child actually reveals it.
+            Rendering inside the Sheet portal would keep it wrapped in a hidden
+            radix wrapper. Only mount when the drawer is open. */}
+      </SheetContent>
+      {open && createPortal(
+        (() => {
           const answerStyle = { fontSize: '18px', lineHeight: 1.6, color: '#111', whiteSpace: 'pre-wrap' as const };
           const blankLines = (
             <div style={{ marginTop: '8mm' }}>
               {Array.from({ length: 8 }).map((_, i) => (
-                <div
-                  key={i}
-                  style={{ borderBottom: '1px solid #333', height: '10mm' }}
-                />
+                <div key={i} style={{ borderBottom: '1px solid #333', height: '10mm' }} />
               ))}
             </div>
           );
-
           return (
             <div
+              id="print-card-root"
               data-print-card
-              className="hidden print:block fixed inset-0 bg-white text-black"
+              className="hidden print:block"
               style={{
-                zIndex: 9999,
+                position: 'fixed',
+                inset: 0,
+                background: 'white',
+                color: '#111',
+                zIndex: 99999,
                 fontFamily: 'Arial, Helvetica, sans-serif',
                 minHeight: '100vh',
                 padding: '15mm 18mm',
-                color: '#111',
               }}
             >
               {/* Header */}
@@ -949,35 +621,26 @@ export function PrepDrawer({
                   {classDate}{classTime ? ` @ ${classTime.substring(0, 5)}` : ''}{coachName ? `  ·  Coach: ${coachName}` : ''}
                 </div>
               </div>
-
-              {/* Q1 — What a 5/5 looks like */}
+              {/* Q1 */}
               <div style={{ marginBottom: '15mm' }}>
                 <div style={{ fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5mm' }}>
                   What would a 5/5 fitness level look like for you?
                 </div>
-                {goal ? (
-                  <div style={answerStyle}>{goal}</div>
-                ) : (
-                  blankLines
-                )}
+                {goal ? <div style={answerStyle}>{goal}</div> : blankLines}
               </div>
-
-              {/* Q2 — What's been holding you back */}
+              {/* Q2 */}
               <div>
                 <div style={{ fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5mm' }}>
                   What's been holding you back?
                 </div>
-                {obstacle ? (
-                  <div style={answerStyle}>{obstacle}</div>
-                ) : (
-                  blankLines
-                )}
+                {obstacle ? <div style={answerStyle}>{obstacle}</div> : blankLines}
               </div>
             </div>
           );
-        })()}
+        })(),
+        document.body,
+      )}
 
-      </SheetContent>
 
       <LinkQuestionnaireDialog
         open={linkQOpen}

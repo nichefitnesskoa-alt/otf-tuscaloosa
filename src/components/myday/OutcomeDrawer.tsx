@@ -23,6 +23,9 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { generateUniqueSlug } from '@/lib/utils';
+import { OBJECTION_OPTIONS } from '@/lib/intros/objections';
+import { isMissingCoach } from '@/lib/intros/coachAttribution';
+
 
 // ── Sale outcomes (Row A) ──
 const SALE_OUTCOMES = [
@@ -46,14 +49,10 @@ const NON_SALE_OUTCOMES = [
   { value: 'VIP Class Intro', label: '🎟️ VIP Class Intro (not expected to buy)' },
 ];
 
-const SECOND_INTRO_REASON_OPTIONS = [
-  { value: 'Price / Cost', label: '💰 Price / Cost' },
-  { value: 'Needs to think about it', label: '🤔 Needs to think about it' },
-  { value: 'Needs to talk to parents/spouse', label: '👨‍👩‍👧 Needs to talk to parents/spouse' },
-  { value: 'Timing isn\'t right', label: '📅 Timing isn\'t right' },
-  { value: 'Wants to try it first', label: '💪 Wants to try it first' },
-  { value: 'Other', label: '❓ Other' },
-];
+// "What's holding them back?" for 2nd-intro paths uses the same canonical
+// objection list — the reason IS the objection (no separate Primary Objection).
+const SECOND_INTRO_REASON_OPTIONS = OBJECTION_OPTIONS.map(v => ({ value: v, label: v }));
+
 
 // ── Reschedule outcomes (Row C) ──
 const RESCHEDULE_OUTCOMES = [
@@ -61,16 +60,8 @@ const RESCHEDULE_OUTCOMES = [
   { value: 'Planning to Reschedule', label: '🕐 Planning to Reschedule' },
 ];
 
-const OBJECTION_OPTIONS = [
-  'Price',
-  'Time / Schedule',
-  'Spouse / Family',
-  'Thinking About It',
-  'Already a Member',
-  'Health / Injury',
-  'Travel / Moving',
-  'Other',
-];
+// Objection list is imported from @/lib/intros/objections (single source of truth)
+
 
 // Follow-up category overrides
 const FOLLOWUP_CATEGORY_OPTIONS = [
@@ -204,11 +195,16 @@ export function OutcomeDrawer({
   const isBookedSecondIntroNeedsReason = outcome === 'Booked 2nd intro';
   const isNoShow = outcome === 'No-show';
   const isVipClassIntroOutcome = outcome === 'VIP Class Intro';
-  const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !isOn5ClassPack && !isVipClassIntroOutcome && !!outcome;
+  // Any 2nd-intro path uses "What's holding them back?" as the objection —
+  // never show Primary Objection separately (that's the redundant double-ask).
+  const isAny2ndIntroPath = isBookedSecondIntro || isPlanningToBook2ndIntro;
+  const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !isOn5ClassPack && !isVipClassIntroOutcome && !isAny2ndIntroPath && !!outcome;
   // Booking has no real coach assigned (empty or "TBD") — force coach selection on every outcome
-  const bookingHasNoCoach = !initialCoach || initialCoach.trim() === '' || /^tbd$/i.test(initialCoach.trim());
-  const coachRequiredBase = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro && !isPlanningToBuy && !isOn5ClassPack && !isVipClassIntroOutcome;
-  const coachRequired = coachRequiredBase || (bookingHasNoCoach && !!outcome && !isReschedule && !isPlanningToReschedule);
+  const bookingHasNoCoach = isMissingCoach(initialCoach);
+  // Coach is now required on ALL outcomes that actually happened. Reschedule/
+  // Planning-to-Reschedule don't need a coach (the class did not run yet).
+  const coachRequired = !!outcome && !isReschedule && !isPlanningToReschedule;
+
 
   // Computed commission — live recomputes on outcome change
   const commission = computeCommission({ membershipType: isSale ? outcome : null });
@@ -288,6 +284,11 @@ export function OutcomeDrawer({
 
   // Planning to Book 2nd Intro: log outcome + create day-2 and day-7 follow-up tasks
     if (isPlanningToBook2ndIntro) {
+      if (isMissingCoach(coachName)) { toast.error('Pick the coach who taught the class before saving'); return; }
+      if (!secondIntroReason) { toast.error("Select what's holding them back"); return; }
+      const objectionValue = secondIntroReason === 'Other'
+        ? (secondIntroReasonOther.trim() || 'Other')
+        : secondIntroReason;
       setSaving(true);
       try {
         // 1. Log the outcome via canonical path
@@ -298,7 +299,7 @@ export function OutcomeDrawer({
           newResult: 'Planning to Book 2nd Intro',
           previousResult: currentResult || null,
           leadSource: leadSource || '',
-          objection: null,
+          objection: objectionValue,
           coachName: coachName || undefined,
           editedBy,
           sourceComponent: 'MyDay-OutcomeDrawer',
@@ -306,6 +307,7 @@ export function OutcomeDrawer({
           runId: existingRunId || undefined,
         });
         if (!result.success) throw new Error(result.error);
+
 
         // 2. Delete existing follow-up queue entries for this booking to avoid duplicate constraint
         await supabase.from('follow_up_queue')
@@ -508,7 +510,7 @@ export function OutcomeDrawer({
       return;
     }
 
-    if (coachRequired && !coachName) { toast.error('Select the coach who taught the class'); return; }
+    if (coachRequired && isMissingCoach(coachName)) { toast.error('Pick the coach who taught the class before saving'); return; }
     if (isBookedSecondIntro && (!secondIntroDate || !secondIntroTime || !secondIntroCoach)) {
       toast.error('Fill in date, time, and coach for the 2nd intro');
       return;
@@ -521,6 +523,11 @@ export function OutcomeDrawer({
       toast.error('Select the objection before saving');
       return;
     }
+    // For 2nd-intro paths, persist the reason as the objection so it shows up
+    // in drilldowns and follow-up queues without a redundant second picker.
+    const resolvedObjection = isAny2ndIntroPath
+      ? (secondIntroReason === 'Other' ? (secondIntroReasonOther.trim() || 'Other') : secondIntroReason)
+      : (needsObjection ? objection : null);
     setSaving(true);
     try {
       let secondIntroBookingDraft: { class_start_at: string; coach_name: string } | undefined;
@@ -540,7 +547,8 @@ export function OutcomeDrawer({
         previousResult: currentResult || null,
         membershipType: isSale ? outcome : undefined,
         leadSource: leadSource || '',
-        objection: needsObjection ? objection : null,
+        objection: resolvedObjection,
+
         coachName: coachName || undefined,
         editedBy,
         sourceComponent: 'MyDay-OutcomeDrawer',
@@ -851,31 +859,35 @@ export function OutcomeDrawer({
       )}
 
       {/* Reschedule fields */}
-      {/* 2nd Intro Reason + Booking Details */}
+      {/* 2nd Intro Reason — shared UI for Booked and Planning-to-Book 2nd Intro */}
+      {isAny2ndIntroPath && (
+        <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg space-y-2">
+          <Label className="text-xs text-blue-700 dark:text-blue-300 font-semibold">What's holding them back? <span className="text-destructive">*</span></Label>
+          <Select value={secondIntroReason} onValueChange={setSecondIntroReason}>
+            <SelectTrigger className="h-8 text-sm bg-background">
+              <SelectValue placeholder="Select reason…" />
+            </SelectTrigger>
+            <SelectContent>
+              {SECOND_INTRO_REASON_OPTIONS.map(o => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {secondIntroReason === 'Other' && (
+            <Input
+              value={secondIntroReasonOther}
+              onChange={e => setSecondIntroReasonOther(e.target.value)}
+              className="h-8 text-sm bg-background mt-2"
+              placeholder="Please specify..."
+            />
+          )}
+        </div>
+      )}
+
+      {/* 2nd Intro booking date/time/coach — only for confirmed Booked 2nd intro */}
       {isBookedSecondIntro && (
         <div className="space-y-3">
-          {/* Reason selector */}
-          <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg space-y-2">
-            <Label className="text-xs text-blue-700 dark:text-blue-300 font-semibold">What's holding them back? <span className="text-destructive">*</span></Label>
-            <Select value={secondIntroReason} onValueChange={setSecondIntroReason}>
-              <SelectTrigger className="h-8 text-sm bg-background">
-                <SelectValue placeholder="Select reason…" />
-              </SelectTrigger>
-              <SelectContent>
-                {SECOND_INTRO_REASON_OPTIONS.map(o => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {secondIntroReason === 'Other' && (
-              <Input
-                value={secondIntroReasonOther}
-                onChange={e => setSecondIntroReasonOther(e.target.value)}
-                className="h-8 text-sm bg-background mt-2"
-                placeholder="Please specify..."
-              />
-            )}
-          </div>
+
 
           <div className="space-y-2 border rounded-md p-2 bg-muted/20">
             <p className="text-xs font-medium text-muted-foreground">2nd Intro Details</p>
@@ -1011,21 +1023,20 @@ export function OutcomeDrawer({
         </div>
       )}
 
-      {/* Coach who taught the class — hidden for reschedule outcomes; forced visible if booking has no coach */}
-      {outcome && !isReschedule && !isPlanningToReschedule && (!isPlanningToBuy || bookingHasNoCoach) && (!isOn5ClassPack || bookingHasNoCoach) && (
+      {/* Coach who taught the class — always required for outcomes that actually happened */}
+      {outcome && !isReschedule && !isPlanningToReschedule && (
         <div className="space-y-1">
           {bookingHasNoCoach && (
-            <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-2 py-1">
-              ⚠️ No coach on file — pick who taught this class so they get credit.
+            <p className="text-xs font-bold text-white bg-red-600 border-2 border-red-700 rounded-md px-2 py-1.5 animate-pulse">
+              ⚠️ Coach TBD — pick who taught this class so they get credit.
             </p>
           )}
           <Label className="text-xs">
             Coach who taught the class
-            {coachRequired && <span className="text-destructive ml-1">*</span>}
-            {!coachRequired && <span className="text-muted-foreground ml-1">(optional)</span>}
+            <span className="text-destructive ml-1">*</span>
           </Label>
           <Select value={coachName} onValueChange={setCoachName}>
-            <SelectTrigger className="h-8 text-sm">
+            <SelectTrigger className={cn('h-8 text-sm', isMissingCoach(coachName) && 'border-destructive ring-1 ring-destructive/40')}>
               <SelectValue placeholder="Select coach…" />
             </SelectTrigger>
             <SelectContent>
@@ -1036,6 +1047,7 @@ export function OutcomeDrawer({
           </Select>
         </div>
       )}
+
 
       {/* Objection selector */}
       {needsObjection && (

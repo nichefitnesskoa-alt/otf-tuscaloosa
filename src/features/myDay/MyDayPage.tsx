@@ -18,6 +18,9 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { getTodayStartISO, getTodayYMD } from '@/lib/dateUtils';
 import { didIntroActuallyRun } from '@/lib/canon/introRules';
+import { isMissingCoach } from '@/lib/intros/coachAttribution';
+import { AlertTriangle } from 'lucide-react';
+
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { Tables } from '@/integrations/supabase/types';
 import { ShiftChecklist } from './ShiftChecklist';
@@ -157,7 +160,29 @@ export default function MyDayPage() {
     introsRun.filter(r => r.run_date === todayStr),
     [introsRun, todayStr],
   );
+
+  // Any recent intro (today or last 7 days) missing a coach → red banner + card alerts.
+  // Anchoring to "today or ran-recently" keeps ancient no-coach ghosts out of the alert.
+  const tbdCoachBookings = useMemo(() => {
+    return introsBooked.filter(b => {
+      if (b.deleted_at) return false;
+      if (!isMissingCoach(b.coach_name)) return false;
+      const status = b.booking_status_canon;
+      if (status === 'CANCELLED' || status === 'DELETED_SOFT' || status === 'PLANNING_RESCHEDULE') return false;
+      // Show for today or up to 7 days back — the SA should pick immediately
+      if (!b.class_date) return false;
+      const [y, m, d] = b.class_date.split('-').map(Number);
+      const bookingDate = new Date(y, m - 1, d);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const diff = (today.getTime() - bookingDate.getTime()) / 86400000;
+      return diff >= -1 && diff <= 7;
+    });
+  }, [introsBooked]);
+  const tbdCoachCount = tbdCoachBookings.length;
+
   const completedTodayCount = todayRuns.filter(r => didIntroActuallyRun(r)).length;
+
   const purchaseTodayCount = useMemo(() =>
     todayRuns.filter(r => {
       const result = r.result || '';
@@ -338,9 +363,29 @@ export default function MyDayPage() {
       </div>
 
       <OfflineBanner />
+
+      {tbdCoachCount > 0 && (
+        <div className="mx-4 mt-2">
+          <button
+            type="button"
+            onClick={() => {
+              setOutcomeBookingId(tbdCoachBookings[0].id);
+            }}
+            className="w-full flex items-center justify-center gap-2 font-bold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 border-2 border-red-700 rounded-md px-3 py-3 text-sm animate-pulse cursor-pointer min-h-[44px]"
+            aria-label="Assign coach to intros missing a coach"
+          >
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            <span>
+              ⚠️ {tbdCoachCount} intro{tbdCoachCount === 1 ? '' : 's'} missing a coach — tap to assign now
+            </span>
+          </button>
+        </div>
+      )}
+
       <div className="px-4 pt-2">
         <IntroLinkBookingBanner />
       </div>
+
       <OwnItMentionsCard />
       <VipClaimBanner />
 
