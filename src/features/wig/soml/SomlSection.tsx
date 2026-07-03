@@ -357,10 +357,11 @@ export function SomlSection() {
         />
       </div>
 
-      {/* Per-SA target row */}
+      {/* Per-SA default target row */}
       <div className="text-[11px] text-muted-foreground">
-        Per-SA target: {perSaTarget.referrals.toFixed(1)} referrals · {perSaTarget.upgrades.toFixed(1)} upgrades · {perSaTarget.sales.toFixed(1)} sales
+        Default per-SA target: {defaultPerSa.referrals.toFixed(1)} referrals · {defaultPerSa.upgrades.toFixed(1)} upgrades · {defaultPerSa.sales.toFixed(1)} sales
         {activeCount > 0 && <span className="ml-1">({activeCount} SAs)</span>}
+        {isAdmin && <span className="ml-1 italic">— tap a cell to override for one SA.</span>}
       </div>
 
       {/* SA Leaderboard */}
@@ -381,12 +382,32 @@ export function SomlSection() {
             {leaderboardRows.map(r => (
               <TableRow key={r.sa}>
                 <TableCell className="font-medium">{r.sa}</TableCell>
-                {(['referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => (
-                  <TableCell key={k} className="text-center">
-                    <div className="font-semibold tabular-nums">{r[k]}</div>
-                    <div className="mt-1"><PaceBar current={r[k]} target={perSaTarget[k] || null} pace={perSaPace[k]} /></div>
-                  </TableCell>
-                ))}
+                {(['referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => {
+                  const tgt = effectiveTarget(r.sa, k);
+                  const pace = paceToToday(tgt || null, paceAnchor);
+                  const isOverride = overrides[r.sa]?.[`${k}_goal`] != null;
+                  return (
+                    <TableCell key={k} className="text-center align-top">
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="font-semibold tabular-nums">{r[k]}</span>
+                        <span className="text-[10px] text-muted-foreground">/ {tgt.toFixed(1)}</span>
+                        {isAdmin && (
+                          <button
+                            onClick={() => setEditCell({ sa: r.sa, metric: k })}
+                            className={cn(
+                              'p-0.5 rounded hover:bg-secondary transition',
+                              isOverride && 'text-primary',
+                            )}
+                            aria-label={`Override ${k} goal for ${r.sa}`}
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="mt-1"><PaceBar current={r[k]} target={tgt || null} pace={pace} /></div>
+                    </TableCell>
+                  );
+                })}
               </TableRow>
             ))}
           </TableBody>
@@ -396,6 +417,15 @@ export function SomlSection() {
       <EditGoalDialog open={editMetric !== null} onClose={() => setEditMetric(null)} metric={editMetric} config={config} onSaved={handleSaved} />
       <EditWindowDialog open={editWindowOpen} onClose={() => setEditWindowOpen(false)} config={config} onSaved={refetch} />
       <LogDialog open={logOpen !== null} onClose={() => setLogOpen(null)} kind={logOpen || 'upgrade'} onSaved={refetch} />
+      <SaOverrideDialog
+        open={editCell !== null}
+        onClose={() => setEditCell(null)}
+        sa={editCell?.sa || ''}
+        metric={editCell?.metric || 'referrals'}
+        current={editCell ? (overrides[editCell.sa]?.[`${editCell.metric}_goal`] ?? null) : null}
+        defaultValue={editCell ? defaultPerSa[editCell.metric] : 0}
+        onSaved={() => { loadOverrides(); refetch(); }}
+      />
     </section>
   );
 }
