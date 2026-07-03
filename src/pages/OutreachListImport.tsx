@@ -42,6 +42,40 @@ interface SheetPlan {
   data: Record<string, any>[];
   mapping: Partial<Record<FieldKey, string>>;
   autoChurnFallback: boolean; // if true, no is_churning column → all false
+  rawRows: any[][]; // full array-of-arrays for header-row override
+  headerRow: number; // 1-indexed row used as header
+}
+
+/** Find the first row (0-indexed) whose cells look like real column headers.
+ *  Skips title/description rows above the header. */
+function detectHeaderRow(rows: any[][]): number {
+  const isHeaderCell = (v: any) =>
+    typeof v === 'string' && /^(client|name|member|full ?name|first ?name|last ?name)/i.test(v.trim());
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    if ((rows[i] || []).some(isHeaderCell)) return i;
+  }
+  return 0;
+}
+
+/** Convert array-of-arrays + header row index into {headers, data} shape. */
+function shapeFromHeaderRow(rows: any[][], headerIdx: number) {
+  const rawHeaders = (rows[headerIdx] || []).map((h, i) =>
+    (h == null || String(h).trim() === '') ? `Column ${i + 1}` : String(h).trim());
+  // dedupe duplicate headers
+  const seen = new Map<string, number>();
+  const headers = rawHeaders.map(h => {
+    const n = (seen.get(h) || 0) + 1;
+    seen.set(h, n);
+    return n === 1 ? h : `${h} (${n})`;
+  });
+  const data = rows.slice(headerIdx + 1)
+    .filter(r => r && r.some(c => c !== '' && c != null))
+    .map(r => {
+      const obj: Record<string, any> = {};
+      headers.forEach((h, i) => { obj[h] = r[i] ?? ''; });
+      return obj;
+    });
+  return { headers, data };
 }
 
 function guessColumn(headers: string[], patterns: RegExp[]): string | undefined {
@@ -70,8 +104,8 @@ function autoMap(headers: string[]): Partial<Record<FieldKey, string>> {
 function coerceBool(v: any): boolean | null {
   if (v == null || v === '') return null;
   const s = String(v).trim().toLowerCase();
-  if (['y', 'yes', 'true', '1', 'x'].includes(s)) return true;
-  if (['n', 'no', 'false', '0'].includes(s)) return false;
+  if (['y', 'yes', 'true', '1', 'x', 'churn', 'churning', 'at risk', 'at-risk'].includes(s)) return true;
+  if (['n', 'no', 'false', '0', '-'].includes(s)) return false;
   return null;
 }
 
@@ -107,8 +141,9 @@ export default function OutreachListImport() {
     const wb = XLSX.read(buf, { type: 'array', cellDates: false });
     const built: SheetPlan[] = wb.SheetNames.map(name => {
       const ws = wb.Sheets[name];
-      const data: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      const headers = data.length > 0 ? Object.keys(data[0]) : [];
+      const rawRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as any[][];
+      const headerIdx = detectHeaderRow(rawRows);
+      const { headers, data } = shapeFromHeaderRow(rawRows, headerIdx);
       const mapping = autoMap(headers);
       return {
         sheetName: name,
@@ -117,6 +152,8 @@ export default function OutreachListImport() {
         data,
         mapping,
         autoChurnFallback: !mapping.is_churning,
+        rawRows,
+        headerRow: headerIdx + 1,
       };
     }).filter(p => p.data.length > 0);
     setPlans(built);
@@ -127,6 +164,18 @@ export default function OutreachListImport() {
     setPlans(p => {
       const next = [...p];
       next[i] = { ...next[i], mapping: { ...next[i].mapping, [key]: header === '__none__' ? undefined : header } };
+      return next;
+    });
+  };
+
+  const updateHeaderRow = (i: number, oneIndexed: number) => {
+    setPlans(p => {
+      const next = [...p];
+      const cur = next[i];
+      const idx = Math.max(0, Math.min((cur.rawRows.length - 1), oneIndexed - 1));
+      const { headers, data } = shapeFromHeaderRow(cur.rawRows, idx);
+      const mapping = autoMap(headers);
+      next[i] = { ...cur, headers, data, mapping, headerRow: idx + 1, autoChurnFallback: !mapping.is_churning };
       return next;
     });
   };
@@ -159,8 +208,11 @@ export default function OutreachListImport() {
         const rows = p.data.map(r => {
           const client_name = String(r[p.mapping.client_name!] ?? '').trim();
           if (!client_name) return null;
+          // Skip section-header-ish rows where name is literally "Client" or repeats headers
+          if (/^client$|^name$|^full name$/i.test(client_name)) return null;
           const metadata: Record<string, any> = {};
           for (const h of p.headers) {
+            if (/^__EMPTY/i.test(h) || /^Column \d+$/.test(h)) continue;
             if (!mappedCols.has(h) && r[h] !== '' && r[h] != null) metadata[h] = r[h];
           }
           const is_churning_val = p.mapping.is_churning ? coerceBool(r[p.mapping.is_churning]) : null;
@@ -237,6 +289,17 @@ export default function OutreachListImport() {
               <Input value={p.listName} onChange={e => {
                 setPlans(pl => { const n = [...pl]; n[i] = { ...n[i], listName: e.target.value }; return n; });
               }} placeholder="List name" className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">
+                Header row (which spreadsheet row has the column titles like "Client", "Amount")
+              </Label>
+              <Input type="number" min={1} max={p.rawRows.length} value={p.headerRow}
+                onChange={e => updateHeaderRow(i, Number(e.target.value) || 1)}
+                className="h-8 text-xs w-24" />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Auto-detected. Adjust if the mapping below looks wrong. Detected columns: <span className="font-mono">{p.headers.slice(0, 6).join(', ')}{p.headers.length > 6 ? '…' : ''}</span>
+              </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {FIELDS.map(f => (
