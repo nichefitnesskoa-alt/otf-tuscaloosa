@@ -34,6 +34,7 @@ import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/p
 import { loadMonthlyTargets, saveMonthlyTarget, type MonthlyTargets } from '@/lib/wig/targets';
 import { useEffectiveAdmin } from '@/hooks/useViewAsAdmin';
 import { AdminViewToggle } from '@/components/shared/AdminViewToggle';
+import { NetGainScoreboard } from '@/components/shared/NetGainScoreboard';
 
 export default function Wig() {
   const { user } = useAuth();
