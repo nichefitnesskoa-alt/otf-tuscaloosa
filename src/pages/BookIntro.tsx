@@ -195,7 +195,7 @@ export default function BookIntro() {
       // Dedup check on last-10 phone (only warn; we still create the booking)
       const { data: existingLeads } = await supabase
         .from('leads')
-        .select('id, first_name, last_name, source')
+        .select('id, first_name, last_name, source, sourced_by_sa')
         .eq('phone', phone10)
         .limit(1);
 
