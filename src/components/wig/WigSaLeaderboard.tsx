@@ -185,27 +185,43 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   );
   const activeCount = rosterSas.length;
 
-  // Effective per-SA SGL target: per-SA override if set, otherwise the global per-SA target.
+  // Team SGL goal is LOCKED to (global per-SA target × active count).
+  // Individual overrides no longer lower the team goal — instead they
+  // redistribute the remaining shortfall across non-overridden SAs
+  // so the team total still hits the monthly goal.
+  const teamSglTarget = useMemo(() => {
+    if (targets.saSgl == null) return null;
+    return targets.saSgl * activeCount;
+  }, [targets.saSgl, activeCount]);
+
+  const overrideStats = useMemo(() => {
+    let sum = 0;
+    let count = 0;
+    for (const sa of rosterSas) {
+      if (Object.prototype.hasOwnProperty.call(perSaOverrides, sa)) {
+        sum += perSaOverrides[sa] || 0;
+        count += 1;
+      }
+    }
+    return { sum, count };
+  }, [rosterSas, perSaOverrides]);
+
+  const redistributedPerSa = useMemo(() => {
+    if (teamSglTarget == null) return null;
+    const nonOverridden = activeCount - overrideStats.count;
+    if (nonOverridden <= 0) return 0;
+    const remaining = Math.max(0, teamSglTarget - overrideStats.sum);
+    return remaining / nonOverridden;
+  }, [teamSglTarget, overrideStats, activeCount]);
+
+  // Effective per-SA SGL target: override wins, else the redistributed default.
   const effectiveSaSglTarget = useCallback(
     (sa: string): number | null => {
       if (Object.prototype.hasOwnProperty.call(perSaOverrides, sa)) return perSaOverrides[sa];
-      return targets.saSgl;
+      return redistributedPerSa ?? targets.saSgl;
     },
-    [perSaOverrides, targets.saSgl],
+    [perSaOverrides, redistributedPerSa, targets.saSgl],
   );
-
-  // Team SGL target = sum of every active SA's effective target (respects
-  // individual overrides — e.g. vacation goals lower the team target too).
-  const teamSglTarget = useMemo(() => {
-    if (targets.saSgl == null && Object.keys(perSaOverrides).length === 0) return null;
-    let sum = 0;
-    let anyKnown = false;
-    for (const sa of rosterSas) {
-      const t = effectiveSaSglTarget(sa);
-      if (t != null) { sum += t; anyKnown = true; }
-    }
-    return anyKnown ? sum : null;
-  }, [rosterSas, effectiveSaSglTarget, perSaOverrides, targets.saSgl]);
 
   const teamTargets = {
     sgl: teamSglTarget,
@@ -373,6 +389,11 @@ export function WigSaLeaderboard({ dateRange }: Props) {
               Per-SA: <span className="font-bold">{targets.saSgl ?? '—'}</span>
               <span className="mx-1">×</span>
               {activeCount} SAs
+              {overrideStats.count > 0 && redistributedPerSa != null && (
+                <span className="ml-2 text-primary italic">
+                  ({overrideStats.count} overridden → others {redistributedPerSa.toFixed(1)} each)
+                </span>
+              )}
               {isAdmin && (
                 <Button
                   size="sm"
