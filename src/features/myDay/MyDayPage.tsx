@@ -435,6 +435,10 @@ export default function MyDayPage() {
         <IntroLinkBookingBanner />
       </div>
 
+      <div className="px-4 pt-3">
+        <PlanningToBuyUrgent />
+      </div>
+
       <OwnItMentionsCard />
       <VipClaimBanner />
 
