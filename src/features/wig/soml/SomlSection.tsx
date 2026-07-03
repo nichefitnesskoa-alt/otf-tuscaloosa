@@ -296,7 +296,7 @@ export function SomlSection() {
   const { user } = useAuth();
   const isAdmin = useEffectiveAdmin();
   const { salesAssociates: activeSas } = useActiveStaff();
-  const { config, totals, rows, pendingReferrals, refetch } = useSomlData();
+  const { config, totals, rows, pendingReferrals, realizedReferrals, upgradesList, salesList, refetch } = useSomlData();
 
   const [editMetric, setEditMetric] = useState<MetricKey | null>(null);
   const [editWindowOpen, setEditWindowOpen] = useState(false);
@@ -305,6 +305,7 @@ export function SomlSection() {
   const [overrides, setOverrides] = useState<Record<string, SaOverride>>({});
   const [editCell, setEditCell] = useState<{ sa: string; metric: MetricKey } | null>(null);
   const [pendingDialogSa, setPendingDialogSa] = useState<string | null>(null); // null closed, '' = all, 'name' = one SA
+  const [drilldown, setDrilldown] = useState<{ metric: MetricKey; sa: string } | null>(null); // sa '' = all
 
   const loadOverrides = useCallback(async () => {
     const { data } = await (supabase as any)
