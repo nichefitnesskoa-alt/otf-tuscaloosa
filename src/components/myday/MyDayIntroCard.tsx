@@ -14,6 +14,8 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
+import { TbdCoachAlert } from '@/components/shared/TbdCoachAlert';
+
 
 export interface MyDayIntroCardBooking {
   id: string;
