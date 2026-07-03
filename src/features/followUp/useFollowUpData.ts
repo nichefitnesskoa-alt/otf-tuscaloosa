@@ -429,6 +429,9 @@ export function useFollowUpData() {
       for (const b of bookings) {
         if (b.booking_status_canon !== 'PLANNING_RESCHEDULE') continue;
         if (plansBookingIds.has(b.id)) { inRescheduleTab.add(b.id); continue; }
+        // If a run was logged for this booking (they showed up / any outcome captured),
+        // remove from Plans-to-Reschedule — the runs loop above handles routing.
+        if (runsByBookingId.has(b.id)) continue;
         const memberNameLower = b.member_name.toLowerCase();
         if (terminalMembers.has(memberNameLower)) continue;
         const key = `plan-${b.id}`;
@@ -480,6 +483,9 @@ export function useFollowUpData() {
         const booking = bookings.find(b => b.id === ptb.booking_id);
         if (!booking) continue;
         if (notInterestedIds.has(ptb.booking_id)) continue;
+        // Skip if this member already purchased (terminal outcome on any run).
+        const nameLower = (ptb.person_name || booking.member_name).toLowerCase();
+        if (terminalMembers.has(nameLower)) continue;
         const touch = touchByBooking.get(ptb.booking_id);
         planningToBuyItems.push({
           bookingId: ptb.booking_id,
