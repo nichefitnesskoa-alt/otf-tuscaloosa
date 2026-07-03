@@ -1,11 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Flame } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import otfLogo from '@/assets/otf-logo-orange.png.asset.json';
+
+// OTF brand palette (locked)
+const ORANGE = '#FF6F0D';
+const BONE = '#FDF7EA';
+const DARK = '#0A0A0A';
+
+const brandFont = {
+  fontFamily: "'PP Right Grotesk', 'Arial Black', 'Helvetica Neue', Arial, sans-serif",
+  letterSpacing: '-0.02em',
+};
 
 export default function Login() {
   const [selectedName, setSelectedName] = useState('');
@@ -36,58 +44,116 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-foreground flex flex-col items-center justify-center p-4">
-      {/* Logo */}
-      <div className="mb-8 text-center">
-        <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/30">
-          <Flame className="w-10 h-10 text-primary-foreground" />
-        </div>
-        <h1 className="text-3xl font-black text-background tracking-tight">
-          ORANGETHEORY
-        </h1>
-        <p className="text-background/60 text-sm mt-1">Shift Recap</p>
-      </div>
+    <div
+      className="min-h-screen flex flex-col px-6 py-10"
+      style={{ backgroundColor: DARK, color: BONE, ...brandFont }}
+    >
+      {/* Logo lockup */}
+      <header className="flex flex-col items-center pt-6 pb-10">
+        <img
+          src={otfLogo.url}
+          alt="Orangetheory Fitness"
+          className="h-16 w-auto mb-6"
+        />
+        <p
+          className="text-xs uppercase"
+          style={{ color: BONE, opacity: 0.65, letterSpacing: '0.18em' }}
+        >
+          Shift Recap · Tuscaloosa
+        </p>
+      </header>
 
-      <Card className="w-full max-w-sm border-0 shadow-2xl">
-        <CardHeader className="text-center pb-2">
-          <CardTitle className="text-xl">Welcome</CardTitle>
-          <CardDescription>Select your name to continue</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-sm font-bold text-foreground leading-snug">
-              This app tracks your commission, proves your value to leadership, and makes sure you never lose credit for an intro you worked. The OTF system books classes. This system makes sure you get paid for them.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Remember: book every intro in both Mindbody AND here.
+      {/* Main card */}
+      <main className="flex-1 flex flex-col justify-center">
+        <div className="w-full max-w-sm mx-auto">
+          {/* Headline */}
+          <h1
+            className="text-4xl leading-[0.95] mb-4"
+            style={{ ...brandFont, fontWeight: 800 }}
+          >
+            Get paid for<br />every intro<br />you work.
+          </h1>
+          <p
+            className="text-base leading-snug mb-8"
+            style={{ color: BONE, opacity: 0.75 }}
+          >
+            The OTF system books classes. This one makes sure you get the credit.
+          </p>
+
+          {/* Reminder */}
+          <div
+            className="mb-6 pl-3 py-1"
+            style={{ borderLeft: `2px solid ${ORANGE}` }}
+          >
+            <p className="text-sm" style={{ color: BONE, opacity: 0.9 }}>
+              Book every intro in both Mindbody <span style={{ color: ORANGE }}>and</span> here.
             </p>
           </div>
 
+          {/* Name select */}
+          <label
+            className="block text-xs uppercase mb-2"
+            style={{ color: BONE, opacity: 0.6, letterSpacing: '0.14em' }}
+          >
+            Your name
+          </label>
           <Select value={selectedName} onValueChange={setSelectedName}>
-            <SelectTrigger className="h-12">
-              <SelectValue placeholder="Select your name..." />
+            <SelectTrigger
+              className="h-14 w-full rounded-none border-0 text-base focus:ring-0 focus:ring-offset-0"
+              style={{
+                backgroundColor: 'transparent',
+                color: BONE,
+                borderBottom: `1px solid ${BONE}`,
+                paddingLeft: 0,
+                paddingRight: 0,
+                ...brandFont,
+              }}
+            >
+              <SelectValue placeholder="Select your name" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              style={{ backgroundColor: DARK, color: BONE, border: `1px solid ${BONE}20` }}
+            >
               {staffNames.map(name => (
-                <SelectItem key={name} value={name}>{name}</SelectItem>
+                <SelectItem
+                  key={name}
+                  value={name}
+                  className="focus:bg-transparent"
+                  style={{ color: BONE }}
+                >
+                  {name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <Button 
+          {/* Primary action — the ONE orange element */}
+          <button
             onClick={handleLogin}
             disabled={!selectedName}
-            className="w-full h-12 text-base font-bold"
-            size="lg"
+            className="w-full mt-8 h-14 text-base transition-opacity disabled:opacity-40"
+            style={{
+              backgroundColor: ORANGE,
+              color: DARK,
+              fontWeight: 700,
+              letterSpacing: '-0.01em',
+              ...brandFont,
+            }}
           >
-            Continue
-          </Button>
-        </CardContent>
-      </Card>
+            Continue →
+          </button>
+        </div>
+      </main>
 
-      <p className="text-background/40 text-xs mt-8 text-center">
-        More Life. More Energy. More Results.
-      </p>
+      {/* Tagline */}
+      <footer className="pt-10 pb-2 text-center">
+        <p
+          className="text-[11px] uppercase"
+          style={{ color: BONE, opacity: 0.5, letterSpacing: '0.22em' }}
+        >
+          More Life · More Energy · More Results
+        </p>
+      </footer>
     </div>
   );
 }
