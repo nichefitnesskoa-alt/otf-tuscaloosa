@@ -195,11 +195,16 @@ export function OutcomeDrawer({
   const isBookedSecondIntroNeedsReason = outcome === 'Booked 2nd intro';
   const isNoShow = outcome === 'No-show';
   const isVipClassIntroOutcome = outcome === 'VIP Class Intro';
-  const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !isOn5ClassPack && !isVipClassIntroOutcome && !!outcome;
+  // Any 2nd-intro path uses "What's holding them back?" as the objection —
+  // never show Primary Objection separately (that's the redundant double-ask).
+  const isAny2ndIntroPath = isBookedSecondIntro || isPlanningToBook2ndIntro;
+  const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !isOn5ClassPack && !isVipClassIntroOutcome && !isAny2ndIntroPath && !!outcome;
   // Booking has no real coach assigned (empty or "TBD") — force coach selection on every outcome
-  const bookingHasNoCoach = !initialCoach || initialCoach.trim() === '' || /^tbd$/i.test(initialCoach.trim());
-  const coachRequiredBase = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro && !isPlanningToBuy && !isOn5ClassPack && !isVipClassIntroOutcome;
-  const coachRequired = coachRequiredBase || (bookingHasNoCoach && !!outcome && !isReschedule && !isPlanningToReschedule);
+  const bookingHasNoCoach = isMissingCoach(initialCoach);
+  // Coach is now required on ALL outcomes that actually happened. Reschedule/
+  // Planning-to-Reschedule don't need a coach (the class did not run yet).
+  const coachRequired = !!outcome && !isReschedule && !isPlanningToReschedule;
+
 
   // Computed commission — live recomputes on outcome change
   const commission = computeCommission({ membershipType: isSale ? outcome : null });
