@@ -18,6 +18,9 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { getTodayStartISO, getTodayYMD } from '@/lib/dateUtils';
 import { didIntroActuallyRun } from '@/lib/canon/introRules';
+import { isMissingCoach } from '@/lib/intros/coachAttribution';
+import { AlertTriangle } from 'lucide-react';
+
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { Tables } from '@/integrations/supabase/types';
 import { ShiftChecklist } from './ShiftChecklist';
