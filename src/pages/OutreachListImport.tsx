@@ -141,8 +141,9 @@ export default function OutreachListImport() {
     const wb = XLSX.read(buf, { type: 'array', cellDates: false });
     const built: SheetPlan[] = wb.SheetNames.map(name => {
       const ws = wb.Sheets[name];
-      const data: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      const headers = data.length > 0 ? Object.keys(data[0]) : [];
+      const rawRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as any[][];
+      const headerIdx = detectHeaderRow(rawRows);
+      const { headers, data } = shapeFromHeaderRow(rawRows, headerIdx);
       const mapping = autoMap(headers);
       return {
         sheetName: name,
@@ -151,6 +152,8 @@ export default function OutreachListImport() {
         data,
         mapping,
         autoChurnFallback: !mapping.is_churning,
+        rawRows,
+        headerRow: headerIdx + 1,
       };
     }).filter(p => p.data.length > 0);
     setPlans(built);
@@ -161,6 +164,18 @@ export default function OutreachListImport() {
     setPlans(p => {
       const next = [...p];
       next[i] = { ...next[i], mapping: { ...next[i].mapping, [key]: header === '__none__' ? undefined : header } };
+      return next;
+    });
+  };
+
+  const updateHeaderRow = (i: number, oneIndexed: number) => {
+    setPlans(p => {
+      const next = [...p];
+      const cur = next[i];
+      const idx = Math.max(0, Math.min((cur.rawRows.length - 1), oneIndexed - 1));
+      const { headers, data } = shapeFromHeaderRow(cur.rawRows, idx);
+      const mapping = autoMap(headers);
+      next[i] = { ...cur, headers, data, mapping, headerRow: idx + 1, autoChurnFallback: !mapping.is_churning };
       return next;
     });
   };
