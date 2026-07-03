@@ -351,7 +351,11 @@ export default function Wig() {
       // coach who ran it. When MULTIPLE children chain back to the same
       // excluded original (e.g. Alexa: a follow-up child + a sale child),
       // we promote exactly ONE — preferring the child that ended in a sale.
-      const candidateChildren = allCoachBookings.filter(b => !!b.originating_booking_id && !b.referred_by_member_name);
+      // A booking with originating_booking_id is ALWAYS a chain child, even
+      // if it inherited referred_by_member_name from its parent (e.g. a
+      // reschedule of a friend-referred first intro). We still consider it
+      // for orphan promotion so the chain walk lands on the right root.
+      const candidateChildren = allCoachBookings.filter(b => !!b.originating_booking_id);
       const originatingIds = Array.from(new Set(
         candidateChildren
           .map(b => b.originating_booking_id)
