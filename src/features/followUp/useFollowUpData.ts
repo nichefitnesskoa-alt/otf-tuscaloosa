@@ -50,7 +50,9 @@ export interface FollowUpItem {
   followUpType: FollowUpType;
   transferredFromCoach?: string | null;
   plannedBuyDate?: string | null;
+  primaryObjection?: string | null;
 }
+
 
 const TERMINAL_OUTCOMES = ['Purchased', 'Not Interested'];
 const PURCHASE_RESULTS = ['Premier', 'Elite', 'Basic', 'Premier + OTbeat', 'Elite + OTbeat', 'Basic + OTbeat'];
