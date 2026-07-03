@@ -49,8 +49,8 @@ export function PlanningToBuyUrgent() {
     const items = (queue || []).filter((q: any) => q.booking_id && q.scheduled_date);
     if (items.length === 0) { setRows([]); setLoading(false); return; }
 
-    const bookingIds = Array.from(new Set(items.map((q: any) => q.booking_id as string)));
-    const nameList = Array.from(new Set(items.map((q: any) => (q.person_name as string) || '').filter(Boolean)));
+    const bookingIds: string[] = Array.from(new Set(items.map((q: any) => String(q.booking_id))));
+    const nameList: string[] = Array.from(new Set(items.map((q: any) => String(q.person_name || '')).filter((s: string) => s.length > 0)));
 
     const [bookingsRes, runsRes] = await Promise.all([
       supabase.from('intros_booked').select('id, member_name, phone').in('id', bookingIds),
