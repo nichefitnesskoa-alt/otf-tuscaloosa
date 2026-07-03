@@ -426,13 +426,13 @@ export function PrepDrawer({
                     </div>
                   </div>
 
-                  {/* THE BRIEF — 3-column conversation fields (matches intro card) */}
+                  {/* THE BRIEF — 2-column conversation fields (matches intro card) */}
                   <div className="rounded-lg border-2 border-blue-300 dark:border-blue-700 overflow-hidden">
                     <div className="px-3 py-2 bg-blue-50/60 dark:bg-blue-950/30">
                       <p className="text-[10px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-300">THE CONVERSATION</p>
                       <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">Fill in during dig deeper — these are the SA conversation fields</p>
                     </div>
-                    <div className="p-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Label className="text-xs font-semibold" style={{ color: '#E8540A' }}>What would a 5/5 look like for you?</Label>
                         {fitnessLevel != null && (
@@ -443,19 +443,6 @@ export function PrepDrawer({
                           onChange={e => setSaConv5of5(e.target.value)}
                           onBlur={() => handleSaveBrief('sa_conversation_5_of_5', saConv5of5 || '')}
                           placeholder="Paint me a picture. What does your life actually look like when you get there?"
-                          className="min-h-[80px] text-xs resize-none border border-input"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs font-semibold" style={{ color: '#E8540A' }}>What would change for you if you got there?</Label>
-                        {emotionalDriver && (
-                          <p className="text-[10px] text-muted-foreground italic">They mentioned: {emotionalDriver.length > 50 ? emotionalDriver.slice(0, 50) + '…' : emotionalDriver}</p>
-                        )}
-                        <Textarea
-                          value={saConvMeaning || ''}
-                          onChange={e => setSaConvMeaning(e.target.value)}
-                          onBlur={() => handleSaveBrief('sa_conversation_meaning', saConvMeaning || '')}
-                          placeholder="What would actually be different? Like in their day to day?"
                           className="min-h-[80px] text-xs resize-none border border-input"
                         />
                       </div>
@@ -474,6 +461,7 @@ export function PrepDrawer({
                       </div>
                     </div>
                   </div>
+
 
                   {/* Coach Notes (if coach added notes) */}
                   {coachNotesOnBooking && (
