@@ -219,6 +219,68 @@ function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
     </Dialog>
   );
 }
+interface SaOverrideDialogProps {
+  open: boolean; onClose: () => void;
+  sa: string; metric: MetricKey;
+  current: number | null; defaultValue: number;
+  onSaved: () => void;
+}
+function SaOverrideDialog({ open, onClose, sa, metric, current, defaultValue, onSaved }: SaOverrideDialogProps) {
+  const { user } = useAuth();
+  const [val, setVal] = useState('');
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (open) setVal(current == null ? '' : String(current));
+  }, [open, current, sa, metric]);
+
+  const save = async (clear: boolean) => {
+    setSaving(true);
+    const key = `${metric}_goal`;
+    let payload: any = { sa_name: sa, updated_by: user?.name || 'unknown' };
+    if (clear) {
+      payload[key] = null;
+    } else {
+      const n = parseInt(val, 10);
+      if (isNaN(n) || n < 0) { toast.error('Enter a number ≥ 0'); setSaving(false); return; }
+      payload[key] = n;
+    }
+    // Upsert on sa_name
+    const { error } = await (supabase as any)
+      .from('soml_sa_goals')
+      .upsert(payload, { onConflict: 'sa_name' });
+    setSaving(false);
+    if (error) { toast.error('Save failed: ' + error.message); return; }
+    toast.success(clear ? 'Override cleared' : 'Override saved');
+    onSaved();
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>Override {metric} goal — {sa}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label className="text-xs">Custom monthly {metric} goal for {sa}</Label>
+          <Input type="number" min={0} value={val} onChange={e => setVal(e.target.value)}
+            placeholder={`Default: ${defaultValue.toFixed(1)}`} autoFocus />
+          <p className="text-[11px] text-muted-foreground">
+            Leaves other SAs on the divided default. Clear to fall back to default.
+          </p>
+        </div>
+        <DialogFooter className="gap-2">
+          {current != null && (
+            <Button variant="ghost" onClick={() => save(true)} disabled={saving}>Clear</Button>
+          )}
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => save(false)} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 // Per-SA override row (nullable per metric — null = use divided default)
 interface SaOverride { sa_name: string; referrals_goal: number | null; upgrades_goal: number | null; sales_goal: number | null }
