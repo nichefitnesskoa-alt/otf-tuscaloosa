@@ -341,7 +341,7 @@ export default function MyDayPage() {
 
   return (
     <div className="max-w-full overflow-x-hidden pb-[calc(7rem_+_env(safe-area-inset-bottom))]">
-      <OnboardingOverlay />
+      
       <WhatsChangedDialog />
 
       {/* ═══ FLOATING HEADER — always visible ═══ */}
