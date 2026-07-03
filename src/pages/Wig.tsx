@@ -730,20 +730,6 @@ export default function Wig() {
         }
       }
 
-          const isViaSecond = !!linked.originating_booking_id && root.id !== linked.id;
-          ensureAttrib(cName).closes.push({
-            bookingId: root.id,
-            member: root.member_name || linked.member_name || 'Unknown',
-            classDate: root.class_date || null,
-            buyDate: r.buy_date || null,
-            source: root.lead_source || null,
-            resultLabel: 'SALE',
-            via: isViaSecond ? '2nd_intro' : 'direct',
-          });
-          countedRunBookingIds.add(r.linked_intro_booked_id);
-        }
-      }
-
       // Backfill via2ndIntroSale flag on coached rows so the drill explains
       // why an originator with no direct sale is being counted as a close.
       // secondRunSaleSet holds first-intro booking IDs whose 2nd intro ran a sale.
