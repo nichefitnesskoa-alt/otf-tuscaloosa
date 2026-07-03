@@ -746,7 +746,18 @@ function PendingReferralsDialog({ open, onClose, saFilter, rows }: PendingReferr
                 <span className="text-muted-foreground">{r.resolved_outcome || 'Did not convert'}</span>
               )}
               {r.state === 'pending' && (
-                <span className="text-primary">Pending</span>
+                <div className="flex items-center gap-2 justify-end">
+                  <span className="text-primary">Pending</span>
+                  <button
+                    type="button"
+                    onClick={() => dismissReferral(r)}
+                    className="text-muted-foreground hover:text-destructive"
+                    aria-label="Remove from pending"
+                    title="Not interested — remove from pending"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               )}
             </div>
           </div>
