@@ -1,17 +1,15 @@
 /**
  * Outreach List detail — dense spreadsheet-style table so the team can see
  * many people at once. Search by name/phone/item, sort by any column,
- * mark Texted / In Person / Not Interested, log Save/Upgrade/Refer, or
- * delete a row (admin). Churning members flagged inline (red row + ⚠).
+ * multi-select filter per column (Excel-style), mark Texted / In Person /
+ * Not Interested, log Save/Upgrade/Refer, or delete a row (admin).
+ * Churning members flagged inline (red row + ⚠).
  */
 import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -33,35 +31,17 @@ import { cn } from '@/lib/utils';
 type ColKey = 'name' | 'item' | 'amount' | 'phone' | 'last_30d' | 'latest' | 'churns' | 'texted' | 'in_person' | 'not_interested';
 type SortState = { key: ColKey; dir: 'asc' | 'desc' } | null;
 type ColType = 'text' | 'number' | 'date' | 'bool';
-type BoolFilter = 'any' | 'yes' | 'no';
-type FilterState = Partial<Record<ColKey, string>>; // for text/number/date it's the text; for bool it's 'yes'/'no' (absent = any)
+type BoolFilter = 'yes' | 'no';
+// For non-bool: array of selected raw string values (empty/absent = no filter).
+// For bool: 'yes' | 'no' (absent = any).
+type FilterState = Partial<Record<ColKey, string[] | BoolFilter>>;
+type FilterOption = { value: string; label: string };
 
 const COL_TYPES: Record<ColKey, ColType> = {
   name: 'text', item: 'text', amount: 'number', phone: 'text',
   last_30d: 'number', latest: 'date', churns: 'bool',
   texted: 'bool', in_person: 'bool', not_interested: 'bool',
 };
-
-/** Parse a numeric filter like ">10", "<= 5", "=3", or "3" → predicate. */
-function makeNumberPredicate(raw: string): ((n: number | null | undefined) => boolean) | null {
-  const s = raw.trim();
-  if (!s) return null;
-  const m = s.match(/^(>=|<=|>|<|=)?\s*(-?\d+(?:\.\d+)?)$/);
-  if (!m) return null;
-  const op = m[1] || '=';
-  const val = Number(m[2]);
-  return (n) => {
-    if (n == null || isNaN(Number(n))) return false;
-    const x = Number(n);
-    switch (op) {
-      case '>': return x > val;
-      case '<': return x < val;
-      case '>=': return x >= val;
-      case '<=': return x <= val;
-      default: return x === val;
-    }
-  };
-}
 
 
 function fmtWhen(iso: string) {
@@ -75,6 +55,28 @@ function fmtDay(d: string | null) {
 function fmtAmount(n: number | null) {
   if (n == null || isNaN(Number(n))) return '—';
   return `$${Number(n).toFixed(2)}`;
+}
+
+/** Raw value + display label for a row's cell in a given (non-bool) column. */
+function rowColStringValue(r: OutreachRow, col: ColKey): { value: string; label: string } {
+  switch (col) {
+    case 'name': return { value: r.client_name, label: r.client_name };
+    case 'item': return { value: r.item || '', label: r.item || '(blank)' };
+    case 'phone': return { value: r.phone || '', label: r.phone || '(blank)' };
+    case 'amount': {
+      const raw = r.amount == null ? '' : String(r.amount);
+      return { value: raw, label: r.amount == null ? '(blank)' : fmtAmount(r.amount) };
+    }
+    case 'last_30d': {
+      const raw = r.last_30d_count == null ? '' : String(r.last_30d_count);
+      return { value: raw, label: r.last_30d_count == null ? '(blank)' : String(r.last_30d_count) };
+    }
+    case 'latest': {
+      const raw = r.latest_workout_date || '';
+      return { value: raw, label: r.latest_workout_date ? fmtDay(r.latest_workout_date) : '(blank)' };
+    }
+    default: return { value: '', label: '' };
+  }
 }
 
 function CheckPill({
@@ -144,7 +146,7 @@ function SaveAttemptDialog({
 }
 
 function ColHeader({
-  col, label, align, className, sort, filters, onSort, onFilter,
+  col, label, align, className, sort, filters, options, onSort, onFilter,
 }: {
   col: ColKey;
   label: string;
@@ -152,14 +154,39 @@ function ColHeader({
   className?: string;
   sort: SortState;
   filters: FilterState;
+  options: FilterOption[]; // ignored for bool
   onSort: (c: ColKey) => void;
-  onFilter: (c: ColKey, v: string | undefined) => void;
+  onFilter: (c: ColKey, v: string[] | BoolFilter | undefined) => void;
 }) {
   const type = COL_TYPES[col];
   const active = sort?.key === col;
-  const filterVal = filters[col];
-  const hasFilter = !!filterVal;
-  const [draft, setDraft] = useState('');
+  const current = filters[col];
+  const boolVal = type === 'bool' ? (current as BoolFilter | undefined) : undefined;
+  const selected = type === 'bool' ? [] : ((current as string[] | undefined) || []);
+  const hasFilter = type === 'bool' ? !!boolVal : selected.length > 0;
+  const [q, setQ] = useState('');
+
+  const shownOptions = useMemo(() => {
+    if (type === 'bool') return [];
+    const needle = q.trim().toLowerCase();
+    if (!needle) return options;
+    return options.filter(o => o.label.toLowerCase().includes(needle) || o.value.toLowerCase().includes(needle));
+  }, [options, q, type]);
+
+  const toggleValue = (v: string) => {
+    const next = selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v];
+    onFilter(col, next.length ? next : undefined);
+  };
+  const selectAllShown = () => {
+    const merged = Array.from(new Set([...selected, ...shownOptions.map(o => o.value)]));
+    onFilter(col, merged.length ? merged : undefined);
+  };
+  const clearAllShown = () => {
+    const shownSet = new Set(shownOptions.map(o => o.value));
+    const next = selected.filter(v => !shownSet.has(v));
+    onFilter(col, next.length ? next : undefined);
+  };
+
   return (
     <th className={cn(
       'px-1 py-2 select-none',
@@ -186,61 +213,97 @@ function ColHeader({
             ? (sort!.dir === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)
             : <ArrowUpDown className="w-3 h-3 opacity-30" />}
         </button>
-        <Popover onOpenChange={o => { if (o) setDraft(filterVal || ''); }}>
+        <Popover onOpenChange={o => { if (o) setQ(''); }}>
           <PopoverTrigger asChild>
             <button
               className={cn(
                 'inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent cursor-pointer',
                 hasFilter ? 'text-primary' : 'text-muted-foreground/50 hover:text-foreground',
               )}
-              title={hasFilter ? `Filter: ${filterVal}` : 'Filter this column'}
+              title={hasFilter
+                ? (type === 'bool' ? `Filter: ${boolVal}` : `Filter: ${selected.length} selected`)
+                : 'Filter this column'}
             >
               <Filter className="w-3 h-3" fill={hasFilter ? 'currentColor' : 'none'} />
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-56 p-2 space-y-2" align="start">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Filter {label}</div>
+          <PopoverContent className="w-64 p-2 space-y-2" align="start">
+            <div className="flex items-center justify-between">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Filter {label}</div>
+              {hasFilter && (
+                <button
+                  onClick={() => onFilter(col, undefined)}
+                  className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+
             {type === 'bool' ? (
               <div className="flex gap-1">
-                {(['any', 'yes', 'no'] as BoolFilter[]).map(v => {
-                  const isActive = (v === 'any' ? !filterVal : filterVal === v);
+                {([
+                  { v: undefined as BoolFilter | undefined, label: 'Any' },
+                  { v: 'yes' as BoolFilter, label: 'Yes' },
+                  { v: 'no' as BoolFilter, label: 'No' },
+                ]).map(opt => {
+                  const isActive = (opt.v === undefined ? !boolVal : boolVal === opt.v);
                   return (
                     <button
-                      key={v}
-                      onClick={() => onFilter(col, v === 'any' ? undefined : v)}
+                      key={opt.label}
+                      onClick={() => onFilter(col, opt.v)}
                       className={cn(
-                        'flex-1 h-7 rounded border text-xs capitalize cursor-pointer',
+                        'flex-1 h-7 rounded border text-xs cursor-pointer',
                         isActive ? 'bg-primary/20 border-primary text-primary font-bold' : 'border-border hover:bg-accent',
                       )}
                     >
-                      {v}
+                      {opt.label}
                     </button>
                   );
                 })}
               </div>
             ) : (
               <>
-                <Input
-                  autoFocus
-                  value={draft}
-                  onChange={e => setDraft(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') onFilter(col, draft.trim() || undefined); }}
-                  placeholder={
-                    type === 'number' ? 'e.g. >5, <=10, =0, 3'
-                      : type === 'date' ? 'e.g. 2026-06'
-                      : 'Contains…'
-                  }
-                  className="h-7 text-xs"
-                />
-                <div className="flex gap-1">
-                  <Button size="sm" className="h-7 text-xs flex-1" onClick={() => onFilter(col, draft.trim() || undefined)}>Apply</Button>
-                  {hasFilter && (
-                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setDraft(''); onFilter(col, undefined); }}>Clear</Button>
-                  )}
-                </div>
-                {type === 'number' && (
-                  <p className="text-[10px] text-muted-foreground">Comparators: &gt; &lt; &gt;= &lt;= = (or blank contains)</p>
+                {options.length > 8 && (
+                  <Input
+                    autoFocus
+                    value={q}
+                    onChange={e => setQ(e.target.value)}
+                    placeholder="Search values…"
+                    className="h-7 text-xs"
+                  />
                 )}
+                <div className="flex gap-2 text-[10px]">
+                  <button onClick={selectAllShown} className="text-primary hover:underline">Select all{q ? ' shown' : ''}</button>
+                  <span className="text-muted-foreground">·</span>
+                  <button onClick={clearAllShown} className="text-muted-foreground hover:text-foreground hover:underline">Clear{q ? ' shown' : ''}</button>
+                  <span className="ml-auto text-muted-foreground">{selected.length}/{options.length}</span>
+                </div>
+                <div className="max-h-56 overflow-y-auto border border-border rounded bg-background">
+                  {shownOptions.length === 0 && (
+                    <div className="px-2 py-3 text-[11px] text-center text-muted-foreground">No values</div>
+                  )}
+                  {shownOptions.map(opt => {
+                    const checked = selected.includes(opt.value);
+                    return (
+                      <label
+                        key={opt.value || '(blank)'}
+                        className={cn(
+                          'flex items-center gap-2 px-2 py-1 text-xs cursor-pointer hover:bg-accent',
+                          checked && 'bg-primary/10',
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleValue(opt.value)}
+                          className="accent-primary cursor-pointer"
+                        />
+                        <span className="truncate flex-1" title={opt.label}>{opt.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </>
             )}
           </PopoverContent>
@@ -264,10 +327,11 @@ export default function OutreachListDetail() {
   const [sort, setSort] = useState<SortState>(null);
   const [filters, setFilters] = useState<FilterState>({});
 
-  const setFilter = (col: ColKey, val: string | undefined) => {
+  const setFilter = (col: ColKey, val: string[] | BoolFilter | undefined) => {
     setFilters(f => {
       const next = { ...f };
-      if (!val) delete next[col]; else next[col] = val;
+      if (val === undefined || (Array.isArray(val) && val.length === 0)) delete next[col];
+      else next[col] = val;
       return next;
     });
   };
@@ -289,6 +353,34 @@ export default function OutreachListDetail() {
     return false;
   };
 
+  // Distinct filter options per non-bool column, computed from all rows.
+  const filterOptions = useMemo(() => {
+    const cols: ColKey[] = ['name', 'item', 'amount', 'phone', 'last_30d', 'latest'];
+    const map: Partial<Record<ColKey, FilterOption[]>> = {};
+    for (const col of cols) {
+      const seen = new Map<string, string>(); // value -> label
+      for (const r of rows) {
+        const { value, label } = rowColStringValue(r, col);
+        if (!seen.has(value)) seen.set(value, label);
+      }
+      const arr: FilterOption[] = Array.from(seen.entries()).map(([value, label]) => ({ value, label }));
+      // Sort: numeric cols numerically; date cols by date desc; text alphabetical; blanks last.
+      arr.sort((a, b) => {
+        if (a.value === '' && b.value !== '') return 1;
+        if (b.value === '' && a.value !== '') return -1;
+        if (col === 'amount' || col === 'last_30d') {
+          return Number(a.value) - Number(b.value);
+        }
+        if (col === 'latest') {
+          return b.value.localeCompare(a.value); // most recent first
+        }
+        return a.label.localeCompare(b.label);
+      });
+      map[col] = arr;
+    }
+    return map;
+  }, [rows]);
+
   const filteredSorted = useMemo(() => {
     const q = search.trim().toLowerCase();
     let out = q
@@ -300,30 +392,15 @@ export default function OutreachListDetail() {
       : [...rows];
 
     // Per-column filters
-    for (const [k, raw] of Object.entries(filters) as [ColKey, string][]) {
-      if (!raw) continue;
+    for (const [k, raw] of Object.entries(filters) as [ColKey, string[] | BoolFilter][]) {
       const type = COL_TYPES[k];
       if (type === 'bool') {
         const want = raw === 'yes';
         out = out.filter(r => rowBoolValue(r, k) === want);
-      } else if (type === 'number') {
-        const pred = makeNumberPredicate(raw);
-        if (pred) {
-          out = out.filter(r => pred(k === 'amount' ? (r.amount as any) : r.last_30d_count));
-        } else {
-          const s = raw.toLowerCase();
-          out = out.filter(r => String(k === 'amount' ? (r.amount ?? '') : (r.last_30d_count ?? '')).toLowerCase().includes(s));
-        }
       } else {
-        const s = raw.toLowerCase();
-        out = out.filter(r => {
-          const v = k === 'name' ? r.client_name
-            : k === 'item' ? (r.item || '')
-            : k === 'phone' ? (r.phone || '')
-            : k === 'latest' ? (r.latest_workout_date || '')
-            : '';
-          return v.toLowerCase().includes(s);
-        });
+        const set = new Set(raw as string[]);
+        if (set.size === 0) continue;
+        out = out.filter(r => set.has(rowColStringValue(r, k).value));
       }
     }
 
@@ -363,7 +440,7 @@ export default function OutreachListDetail() {
     return out;
   }, [rows, actions, search, sort, filters]);
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const activeFilterCount = Object.keys(filters).length;
 
 
   const churnCount = rows.filter(r => r.is_churning).length;
@@ -396,6 +473,8 @@ export default function OutreachListDetail() {
       setDeletingRow(false);
     }
   };
+
+  const emptyOpts: FilterOption[] = [];
 
   return (
     <div className="p-4 max-w-[1400px] mx-auto pb-24">
@@ -455,7 +534,7 @@ export default function OutreachListDetail() {
                 {activeFilterCount > 0 && <span className="ml-1 text-muted-foreground">({activeFilterCount})</span>}
               </Button>
             )}
-            <span className="text-[10px] text-muted-foreground">Click a column header to sort. Use the filter icon to filter that column.</span>
+            <span className="text-[10px] text-muted-foreground">Click a column header to sort. Click the filter icon to pick values.</span>
           </div>
 
           {/* Desktop / tablet: spreadsheet table */}
@@ -464,16 +543,16 @@ export default function OutreachListDetail() {
               <thead className="bg-muted/60 text-[10px] uppercase tracking-wide text-muted-foreground sticky top-0 z-10">
                 <tr>
                   <th className="text-left px-2 py-2 w-8"></th>
-                  <ColHeader col="name" label="Name" align="left" className="min-w-[160px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="item" label="Item" align="left" className="min-w-[200px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="amount" label="Amount" align="right" className="w-[90px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="phone" label="Phone" align="left" className="w-[130px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="last_30d" label="30d" align="right" className="w-[80px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="latest" label="Latest" align="left" className="w-[90px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="churns" label="Churns" align="left" className="w-[100px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="texted" label="Text" align="center" className="w-[65px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="in_person" label="In-Per" align="center" className="w-[70px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="not_interested" label="Not Int" align="center" className="w-[70px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="name" label="Name" align="left" className="min-w-[160px]" sort={sort} filters={filters} options={filterOptions.name || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="item" label="Item" align="left" className="min-w-[200px]" sort={sort} filters={filters} options={filterOptions.item || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="amount" label="Amount" align="right" className="w-[90px]" sort={sort} filters={filters} options={filterOptions.amount || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="phone" label="Phone" align="left" className="w-[130px]" sort={sort} filters={filters} options={filterOptions.phone || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="last_30d" label="30d" align="right" className="w-[80px]" sort={sort} filters={filters} options={filterOptions.last_30d || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="latest" label="Latest" align="left" className="w-[90px]" sort={sort} filters={filters} options={filterOptions.latest || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="churns" label="Churns" align="left" className="w-[100px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="texted" label="Text" align="center" className="w-[65px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="in_person" label="In-Per" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="not_interested" label="Not Int" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   <th className="text-right px-2 py-2 w-[240px]">Actions</th>
                 </tr>
               </thead>
