@@ -104,8 +104,8 @@ function autoMap(headers: string[]): Partial<Record<FieldKey, string>> {
 function coerceBool(v: any): boolean | null {
   if (v == null || v === '') return null;
   const s = String(v).trim().toLowerCase();
-  if (['y', 'yes', 'true', '1', 'x'].includes(s)) return true;
-  if (['n', 'no', 'false', '0'].includes(s)) return false;
+  if (['y', 'yes', 'true', '1', 'x', 'churn', 'churning', 'at risk', 'at-risk'].includes(s)) return true;
+  if (['n', 'no', 'false', '0', '-'].includes(s)) return false;
   return null;
 }
 
