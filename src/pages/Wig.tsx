@@ -757,25 +757,98 @@ export default function Wig() {
       });
 
       // ─────────────────────────────────────────────────────────────────────
-      // OTF Corporate scorecard
-      //   OTF scores coaches on the member's FIRST VISIT only. Second/third
-      //   intros aren't counted in the denominator, and close credit follows
-      //   the coach who ran the first visit (i.e. the chain root). This means
-      //   the Corporate table mirrors Total Journey — a 2nd-intro coach never
-      //   picks up Coached or Close credit from a chain they didn't originate.
-      //   Kept as a separate table so it's obvious we're not double-counting
-      //   and so operators can see the "OTF-facing" number explicitly.
+      // OTF Corporate scorecard — LAST COACH attribution
+      //   OTF Corporate credits the coach who ran the class the member
+      //   actually converted from. That means:
+      //     • Coached  = every ran intro in range (1st + 2nd + 3rd …) is
+      //                  attributed to the coach who ran THAT class.
+      //     • Closes   = each in-range sale is credited to the coach who
+      //                  ran the class the sale is linked to (the last
+      //                  coach in the chain), NOT the first-intro coach.
+      //   This is intentionally different from Internal · Total Journey
+      //   (which credits the first-intro coach). Both tables should agree
+      //   on studio TOTAL Coached/Closes, but per-coach rows will differ
+      //   when a chain spans multiple coaches.
       // ─────────────────────────────────────────────────────────────────────
-      const coachMapCorp = new Map<string, { coached: number }>(coachMap);
-      const coachCloseMapCorp = new Map<string, { total: number; closed: number }>(coachCloseMap);
+      const coachMapCorp = new Map<string, { coached: number }>();
+      const coachCloseMapCorp = new Map<string, { total: number; closed: number }>();
       const attribMapCorp = new Map<string, CoachAttribution>();
-      attribMap.forEach((v, k) => {
-        attribMapCorp.set(k, {
-          coached: [...v.coached],
-          closes: [...v.closes],
-          excluded: [...v.excluded],
+      const ensureAttribCorp = (n: string): CoachAttribution => {
+        let a = attribMapCorp.get(n);
+        if (!a) { a = { coached: [], closes: [], excluded: [] }; attribMapCorp.set(n, a); }
+        return a;
+      };
+
+      // Coached (Corporate): every in-range booking whose intro actually ran,
+      // credited to the coach who ran THAT specific class.
+      const corpCoachedBookingIds = new Set<string>();
+      allCoachBookings.forEach(b => {
+        const run = allRunsByBookingId.get(b.id);
+        if (!run || !didIntroActuallyRun(run)) return;
+        const runCoachRaw = isMissingCoach(b.coach_name)
+          ? (run.coach_name || b.coach_name)
+          : b.coach_name;
+        if (isMissingCoach(runCoachRaw)) return;
+        const coach = resolveCloseCoach(b, runCoachRaw) || runCoachRaw;
+        const ex = coachMapCorp.get(coach) || { coached: 0 };
+        ex.coached++;
+        coachMapCorp.set(coach, ex);
+        ensureAttribCorp(coach).coached.push({
+          bookingId: b.id,
+          member: b.member_name || 'Unknown',
+          classDate: b.class_date,
+          source: b.lead_source,
+          resultLabel: labelFromRun(run),
         });
+        corpCoachedBookingIds.add(b.id);
       });
+
+      // Closes (Corporate): every sale in-range, credited to the coach on the
+      // sale run itself (last coach). Pull sales by buy_date so cross-period
+      // sales (class in prior window, sale in this window) are captured.
+      const { data: corpBuyDateSales } = await supabase
+        .from('intros_run')
+        .select('linked_intro_booked_id, coach_name, result, result_canon, buy_date, run_date, created_at')
+        .in('result_canon', ['SALE','PREMIER','PREMIER_OTBEAT','ELITE','BASIC'])
+        .gte('buy_date', rangeStart)
+        .lte('buy_date', rangeEnd);
+
+      for (const r of (corpBuyDateSales || [])) {
+        const linked = r.linked_intro_booked_id ? bookingByIdMap.get(r.linked_intro_booked_id) : null;
+        if (linked && isBookingExcludedFromMetrics(linked)) continue;
+        const runCoach = r.coach_name || linked?.coach_name;
+        if (isMissingCoach(runCoach)) continue;
+        const coach = linked ? (resolveCloseCoach(linked, runCoach) || runCoach) : runCoach;
+        const ex = coachCloseMapCorp.get(coach) || { total: 0, closed: 0 };
+        ex.total++;
+        ex.closed++;
+        coachCloseMapCorp.set(coach, ex);
+        ensureAttribCorp(coach).closes.push({
+          bookingId: linked?.id || r.linked_intro_booked_id || coach,
+          member: linked?.member_name || 'Unknown',
+          classDate: linked?.class_date || null,
+          buyDate: r.buy_date || null,
+          source: linked?.lead_source || null,
+          resultLabel: 'SALE',
+          via: 'direct',
+        });
+        // Cross-period backfill: if the sale's linked class isn't in the
+        // Coached set (class was in a prior window), still credit Coached
+        // so the coach's denominator reflects the class they ran.
+        if (linked && !corpCoachedBookingIds.has(linked.id)) {
+          const em = coachMapCorp.get(coach) || { coached: 0 };
+          em.coached++;
+          coachMapCorp.set(coach, em);
+          ensureAttribCorp(coach).coached.push({
+            bookingId: linked.id,
+            member: linked.member_name || 'Unknown',
+            classDate: linked.class_date || null,
+            source: linked.lead_source || null,
+            resultLabel: 'SALE',
+          });
+          corpCoachedBookingIds.add(linked.id);
+        }
+      }
 
       const allCoachNames = new Set<string>([...coachMap.keys(), ...coachCloseMap.keys()]);
       const coachData = Array.from(allCoachNames).map(name => {
