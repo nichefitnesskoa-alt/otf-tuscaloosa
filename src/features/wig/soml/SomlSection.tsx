@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Sun, Pencil, Plus, Check, Users, TrendingUp, DollarSign, Calendar, Info, Clock } from 'lucide-react';
+import { Sun, Pencil, Plus, Check, Users, TrendingUp, DollarSign, Calendar, Info, Clock, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
