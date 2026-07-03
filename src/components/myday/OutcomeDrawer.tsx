@@ -859,31 +859,35 @@ export function OutcomeDrawer({
       )}
 
       {/* Reschedule fields */}
-      {/* 2nd Intro Reason + Booking Details */}
+      {/* 2nd Intro Reason — shared UI for Booked and Planning-to-Book 2nd Intro */}
+      {isAny2ndIntroPath && (
+        <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg space-y-2">
+          <Label className="text-xs text-blue-700 dark:text-blue-300 font-semibold">What's holding them back? <span className="text-destructive">*</span></Label>
+          <Select value={secondIntroReason} onValueChange={setSecondIntroReason}>
+            <SelectTrigger className="h-8 text-sm bg-background">
+              <SelectValue placeholder="Select reason…" />
+            </SelectTrigger>
+            <SelectContent>
+              {SECOND_INTRO_REASON_OPTIONS.map(o => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {secondIntroReason === 'Other' && (
+            <Input
+              value={secondIntroReasonOther}
+              onChange={e => setSecondIntroReasonOther(e.target.value)}
+              className="h-8 text-sm bg-background mt-2"
+              placeholder="Please specify..."
+            />
+          )}
+        </div>
+      )}
+
+      {/* 2nd Intro booking date/time/coach — only for confirmed Booked 2nd intro */}
       {isBookedSecondIntro && (
         <div className="space-y-3">
-          {/* Reason selector */}
-          <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg space-y-2">
-            <Label className="text-xs text-blue-700 dark:text-blue-300 font-semibold">What's holding them back? <span className="text-destructive">*</span></Label>
-            <Select value={secondIntroReason} onValueChange={setSecondIntroReason}>
-              <SelectTrigger className="h-8 text-sm bg-background">
-                <SelectValue placeholder="Select reason…" />
-              </SelectTrigger>
-              <SelectContent>
-                {SECOND_INTRO_REASON_OPTIONS.map(o => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {secondIntroReason === 'Other' && (
-              <Input
-                value={secondIntroReasonOther}
-                onChange={e => setSecondIntroReasonOther(e.target.value)}
-                className="h-8 text-sm bg-background mt-2"
-                placeholder="Please specify..."
-              />
-            )}
-          </div>
+
 
           <div className="space-y-2 border rounded-md p-2 bg-muted/20">
             <p className="text-xs font-medium text-muted-foreground">2nd Intro Details</p>
