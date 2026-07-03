@@ -9,15 +9,15 @@ import { OTF, Theme, brandFont } from '@/lib/otfBrand';
 type NavItem = { path: string; label: string; icon: any; permKey: PermissionKey };
 
 const ALL_NAV: NavItem[] = [
-  { path: '/my-day',     label: 'My Day',          icon: Home,       permKey: 'nav.my_day' },
-  { path: '/coach-view', label: 'Coach View',      icon: Eye,        permKey: 'nav.coach_view' },
-  { path: '/recaps',     label: 'Studio',          icon: BarChart3,  permKey: 'nav.studio' },
-  { path: '/wig',        label: 'WIG',             icon: Trophy,     permKey: 'nav.wig' },
-  { path: '/the-table',  label: 'Own It',          icon: Flag,       permKey: 'nav.own_it' },
-  { path: '/vips',       label: 'VIPs',            icon: Star,       permKey: 'nav.vips' },
-  { path: '/pipeline',   label: 'Pipeline',        icon: GitBranch,  permKey: 'nav.pipeline' },
-  { path: '/outreach-lists', label: 'Outreach',    icon: ListChecks, permKey: 'nav.outreach_lists' },
-  { path: '/admin',      label: 'Admin',           icon: Settings,   permKey: 'nav.admin' },
+  { path: '/my-day',       label: 'My Day',       icon: Home,       permKey: 'nav.my_day' },
+  { path: '/outreach-lists', label: 'Outreach', icon: ListChecks, permKey: 'nav.outreach_lists' },
+  { path: '/coach-view',   label: 'Coach View',   icon: Eye,        permKey: 'nav.coach_view' },
+  { path: '/recaps',       label: 'Studio',       icon: BarChart3,  permKey: 'nav.studio' },
+  { path: '/wig',          label: 'WIG',          icon: Trophy,     permKey: 'nav.wig' },
+  { path: '/the-table',    label: 'Own It',       icon: Flag,       permKey: 'nav.own_it' },
+  { path: '/vips',         label: 'VIPs',         icon: Star,       permKey: 'nav.vips' },
+  { path: '/pipeline',     label: 'Pipeline',     icon: GitBranch,  permKey: 'nav.pipeline' },
+  { path: '/admin',        label: 'Admin',        icon: Settings,   permKey: 'nav.admin' },
 ];
 
 export function BottomNav() {
