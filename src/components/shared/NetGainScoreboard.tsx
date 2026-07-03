@@ -67,6 +67,7 @@ export function NetGainScoreboard({ className }: { className?: string }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [upcomingOpen, setUpcomingOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const appliedRef = useRef(false);
 
