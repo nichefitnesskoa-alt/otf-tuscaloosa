@@ -1,4 +1,5 @@
-import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
+import { useEffectiveAdmin } from '@/hooks/useViewAsAdmin';
+import { AdminViewToggle } from '@/components/shared/AdminViewToggle';
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
