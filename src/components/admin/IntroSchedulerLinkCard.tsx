@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/context/AuthContext';
 import { LEAD_SOURCES } from '@/types';
 import { EventPicker } from '@/components/events/EventPicker';
-import { buildShortIntroUrl, ensureIntroLinkCode } from '@/lib/introScheduler/linkUrl';
+import { buildShortIntroUrl, ensureIntroLinkCode, PUBLIC_BOOKING_BASE } from '@/lib/introScheduler/linkUrl';
 import { downloadBrandedQr } from '@/lib/vip/qrDownload';
 import { Copy, Download, Link as LinkIcon, QrCode, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
