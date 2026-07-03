@@ -1,43 +1,43 @@
 ## Goal
-When an admin overrides one SA's individual goal, automatically redistribute the remaining shortfall across the other non-overridden SAs so the team totals still equal the overall monthly goal — in both the **SOML** section and the **overall SA leads** section on WIG.
+Everyone (SAs, Coaches, Admin) can see the upcoming churn list from the Net Gain scoreboard, and the scoreboard shows the next churn date + how many people churn on that day at a glance.
 
-## Behavior change
+## Changes (single file: `src/components/shared/NetGainScoreboard.tsx`)
 
-Today:
-- SOML: every SA's default = `totalGoal / activeCount`. Overriding Jayna to 0 leaves everyone else at 1.7 → team target only sums to 8.5, not 10.
-- WIG leads: overriding one SA below the per-SA target lowers the team target (team = sum of effective per-SA). Overrides do not push the remaining SAs' targets up.
+### 1. At-a-glance "next churn" chip on the scoreboard
+Compute from the already-loaded `pendingChurns` (sorted asc by `churn_date`):
+- `nextChurnDate` = `pendingChurns[0].churn_date`
+- `nextChurnCount` = number of pending churns whose `churn_date === nextChurnDate`
 
-After:
-- Treat the overall goal as **fixed**:
-  - SOML: `soml_config.{referrals,upgrades,sales}_goal` = fixed team goal per metric.
-  - WIG leads: fixed team leads goal = `saSgl × activeCount` at the moment the admin sets it (i.e. the global per-SA target × active count is the team goal; individual overrides no longer change the team goal).
-- **Redistribute remaining goal** across non-overridden SAs:
-  - `remaining = max(0, teamGoal − Σ overrides)`
-  - `nonOverriddenCount = activeCount − #overrides`
-  - `newDefault = nonOverriddenCount > 0 ? remaining / nonOverriddenCount : 0`
-- Overridden SAs keep exactly their custom number; non-overridden SAs display and pace against `newDefault` (not the raw `totalGoal / activeCount`).
-- If overrides already meet or exceed the team goal, non-overridden SAs get target `0` (with a subtle "covered by overrides" hint).
+Add a new line to the existing bottom strip (above/next to the "X scheduled terminations left" text):
 
-## Files to change
+> **Next churn: Nov 12 — 3 members** → [View all]
 
-1. **`src/features/wig/soml/SomlSection.tsx`**
-   - Replace the current `defaultPerSa` calc with a redistribution that subtracts sum-of-overrides per metric and divides by non-overridden SA count.
-   - Update the "Default per-SA target: …" caption to reflect the redistributed number and note when it was auto-adjusted (e.g. `1.7 → 2.0 (auto-adjusted for overrides)`).
-   - Leaderboard rows already use `effectiveTarget(sa, metric)`; the redistributed default flows through unchanged.
+- Date formatted as `MMM d` via `parseLocalDate` + `format` (Central-safe).
+- The whole line is a button that opens the new upcoming-churns dialog.
+- Show the strip whenever `pendingChurns.length > 0` (currently strip already renders in that case).
 
-2. **`src/components/wig/WigSaLeaderboard.tsx`**
-   - Treat `teamSglTarget` as fixed = `targets.saSgl × activeCount` (not sum of effective per-SA).
-   - Change `effectiveSaSglTarget(sa)`:
-     - If override exists → override value.
-     - Otherwise → `(teamSglTarget − Σ overrides) / nonOverriddenCount` (clamped ≥ 0).
-   - Update the hero footer copy so `Per-SA: X × N SAs` still makes sense — show the redistributed default for non-overridden SAs and a `(N overridden)` hint when any exist.
+### 2. New read-only "Upcoming Churns" dialog (all roles)
+New component `UpcomingChurnsDialog` — visible to everyone. Rendered alongside `HistoryDialog`.
+- Header: "Upcoming churns — {N} through {end-of-month label}"
+- List grouped by `churn_date`, each group showing:
+  - Date header (`EEE, MMM d`) with a count pill (`3 members`)
+  - Rows: member name + optional notes
+- Empty state: "No scheduled churns. 🎉"
+- Pure read — no edit/delete controls here (admins still have the pencil/list icons for management).
+
+### 3. Access button for non-admins
+Replace the current non-admin "History" button with two small buttons:
+- **Upcoming** (opens `UpcomingChurnsDialog`) — shows a count badge when `pendingChurns.length > 0`
+- **History** (unchanged)
+
+For admins, add an "Upcoming" icon button (Calendar icon) into the existing admin control row so they can open the same read-only view without going through the admin Manage dialog.
 
 ## Out of scope
-- No DB changes. Overrides and totals already live in `soml_sa_goals`, `soml_config`, `monthly_lead_totals`, and the per-SA override table used by `loadPerSaOverrides`.
-- Booked/Sales columns on the WIG leaderboard have no per-SA override mechanism today, so no redistribution needed there.
-- Coach/Studio-wide tiles unaffected.
+- No DB/schema changes — `net_gain_churns` already has everything needed and is already fetched.
+- No changes to churn-date parsing logic, upload flow, or admin management dialog.
+- No changes to how the Net Gain number is computed.
 
-## Coherence proof I'll produce after building
-- SOML: with sales goal = 30 and Jayna override = 0, verify each remaining SA shows `6.0` and team goal reads `30`.
-- WIG leads: with per-SA leads = 5 and Jayna override = 0 (6 SAs → team goal 30), verify remaining 5 SAs show `6` each and hero team target stays `30`.
-- Confirm overridden SAs display their override untouched, and clearing an override restores the flat default across all SAs.
+## Coherence check (before done)
+- Verify with `read_query` on `net_gain_churns` (applied_at IS NULL, churn_date ≤ EOM) that the earliest `churn_date` matches what the scoreboard shows and that the group count for that date matches the "N members" chip.
+- Confirm the dialog opens for a non-admin identity (Coach + SA) and an admin identity, and shows the same rows in both.
+- Confirm existing "scheduled terminations left" number still equals `pendingChurns.length` and equals the total row count in the new dialog.
