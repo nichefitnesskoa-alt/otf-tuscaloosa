@@ -363,9 +363,29 @@ export default function MyDayPage() {
       </div>
 
       <OfflineBanner />
+
+      {tbdCoachCount > 0 && (
+        <div className="mx-4 mt-2">
+          <button
+            type="button"
+            onClick={() => {
+              setOutcomeBookingId(tbdCoachBookings[0].id);
+            }}
+            className="w-full flex items-center justify-center gap-2 font-bold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 border-2 border-red-700 rounded-md px-3 py-3 text-sm animate-pulse cursor-pointer min-h-[44px]"
+            aria-label="Assign coach to intros missing a coach"
+          >
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            <span>
+              ⚠️ {tbdCoachCount} intro{tbdCoachCount === 1 ? '' : 's'} missing a coach — tap to assign now
+            </span>
+          </button>
+        </div>
+      )}
+
       <div className="px-4 pt-2">
         <IntroLinkBookingBanner />
       </div>
+
       <OwnItMentionsCard />
       <VipClaimBanner />
 
