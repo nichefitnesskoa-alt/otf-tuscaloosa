@@ -490,6 +490,24 @@ export function SomlSection() {
         />
       </div>
 
+      {/* Pending referrals indicator — visually distinct from the real Referrals count. */}
+      {totals.pending > 0 && (
+        <button
+          type="button"
+          onClick={() => setPendingDialogSa('')}
+          className="w-full flex items-center justify-between gap-3 rounded-md border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-left hover:bg-primary/10 transition"
+        >
+          <div className="flex items-center gap-2 text-foreground/90">
+            <Clock className="w-4 h-4 text-primary" />
+            <span className="text-sm">
+              <span className="font-bold">{totals.pending} pending referral{totals.pending === 1 ? '' : 's'}</span>
+              <span className="text-muted-foreground"> · counts when they buy</span>
+            </span>
+          </div>
+          <span className="text-[11px] text-primary underline">View</span>
+        </button>
+      )}
+
       {/* What each metric means */}
       <div className="rounded-md border border-border/60 bg-muted/30 p-3 space-y-1.5">
         <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">How credit works</div>
