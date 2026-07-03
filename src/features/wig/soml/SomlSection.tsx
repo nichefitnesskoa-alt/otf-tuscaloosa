@@ -220,6 +220,9 @@ function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
   );
 }
 
+// Per-SA override row (nullable per metric — null = use divided default)
+interface SaOverride { sa_name: string; referrals_goal: number | null; upgrades_goal: number | null; sales_goal: number | null }
+
 export function SomlSection() {
   const { user } = useAuth();
   const isAdmin = useEffectiveAdmin();
@@ -230,6 +233,18 @@ export function SomlSection() {
   const [editWindowOpen, setEditWindowOpen] = useState(false);
   const [logOpen, setLogOpen] = useState<'upgrade' | 'referral' | null>(null);
   const [savedFlash, setSavedFlash] = useState<MetricKey | null>(null);
+  const [overrides, setOverrides] = useState<Record<string, SaOverride>>({});
+  const [editCell, setEditCell] = useState<{ sa: string; metric: MetricKey } | null>(null);
+
+  const loadOverrides = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from('soml_sa_goals')
+      .select('sa_name, referrals_goal, upgrades_goal, sales_goal');
+    const map: Record<string, SaOverride> = {};
+    ((data as SaOverride[]) || []).forEach(r => { map[r.sa_name] = r; });
+    setOverrides(map);
+  }, []);
+  useEffect(() => { loadOverrides(); }, [loadOverrides]);
 
   const activeCount = useMemo(
     () => (activeSas || []).filter(n => n !== 'Koa').length,
@@ -263,15 +278,17 @@ export function SomlSection() {
     upgrades: paceToToday(goals.upgrades || null, paceAnchor),
     sales: paceToToday(goals.sales || null, paceAnchor),
   };
-  const perSaTarget = {
+  const defaultPerSa = {
     referrals: activeCount > 0 ? goals.referrals / activeCount : 0,
     upgrades: activeCount > 0 ? goals.upgrades / activeCount : 0,
     sales: activeCount > 0 ? goals.sales / activeCount : 0,
   };
-  const perSaPace = {
-    referrals: paceToToday(perSaTarget.referrals || null, paceAnchor),
-    upgrades: paceToToday(perSaTarget.upgrades || null, paceAnchor),
-    sales: paceToToday(perSaTarget.sales || null, paceAnchor),
+  // Effective target for a given SA + metric: override wins, else divided default
+  const effectiveTarget = (sa: string, metric: MetricKey): number => {
+    const ov = overrides[sa];
+    const key = `${metric}_goal` as const;
+    if (ov && ov[key] != null) return ov[key] as number;
+    return defaultPerSa[metric];
   };
 
   const rowMap = useMemo(() => new Map(rows.map(r => [r.sa, r])), [rows]);
