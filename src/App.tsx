@@ -255,6 +255,10 @@ function AppRoutes() {
       <Route path="/the-table" element={<ProtectedRoute><TheTable /></ProtectedRoute>} />
       <Route path="/the-table/history" element={<ProtectedRoute><TheTableHistory /></ProtectedRoute>} />
       <Route path="/the-table/:meetingId" element={<ProtectedRoute><TheTable /></ProtectedRoute>} />
+      <Route path="/outreach-lists" element={<ProtectedRoute><OutreachLists /></ProtectedRoute>} />
+      <Route path="/outreach-lists/new" element={<ProtectedRoute requireAdmin><OutreachListImport /></ProtectedRoute>} />
+      <Route path="/outreach-lists/:id" element={<ProtectedRoute><OutreachListDetail /></ProtectedRoute>} />
+
       <Route path="/" element={<Navigate to={defaultRoute} replace />} />
       <Route path="/:shareSlug" element={<PartnerDeckShareResolver />} />
       <Route path="*" element={<NotFound />} />
