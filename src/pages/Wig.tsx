@@ -32,7 +32,8 @@ import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
 import { notifyDataChanged } from '@/lib/data/invalidation';
 import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/pace';
 import { loadMonthlyTargets, saveMonthlyTarget, type MonthlyTargets } from '@/lib/wig/targets';
-import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
+import { useEffectiveAdmin } from '@/hooks/useViewAsAdmin';
+import { AdminViewToggle } from '@/components/shared/AdminViewToggle';
 
 export default function Wig() {
   const { user } = useAuth();
