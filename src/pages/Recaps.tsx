@@ -1,4 +1,5 @@
 import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
+import { NetGainScoreboard } from '@/components/shared/NetGainScoreboard';
 import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
@@ -177,6 +178,7 @@ export default function Recaps() {
 
   return (
     <div className="p-4 space-y-4">
+      <NetGainScoreboard />
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-xl font-bold flex items-center gap-2">

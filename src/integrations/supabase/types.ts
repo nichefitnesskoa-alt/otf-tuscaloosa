@@ -2571,6 +2571,54 @@ export type Database = {
         }
         Relationships: []
       }
+      net_gain_log: {
+        Row: {
+          changed_at: string
+          changed_by: string
+          delta: number
+          id: string
+          new_value: number
+          note: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by: string
+          delta: number
+          id?: string
+          new_value: number
+          note?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string
+          delta?: number
+          id?: string
+          new_value?: number
+          note?: string | null
+        }
+        Relationships: []
+      }
+      net_gain_state: {
+        Row: {
+          id: number
+          updated_at: string
+          updated_by: string | null
+          value: number
+        }
+        Insert: {
+          id?: number
+          updated_at?: string
+          updated_by?: string | null
+          value?: number
+        }
+        Update: {
+          id?: number
+          updated_at?: string
+          updated_by?: string | null
+          value?: number
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string
