@@ -1,81 +1,85 @@
-# Net Gain automation + admin-only goal editing
+REACH MAP for Net Gain churn upload/date correction
+- Tables touched: `net_gain_churns`, `net_gain_log`, `net_gain_state`
+- Hooks/queries that read these tables:
+  - `src/components/shared/NetGainScoreboard.tsx` reads `net_gain_state`, pending `net_gain_churns`, `net_gain_log`
+  - Same component calls `apply_pending_net_gain_churns()` on mount
+- Writers:
+  - Upload dialog inserts `net_gain_churns`
+  - Manual +/-/exact value uses `net_gain_write_delta()`
+  - Manage Churns currently deletes `net_gain_churns`, which reverses applied churns through backend function
+  - `apply_pending_net_gain_churns()` applies churn rows after their churn date has passed
+- Components that display this data:
+  - My Day: `NetGainScoreboard`
+  - Studio: `NetGainScoreboard`
+  - WIG: `NetGainScoreboard`
+  - Upload preview and Manage Churns dialogs
+  - History dialog
+- Metrics/helpers derived from this data:
+  - Current Net Gain = `net_gain_state.value`
+  - Remaining churn target = pending churn count through end of month minus current net gain
+  - Apply eligibility = `churn_date < today in America/Chicago`, so a July 3 churn applies on July 4
+- React Query cache keys: none, this component uses direct backend reads plus the `otf:netGainChanged` browser event
+- Cross-page surfaces affected: My Day, Studio, WIG
+- Backend functions/triggers involved:
+  - `apply_pending_net_gain_churns()`
+  - `net_gain_write_delta()`
+  - `net_gain_churn_reverse_on_delete()`
+  - Sale automation functions are separate and should remain unaffected
 
-## 1. Admin-only editing (Koa only)
+Current finding
+- The upload parser is choosing the first spreadsheet column matching `/date|churn|end/`.
+- In your uploaded file, columns are: `Termination request date` first, then `Churn date`.
+- That made 17 people apply immediately from old request dates in May/June.
+- The actual uploaded file has 18 churns:
+  - 1 should already count: Caitlin Geary, actual churn date `2026-07-01`
+  - 17 should remain pending as of `2026-07-03`, including July 3 and future dates
+  - Sheena Gregg was missed because her request date was blank, even though actual churn date exists
 
-Every "set a goal / change the number" control gets gated behind `useEffectiveAdmin()` (which already respects the Admin ↔ Staff view toggle on WIG). Non-admins see numbers, never inputs.
+Plan
+1. Fix the upload parser at the source
+   - Replace the broad “first date-like column” detection with explicit header priority:
+     1. `Churn date`
+     2. `Actual churn date`
+     3. `Termination date`
+     4. `Cancellation effective date`
+     5. `Contract end date` only as a last fallback
+   - Explicitly exclude `Termination request date`, `Request date`, and similar request-only columns from being used as the churn-out date.
+   - Keep robust date parsing, but remove the unsafe `new Date(dateString)` fallback for bare spreadsheet strings.
+   - Show the selected date column in the upload preview so it is obvious when the app is reading “Churn date”.
 
-**Net Gain scoreboard**
-- +1 / −1 / edit exact value / upload churns / manage churns → all admin-only
-- History dialog stays visible to everyone (read-only audit)
+2. Make the upload preview match the business rule
+   - Update copy to say: “Uses actual churn date, not request date.”
+   - Keep application rule: subtracts the day after the churn date, meaning backend condition stays `churn_date < today Central`.
+   - Preview will show:
+     - actual churn date
+     - reason/notes
+     - status
+     - whether it will apply now or stay scheduled
 
-**SOML section (WIG)**
-- Goal pencils, window edit, Log Upgrade, Log Referral → already admin, keep it that way and verify the pencil actually persists (uses the `useEffectiveAdmin` hook already)
-- **New**: per-SA override pencil next to each cell in the SA leaderboard (Referrals / Upgrades / Sales). Admin-only. Null override = use flat "goal ÷ SA count" default.
+3. Repair the already-bad July upload safely
+   - Correct existing `net_gain_churns` rows from request dates to actual `Churn date` values from the uploaded file.
+   - Add the missing Sheena Gregg row as pending for `2026-07-29`.
+   - Reverse the 16 incorrect auto-applied future churns with a clear audit log correction.
+   - Preserve the one legitimate applied churn, Caitlin Geary, so Net Gain becomes `-1`.
+   - Reset future churn rows to pending so they can auto-subtract later on the day after their actual churn date.
+   - Preserve audit history by marking the old bad churn log rows as correction/error rows instead of silently erasing what happened.
 
-**WIG SA leaderboard**
-- Team lead goal + per-SA lead-goal overrides → already admin-gated in code; audit and confirm nothing leaks to non-admins.
+4. Improve the scoreboard target line
+   - Show current Net Gain prominently as it does now.
+   - Add a clearer line like:
+     - “17 scheduled terminations left this month.”
+     - “Need +18 membership sales by Jul 31 to finish positive.”
+   - Formula after correction: pending churns this month minus current net gain, so at `-1` with 17 remaining, goal to finish positive is `18`.
 
-**WIG studio leads target + coach close target**
-- Already admin-gated. Verified.
-
-## 2. Net Gain visual redesign
-
-Full-width card at the top of My Day, Studio, WIG. One giant number — the whole card mood shifts with the value:
-- Positive → deep green background, white number, up arrow
-- Negative → deep red background, white number, down arrow
-- Zero → neutral bone card
-
-The number renders at ~text-6xl bold tabular. Sits above a small secondary line: "Need +N more net sales to be positive by MMM DD" (see §3). Admin controls collapse into a compact toolbar on the right.
-
-## 3. Auto Net Gain automation
-
-**New tables**
-- `net_gain_churns` — planned churn list. Fields: `member_name`, `churn_date`, `notes`, `applied_at`, `upload_batch_id`, `created_by`. Applied when `churn_date` has passed CST midnight; each applied churn writes a −1 entry to `net_gain_log` tagged with the churn id (idempotent).
-- Extend `net_gain_log` with `source_type` (`manual` / `sale` / `churn`) and `source_id`. Unique partial index on (`source_type`, `source_id`) for non-manual rows so nothing double-counts.
-
-**Auto-add on every sale**
-- Postgres trigger on `intros_run` INSERT/UPDATE. When the row becomes a sale (`result_canon` in the canonical SALE set), insert a +1 log row with `source_type='sale'`, `source_id=intros_run.id` and bump `net_gain_state`. Reversal handled if a sale row is later flipped to non-sale.
-- Same trigger pattern for `sales_outside_intro` inserts (outside-intro membership sales).
-
-**Auto-subtract the day after a churn**
-- A SQL function `apply_pending_net_gain_churns()` walks `net_gain_churns` where `churn_date < today CST` and `applied_at IS NULL`, writes a −1 log row per churn tagged with the churn id, bumps `net_gain_state`, and stamps `applied_at`. The Net Gain scoreboard calls this RPC on mount so any user opening the page picks up yesterday's churns — no cron required.
-
-**Spreadsheet upload (admin-only)**
-- New "Upload Churns" button on the Net Gain card. Accepts `.csv`, `.xlsx`, `.xls`. Parses columns `Name` and `Churn Date` (accepts common date formats — normalized to `YYYY-MM-DD` in CST). Preview grid shows the parsed rows and flags any obvious dupes against existing churns. Confirm → bulk insert with a shared `upload_batch_id`.
-- Adds `xlsx` (SheetJS) as a dependency for parsing.
-
-**"Manage Churns" dialog (admin-only)**
-- Table of all this-month + next-month churns. Columns: Name, Churn Date, Status (Pending / Applied MMM D), row actions: edit, delete. Deleting an already-applied churn reverses its −1.
-
-**End-of-month goal line**
-- Under the giant number: "Need +N more net sales by MMM DD to be positive."
-- Formula: `N = max(0, pending_churns_in_month − current_net_gain)`. Recomputes live as churns get applied and sales roll in.
-
-## 4. Cross-page coherence
-All three mount points (My Day, Studio, WIG) render the same `NetGainScoreboard` and subscribe to the same `otf:netGainChanged` event, so upload/edit/auto-apply on one tab updates the others without refresh. Trigger-driven sales and churn RPC also fire the same invalidation via Realtime on `net_gain_state`.
-
-## Technical section
-
-### Migrations
-- `ALTER TABLE public.net_gain_log ADD COLUMN source_type text NOT NULL DEFAULT 'manual', ADD COLUMN source_id text;`
-- `CREATE UNIQUE INDEX net_gain_log_source_unique ON public.net_gain_log(source_type, source_id) WHERE source_type <> 'manual';`
-- `CREATE TABLE public.net_gain_churns (id uuid pk, member_name text, churn_date date, notes text, applied_at timestamptz, upload_batch_id uuid, created_by text, created_at timestamptz);` + public RLS matching other app tables.
-- `CREATE TABLE public.soml_sa_goals (id uuid pk, sa_name text unique, referrals_goal int, upgrades_goal int, sales_goal int, updated_by, updated_at);` + public RLS.
-- Function `public.apply_pending_net_gain_churns()` — loops eligible churns, inserts log rows (idempotent via source_id), updates `net_gain_state`, returns `{applied: n}`.
-- Function `public.net_gain_apply_sale_delta()` — insert/update/delete trigger body for `intros_run` and `sales_outside_intro`; uses `source_type='sale'` + `source_id=row.id`.
-- Triggers wiring those functions.
-
-### Frontend files
-- `src/components/shared/NetGainScoreboard.tsx` — redesign, admin-gated controls, call `apply_pending_net_gain_churns` RPC on mount, show end-of-month goal line.
-- `src/components/shared/ChurnUploadDialog.tsx` — file picker, xlsx/csv parse, preview, confirm.
-- `src/components/shared/ChurnManageDialog.tsx` — list, edit, delete churns.
-- `src/hooks/useNetGainSummary.ts` — pulls state + pending-churn count + month goal calc, subscribes to event bus.
-- `src/features/wig/soml/SomlSection.tsx` — per-SA override pencils; overrides table read from `soml_sa_goals`.
-- `bun add xlsx`
-
-### Files audited for admin-gating
-- `NetGainScoreboard.tsx`, `SomlSection.tsx`, `Wig.tsx` (studio/close/leads targets, per-SA lead overrides), `WigSaLeaderboard.tsx`.
-
-### Coherence proof I'll produce at the end
-- `net_gain_state.value` matches sum of all `net_gain_log.delta`.
-- One synthetic churn dated yesterday, one intros_run flipped to a sale canon, one manual +1 — verify all three land in `net_gain_log` with correct `source_type`, `net_gain_state.value` moves accordingly, and My Day + Studio + WIG all show the same number.
+5. Verify cross-page coherence before reporting done
+   - Database checks:
+     - `net_gain_state.value = -1`
+     - `net_gain_churns`: 1 applied, 17 pending for July upload
+     - `net_gain_log` sums back to the state value
+   - UI checks:
+     - My Day shows `-1`
+     - Studio shows `-1`
+     - WIG shows `-1`
+     - Manage Churns shows 17 pending and 1 applied
+     - Upload preview for the same spreadsheet reads `Churn date`, not `Termination request date`
+   - Confirm sale automation and manual Net Gain controls still work without changing WIG/SOML or other scoreboards.
