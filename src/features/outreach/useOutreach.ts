@@ -36,7 +36,7 @@ export interface OutreachAction {
   id: string;
   row_id: string;
   list_id: string;
-  action_type: 'texted' | 'in_person' | 'save_attempt';
+  action_type: 'texted' | 'in_person' | 'save_attempt' | 'not_interested';
   done_by: string;
   done_at: string;
   notes: string | null;
