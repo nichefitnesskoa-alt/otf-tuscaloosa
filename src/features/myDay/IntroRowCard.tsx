@@ -668,6 +668,14 @@ export default function IntroRowCard({
     <div className={cn("rounded-lg border bg-card overflow-hidden", isInFocusWindow && 'ring-2 ring-orange-500')}>
       {/* Collapsible header — always visible at top of expanded card */}
       {summaryHeaderBar}
+      <div className="px-3 pt-2">
+        <TbdCoachAlert
+          coachName={item.coachName}
+          onFix={() => setOutcomeDrawerOpen?.(true)}
+        />
+      </div>
+
+
 
       <IntroCard
         id={`intro-card-${item.bookingId}`}
