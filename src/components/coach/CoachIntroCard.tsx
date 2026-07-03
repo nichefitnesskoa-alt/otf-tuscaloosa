@@ -207,8 +207,11 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
       <div onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} onFocus={e => e.stopPropagation()}>
         <div className="p-4 space-y-4" style={{ fontSize: '15px' }}>
 
+          <TbdCoachAlert coachName={booking.coach_name} />
+
           {/* ══════ SECTION 1 — THEIR STORY ══════ */}
           <h4 className="font-bold text-sm tracking-wide">THEIR STORY</h4>
+
 
           {/* Shoutout consent removed — superseded by FV Scorecard */}
 
