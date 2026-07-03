@@ -43,28 +43,28 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* OTF Brand Colors */
-    --background: 0 0% 98%;
-    --foreground: 0 0% 5%;
+    /* OTF Brand Colors — Orange #FF6F0D, Bone #FDF7EA, Dark #0A0A0A, Gray #D7D7D7 */
+    --background: 41 82% 96%;
+    --foreground: 0 0% 4%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 5%;
+    --card: 41 82% 96%;
+    --card-foreground: 0 0% 4%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 5%;
+    --popover: 41 82% 96%;
+    --popover-foreground: 0 0% 4%;
 
-    /* OTF Orange */
-    --primary: 27 100% 50%;
-    --primary-foreground: 0 0% 100%;
+    /* OTF Orange #FF6F0D */
+    --primary: 24 100% 53%;
+    --primary-foreground: 0 0% 4%;
 
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 10%;
+    --secondary: 0 0% 84%;
+    --secondary-foreground: 0 0% 4%;
 
-    --muted: 0 0% 94%;
-    --muted-foreground: 0 0% 40%;
+    --muted: 0 0% 84%;
+    --muted-foreground: 0 0% 30%;
 
-    --accent: 27 100% 95%;
-    --accent-foreground: 27 100% 35%;
+    --accent: 24 100% 95%;
+    --accent-foreground: 24 100% 35%;
 
     /* Success - Green */
     --success: 142 76% 36%;
@@ -74,24 +74,24 @@ All colors MUST be HSL.
     --warning: 45 100% 51%;
     --warning-foreground: 0 0% 10%;
 
-    /* Info - Blue */
-    --info: 207 90% 54%;
-    --info-foreground: 0 0% 100%;
+    /* Info - OTF Blue #1DD0FD */
+    --info: 194 98% 55%;
+    --info-foreground: 0 0% 4%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 27 100% 50%;
+    --border: 0 0% 84%;
+    --input: 0 0% 84%;
+    --ring: 24 100% 53%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
     /* ── Wave 1 brand polish tokens ── */
-    --brand: 20 93% 48%;
-    --brand-dim: 20 93% 48% / 0.15;
-    --brand-hover: 20 93% 42%;
-    --brand-foreground: 0 0% 100%;
+    --brand: 24 100% 53%;
+    --brand-dim: 24 100% 53% / 0.15;
+    --brand-hover: 24 100% 45%;
+    --brand-foreground: 0 0% 4%;
 
     --status-success: 142 71% 45%;
     --status-success-dim: 142 71% 45% / 0.12;
@@ -99,32 +99,32 @@ All colors MUST be HSL.
     --status-warning-dim: 38 92% 50% / 0.12;
     --status-danger: 0 84% 60%;
     --status-danger-dim: 0 84% 60% / 0.12;
-    --status-neutral: 240 2% 57%;
-    --status-neutral-dim: 240 2% 57% / 0.12;
+    --status-neutral: 0 0% 84%;
+    --status-neutral-dim: 0 0% 84% / 0.12;
 
-    --text-primary: 0 0% 98%;
-    --text-secondary: 240 2% 65%; /* bumped 57→65 for AA on dark card */
-    --text-brand: 20 93% 48%;
-    --text-public: 36 27% 95%;
+    --text-primary: 41 82% 96%;
+    --text-secondary: 0 0% 84%;
+    --text-brand: 24 100% 53%;
+    --text-public: 41 82% 96%;
 
-    --surface-page: 240 1% 11%;
-    --surface-card: 240 1% 17%;
-    --surface-card-hover: 240 1% 20%;
-    --surface-border: 240 1% 22%;
-    --surface-input: 240 1% 14%;
+    --surface-page: 0 0% 4%;
+    --surface-card: 0 0% 10%;
+    --surface-card-hover: 0 0% 14%;
+    --surface-border: 0 0% 18%;
+    --surface-input: 0 0% 8%;
 
-    --interactive-focus: 20 93% 48%;
-    --interactive-disabled: 240 2% 30%;
+    --interactive-focus: 24 100% 53%;
+    --interactive-disabled: 0 0% 30%;
 
     /* Sidebar */
-    --sidebar-background: 0 0% 5%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 27 100% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 15%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 0 0% 20%;
-    --sidebar-ring: 27 100% 50%;
+    --sidebar-background: 0 0% 4%;
+    --sidebar-foreground: 41 82% 96%;
+    --sidebar-primary: 24 100% 53%;
+    --sidebar-primary-foreground: 0 0% 4%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 41 82% 96%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-ring: 24 100% 53%;
   }
 
   .dark {
