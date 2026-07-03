@@ -39,6 +39,7 @@ interface HeroTileProps {
   isAdmin: boolean;
   onEdit: () => void;
   savedFlash: boolean;
+  onDrilldown?: () => void;
 }
 
 function PaceBar({ current, target, pace, size = 'sm' }: { current: number; target: number | null; pace: number | null; size?: 'sm' | 'lg' }) {
