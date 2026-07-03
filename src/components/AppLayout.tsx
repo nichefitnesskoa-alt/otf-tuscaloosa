@@ -3,7 +3,7 @@ import { Header } from './Header';
 import { BottomNav } from './BottomNav';
 import { ErrorBoundary } from './errors/ErrorBoundary';
 import { useAuth } from '@/context/AuthContext';
-import { OTF, brandFont } from '@/lib/otfBrand';
+import { OTF, Theme, brandFont } from '@/lib/otfBrand';
 
 interface AppLayoutProps {
   children: ReactNode;

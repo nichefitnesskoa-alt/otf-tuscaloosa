@@ -19,7 +19,7 @@ import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { SelfSourcedLeadDialog } from '@/components/leads/SelfSourcedLeadDialog';
 import { MarkLostDialog } from '@/components/leads/MarkLostDialog';
 import { toast } from 'sonner';
-import { OTF, brandFont } from '@/lib/otfBrand';
+import { OTF, Theme, brandFont } from '@/lib/otfBrand';
 
 
 export default function Leads() {
@@ -203,7 +203,7 @@ export default function Leads() {
       {/* OTF brand page header */}
       <div
         className="pt-2 pb-4"
-        style={{ borderBottom: `1px solid ${OTF.bone}22` }}
+        style={{ borderBottom: `1px solid ${Theme.border}` }}
       >
         <p
           className="text-[10px] uppercase mb-1"
@@ -225,7 +225,7 @@ export default function Leads() {
               style={{
                 backgroundColor: view === 'kanban' ? OTF.bone : 'transparent',
                 color: view === 'kanban' ? OTF.dark : OTF.bone,
-                border: `1px solid ${OTF.bone}55`,
+                border: `1px solid ${Theme.border}`,
               }}
               aria-label="Kanban view"
             >
@@ -237,7 +237,7 @@ export default function Leads() {
               style={{
                 backgroundColor: view === 'list' ? OTF.bone : 'transparent',
                 color: view === 'list' ? OTF.dark : OTF.bone,
-                border: `1px solid ${OTF.bone}55`,
+                border: `1px solid ${Theme.border}`,
               }}
               aria-label="List view"
             >
@@ -249,7 +249,7 @@ export default function Leads() {
               className="h-9 px-3 text-xs inline-flex items-center gap-1.5 transition-opacity disabled:opacity-50"
               style={{
                 color: OTF.bone,
-                border: `1px solid ${OTF.bone}55`,
+                border: `1px solid ${Theme.border}`,
                 fontWeight: 600,
                 ...brandFont,
               }}

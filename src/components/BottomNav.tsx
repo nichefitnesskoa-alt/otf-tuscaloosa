@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { canSee, isAdmin as isAdminCheck, type PermissionKey } from '@/lib/auth/roles';
 import { useDarkMode } from '@/hooks/useDarkMode';
-import { OTF, brandFont } from '@/lib/otfBrand';
+import { OTF, Theme, brandFont } from '@/lib/otfBrand';
 
 type NavItem = { path: string; label: string; icon: any; permKey: PermissionKey };
 
@@ -59,7 +59,7 @@ export function BottomNav() {
       style={{
         backgroundColor: OTF.dark,
         color: OTF.bone,
-        borderTop: `1px solid ${OTF.bone}22`,
+        borderTop: `1px solid ${Theme.border}`,
         ...brandFont,
       }}
     >
