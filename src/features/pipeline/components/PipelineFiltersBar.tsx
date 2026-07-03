@@ -102,9 +102,6 @@ export function PipelineFiltersBar({
           <TabsTrigger value="by_lead_source" className="flex-1 min-w-[80px] text-xs gap-1">
             <Filter className="w-3 h-3" /> By Source
           </TabsTrigger>
-          <TabsTrigger value="by_lead_source" className="flex-1 min-w-[80px] text-xs gap-1">
-            <Filter className="w-3 h-3" /> By Source
-          </TabsTrigger>
         </TabsList>
       </Tabs>
 

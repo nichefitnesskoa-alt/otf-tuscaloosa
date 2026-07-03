@@ -64,7 +64,7 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           .select('id, sa_name, intro_owner, run_date, result, result_canon, linked_intro_booked_id')
           .gte('run_date', start).lte('run_date', end),
         supabase.from('followup_touches')
-          .select('id, created_by, created_at, lead_id, booking_id, contact_method')
+          .select('id, created_by, created_at, lead_id, booking_id, channel')
           .gte('created_at', localDateToStartISO(start)).lte('created_at', localDateToEndISO(end)),
         supabase.from('shift_recaps')
           .select('staff_name, dms_sent, shift_date')
@@ -153,7 +153,7 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           entry.followUpPeople.push({
             id: t.id,
             name,
-            subtitle: `${t.contact_method || 'touch'} · ${new Date(t.created_at).toLocaleDateString()}`,
+            subtitle: `${t.channel || 'touch'} · ${new Date(t.created_at).toLocaleDateString()}`,
           });
         }
       });
