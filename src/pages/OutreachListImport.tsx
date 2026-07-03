@@ -94,8 +94,8 @@ function autoMap(headers: string[]): Partial<Record<FieldKey, string>> {
     item: guessColumn(headers, [/item|plan|package|product/i]),
     amount: guessColumn(headers, [/amount|price|value|\$/i]),
     worked_out_30d: guessColumn(headers, [/worked ?out.*30/i, /active/i]),
-    last_30d_count: guessColumn(headers, [/last.?30|30 ?day/i, /workouts?.*count/i]),
-    latest_workout_date: guessColumn(headers, [/latest|last.*workout|last.*visit/i]),
+    last_30d_count: guessColumn(headers, [/last.?30|30 ?day/i, /workouts?.*(count|last|30)/i, /^workouts?$/i]),
+    latest_workout_date: guessColumn(headers, [/latest.*(workout|visit|class|date)/i, /last.*(visit|class)/i, /latest workout date/i]),
     is_churning: guessColumn(headers, [/churn/i, /at.?risk/i, /cancel/i]),
     churn_date: guessColumn(headers, [/churn.*date/i, /cancel.*date/i, /expire/i]),
   };
