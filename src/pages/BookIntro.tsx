@@ -405,7 +405,13 @@ export default function BookIntro() {
             </div>
             <div className="flex gap-2 mt-6">
               {!ctx.lockedDate && (
-                <Button variant="ghost" onClick={() => setStep('time')} className="text-neutral-300">Back</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setStep('time')}
+                  className="border-[#FDF7EA]/40 bg-transparent text-[#FDF7EA] hover:bg-[#FDF7EA]/10 hover:text-[#FDF7EA]"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1" /> Back
+                </Button>
               )}
               <Button
                 className="flex-1 h-12 bg-[#E8540A] hover:bg-[#c94609] text-white font-semibold"
