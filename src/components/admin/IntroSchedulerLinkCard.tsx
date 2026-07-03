@@ -58,7 +58,7 @@ export function IntroSchedulerLinkCard({ saName }: Props) {
           source,
           eventId: source === 'Event' ? eventId : null,
         });
-        if (!cancelled) setUrl(buildShortIntroUrl(window.location.origin, code));
+        if (!cancelled) setUrl(buildShortIntroUrl(PUBLIC_BOOKING_BASE, code));
       } catch (e) {
         console.error('[IntroLink] failed to mint short code', e);
         if (!cancelled) setUrl('');
