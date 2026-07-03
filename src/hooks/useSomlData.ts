@@ -75,6 +75,9 @@ export function useSomlData(): SomlData {
   const [rows, setRows] = useState<SomlSaRow[]>([]);
   const [totals, setTotals] = useState({ referrals: 0, upgrades: 0, sales: 0, pending: 0 });
   const [pendingReferrals, setPendingReferrals] = useState<PendingReferralRow[]>([]);
+  const [realizedReferrals, setRealizedReferrals] = useState<SomlDetailItem[]>([]);
+  const [upgradesList, setUpgradesList] = useState<SomlDetailItem[]>([]);
+  const [salesList, setSalesList] = useState<SomlDetailItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
