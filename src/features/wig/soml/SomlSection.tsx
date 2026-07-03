@@ -9,12 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Sun, Pencil, Plus, Check, Users, TrendingUp, DollarSign, Calendar, Info } from 'lucide-react';
+import { Sun, Pencil, Plus, Check, Users, TrendingUp, DollarSign, Calendar, Info, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -24,7 +25,7 @@ import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useEffectiveAdmin } from '@/hooks/useViewAsAdmin';
 import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/pace';
 import { getNowCentral } from '@/lib/dateUtils';
-import { useSomlData, notifySomlChanged, type SomlConfig } from '@/hooks/useSomlData';
+import { useSomlData, notifySomlChanged, type SomlConfig, type PendingReferralRow } from '@/hooks/useSomlData';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 
 type MetricKey = 'referrals' | 'upgrades' | 'sales';
@@ -295,7 +296,7 @@ export function SomlSection() {
   const { user } = useAuth();
   const isAdmin = useEffectiveAdmin();
   const { salesAssociates: activeSas } = useActiveStaff();
-  const { config, totals, rows, refetch } = useSomlData();
+  const { config, totals, rows, pendingReferrals, refetch } = useSomlData();
 
   const [editMetric, setEditMetric] = useState<MetricKey | null>(null);
   const [editWindowOpen, setEditWindowOpen] = useState(false);
@@ -303,6 +304,7 @@ export function SomlSection() {
   const [savedFlash, setSavedFlash] = useState<MetricKey | null>(null);
   const [overrides, setOverrides] = useState<Record<string, SaOverride>>({});
   const [editCell, setEditCell] = useState<{ sa: string; metric: MetricKey } | null>(null);
+  const [pendingDialogSa, setPendingDialogSa] = useState<string | null>(null); // null closed, '' = all, 'name' = one SA
 
   const loadOverrides = useCallback(async () => {
     const { data } = await (supabase as any)
@@ -393,7 +395,7 @@ export function SomlSection() {
 
   const rowMap = useMemo(() => new Map(rows.map(r => [r.sa, r])), [rows]);
   const leaderboardRows = useMemo(() => rosterSas.map(sa => (
-    rowMap.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0 }
+    rowMap.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0, pending: 0 }
   )), [rosterSas, rowMap]);
 
   const windowLabel = config
@@ -488,6 +490,24 @@ export function SomlSection() {
         />
       </div>
 
+      {/* Pending referrals indicator — visually distinct from the real Referrals count. */}
+      {totals.pending > 0 && (
+        <button
+          type="button"
+          onClick={() => setPendingDialogSa('')}
+          className="w-full flex items-center justify-between gap-3 rounded-md border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-left hover:bg-primary/10 transition"
+        >
+          <div className="flex items-center gap-2 text-foreground/90">
+            <Clock className="w-4 h-4 text-primary" />
+            <span className="text-sm">
+              <span className="font-bold">{totals.pending} pending referral{totals.pending === 1 ? '' : 's'}</span>
+              <span className="text-muted-foreground"> · counts when they buy</span>
+            </span>
+          </div>
+          <span className="text-[11px] text-primary underline">View</span>
+        </button>
+      )}
+
       {/* What each metric means */}
       <div className="rounded-md border border-border/60 bg-muted/30 p-3 space-y-1.5">
         <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">How credit works</div>
@@ -569,6 +589,17 @@ export function SomlSection() {
                         )}
                       </div>
                       <div className="mt-2 px-2"><PaceBar current={r[k]} target={tgt || null} pace={pace} /></div>
+                      {k === 'referrals' && r.pending > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setPendingDialogSa(r.sa)}
+                          className="mt-1 inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+                          title="counts when they buy"
+                        >
+                          <Clock className="w-3 h-3" />
+                          +{r.pending} pending
+                        </button>
+                      )}
                     </TableCell>
                   );
                 })}
@@ -590,7 +621,98 @@ export function SomlSection() {
         defaultValue={editCell ? defaultPerSa[editCell.metric] : 0}
         onSaved={() => { loadOverrides(); refetch(); }}
       />
+      <PendingReferralsDialog
+        open={pendingDialogSa !== null}
+        onClose={() => setPendingDialogSa(null)}
+        saFilter={pendingDialogSa || ''}
+        rows={pendingReferrals}
+      />
     </section>
     </TooltipProvider>
+  );
+}
+
+interface PendingReferralsDialogProps {
+  open: boolean;
+  onClose: () => void;
+  saFilter: string; // '' = all
+  rows: PendingReferralRow[];
+}
+function PendingReferralsDialog({ open, onClose, saFilter, rows }: PendingReferralsDialogProps) {
+  const filtered = useMemo(
+    () => saFilter ? rows.filter(r => r.credited_sa === saFilter) : rows,
+    [rows, saFilter],
+  );
+  const buckets = useMemo(() => ({
+    pending: filtered.filter(r => r.state === 'pending'),
+    realized: filtered.filter(r => r.state === 'realized'),
+    not_converted: filtered.filter(r => r.state === 'not_converted'),
+  }), [filtered]);
+
+  const renderList = (list: PendingReferralRow[], emptyMsg: string) => {
+    if (list.length === 0) return <p className="text-xs text-muted-foreground py-2">{emptyMsg}</p>;
+    return (
+      <div className="divide-y">
+        {list.map(r => (
+          <div key={r.id} className="py-2 flex items-start justify-between gap-3 text-xs">
+            <div className="min-w-0">
+              <div className="font-semibold text-foreground truncate">
+                {r.member_name || 'Unnamed intro'}
+              </div>
+              <div className="text-muted-foreground truncate">
+                Referred by {r.referring_member} · Credit: {r.credited_sa}
+                {r.class_date && <> · Class {format(new Date(r.class_date + 'T12:00:00'), 'MMM d')}</>}
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              {r.state === 'realized' && r.realized_at && (
+                <span className="text-success">Bought {format(new Date(r.realized_at + 'T12:00:00'), 'MMM d')}</span>
+              )}
+              {r.state === 'not_converted' && (
+                <span className="text-muted-foreground">{r.resolved_outcome || 'Did not convert'}</span>
+              )}
+              {r.state === 'pending' && (
+                <span className="text-primary">Pending</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {saFilter ? `${saFilter}'s referrals` : 'All referrals'}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wide text-primary mb-1">
+              Pending ({buckets.pending.length}) · counts when they buy
+            </div>
+            {renderList(buckets.pending, 'No pending referrals.')}
+          </div>
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wide text-success mb-1">
+              Realized ({buckets.realized.length})
+            </div>
+            {renderList(buckets.realized, 'None realized yet.')}
+          </div>
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-1">
+              Did not convert ({buckets.not_converted.length})
+            </div>
+            {renderList(buckets.not_converted, 'None marked as not converted.')}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -3717,6 +3717,50 @@ export type Database = {
         }
         Relationships: []
       }
+      soml_pending_referrals: {
+        Row: {
+          booking_id: string
+          created_at: string
+          credited_sa: string
+          id: string
+          realized_at: string | null
+          referring_member: string
+          resolved_outcome: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          credited_sa: string
+          id?: string
+          realized_at?: string | null
+          referring_member: string
+          resolved_outcome?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          credited_sa?: string
+          id?: string
+          realized_at?: string | null
+          referring_member?: string
+          resolved_outcome?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "soml_pending_referrals_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "intros_booked"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       soml_sa_goals: {
         Row: {
           created_at: string

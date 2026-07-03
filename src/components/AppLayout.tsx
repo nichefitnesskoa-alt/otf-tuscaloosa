@@ -4,6 +4,7 @@ import { BottomNav } from './BottomNav';
 import { ErrorBoundary } from './errors/ErrorBoundary';
 import { useAuth } from '@/context/AuthContext';
 import { OTF, Theme, brandFont } from '@/lib/otfBrand';
+import { useSomlPendingReferralToast } from '@/hooks/useSomlPendingReferralToast';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -12,6 +13,7 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const { user } = useAuth();
   const isCoach = user?.role === 'Coach';
+  useSomlPendingReferralToast();
 
   const shellStyle = {
     backgroundColor: OTF.dark,
