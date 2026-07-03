@@ -340,120 +340,103 @@ function EditDialog({
 }
 
 // ─────────────────────────────────────────────────────────────
-// Upcoming churns (read-only, all roles)
+// Churn list (read-only, all roles) — upcoming + already passed
 // ─────────────────────────────────────────────────────────────
 function UpcomingChurnsDialog({
-  open, onClose, churns, eomLabel,
-}: { open: boolean; onClose: () => void; churns: Churn[]; eomLabel: string }) {
-  const grouped = useMemo(() => {
+  open, onClose, pending, applied, eomLabel,
+}: { open: boolean; onClose: () => void; pending: Churn[]; applied: Churn[]; eomLabel: string }) {
+  const groupByDate = (list: Churn[]) => {
     const byDate = new Map<string, Churn[]>();
-    for (const c of churns) {
+    for (const c of list) {
       const arr = byDate.get(c.churn_date) || [];
       arr.push(c);
       byDate.set(c.churn_date, arr);
     }
-    return Array.from(byDate.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [churns]);
+    return Array.from(byDate.entries());
+  };
+  const pendingGrouped = useMemo(
+    () => groupByDate(pending).sort(([a], [b]) => a.localeCompare(b)),
+    [pending],
+  );
+  const appliedGrouped = useMemo(
+    () => groupByDate(applied).sort(([a], [b]) => b.localeCompare(a)),
+    [applied],
+  );
   const today = todayCST();
+
+  const renderGroup = (date: string, rows: Churn[], variant: 'upcoming' | 'past') => (
+    <div key={`${variant}-${date}`}>
+      <div className="flex items-center justify-between mb-1.5 py-1">
+        <div className="text-sm font-black">
+          {format(parseISO(date), 'EEE, MMM d')}
+          {variant === 'upcoming' && date < today && (
+            <span className="ml-2 text-[10px] uppercase tracking-wider text-amber-600 font-bold">Overdue</span>
+          )}
+        </div>
+        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-muted text-foreground tabular-nums">
+          {rows.length} member{rows.length === 1 ? '' : 's'}
+        </span>
+      </div>
+      <ul className="space-y-1">
+        {rows.map(r => (
+          <li
+            key={r.id}
+            className={cn(
+              'border border-border rounded-md px-3 py-2 text-sm',
+              variant === 'past' && 'opacity-70',
+            )}
+          >
+            <div className="font-medium">{r.member_name}</div>
+            {r.notes && <div className="text-xs text-muted-foreground mt-0.5">{r.notes}</div>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="sm:max-w-md max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Upcoming churns</DialogTitle>
+          <DialogTitle>Churns</DialogTitle>
           <DialogDescription>
-            {churns.length === 0
+            {pending.length === 0
               ? 'No scheduled churns through end of month.'
-              : `${churns.length} scheduled through ${eomLabel}. Net Gain drops by −1 the day each member actually churns out.`}
+              : `${pending.length} scheduled through ${eomLabel}. Net Gain drops by −1 the day each member actually churns out.`}
           </DialogDescription>
         </DialogHeader>
-        <div className="overflow-y-auto -mx-2 px-2">
-          {grouped.length === 0 ? (
-            <div className="text-sm text-muted-foreground py-8 text-center">🎉 No scheduled churns.</div>
-          ) : (
-            <div className="space-y-4">
-              {grouped.map(([date, rows]) => {
-                const isPast = date < today;
-                return (
-                  <div key={date}>
-                    <div className="flex items-center justify-between mb-1.5 sticky top-0 bg-background/95 backdrop-blur py-1">
-                      <div className="text-sm font-black">
-                        {format(parseISO(date), 'EEE, MMM d')}
-                        {isPast && <span className="ml-2 text-[10px] uppercase tracking-wider text-amber-600 font-bold">Overdue</span>}
-                      </div>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-muted text-foreground tabular-nums">
-                        {rows.length} member{rows.length === 1 ? '' : 's'}
-                      </span>
-                    </div>
-                    <ul className="space-y-1">
-                      {rows.map(r => (
-                        <li key={r.id} className="border border-border rounded-md px-3 py-2 text-sm">
-                          <div className="font-medium">{r.member_name}</div>
-                          {r.notes && <div className="text-xs text-muted-foreground mt-0.5">{r.notes}</div>}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        <div className="overflow-y-auto -mx-2 px-2 space-y-6">
+          <section>
+            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-2">
+              Upcoming{pending.length > 0 ? ` (${pending.length})` : ''}
+            </h3>
+            {pendingGrouped.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-4 text-center">🎉 No scheduled churns.</div>
+            ) : (
+              <div className="space-y-4">
+                {pendingGrouped.map(([date, rows]) => renderGroup(date, rows, 'upcoming'))}
+              </div>
+            )}
+          </section>
+
+          <section className="pt-2 border-t border-border">
+            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-2 mt-3">
+              Already churned{applied.length > 0 ? ` (${applied.length})` : ''}
+            </h3>
+            {appliedGrouped.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-4 text-center">No churns have processed yet.</div>
+            ) : (
+              <div className="space-y-4">
+                {appliedGrouped.map(([date, rows]) => renderGroup(date, rows, 'past'))}
+              </div>
+            )}
+          </section>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// History
-// ─────────────────────────────────────────────────────────────
-interface LogRow {
-  id: string; delta: number; new_value: number; note: string | null; changed_by: string; changed_at: string;
-  source_type: string; source_id: string | null;
-}
-function HistoryDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [rows, setRows] = useState<LogRow[]>([]);
-  useEffect(() => {
-    if (!open) return;
-    (async () => {
-      const { data } = await (supabase as any)
-        .from('net_gain_log')
-        .select('id,delta,new_value,note,changed_by,changed_at,source_type,source_id')
-        .order('changed_at', { ascending: false }).limit(50);
-      setRows((data ?? []) as LogRow[]);
-    })();
-  }, [open]);
-  return (
-    <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent className="sm:max-w-md max-h-[75vh] overflow-hidden flex flex-col">
-        <DialogHeader><DialogTitle>Net Gain — recent changes</DialogTitle></DialogHeader>
-        <div className="overflow-y-auto -mx-2 px-2">
-          {rows.length === 0 && <div className="text-sm text-muted-foreground py-6 text-center">No changes yet.</div>}
-          <ul className="space-y-2">
-            {rows.map(r => (
-              <li key={r.id} className="border border-border rounded-md p-2 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className={cn(
-                    'font-bold tabular-nums',
-                    r.delta > 0 ? 'text-emerald-600' : r.delta < 0 ? 'text-red-600' : 'text-foreground',
-                  )}>
-                    {r.delta > 0 ? '+' : ''}{r.delta}
-                  </span>
-                  <span className="text-xs text-muted-foreground">→ {r.new_value}</span>
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {r.changed_by} · {format(new Date(r.changed_at), 'MMM d, h:mm a')}
-                  {r.source_type !== 'manual' && <span className="ml-1 px-1 rounded bg-muted text-[10px] uppercase">{r.source_type}</span>}
-                </div>
-                {r.note && <div className="text-xs mt-1 text-foreground/80">{r.note}</div>}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────
 // Upload churn spreadsheet
