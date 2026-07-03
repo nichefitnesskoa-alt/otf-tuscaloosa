@@ -176,8 +176,8 @@ export function TheirStory({
     <div className="space-y-3" onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
       <h4 className="font-bold text-sm">THEIR STORY</h4>
 
-      {/* ── ZONE 2: Three horizontal conversation fields with adaptive subtext ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* ── ZONE 2: Two horizontal conversation fields with adaptive subtext ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Column 1 — What would a 5/5 look like */}
         <div className="space-y-1">
           <Label className="text-xs font-semibold" style={{ color: '#E8540A' }}>
@@ -196,25 +196,7 @@ export function TheirStory({
           />
         </div>
 
-        {/* Column 2 — What would change */}
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold" style={{ color: '#E8540A' }}>
-            What would change for you if you got there?
-          </Label>
-          <SavedIndicator show={savedField === 'sa_conversation_meaning'} />
-          {qEmotionalDriver && (
-            <p className="text-[10px] text-muted-foreground italic">They mentioned: {truncate(qEmotionalDriver, 50)}</p>
-          )}
-          <Textarea
-            value={driverText}
-            onChange={e => setDriverText(e.target.value)}
-            onBlur={() => saveZone2Field('sa_conversation_meaning', driverText.trim())}
-            placeholder="What would actually be different? Like in their day to day?"
-            className="min-h-[80px] text-sm border border-input"
-          />
-        </div>
-
-        {/* Column 3 — What's been holding you back */}
+        {/* Column 2 — What's been holding you back */}
         <div className="space-y-1">
           <Label className="text-xs font-semibold" style={{ color: '#E8540A' }}>
             What's been holding you back?
@@ -232,6 +214,7 @@ export function TheirStory({
           />
         </div>
       </div>
+
 
       {/* Coach WHY plan slot */}
       {afterWhySlot}
