@@ -15,7 +15,7 @@ export function ObjectionSection({ metrics, isPresentMode }: Props) {
   if (entries.length === 0) {
     return (
       <MeetingSection title="Where We're Getting Stuck" icon={<ShieldAlert className={isPresentMode ? 'w-10 h-10' : 'w-5 h-5'} />} sectionId="objections" isPresentMode={isPresentMode}>
-        <p className={isPresentMode ? 'text-xl text-white/60' : 'text-sm text-muted-foreground'}>
+        <p className={isPresentMode ? 'text-xl text-primary-foreground/60' : 'text-sm text-muted-foreground'}>
           No objection data this week. Start logging objections in shift recaps to see what's stopping people from buying.
         </p>
       </MeetingSection>
@@ -24,7 +24,7 @@ export function ObjectionSection({ metrics, isPresentMode }: Props) {
 
   return (
     <MeetingSection title="Where We're Getting Stuck" icon={<ShieldAlert className={isPresentMode ? 'w-10 h-10' : 'w-5 h-5'} />} sectionId="objections" isPresentMode={isPresentMode}>
-      <p className={isPresentMode ? 'text-lg text-white/50 mb-6' : 'text-xs text-muted-foreground mb-3'}>
+      <p className={isPresentMode ? 'text-lg text-primary-foreground/50 mb-6' : 'text-xs text-muted-foreground mb-3'}>
         From {totalNonCloses} non-closes this week:
       </p>
       <div className={isPresentMode ? 'space-y-4' : 'space-y-2'}>
@@ -39,9 +39,9 @@ export function ObjectionSection({ metrics, isPresentMode }: Props) {
               <div className={cn(
                 'rounded-full',
                 isPresentMode ? 'w-3 h-3' : 'w-2 h-2',
-                isTop ? 'bg-danger' : 'bg-white/30'
+                isTop ? 'bg-danger' : 'bg-card/30'
               )} />
-              <span className={isPresentMode ? 'text-white' : ''}>{name}: {count} ({pct.toFixed(0)}%)</span>
+              <span className={isPresentMode ? 'text-primary-foreground' : ''}>{name}: {count} ({pct.toFixed(0)}%)</span>
               {isTop && (
                 <span className={isPresentMode ? 'text-warning text-base' : 'text-xs text-warning'}>
                   ← Recommended drill

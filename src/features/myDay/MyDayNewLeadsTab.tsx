@@ -139,13 +139,13 @@ function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
           <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">🔴 {overdue} Overdue</Badge>
         )}
         {warning > 0 && (
-          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-warning-dim text-white">⚠ {warning} Soon</Badge>
+          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-warning-dim text-primary-foreground">⚠ {warning} Soon</Badge>
         )}
         {overdue === 0 && warning === 0 && newLeads.length === 0 && activityLoaded && avgResponse !== null && (
           <span className="text-muted-foreground">All clear</span>
         )}
         {overdue === 0 && warning === 0 && newLeads.length > 0 && (
-          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-success-dim text-white">✓ All fresh</Badge>
+          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-success-dim text-primary-foreground">✓ All fresh</Badge>
         )}
       </div>
     </div>

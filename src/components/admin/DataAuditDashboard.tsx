@@ -129,7 +129,7 @@ function CheckRow({ check, onFixComplete }: { check: AuditCheckResult; onFixComp
               size="sm"
               onClick={handleFix}
               disabled={fixing}
-              className="gap-1 bg-brand hover:bg-brand text-white"
+              className="gap-1 bg-brand hover:bg-brand text-primary-foreground"
             >
               {fixing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wrench className="w-3 h-3" />}
               {fixing ? 'Fixing…' : fixResult ? `Fixed ${fixResult.fixed} records` : 'Fix All'}
@@ -304,7 +304,7 @@ export default function DataAuditDashboard() {
             size="sm"
             onClick={handleFixAll}
             disabled={fixingAll || running}
-            className="gap-1 w-full bg-brand hover:bg-brand text-white"
+            className="gap-1 w-full bg-brand hover:bg-brand text-primary-foreground"
           >
             {fixingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
             {fixingAll ? 'Fixing all issues…' : 'Fix All Issues'}

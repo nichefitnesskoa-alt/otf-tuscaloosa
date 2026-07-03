@@ -74,7 +74,7 @@ export function EirmaPlaybook({ obstacles, fitnessLevel, emotionalDriver, client
             <div className="rounded-lg border border-amber-200 bg-amber-50/50 overflow-hidden">
               <CollapsibleTrigger className="w-full px-3 py-2 flex items-center gap-2 text-left">
                 {!isFirst && (isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-amber-600" /> : <ChevronRight className="w-3.5 h-3.5 text-amber-600" />)}
-                <Badge className="bg-amber-600 text-white text-[10px] border-transparent">
+                <Badge className="bg-amber-600 text-primary-foreground text-[10px] border-transparent">
                   {pb.objection_name}
                 </Badge>
                 {isMatched && showAll && (
@@ -122,7 +122,7 @@ export function EirmaPlaybook({ obstacles, fitnessLevel, emotionalDriver, client
                   </Button>
 
                   {showFull && (
-                    <div className="p-3 rounded bg-white border border-amber-200 text-xs whitespace-pre-wrap leading-relaxed">
+                    <div className="p-3 rounded bg-card border border-amber-200 text-xs whitespace-pre-wrap leading-relaxed">
                       {personalize(pb.full_script)}
                       {pb.training_notes && (
                         <div className="mt-3 pt-2 border-t border-amber-100">

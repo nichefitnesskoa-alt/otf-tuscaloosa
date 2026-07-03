@@ -51,7 +51,7 @@ export function MentionText({ text, className, viewerName }: Props) {
             className={cn(
               'inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold mx-0.5',
               isMe
-                ? 'bg-[#E8540A] text-white'
+                ? 'bg-[#E8540A] text-primary-foreground'
                 : 'bg-[#E8540A]/10 text-[#E8540A] border border-[#E8540A]/30',
             )}
           >

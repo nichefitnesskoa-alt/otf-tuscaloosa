@@ -55,7 +55,7 @@ function getPriority(item: FollowUpItem, todayStr: string): { score: number; lab
     return { score: 1, label: 'Overdue', color: 'bg-destructive text-destructive-foreground' };
   }
   if (contactNext && contactNext === todayStr) {
-    return { score: 2, label: 'Due today', color: 'bg-brand text-white' };
+    return { score: 2, label: 'Due today', color: 'bg-brand text-primary-foreground' };
   }
   if (!item.lastContactAt) {
     return { score: 3, label: 'First touch', color: 'bg-warning-dim text-warning' };
@@ -173,7 +173,7 @@ export default function FollowUpList({ onCountChange, onRefresh }: FollowUpListP
             onClick={() => setFilter(f.key)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium min-h-[32px] transition-colors cursor-pointer ${
               filter === f.key
-                ? 'bg-brand text-white'
+                ? 'bg-brand text-primary-foreground'
                 : 'bg-muted/60 text-muted-foreground border border-border hover:bg-accent'
             }`}
           >
@@ -459,7 +459,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
         <div className="flex items-center gap-2 pt-1">
           <Button
             size="sm"
-            className="min-h-[44px] bg-brand hover:bg-brand-hover text-white flex-1 cursor-pointer"
+            className="min-h-[44px] bg-brand hover:bg-brand-hover text-primary-foreground flex-1 cursor-pointer"
             onClick={handleSendText}
           >
             <Phone className="w-3.5 h-3.5 mr-1" />

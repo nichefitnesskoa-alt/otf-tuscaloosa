@@ -173,7 +173,7 @@ function StudioCard({
             <Button
               onClick={() => publicUrl && onCopy(publicUrl)}
               disabled={!publicUrl}
-              className="min-h-[44px] text-[13px] font-semibold bg-[#E8540A] hover:bg-[#E8540A]/90 text-white"
+              className="min-h-[44px] text-[13px] font-semibold bg-[#E8540A] hover:bg-[#E8540A]/90 text-primary-foreground"
             >
               <Copy className="w-4 h-4 mr-2" />
               Copy link
@@ -199,7 +199,7 @@ function StudioCard({
           <div className="grid grid-cols-2 gap-2">
             <Button
               onClick={() => onCopy(entryUrl)}
-              className="min-h-[44px] text-[13px] font-semibold bg-emerald-600 hover:bg-emerald-600/90 text-white"
+              className="min-h-[44px] text-[13px] font-semibold bg-emerald-600 hover:bg-emerald-600/90 text-primary-foreground"
             >
               <Copy className="w-4 h-4 mr-2" />
               Copy link

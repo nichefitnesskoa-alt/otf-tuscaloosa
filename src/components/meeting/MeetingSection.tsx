@@ -20,7 +20,7 @@ export function MeetingSection({ title, icon, sectionId, isPresentMode, children
         id={sectionId}
         className="min-h-screen flex flex-col items-center justify-center px-8 py-12"
       >
-        <h2 className="text-4xl md:text-5xl font-bold mb-8 flex items-center gap-4 text-white">
+        <h2 className="text-4xl md:text-5xl font-bold mb-8 flex items-center gap-4 text-primary-foreground">
           {icon}
           {title}
         </h2>

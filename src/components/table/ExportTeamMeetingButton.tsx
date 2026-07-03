@@ -65,7 +65,7 @@ export function ExportTeamMeetingButton({ meetingId, meetingDate }: Props) {
         size="sm"
         disabled={disabled}
         onClick={() => setOpen(true)}
-        className="bg-[#E8540A] hover:bg-[#E8540A]/90 text-white h-11 gap-2"
+        className="bg-[#E8540A] hover:bg-[#E8540A]/90 text-primary-foreground h-11 gap-2"
       >
         <FileText className="w-4 h-4" />
         {disabled ? (
@@ -73,7 +73,7 @@ export function ExportTeamMeetingButton({ meetingId, meetingDate }: Props) {
         ) : (
           <>
             Export Team Meeting
-            <span className="ml-1 inline-flex items-center rounded-full bg-[#A03A05] px-2 py-0.5 text-[11px] font-semibold text-white">
+            <span className="ml-1 inline-flex items-center rounded-full bg-[#A03A05] px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">
               {submittedCount} submitted
             </span>
           </>
@@ -87,14 +87,14 @@ export function ExportTeamMeetingButton({ meetingId, meetingDate }: Props) {
       <Button
         size="sm"
         onClick={onCopy}
-        className="bg-[#E8540A] hover:bg-[#E8540A]/90 text-white h-11 gap-2"
+        className="bg-[#E8540A] hover:bg-[#E8540A]/90 text-primary-foreground h-11 gap-2"
       >
         <Copy className="w-4 h-4" /> Copy to clipboard
       </Button>
       <Button
         size="sm"
         onClick={onDownload}
-        className="bg-[#E8540A] hover:bg-[#E8540A]/90 text-white h-11 gap-2"
+        className="bg-[#E8540A] hover:bg-[#E8540A]/90 text-primary-foreground h-11 gap-2"
       >
         <Download className="w-4 h-4" /> Download .txt
       </Button>

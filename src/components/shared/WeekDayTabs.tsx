@@ -133,7 +133,7 @@ export default function WeekDayTabs({
               className={cn(
                 'flex flex-col items-center justify-center w-full px-2 py-1.5 rounded-lg text-xs font-medium transition-colors border min-h-[44px] cursor-pointer relative',
                 isSelected
-                  ? 'bg-[#E8540A] text-white border-[#E8540A] font-bold'
+                  ? 'bg-[#E8540A] text-primary-foreground border-[#E8540A] font-bold'
                   : day.isToday
                     ? 'bg-card text-card-foreground border-[#E8540A]/50 ring-1 ring-[#E8540A]/30 hover:bg-muted'
                     : day.isPast
@@ -148,8 +148,8 @@ export default function WeekDayTabs({
                   className={cn(
                     'absolute -top-1 -right-1 flex items-center justify-center rounded-full text-[9px] font-bold min-w-[16px] h-[16px] px-1',
                     isSelected
-                      ? 'bg-white text-[#E8540A]'
-                      : 'bg-[#E8540A] text-white',
+                      ? 'bg-card text-[#E8540A]'
+                      : 'bg-[#E8540A] text-primary-foreground',
                   )}
                 >
                   {count}

@@ -549,7 +549,7 @@ export default function IntroBookingEntry({
           )}
           <Button
             onClick={() => setShowScripts(true)}
-            className={`bg-black text-white hover:bg-black/90 ${!isSubmitted && onInstantSubmit ? 'flex-1' : 'w-full'}`}
+            className={`bg-foreground text-primary-foreground hover:bg-foreground/90 ${!isSubmitted && onInstantSubmit ? 'flex-1' : 'w-full'}`}
           >
             Send Script
           </Button>

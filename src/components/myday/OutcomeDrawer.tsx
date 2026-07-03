@@ -1027,7 +1027,7 @@ export function OutcomeDrawer({
       {outcome && !isReschedule && !isPlanningToReschedule && (
         <div className="space-y-1">
           {bookingHasNoCoach && (
-            <p className="text-xs font-bold text-white bg-red-600 border-2 border-red-700 rounded-md px-2 py-1.5 animate-pulse">
+            <p className="text-xs font-bold text-primary-foreground bg-red-600 border-2 border-red-700 rounded-md px-2 py-1.5 animate-pulse">
               ⚠️ Coach TBD — pick who taught this class so they get credit.
             </p>
           )}

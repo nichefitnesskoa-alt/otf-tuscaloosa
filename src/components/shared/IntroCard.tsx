@@ -96,7 +96,7 @@ function InlineText({ value, field, bookingId, editedBy, onSaved, type = 'text' 
   if (!editing) {
     return (
       <button type="button" onClick={() => setEditing(true)}
-        className="hover:underline cursor-pointer rounded px-0.5 -mx-0.5 hover:bg-white/10 transition-colors truncate max-w-[120px]"
+        className="hover:underline cursor-pointer rounded px-0.5 -mx-0.5 hover:bg-card/10 transition-colors truncate max-w-[120px]"
         style={{ color: 'inherit' }}>
         {localValue || '—'}
       </button>
@@ -136,7 +136,7 @@ function InlineSelect({ value, field, bookingId, editedBy, onSaved, options, pla
 
   return (
     <Select value={localValue || ''} onValueChange={save}>
-      <SelectTrigger className="h-5 text-[11px] px-1 py-0 border-0 bg-transparent gap-0.5 w-auto min-w-0 focus:ring-0 hover:bg-white/10 transition-colors"
+      <SelectTrigger className="h-5 text-[11px] px-1 py-0 border-0 bg-transparent gap-0.5 w-auto min-w-0 focus:ring-0 hover:bg-card/10 transition-colors"
         style={{ color: 'inherit' }}>
         <SelectValue placeholder={placeholder || '—'} />
       </SelectTrigger>
@@ -197,7 +197,7 @@ function InlineTimePicker({ value, bookingId, editedBy, onSaved }: {
 
   return (
     <Select value={localValue || ''} onValueChange={handleSelect}>
-      <SelectTrigger className="h-5 text-[11px] px-1 py-0 border-0 bg-transparent gap-0.5 w-auto min-w-0 focus:ring-0 hover:bg-white/10 transition-colors"
+      <SelectTrigger className="h-5 text-[11px] px-1 py-0 border-0 bg-transparent gap-0.5 w-auto min-w-0 focus:ring-0 hover:bg-card/10 transition-colors"
         style={{ color: 'inherit' }}>
         <SelectValue placeholder="Time">{display}</SelectValue>
       </SelectTrigger>
@@ -242,7 +242,7 @@ function InlineDatePicker({ value, bookingId, editedBy, onSaved }: {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" className="hover:underline cursor-pointer rounded px-0.5 -mx-0.5 hover:bg-white/10 transition-colors flex items-center gap-0.5"
+        <button type="button" className="hover:underline cursor-pointer rounded px-0.5 -mx-0.5 hover:bg-card/10 transition-colors flex items-center gap-0.5"
           style={{ color: 'inherit' }}>
           <CalendarIcon className="w-3 h-3 opacity-60" />
           {localValue ? format(parse(localValue, 'yyyy-MM-dd', new Date()), 'M/d') : '—'}
@@ -370,7 +370,7 @@ export default function IntroCard({
   const showVipAffordance = isVipSource(leadSource);
 
   return (
-    <div className={cn('mb-5 rounded-lg border-2 border-black dark:border-white overflow-hidden', className)} id={id} style={style}>
+    <div className={cn('mb-5 rounded-lg border-2 border-border dark:border-border overflow-hidden', className)} id={id} style={style}>
       {/* ── HEADER BAR ── */}
       <div className="px-3 py-2" style={{ background: 'var(--intro-header-bg)' }}>
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -379,7 +379,7 @@ export default function IntroCard({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onNameClick(); }}
-              className="text-base font-bold leading-tight shrink-0 hover:underline cursor-pointer rounded px-0.5 -mx-0.5 hover:bg-white/10 transition-colors text-left"
+              className="text-base font-bold leading-tight shrink-0 hover:underline cursor-pointer rounded px-0.5 -mx-0.5 hover:bg-card/10 transition-colors text-left"
               style={{ color: 'var(--intro-header-text)' }}
             >
               {memberName}
@@ -413,7 +413,7 @@ export default function IntroCard({
                     <button
                       type="button"
                       className={cn(
-                        'text-[10px] px-1.5 py-0 rounded-full border shrink-0 font-medium hover:bg-white/10 transition-colors flex items-center gap-1',
+                        'text-[10px] px-1.5 py-0 rounded-full border shrink-0 font-medium hover:bg-card/10 transition-colors flex items-center gap-1',
                         localVipSessionId
                           ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30'
                           : 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/40',

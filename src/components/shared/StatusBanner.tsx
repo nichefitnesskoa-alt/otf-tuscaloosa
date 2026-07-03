@@ -18,11 +18,11 @@ export function StatusBanner({ bgColor, text, subtext, className }: StatusBanner
       className={cn('w-full flex flex-col items-center justify-center px-3 py-1.5', className)}
       style={{ backgroundColor: bgColor, minHeight: subtext ? '42px' : '30px' }}
     >
-      <span className="text-white text-[11px] font-semibold tracking-wide text-center leading-tight">
+      <span className="text-primary-foreground text-[11px] font-semibold tracking-wide text-center leading-tight">
         {text}
       </span>
       {subtext && (
-        <span className="text-white/80 text-[10px] text-center leading-none mt-0.5">
+        <span className="text-primary-foreground/80 text-[10px] text-center leading-none mt-0.5">
           {subtext}
         </span>
       )}

@@ -235,7 +235,7 @@ function AfterEnrollmentChecklist({ steps, checks, onToggle }: {
             {steps.map((step, i) => (
               <label key={i} className="flex items-start gap-2 text-xs cursor-pointer" onClick={() => onToggle(i)}>
                 <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                  checks.has(i) ? 'bg-green-600 border-green-600 text-white' : 'border-muted-foreground/30'
+                  checks.has(i) ? 'bg-green-600 border-green-600 text-primary-foreground' : 'border-muted-foreground/30'
                 }`}>
                   {checks.has(i) && <CheckCircle2 className="w-3 h-3" />}
                 </div>

@@ -25,7 +25,7 @@ export function ScoreReveal({ level, total, onClose }: { level: 1 | 2 | 3; total
       <DialogContent className="max-w-md text-center">
         <div className="py-8 space-y-4">
           <div
-            className="mx-auto w-28 h-28 rounded-full flex items-center justify-center text-white shadow-2xl"
+            className="mx-auto w-28 h-28 rounded-full flex items-center justify-center text-primary-foreground shadow-2xl"
             style={{ backgroundColor: copy.color }}
           >
             <div>

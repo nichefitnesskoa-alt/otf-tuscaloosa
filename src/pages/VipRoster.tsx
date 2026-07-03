@@ -73,7 +73,7 @@ export default function VipRoster() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-card flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin" style={{ color: OTF_ORANGE }} />
       </div>
     );
@@ -81,7 +81,7 @@ export default function VipRoster() {
 
   if (notFound) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 text-center">
+      <div className="min-h-screen bg-card flex flex-col items-center justify-center px-6 text-center">
         <img src={otfLogo} alt="Orangetheory Fitness" className="h-12 mb-6 object-contain" />
         <h1 className="text-xl font-bold mb-2" style={{ color: '#1a1a1a' }}>Session Not Found</h1>
         <p className="text-sm" style={{ color: '#888' }}>This roster link may be invalid or the session has been removed.</p>
@@ -90,7 +90,7 @@ export default function VipRoster() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center px-4 py-8">
+    <div className="min-h-screen bg-card flex flex-col items-center px-4 py-8">
       <img src={otfLogo} alt="Orangetheory Fitness" className="h-12 mb-6 object-contain" />
 
       <div className="w-full max-w-md space-y-6">

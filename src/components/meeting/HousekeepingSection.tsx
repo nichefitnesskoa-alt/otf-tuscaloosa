@@ -21,7 +21,7 @@ export function HousekeepingSection({ notes, onChange, isAdmin, isPresentMode }:
       hidden={isPresentMode && lines.length === 0}
     >
       {isPresentMode ? (
-        <ol className="space-y-4 text-2xl text-white list-decimal list-inside">
+        <ol className="space-y-4 text-2xl text-primary-foreground list-decimal list-inside">
           {lines.map((line, i) => (
             <li key={i}>{line}</li>
           ))}

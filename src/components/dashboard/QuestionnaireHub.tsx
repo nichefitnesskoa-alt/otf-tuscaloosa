@@ -462,7 +462,7 @@ export function QuestionnaireHub() {
       'completed': { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700' },
       'didnt-buy': { label: "Didn't Buy", cls: 'bg-amber-100 text-amber-800' },
       'not-interested': { label: 'Not Interested', cls: 'bg-slate-200 text-slate-700' },
-      'purchased': { label: 'Purchased', cls: 'bg-emerald-600 text-white' },
+      'purchased': { label: 'Purchased', cls: 'bg-emerald-600 text-primary-foreground' },
     };
     const info = labels[cat] || labels['needs-sending'];
     return <Badge className={cn('text-[9px] px-1 py-0 h-3.5 border-transparent', info.cls)}>{info.label}</Badge>;
@@ -805,7 +805,7 @@ export function QuestionnaireHub() {
         const q = questionnaires.find(x => x.id === coachQ);
         const booking = q?.booking_id ? bookingMap.get(q.booking_id) : null;
         return (
-          <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center" onClick={() => setCoachQ(null)}>
+          <div className="fixed inset-0 z-50 bg-foreground/50 flex items-end sm:items-center justify-center" onClick={() => setCoachQ(null)}>
             <div className="bg-background rounded-t-xl sm:rounded-xl w-full max-w-md max-h-[80vh] overflow-y-auto p-4" onClick={e => e.stopPropagation()}>
               <CoachPrepCard
                 memberName={booking?.member_name || `${q?.client_first_name} ${q?.client_last_name}`.trim() || ''}

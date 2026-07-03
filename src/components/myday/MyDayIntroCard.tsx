@@ -126,7 +126,7 @@ export function MyDayIntroCard({
         className={cn('w-full flex items-center justify-center px-3 py-1.5', qBar.bg)}
         style={{ minHeight: '30px' }}
       >
-        <span className="text-white text-[11px] font-semibold tracking-wide text-center leading-none">
+        <span className="text-primary-foreground text-[11px] font-semibold tracking-wide text-center leading-none">
           {qBar.bannerLabel}
         </span>
       </div>
@@ -151,10 +151,10 @@ export function MyDayIntroCard({
               {booking.member_name}
             </button>
             {booking.is_vip && (
-              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-purple-600 text-white border-transparent">VIP</Badge>
+              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-purple-600 text-primary-foreground border-transparent">VIP</Badge>
             )}
             {isSecondIntro && (
-              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-600 text-white border-transparent">2nd</Badge>
+              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-600 text-primary-foreground border-transparent">2nd</Badge>
             )}
           </div>
           {booking.vip_class_name && (

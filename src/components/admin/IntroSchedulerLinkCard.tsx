@@ -121,7 +121,7 @@ export function IntroSchedulerLinkCard({ saName }: Props) {
           </div>
 
           <div className="flex flex-col items-center gap-3 py-2">
-            <div className="p-3 bg-white rounded-lg">
+            <div className="p-3 bg-card rounded-lg">
               <QRCodeCanvas id={canvasId} value={url} size={200} includeMargin={false} />
             </div>
             <Button

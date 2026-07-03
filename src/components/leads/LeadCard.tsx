@@ -121,7 +121,7 @@ export function LeadCard({ lead, activityCount, lastActivityDate, onClick, onDra
             )}
             <LeadSourceTag source={lead.source} />
             {isHot && (
-              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-brand text-white border-transparent gap-0.5">
+              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-brand text-primary-foreground border-transparent gap-0.5">
                 <Flame className="w-2.5 h-2.5" />
                 Hot
               </Badge>
@@ -130,12 +130,12 @@ export function LeadCard({ lead, activityCount, lastActivityDate, onClick, onDra
           <p className="text-[11px] text-muted-foreground mt-0.5">
             {formatDistanceToNow(createdAt, { addSuffix: true })}
             {lead.booked_intro_id && lead.stage === 'booked' && (
-              <Badge className="ml-1.5 text-[10px] px-1.5 py-0 h-4 bg-success text-white border-transparent">
+              <Badge className="ml-1.5 text-[10px] px-1.5 py-0 h-4 bg-success text-primary-foreground border-transparent">
                 Already Booked
               </Badge>
             )}
             {lead.stage === 'won' && (
-              <Badge className="ml-1.5 text-[10px] px-1.5 py-0 h-4 bg-warning text-white border-transparent">
+              <Badge className="ml-1.5 text-[10px] px-1.5 py-0 h-4 bg-warning text-primary-foreground border-transparent">
                 Purchased
               </Badge>
             )}

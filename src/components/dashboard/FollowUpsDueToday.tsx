@@ -765,7 +765,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
           <div className="mt-1.5">
             <Button
               size="sm"
-              className="w-full h-9 gap-1.5 bg-green-600 hover:bg-green-700 text-white text-[13px] font-semibold"
+              className="w-full h-9 gap-1.5 bg-green-600 hover:bg-green-700 text-primary-foreground text-[13px] font-semibold"
               onClick={async (e) => {
                 e.stopPropagation();
                 if (item.booking_id) {

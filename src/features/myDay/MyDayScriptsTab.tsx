@@ -153,7 +153,7 @@ export function MyDayScriptsTab() {
                   className={cn(
                     'w-full min-h-[44px] text-[13px] font-medium gap-1.5 cursor-pointer',
                     isCopied
-                      ? 'bg-green-600 hover:bg-green-600 text-white'
+                      ? 'bg-green-600 hover:bg-green-600 text-primary-foreground'
                       : 'bg-primary hover:bg-primary/90 text-primary-foreground'
                   )}
                   onClick={() => handleCopy(t)}

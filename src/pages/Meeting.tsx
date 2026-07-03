@@ -202,7 +202,7 @@ export default function Meeting() {
   // Present Mode
   if (isPresentMode) {
     return (
-      <div className="bg-neutral text-white min-h-screen relative">
+      <div className="bg-neutral text-primary-foreground min-h-screen relative">
         {/* Section sidebar */}
         <div className="fixed left-2 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-2">
           {PRESENT_SECTION_IDS.map((id, i) => {
@@ -213,7 +213,7 @@ export default function Meeting() {
                 onClick={() => setCurrentSection(i)}
                 className={cn(
                   'w-10 h-10 rounded-full flex items-center justify-center transition-all',
-                  currentSection === i ? 'bg-white text-neutral scale-110' : 'bg-white/20 text-white/60 hover:bg-white/30'
+                  currentSection === i ? 'bg-card text-neutral scale-110' : 'bg-card/20 text-primary-foreground/60 hover:bg-card/30'
                 )}
               >
                 <Icon className="w-4 h-4" />
@@ -224,24 +224,24 @@ export default function Meeting() {
 
         {/* Exit button (admin only) */}
         {isAdmin && (
-          <button onClick={togglePresent} className="fixed top-4 right-4 z-50 bg-white/20 hover:bg-white/30 rounded-full p-2">
-            <X className="w-5 h-5 text-white" />
+          <button onClick={togglePresent} className="fixed top-4 right-4 z-50 bg-card/20 hover:bg-card/30 rounded-full p-2">
+            <X className="w-5 h-5 text-primary-foreground" />
           </button>
         )}
 
         {/* Nav buttons */}
         <div className="fixed bottom-6 right-6 z-50 flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setCurrentSection(s => Math.max(s - 1, 0))} disabled={currentSection === 0} className="bg-white/20 border-white/30 text-white hover:bg-white/30">
+          <Button variant="outline" size="sm" onClick={() => setCurrentSection(s => Math.max(s - 1, 0))} disabled={currentSection === 0} className="bg-card/20 border-border/30 text-primary-foreground hover:bg-card/30">
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setCurrentSection(s => Math.min(s + 1, PRESENT_SECTION_IDS.length - 1))} disabled={currentSection === PRESENT_SECTION_IDS.length - 1} className="bg-white/20 border-white/30 text-white hover:bg-white/30">
+          <Button variant="outline" size="sm" onClick={() => setCurrentSection(s => Math.min(s + 1, PRESENT_SECTION_IDS.length - 1))} disabled={currentSection === PRESENT_SECTION_IDS.length - 1} className="bg-card/20 border-border/30 text-primary-foreground hover:bg-card/30">
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
 
         {/* Welcome */}
         <div id="welcome" className="min-h-screen flex flex-col items-center justify-center px-8">
-          <p className="text-2xl text-white/40 mb-4">Team Meeting</p>
+          <p className="text-2xl text-primary-foreground/40 mb-4">Team Meeting</p>
           <h1 className="text-5xl md:text-7xl font-black text-center mb-6">
             {format(meetingMonday, 'EEEE, MMMM d, yyyy')}
           </h1>
@@ -249,7 +249,7 @@ export default function Meeting() {
             <p className="text-2xl text-warning text-center max-w-2xl">{energyInsight}</p>
           )}
           {!isAdmin && (
-            <p className="text-sm text-white/30 mt-8">Generated Sunday at 3:00 PM</p>
+            <p className="text-sm text-primary-foreground/30 mt-8">Generated Sunday at 3:00 PM</p>
           )}
         </div>
 
