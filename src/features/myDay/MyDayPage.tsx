@@ -31,7 +31,7 @@ import { CalendarDays, Clock, Users, Moon, Sun, UserPlus, FileText } from 'lucid
 
 
 // Existing components
-import { OnboardingOverlay } from '@/components/dashboard/OnboardingOverlay';
+
 import { OfflineBanner } from '@/components/dashboard/OfflineBanner';
 import { OwnItMentionsCard } from '@/components/shared/OwnItMentionsCard';
 
@@ -341,7 +341,7 @@ export default function MyDayPage() {
 
   return (
     <div className="max-w-full overflow-x-hidden pb-[calc(7rem_+_env(safe-area-inset-bottom))]">
-      <OnboardingOverlay />
+      
       <WhatsChangedDialog />
 
       {/* ═══ FLOATING HEADER — always visible ═══ */}
