@@ -1015,6 +1015,7 @@ export default function Wig() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex justify-end -mb-2"><AdminViewToggle /></div>
+      <NetGainScoreboard />
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-2xl font-black flex items-center gap-2">
