@@ -156,6 +156,7 @@ export default function TheTable() {
   // ---------- Header ----------
   const header = (
     <div className="mb-4">
+      <div className="flex justify-end mb-2"><AdminViewToggle /></div>
       <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
