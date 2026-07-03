@@ -133,7 +133,14 @@ export function MyDayIntroCard({
 
       {/* Main content */}
       <div className="p-3 space-y-2">
+        {/* Coach TBD alert — bright red, always at top of card when missing */}
+        <TbdCoachAlert
+          coachName={booking.coach_name}
+          onFix={() => onLogOutcome?.(booking.id, undefined)}
+        />
+
         {/* Row 1: Name + Time + Coach + Badges */}
+
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
