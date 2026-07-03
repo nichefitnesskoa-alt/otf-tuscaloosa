@@ -59,7 +59,7 @@ function shiftDate(ymd: string, days: number): string {
 
 export default function TheTable() {
   const { user } = useAuth();
-  const isAdmin = isAdminCheck(user);
+  const isAdmin = useEffectiveAdmin();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { meetingId: paramMeetingId } = useParams<{ meetingId?: string }>();
