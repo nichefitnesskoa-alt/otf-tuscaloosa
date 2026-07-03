@@ -106,7 +106,10 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
         if (b.is_vip || b.ignore_from_metrics) return false;
         const s = (b.booking_status_canon || '').toUpperCase();
         if (s === 'DELETED_SOFT') return false;
-        return !b.originating_booking_id || !!b.referred_by_member_name;
+        // A child booking (originating_booking_id set) is always a 2nd intro
+        // in the chain, even if it inherited referred_by_member_name from the
+        // parent (reschedule case). Only truly independent bookings count.
+        return !b.originating_booking_id;
       });
 
       const ids = valid.map((b: any) => b.id);
