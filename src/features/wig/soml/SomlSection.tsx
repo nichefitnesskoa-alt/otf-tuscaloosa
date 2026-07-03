@@ -9,12 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Sun, Pencil, Plus, Check, Users, TrendingUp, DollarSign, Calendar, Info } from 'lucide-react';
+import { Sun, Pencil, Plus, Check, Users, TrendingUp, DollarSign, Calendar, Info, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -24,7 +25,7 @@ import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useEffectiveAdmin } from '@/hooks/useViewAsAdmin';
 import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/pace';
 import { getNowCentral } from '@/lib/dateUtils';
-import { useSomlData, notifySomlChanged, type SomlConfig } from '@/hooks/useSomlData';
+import { useSomlData, notifySomlChanged, type SomlConfig, type PendingReferralRow } from '@/hooks/useSomlData';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 
 type MetricKey = 'referrals' | 'upgrades' | 'sales';
