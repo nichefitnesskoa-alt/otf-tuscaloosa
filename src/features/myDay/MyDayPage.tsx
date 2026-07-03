@@ -31,7 +31,7 @@ import { CalendarDays, Clock, Users, Moon, Sun, UserPlus, FileText } from 'lucid
 
 
 // Existing components
-import { OnboardingOverlay } from '@/components/dashboard/OnboardingOverlay';
+
 import { OfflineBanner } from '@/components/dashboard/OfflineBanner';
 import { OwnItMentionsCard } from '@/components/shared/OwnItMentionsCard';
 
