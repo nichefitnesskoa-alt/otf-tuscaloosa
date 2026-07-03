@@ -127,9 +127,9 @@ export function NetGainScoreboard({ className }: { className?: string }) {
   const positive = value > 0;
   const negative = value < 0;
 
-  // End-of-month goal: need N more net sales to be positive
-  const pendingChurnCount = pendingChurns.filter(c => c.churn_date >= todayCST()).length;
-  const goalToBreakEven = Math.max(0, pendingChurnCount - value);
+  // End-of-month goal: pending terminations still have to be offset by new sales.
+  const scheduledTerminationsLeft = pendingChurns.length;
+  const goalToBreakEven = Math.max(0, scheduledTerminationsLeft - value);
   const eomLabel = format(parseISO(endOfThisMonthCST()), 'MMM d');
 
   return (
@@ -237,23 +237,23 @@ export function NetGainScoreboard({ className }: { className?: string }) {
         </div>
 
         {/* Bottom strip: end-of-month goal line */}
-        {(pendingChurnCount > 0 || goalToBreakEven > 0 || negative) && (
+        {(scheduledTerminationsLeft > 0 || goalToBreakEven > 0 || negative) && (
           <div className={cn(
             'px-4 sm:px-5 py-2 text-xs sm:text-sm font-semibold border-t flex flex-wrap items-center gap-x-3 gap-y-1',
             positive && 'border-white/20 bg-black/10 text-white/90',
             negative && 'border-white/20 bg-black/10 text-white/90',
             !positive && !negative && 'border-border bg-muted/30 text-muted-foreground',
           )}>
-            {pendingChurnCount > 0 && (
+            {scheduledTerminationsLeft > 0 && (
               <span>
-                <span className="tabular-nums font-black">{pendingChurnCount}</span> churn{pendingChurnCount === 1 ? '' : 's'} projected
+                <span className="tabular-nums font-black">{scheduledTerminationsLeft}</span> scheduled termination{scheduledTerminationsLeft === 1 ? '' : 's'} left this month.
               </span>
             )}
             {goalToBreakEven > 0 ? (
               <span>
-                Need <span className="tabular-nums font-black">+{goalToBreakEven}</span> more net sale{goalToBreakEven === 1 ? '' : 's'} to be positive by {eomLabel}
+                Need <span className="tabular-nums font-black">+{goalToBreakEven}</span> membership sale{goalToBreakEven === 1 ? '' : 's'} by {eomLabel} to finish positive.
               </span>
-            ) : value >= 0 && pendingChurnCount > 0 ? (
+            ) : value >= 0 && scheduledTerminationsLeft > 0 ? (
               <span>On pace to end {eomLabel} positive.</span>
             ) : null}
           </div>
@@ -367,32 +367,92 @@ function HistoryDialog({ open, onClose }: { open: boolean; onClose: () => void }
 // ─────────────────────────────────────────────────────────────
 // Upload churn spreadsheet
 // ─────────────────────────────────────────────────────────────
-interface ParsedChurn { member_name: string; churn_date: string; notes: string; error?: string }
+interface ParsedChurn { member_name: string; churn_date: string; notes: string; date_source: string; error?: string }
+
+function duplicateKey(name: string, churnDate: string): string {
+  return `${name.toLowerCase().trim().replace(/\s+/g, ' ')}|${churnDate}`;
+}
+
+function normalizeHeader(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+}
+
+function pickNameKey(keys: string[]): string | undefined {
+  return keys.find(k => normalizeHeader(k) === 'name')
+    || keys.find(k => normalizeHeader(k) === 'member name')
+    || keys.find(k => /\b(member|client|customer)\b/.test(normalizeHeader(k)) && /\bname\b/.test(normalizeHeader(k)))
+    || keys.find(k => /\bname\b/.test(normalizeHeader(k)));
+}
+
+function pickNotesKey(keys: string[]): string | undefined {
+  return keys.find(k => /\b(reason|note|notes)\b/.test(normalizeHeader(k)));
+}
+
+function pickChurnDateKey(keys: string[]): string | undefined {
+  const normalized = keys.map(key => ({ key, header: normalizeHeader(key) }));
+  const isRequestOnly = (header: string) => /\b(request|requested|submitted|notice)\b/.test(header);
+
+  const exactPriority = [
+    'churn date',
+    'actual churn date',
+    'churn out date',
+    'actual churn out date',
+    'termination date',
+    'actual termination date',
+    'cancellation effective date',
+    'cancel effective date',
+    'effective cancellation date',
+    'effective termination date',
+    'membership end date',
+    'contract end date',
+  ];
+
+  for (const wanted of exactPriority) {
+    const match = normalized.find(({ header }) => header === wanted && !isRequestOnly(header));
+    if (match) return match.key;
+  }
+
+  const fallback = normalized.find(({ header }) => /\bchurn\b/.test(header) && /\bdate\b/.test(header) && !isRequestOnly(header))
+    || normalized.find(({ header }) => /\btermination\b/.test(header) && /\bdate\b/.test(header) && !isRequestOnly(header))
+    || normalized.find(({ header }) => /\b(cancel|cancellation)\b/.test(header) && /\b(effective|date)\b/.test(header) && !isRequestOnly(header))
+    || normalized.find(({ header }) => header === 'contract end date');
+
+  return fallback?.key;
+}
+
+function ymdIfValid(year: number, month: number, day: number): string | null {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+  if (year < 1900 || year > 2200 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const d = new Date(year, month - 1, day, 12, 0, 0, 0);
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
 
 function parseChurnDate(raw: unknown): string | null {
   if (raw == null || raw === '') return null;
+  if (raw instanceof Date && !isNaN(raw.getTime())) {
+    return ymdIfValid(raw.getFullYear(), raw.getMonth() + 1, raw.getDate());
+  }
   // Excel serial date
   if (typeof raw === 'number') {
     const d = XLSX.SSF.parse_date_code(raw);
     if (!d) return null;
-    const y = d.y; const m = String(d.m).padStart(2, '0'); const day = String(d.d).padStart(2, '0');
-    return `${y}-${m}-${day}`;
+    return ymdIfValid(d.y, d.m, d.d);
   }
   const s = String(raw).trim();
   if (!s) return null;
   // ISO YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:\b|T)/);
+  if (iso) return ymdIfValid(Number(iso[1]), Number(iso[2]), Number(iso[3]));
   // M/D/YYYY or MM/DD/YYYY
   const m1 = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
   if (m1) {
-    const mm = String(m1[1]).padStart(2, '0');
-    const dd = String(m1[2]).padStart(2, '0');
-    let yy = m1[3]; if (yy.length === 2) yy = (parseInt(yy, 10) > 50 ? '19' : '20') + yy;
-    return `${yy}-${mm}-${dd}`;
+    const mm = Number(m1[1]);
+    const dd = Number(m1[2]);
+    let yy = Number(m1[3]);
+    if (yy < 100) yy += yy > 50 ? 1900 : 2000;
+    return ymdIfValid(yy, mm, dd);
   }
-  // fallback Date.parse
-  const parsed = new Date(s);
-  if (!isNaN(parsed.getTime())) return format(parsed, 'yyyy-MM-dd');
   return null;
 }
 
@@ -400,10 +460,11 @@ function UploadChurnsDialog({ open, onClose, onSaved }: { open: boolean; onClose
   const { user } = useAuth();
   const [rows, setRows] = useState<ParsedChurn[]>([]);
   const [fileName, setFileName] = useState('');
+  const [dateColumn, setDateColumn] = useState('');
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { if (!open) { setRows([]); setFileName(''); } }, [open]);
+  useEffect(() => { if (!open) { setRows([]); setFileName(''); setDateColumn(''); } }, [open]);
 
   const handleFile = async (file: File) => {
     setFileName(file.name);
@@ -412,17 +473,44 @@ function UploadChurnsDialog({ open, onClose, onSaved }: { open: boolean; onClose
       const wb = XLSX.read(buf, { type: 'array', cellDates: false });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const json: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      const parsed: ParsedChurn[] = json.map((r) => {
-        const nameKey = Object.keys(r).find(k => /name|member/i.test(k));
-        const dateKey = Object.keys(r).find(k => /date|churn|end/i.test(k));
-        const notesKey = Object.keys(r).find(k => /note|reason/i.test(k));
+      const keys = Array.from(new Set(json.flatMap(r => Object.keys(r))));
+      const nameKey = pickNameKey(keys);
+      const dateKey = pickChurnDateKey(keys);
+      const notesKey = pickNotesKey(keys);
+      setDateColumn(dateKey || '');
+      if (!dateKey) toast.error('No actual churn date column found. Use a column named “Churn date” or “Termination date”.');
+      const parsedDraft: ParsedChurn[] = json.map((r) => {
         const name = nameKey ? String(r[nameKey] ?? '').trim() : '';
         const dateRaw = dateKey ? r[dateKey] : '';
         const date = parseChurnDate(dateRaw);
         const notes = notesKey ? String(r[notesKey] ?? '').trim() : '';
-        const err = !name ? 'Missing name' : !date ? 'Invalid date' : undefined;
-        return { member_name: name, churn_date: date || '', notes, error: err };
+        const err = !name ? 'Missing name' : !dateKey ? 'Missing actual churn date column' : !date ? 'Invalid date' : undefined;
+        return { member_name: name, churn_date: date || '', notes, date_source: dateKey || '', error: err };
       }).filter(r => r.member_name || r.churn_date);
+
+      const validDraft = parsedDraft.filter(r => !r.error && r.churn_date);
+      const existingKeys = new Set<string>();
+      if (validDraft.length > 0) {
+        const minDate = validDraft.reduce((min, r) => r.churn_date < min ? r.churn_date : min, validDraft[0].churn_date);
+        const maxDate = validDraft.reduce((max, r) => r.churn_date > max ? r.churn_date : max, validDraft[0].churn_date);
+        const { data: existing } = await (supabase as any)
+          .from('net_gain_churns')
+          .select('member_name,churn_date')
+          .gte('churn_date', minDate)
+          .lte('churn_date', maxDate);
+        ((existing as Pick<Churn, 'member_name' | 'churn_date'>[]) || [])
+          .forEach(r => existingKeys.add(duplicateKey(r.member_name, r.churn_date)));
+      }
+
+      const seenInFile = new Set<string>();
+      const parsed = parsedDraft.map(r => {
+        if (r.error || !r.churn_date) return r;
+        const key = duplicateKey(r.member_name, r.churn_date);
+        if (existingKeys.has(key)) return { ...r, error: 'Already loaded' };
+        if (seenInFile.has(key)) return { ...r, error: 'Duplicate in file' };
+        seenInFile.add(key);
+        return r;
+      });
       setRows(parsed);
       if (parsed.length === 0) toast.error('No rows found. Expect columns like "Name" and "Churn Date".');
     } catch (e: any) {
@@ -464,8 +552,8 @@ function UploadChurnsDialog({ open, onClose, onSaved }: { open: boolean; onClose
         <DialogHeader>
           <DialogTitle>Upload churn spreadsheet</DialogTitle>
           <DialogDescription>
-            CSV or Excel. Needs columns for member name and churn date. Notes optional.
-            Each churn auto-subtracts −1 from Net Gain the day after its date.
+            CSV or Excel. Uses the actual churn date, not the termination request date.
+            Each termination auto-subtracts −1 from Net Gain the day after its churn date.
           </DialogDescription>
         </DialogHeader>
 
@@ -490,6 +578,11 @@ function UploadChurnsDialog({ open, onClose, onSaved }: { open: boolean; onClose
                 <span className="font-semibold text-emerald-700">{valid.length} valid</span>
                 {invalid.length > 0 && <span className="ml-2 font-semibold text-red-700">{invalid.length} with errors</span>}
               </div>
+              {dateColumn && (
+                <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  Using date column: <span className="font-semibold text-foreground">{dateColumn}</span>
+                </div>
+              )}
               <div className="border rounded-md max-h-[45vh] overflow-y-auto">
                 <Table>
                   <TableHeader>
@@ -497,7 +590,7 @@ function UploadChurnsDialog({ open, onClose, onSaved }: { open: boolean; onClose
                       <TableHead>Name</TableHead>
                       <TableHead>Churn date</TableHead>
                       <TableHead>Notes</TableHead>
-                      <TableHead>Status</TableHead>
+                        <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -509,7 +602,9 @@ function UploadChurnsDialog({ open, onClose, onSaved }: { open: boolean; onClose
                         <TableCell className="text-xs">
                           {r.error
                             ? <span className="text-red-600">{r.error}</span>
-                            : <span className="text-emerald-700">OK</span>}
+                            : r.churn_date < todayCST()
+                              ? <span className="text-amber-600">Applies now</span>
+                              : <span className="text-emerald-700">Scheduled</span>}
                         </TableCell>
                       </TableRow>
                     ))}
