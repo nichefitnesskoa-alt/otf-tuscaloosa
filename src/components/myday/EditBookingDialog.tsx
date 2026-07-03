@@ -96,6 +96,12 @@ export function EditBookingDialog({
 
   const handleSave = async () => {
     setSaving(true);
+    const isMemberReferral = source === 'Member Referral' || source === 'Member Referral (5 class pack)';
+    if (isMemberReferral && !referredBy.trim()) {
+      toast.error('Referring member name is required for Member Referral bookings');
+      setSaving(false);
+      return;
+    }
     try {
       const updateData: Record<string, any> = {
         coach_name: coach,
@@ -104,6 +110,7 @@ export function EditBookingDialog({
         intro_owner: owner || null,
         booked_by: booker || null,
         event_id: source === 'Event' ? eventId : null,
+        referred_by_member_name: isMemberReferral ? referredBy.trim() : null,
         last_edited_at: new Date().toISOString(),
         last_edited_by: editedBy,
       };
@@ -127,8 +134,8 @@ export function EditBookingDialog({
       toast.success('Booking updated');
       onSaved();
       onOpenChange(false);
-    } catch {
-      toast.error('Failed to save changes');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save changes');
     } finally {
       setSaving(false);
     }
