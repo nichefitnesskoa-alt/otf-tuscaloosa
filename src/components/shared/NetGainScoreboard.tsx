@@ -227,6 +227,13 @@ export function NetGainScoreboard({ className }: { className?: string }) {
               <Button
                 size="sm" variant={positive || negative ? 'secondary' : 'ghost'}
                 className={cn('h-10 w-10 p-0', !(positive||negative) && 'hover:bg-secondary')}
+                aria-label="Upcoming churns" onClick={() => setUpcomingOpen(true)}
+              >
+                <CalendarClock className="w-4 h-4" />
+              </Button>
+              <Button
+                size="sm" variant={positive || negative ? 'secondary' : 'ghost'}
+                className={cn('h-10 w-10 p-0', !(positive||negative) && 'hover:bg-secondary')}
                 aria-label="Change history" onClick={() => setHistoryOpen(true)}
               >
                 <History className="w-4 h-4" />
@@ -234,13 +241,23 @@ export function NetGainScoreboard({ className }: { className?: string }) {
             </div>
           )}
           {!isAdmin && (
-            <Button
-              size="sm" variant="ghost"
-              className={cn('h-9 shrink-0 self-center', (positive || negative) && 'text-white hover:bg-white/10 hover:text-white')}
-              onClick={() => setHistoryOpen(true)}
-            >
-              <History className="w-4 h-4 mr-1" /> History
-            </Button>
+            <div className="flex items-center gap-1 shrink-0 self-center">
+              <Button
+                size="sm" variant="ghost"
+                className={cn('h-9', (positive || negative) && 'text-white hover:bg-white/10 hover:text-white')}
+                onClick={() => setUpcomingOpen(true)}
+              >
+                <CalendarClock className="w-4 h-4 mr-1" />
+                Upcoming{scheduledTerminationsLeft > 0 ? ` (${scheduledTerminationsLeft})` : ''}
+              </Button>
+              <Button
+                size="sm" variant="ghost"
+                className={cn('h-9', (positive || negative) && 'text-white hover:bg-white/10 hover:text-white')}
+                onClick={() => setHistoryOpen(true)}
+              >
+                <History className="w-4 h-4 mr-1" /> History
+              </Button>
+            </div>
           )}
         </div>
 
@@ -252,6 +269,27 @@ export function NetGainScoreboard({ className }: { className?: string }) {
             negative && 'border-white/20 bg-black/10 text-white/90',
             !positive && !negative && 'border-border bg-muted/30 text-muted-foreground',
           )}>
+            {nextChurnDate && (
+              <button
+                type="button"
+                onClick={() => setUpcomingOpen(true)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-md px-2 py-1 -my-1 border cursor-pointer transition-colors',
+                  (positive || negative)
+                    ? 'border-white/30 bg-white/10 hover:bg-white/20 text-white'
+                    : 'border-border bg-background hover:bg-muted text-foreground',
+                )}
+                aria-label="View upcoming churns"
+              >
+                <CalendarClock className="w-3.5 h-3.5" />
+                <span>
+                  Next churn: <span className="font-black">{nextChurnLabel}</span>
+                  {' · '}
+                  <span className="tabular-nums font-black">{nextChurnCount}</span> member{nextChurnCount === 1 ? '' : 's'}
+                </span>
+                <span className="opacity-70 underline underline-offset-2 ml-1">View all</span>
+              </button>
+            )}
             {scheduledTerminationsLeft > 0 && (
               <span>
                 <span className="tabular-nums font-black">{scheduledTerminationsLeft}</span> scheduled termination{scheduledTerminationsLeft === 1 ? '' : 's'} left this month.
