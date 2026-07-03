@@ -177,6 +177,7 @@ export default function Recaps() {
 
   return (
     <div className="p-4 space-y-4">
+      <NetGainScoreboard />
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-xl font-bold flex items-center gap-2">
