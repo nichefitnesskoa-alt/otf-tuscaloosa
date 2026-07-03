@@ -49,14 +49,10 @@ const NON_SALE_OUTCOMES = [
   { value: 'VIP Class Intro', label: '🎟️ VIP Class Intro (not expected to buy)' },
 ];
 
-const SECOND_INTRO_REASON_OPTIONS = [
-  { value: 'Price / Cost', label: '💰 Price / Cost' },
-  { value: 'Needs to think about it', label: '🤔 Needs to think about it' },
-  { value: 'Needs to talk to parents/spouse', label: '👨‍👩‍👧 Needs to talk to parents/spouse' },
-  { value: 'Timing isn\'t right', label: '📅 Timing isn\'t right' },
-  { value: 'Wants to try it first', label: '💪 Wants to try it first' },
-  { value: 'Other', label: '❓ Other' },
-];
+// "What's holding them back?" for 2nd-intro paths uses the same canonical
+// objection list — the reason IS the objection (no separate Primary Objection).
+const SECOND_INTRO_REASON_OPTIONS = OBJECTION_OPTIONS.map(v => ({ value: v, label: v }));
+
 
 // ── Reschedule outcomes (Row C) ──
 const RESCHEDULE_OUTCOMES = [
