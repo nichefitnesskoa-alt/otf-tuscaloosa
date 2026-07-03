@@ -160,7 +160,29 @@ export default function MyDayPage() {
     introsRun.filter(r => r.run_date === todayStr),
     [introsRun, todayStr],
   );
+
+  // Any recent intro (today or last 7 days) missing a coach → red banner + card alerts.
+  // Anchoring to "today or ran-recently" keeps ancient no-coach ghosts out of the alert.
+  const tbdCoachBookings = useMemo(() => {
+    return introsBooked.filter(b => {
+      if (b.deleted_at) return false;
+      if (!isMissingCoach(b.coach_name)) return false;
+      const status = b.booking_status_canon;
+      if (status === 'CANCELLED' || status === 'DELETED_SOFT' || status === 'PLANNING_RESCHEDULE') return false;
+      // Show for today or up to 7 days back — the SA should pick immediately
+      if (!b.class_date) return false;
+      const [y, m, d] = b.class_date.split('-').map(Number);
+      const bookingDate = new Date(y, m - 1, d);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const diff = (today.getTime() - bookingDate.getTime()) / 86400000;
+      return diff >= -1 && diff <= 7;
+    });
+  }, [introsBooked]);
+  const tbdCoachCount = tbdCoachBookings.length;
+
   const completedTodayCount = todayRuns.filter(r => didIntroActuallyRun(r)).length;
+
   const purchaseTodayCount = useMemo(() =>
     todayRuns.filter(r => {
       const result = r.result || '';
