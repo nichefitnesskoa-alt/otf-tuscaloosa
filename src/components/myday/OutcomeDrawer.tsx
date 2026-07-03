@@ -64,16 +64,8 @@ const RESCHEDULE_OUTCOMES = [
   { value: 'Planning to Reschedule', label: '🕐 Planning to Reschedule' },
 ];
 
-const OBJECTION_OPTIONS = [
-  'Price',
-  'Time / Schedule',
-  'Spouse / Family',
-  'Thinking About It',
-  'Already a Member',
-  'Health / Injury',
-  'Travel / Moving',
-  'Other',
-];
+// Objection list is imported from @/lib/intros/objections (single source of truth)
+
 
 // Follow-up category overrides
 const FOLLOWUP_CATEGORY_OPTIONS = [
