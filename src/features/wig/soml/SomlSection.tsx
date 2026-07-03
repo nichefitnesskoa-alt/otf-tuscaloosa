@@ -13,7 +13,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Sun, Pencil, Plus, Check, Users, TrendingUp, DollarSign, Calendar } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Sun, Pencil, Plus, Check, Users, TrendingUp, DollarSign, Calendar, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -64,9 +65,14 @@ function HeroTile({ label, icon, actual, goal, pace, isAdmin, onEdit, savedFlash
             </span>
           </div>
           {isAdmin && (
-            <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px]" onClick={onEdit}>
-              {savedFlash ? <Check className="w-3 h-3 text-success" /> : <Pencil className="w-3 h-3" />}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px]" onClick={onEdit} aria-label={`Edit team goal for ${label}`}>
+                  {savedFlash ? <Check className="w-3 h-3 text-success" /> : <Pencil className="w-3 h-3" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Edit the team-wide goal for {label} this window.</TooltipContent>
+            </Tooltip>
           )}
         </div>
         <div className="flex items-baseline gap-1.5">
@@ -403,7 +409,23 @@ export function SomlSection() {
     refetch();
   };
 
+  const metricInfo: Record<MetricKey, { blurb: string; header: string }> = {
+    referrals: {
+      header: 'Referrals',
+      blurb: 'Credit to the SA who booked the person you talked to when THAT person refers someone new who buys a membership.',
+    },
+    upgrades: {
+      header: 'Upgrades',
+      blurb: 'Credit to the SA who talked a current member into upgrading their membership tier.',
+    },
+    sales: {
+      header: 'Sales',
+      blurb: 'Credit to the SA who ran the intro that closed — even if the buyer originally came in as a referral.',
+    },
+  };
+
   return (
+    <TooltipProvider delayDuration={200}>
     <section className="mt-8 space-y-4 rounded-2xl border-2 border-primary/30 bg-card/50 p-4">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -416,16 +438,31 @@ export function SomlSection() {
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && (
-            <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditWindowOpen(true)}>
-              <Calendar className="w-3.5 h-3.5 mr-1" /> Window
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditWindowOpen(true)}>
+                  <Calendar className="w-3.5 h-3.5 mr-1" /> Window
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Change the start and end date of this WIG window (admin).</TooltipContent>
+            </Tooltip>
           )}
-          <Button size="sm" variant="secondary" className="h-8" onClick={() => setLogOpen('upgrade')}>
-            <Plus className="w-3.5 h-3.5 mr-1" /> Log Upgrade
-          </Button>
-          <Button size="sm" variant="secondary" className="h-8" onClick={() => setLogOpen('referral')}>
-            <Plus className="w-3.5 h-3.5 mr-1" /> Log Referral
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="sm" variant="secondary" className="h-8" onClick={() => setLogOpen('upgrade')}>
+                <Plus className="w-3.5 h-3.5 mr-1" /> Log Upgrade
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Log an upgrade for an SA (a current member you talked into a higher tier).</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="sm" variant="secondary" className="h-8" onClick={() => setLogOpen('referral')}>
+                <Plus className="w-3.5 h-3.5 mr-1" /> Log Referral
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Log a referral for an SA (someone your booked member referred who bought).</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -451,6 +488,17 @@ export function SomlSection() {
         />
       </div>
 
+      {/* What each metric means */}
+      <div className="rounded-md border border-border/60 bg-muted/30 p-3 space-y-1.5">
+        <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">How credit works</div>
+        {(['referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => (
+          <div key={k} className="text-[11px] leading-snug text-foreground/90">
+            <span className="font-semibold text-primary">{metricInfo[k].header}:</span>{' '}
+            <span className="text-muted-foreground">{metricInfo[k].blurb}</span>
+          </div>
+        ))}
+      </div>
+
       {/* Per-SA default target row */}
       <div className="text-[11px] text-muted-foreground">
         Default per-SA target: {defaultPerSa.referrals.toFixed(1)} referrals · {defaultPerSa.upgrades.toFixed(1)} upgrades · {defaultPerSa.sales.toFixed(1)} sales
@@ -468,10 +516,20 @@ export function SomlSection() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>SA</TableHead>
-              <TableHead className="text-center">Referrals</TableHead>
-              <TableHead className="text-center">Upgrades</TableHead>
-              <TableHead className="text-center">Sales</TableHead>
+              <TableHead className="w-[110px]">SA</TableHead>
+              {(['referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => (
+                <TableHead key={k} className="text-center w-[30%]">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-1 cursor-help text-sm font-bold uppercase tracking-wide">
+                        {metricInfo[k].header}
+                        <Info className="w-3 h-3 text-muted-foreground" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[260px]">{metricInfo[k].blurb}</TooltipContent>
+                  </Tooltip>
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -480,30 +538,37 @@ export function SomlSection() {
             )}
             {leaderboardRows.map(r => (
               <TableRow key={r.sa}>
-                <TableCell className="font-medium">{r.sa}</TableCell>
+                <TableCell className="font-semibold text-sm truncate py-4">{r.sa}</TableCell>
                 {(['referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => {
                   const tgt = effectiveTarget(r.sa, k);
                   const pace = paceToToday(tgt || null, paceAnchor);
                   const isOverride = overrides[r.sa]?.[`${k}_goal`] != null;
                   return (
-                    <TableCell key={k} className="text-center align-top">
-                      <div className="flex items-center justify-center gap-1">
-                        <span className="font-semibold tabular-nums">{r[k]}</span>
-                        <span className="text-[10px] text-muted-foreground">/ {tgt.toFixed(1)}</span>
+                    <TableCell key={k} className="text-center align-middle py-4">
+                      <div className="flex items-baseline justify-center gap-2">
+                        <span className="text-3xl md:text-4xl font-black tabular-nums leading-none text-foreground">{r[k]}</span>
+                        <span className="text-sm text-muted-foreground tabular-nums">/ {tgt.toFixed(1)}</span>
                         {isAdmin && (
-                          <button
-                            onClick={() => setEditCell({ sa: r.sa, metric: k })}
-                            className={cn(
-                              'p-0.5 rounded hover:bg-secondary transition',
-                              isOverride && 'text-primary',
-                            )}
-                            aria-label={`Override ${k} goal for ${r.sa}`}
-                          >
-                            <Pencil className="w-3 h-3" />
-                          </button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => setEditCell({ sa: r.sa, metric: k })}
+                                className={cn(
+                                  'p-1 rounded hover:bg-secondary transition',
+                                  isOverride && 'text-primary',
+                                )}
+                                aria-label={`Override ${k} goal for ${r.sa}`}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[240px]">
+                              Override {r.sa}'s {k} goal. Overrides pull the default down for the other SAs so the team total still hits the goal.
+                            </TooltipContent>
+                          </Tooltip>
                         )}
                       </div>
-                      <div className="mt-1"><PaceBar current={r[k]} target={tgt || null} pace={pace} /></div>
+                      <div className="mt-2 px-2"><PaceBar current={r[k]} target={tgt || null} pace={pace} /></div>
                     </TableCell>
                   );
                 })}
@@ -526,5 +591,6 @@ export function SomlSection() {
         onSaved={() => { loadOverrides(); refetch(); }}
       />
     </section>
+    </TooltipProvider>
   );
 }
