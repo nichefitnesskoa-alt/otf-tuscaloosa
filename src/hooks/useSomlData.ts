@@ -29,12 +29,27 @@ export interface SomlSaRow {
   referrals: number;
   upgrades: number;
   sales: number;
+  pending: number;
+}
+
+export interface PendingReferralRow {
+  id: string;
+  booking_id: string;
+  referring_member: string;
+  credited_sa: string;
+  state: 'pending' | 'realized' | 'not_converted';
+  resolved_outcome: string | null;
+  realized_at: string | null;
+  created_at: string;
+  member_name?: string | null;
+  class_date?: string | null;
 }
 
 export interface SomlData {
   config: SomlConfig | null;
-  totals: { referrals: number; upgrades: number; sales: number };
+  totals: { referrals: number; upgrades: number; sales: number; pending: number };
   rows: SomlSaRow[];
+  pendingReferrals: PendingReferralRow[];
   loading: boolean;
   refetch: () => Promise<void>;
 }
