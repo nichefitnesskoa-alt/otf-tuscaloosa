@@ -7,7 +7,7 @@ import { formatDistanceToNowStrict } from 'date-fns';
 import { GlobalSearch, GlobalSearchTrigger } from '@/components/GlobalSearch';
 import { NotificationsBell } from '@/components/NotificationsBell';
 import { useDarkMode } from '@/hooks/useDarkMode';
-import { OTF, brandFont } from '@/lib/otfBrand';
+import { OTF, Theme, brandFont } from '@/lib/otfBrand';
 import otfLogo from '@/assets/otf-logo-orange.png.asset.json';
 
 export function Header() {
@@ -31,7 +31,7 @@ export function Header() {
         style={{
           backgroundColor: OTF.dark,
           color: OTF.bone,
-          borderBottom: `1px solid ${OTF.bone}22`,
+          borderBottom: `1px solid ${Theme.border}`,
           ...brandFont,
         }}
       >
@@ -82,7 +82,7 @@ export function Header() {
             >
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
-            <div className="flex items-center gap-1.5 min-w-0 pl-1" style={{ borderLeft: `1px solid ${OTF.bone}22` }}>
+            <div className="flex items-center gap-1.5 min-w-0 pl-1" style={{ borderLeft: `1px solid ${Theme.border}` }}>
               <User className="w-4 h-4 flex-shrink-0" style={{ color: OTF.bone, opacity: 0.7 }} />
               <span className="text-sm font-semibold hidden sm:inline truncate" style={{ color: OTF.bone }}>
                 {user.name}

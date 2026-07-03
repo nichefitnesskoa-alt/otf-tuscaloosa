@@ -69,7 +69,7 @@ import { ReferralAskActions } from './ReferralAskActions';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 import { IntroLinkBookingBanner } from './IntroLinkBookingBanner';
 
-import { OTF, brandFont } from '@/lib/otfBrand';
+import { OTF, Theme, brandFont } from '@/lib/otfBrand';
 
 export default function MyDayPage() {
   const { user } = useAuth();
@@ -367,7 +367,7 @@ export default function MyDayPage() {
         className="sticky top-0 z-20 px-4 py-4"
         style={{
           backgroundColor: OTF.dark,
-          borderBottom: `1px solid ${OTF.bone}22`,
+          borderBottom: `1px solid ${Theme.border}`,
         }}
       >
         <p
@@ -445,7 +445,7 @@ export default function MyDayPage() {
             className="w-full grid grid-cols-4 h-auto gap-0 p-0 rounded-none"
             style={{
               backgroundColor: 'transparent',
-              borderBottom: `1px solid ${OTF.bone}22`,
+              borderBottom: `1px solid ${Theme.border}`,
             }}
           >
             <TabsTrigger

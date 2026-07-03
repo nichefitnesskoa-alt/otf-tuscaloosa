@@ -34,7 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { OTF, brandFont } from '@/lib/otfBrand';
+import { OTF, Theme, brandFont } from '@/lib/otfBrand';
 
 
 const SHIFT_TYPES = ['AM Shift', 'PM Shift', 'Mid Shift'] as const;
@@ -993,7 +993,7 @@ export default function ShiftRecap() {
       {/* OTF brand page header */}
       <div
         className="mb-4 pt-2 pb-4"
-        style={{ borderBottom: `1px solid ${OTF.bone}22` }}
+        style={{ borderBottom: `1px solid ${Theme.border}` }}
       >
         <p
           className="text-[10px] uppercase mb-1"
