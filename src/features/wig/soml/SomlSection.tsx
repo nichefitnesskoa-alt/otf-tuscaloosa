@@ -25,7 +25,7 @@ import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useEffectiveAdmin } from '@/hooks/useViewAsAdmin';
 import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/pace';
 import { getNowCentral } from '@/lib/dateUtils';
-import { useSomlData, notifySomlChanged, type SomlConfig, type PendingReferralRow } from '@/hooks/useSomlData';
+import { useSomlData, notifySomlChanged, type SomlConfig, type PendingReferralRow, type SomlDetailItem } from '@/hooks/useSomlData';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 
 type MetricKey = 'referrals' | 'upgrades' | 'sales';
