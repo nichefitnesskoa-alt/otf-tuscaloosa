@@ -69,6 +69,8 @@ import { ReferralAskActions } from './ReferralAskActions';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 import { IntroLinkBookingBanner } from './IntroLinkBookingBanner';
 
+import { OTF, brandFont } from '@/lib/otfBrand';
+
 export default function MyDayPage() {
   const { user } = useAuth();
   const { introsBooked, introsRun, sales, refreshData } = useData();
@@ -339,100 +341,170 @@ export default function MyDayPage() {
 
   const greeting = new Date().getHours() < 12 ? 'morning' : 'afternoon';
 
+  // OTF brand tab-trigger styling — applied inline so tokens beat theme defaults
+  const tabTriggerBase =
+    'flex flex-col items-center gap-0.5 py-2 text-[10px] leading-tight transition-colors ' +
+    'data-[state=active]:font-bold';
+  const tabTriggerStyle = {
+    color: OTF.bone,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    ...brandFont,
+  } as const;
+  // Active tab: orange bottom bar via box-shadow (works inside grid)
+  const activeShadow = { boxShadow: `inset 0 -2px 0 ${OTF.orange}` };
+
   return (
-    <div className="max-w-full overflow-x-hidden pb-[calc(7rem_+_env(safe-area-inset-bottom))]">
-      
+    <div
+      className="max-w-full overflow-x-hidden pb-[calc(7rem_+_env(safe-area-inset-bottom))]"
+      style={{ backgroundColor: OTF.dark, color: OTF.bone, ...brandFont }}
+    >
+
       <WhatsChangedDialog />
 
       {/* ═══ FLOATING HEADER — always visible ═══ */}
-      <div className="sticky top-0 z-20 bg-background border-b-2 border-primary px-4 py-3 space-y-2.5 shadow-sm">
-        {/* Greeting + date — dark toggle now lives in global Header/BottomNav */}
-        <div>
-          <h1 className="text-base font-bold leading-tight flex items-center gap-1.5">
-            Good {greeting}, {user?.name}! 👋
-          </h1>
-          <p className="text-xs text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Your shift home. Tasks, intros, and new leads — everything for this shift.</p>
-        </div>
-
+      <div
+        className="sticky top-0 z-20 px-4 py-4"
+        style={{
+          backgroundColor: OTF.dark,
+          borderBottom: `1px solid ${OTF.bone}22`,
+        }}
+      >
+        <p
+          className="text-[10px] uppercase mb-1"
+          style={{ color: OTF.bone, opacity: 0.55, letterSpacing: '0.18em' }}
+        >
+          Good {greeting}
+        </p>
+        <h1
+          className="text-2xl leading-none"
+          style={{ color: OTF.bone, fontWeight: 800, ...brandFont }}
+        >
+          {user?.name}.
+        </h1>
+        <p className="text-xs mt-1.5" style={{ color: OTF.bone, opacity: 0.6 }}>
+          {format(new Date(), 'EEEE, MMMM d')} · Your shift home.
+        </p>
       </div>
 
       {/* ═══ PERSISTENT REMINDER BANNER ═══ */}
-      <div className="mx-4 mt-2 border-l-4 border-brand bg-muted/50 px-3 py-2 rounded-r-md">
-        <p className="text-xs font-medium">Book in Mindbody AND here. This is how you get credit and commission.</p>
+      <div
+        className="mx-4 mt-3 px-3 py-2"
+        style={{ borderLeft: `2px solid ${OTF.orange}` }}
+      >
+        <p className="text-xs" style={{ color: OTF.bone, opacity: 0.9 }}>
+          Book in Mindbody <span style={{ color: OTF.orange, fontWeight: 700 }}>and</span> here.
+          That's how you get credit and commission.
+        </p>
       </div>
 
       <OfflineBanner />
 
       {tbdCoachCount > 0 && (
-        <div className="mx-4 mt-2">
+        <div className="mx-4 mt-3">
           <button
             type="button"
-            onClick={() => {
-              setOutcomeBookingId(tbdCoachBookings[0].id);
+            onClick={() => setOutcomeBookingId(tbdCoachBookings[0].id)}
+            className="w-full flex items-center justify-center gap-2 px-3 py-3 text-sm min-h-[44px] transition-opacity hover:opacity-90"
+            style={{
+              backgroundColor: OTF.orange,
+              color: OTF.dark,
+              fontWeight: 700,
+              letterSpacing: '-0.01em',
+              ...brandFont,
             }}
-            className="w-full flex items-center justify-center gap-2 font-bold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 border-2 border-red-700 rounded-md px-3 py-3 text-sm animate-pulse cursor-pointer min-h-[44px]"
             aria-label="Assign coach to intros missing a coach"
           >
             <AlertTriangle className="w-5 h-5 shrink-0" />
             <span>
-              ⚠️ {tbdCoachCount} intro{tbdCoachCount === 1 ? '' : 's'} missing a coach — tap to assign now
+              {tbdCoachCount} intro{tbdCoachCount === 1 ? '' : 's'} missing a coach — tap to assign
             </span>
           </button>
         </div>
       )}
 
-      <div className="px-4 pt-2">
+      <div className="px-4 pt-3">
         <IntroLinkBookingBanner />
       </div>
 
       <OwnItMentionsCard />
       <VipClaimBanner />
 
-
-
       {/* ═══ SHIFT TASK CHECKLIST ═══ */}
       <div className="px-[5px] py-[10px] my-0 pb-0 pr-[5px] pt-0">
         <ShiftChecklist />
       </div>
 
-      {/* ═══ ACTIVITY TRACKER — removed per SA feedback ═══ */}
-
       {/* ═══ INTERNAL TABS ═══ */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        {/* Persistent tab bar */}
-        <div className="sticky top-[var(--floating-header-h,140px)] z-10 bg-background px-3 pt-2 pb-0">
-          {(
-            <TabsList className="w-full grid grid-cols-4 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
-              <TabsTrigger value="intros" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-                <CalendarDays className="w-3.5 h-3.5" />
-                <span>Intros</span>
-                {todayBookingsCount > 0 && (
-                  <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{todayBookingsCount}</Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="leads" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>Leads</span>
-                {newLeadsCount > 0 && (
-                  <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{newLeadsCount}</Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="followups" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-                <Clock className="w-3.5 h-3.5" />
-                <span>Follow-Up</span>
-                {followUpsDueCount > 0 && (
-                  <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{followUpsDueCount}</Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="scripts" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-                <FileText className="w-3.5 h-3.5" />
-                <span>Scripts</span>
-              </TabsTrigger>
-            </TabsList>
-          )}
-          {/* Separator line between tabs and content */}
-          <div className="h-[2px] bg-primary/40 mt-2" />
+        <div
+          className="sticky top-[var(--floating-header-h,140px)] z-10 px-3 pt-2 pb-0"
+          style={{ backgroundColor: OTF.dark }}
+        >
+          <TabsList
+            className="w-full grid grid-cols-4 h-auto gap-0 p-0 rounded-none"
+            style={{
+              backgroundColor: 'transparent',
+              borderBottom: `1px solid ${OTF.bone}22`,
+            }}
+          >
+            <TabsTrigger
+              value="intros"
+              className={tabTriggerBase}
+              style={{ ...tabTriggerStyle, ...(activeTab === 'intros' ? activeShadow : {}) }}
+            >
+              <CalendarDays className="w-3.5 h-3.5" style={{ color: activeTab === 'intros' ? OTF.orange : OTF.bone }} />
+              <span>Intros</span>
+              {todayBookingsCount > 0 && (
+                <span
+                  className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center"
+                  style={{ backgroundColor: OTF.orange, color: OTF.dark, fontWeight: 700 }}
+                >
+                  {todayBookingsCount}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="leads"
+              className={tabTriggerBase}
+              style={{ ...tabTriggerStyle, ...(activeTab === 'leads' ? activeShadow : {}) }}
+            >
+              <UserPlus className="w-3.5 h-3.5" style={{ color: activeTab === 'leads' ? OTF.orange : OTF.bone }} />
+              <span>Leads</span>
+              {newLeadsCount > 0 && (
+                <span
+                  className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center"
+                  style={{ backgroundColor: OTF.orange, color: OTF.dark, fontWeight: 700 }}
+                >
+                  {newLeadsCount}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="followups"
+              className={tabTriggerBase}
+              style={{ ...tabTriggerStyle, ...(activeTab === 'followups' ? activeShadow : {}) }}
+            >
+              <Clock className="w-3.5 h-3.5" style={{ color: activeTab === 'followups' ? OTF.orange : OTF.bone }} />
+              <span>Follow-Up</span>
+              {followUpsDueCount > 0 && (
+                <span
+                  className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center"
+                  style={{ backgroundColor: OTF.orange, color: OTF.dark, fontWeight: 700 }}
+                >
+                  {followUpsDueCount}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="scripts"
+              className={tabTriggerBase}
+              style={{ ...tabTriggerStyle, ...(activeTab === 'scripts' ? activeShadow : {}) }}
+            >
+              <FileText className="w-3.5 h-3.5" style={{ color: activeTab === 'scripts' ? OTF.orange : OTF.bone }} />
+              <span>Scripts</span>
+            </TabsTrigger>
+          </TabsList>
         </div>
 
         {/* Tab content */}
