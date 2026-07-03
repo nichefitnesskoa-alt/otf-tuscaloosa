@@ -400,6 +400,12 @@ export default function MyDayPage() {
 
       <OfflineBanner />
 
+      <div className="mx-4 mt-3">
+        <NetGainScoreboard />
+      </div>
+
+
+
       {tbdCoachCount > 0 && (
         <div className="mx-4 mt-3">
           <button
