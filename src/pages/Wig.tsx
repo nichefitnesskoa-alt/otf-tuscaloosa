@@ -1051,14 +1051,15 @@ export default function Wig() {
 
         {/* ===== SA TAB — Hero + Leaderboard above the fold, actions below ===== */}
         <TabsContent value="sa" className="space-y-4">
+          {/* Summer of More Life — separate scoreboard, first on the SA tab */}
+          <SomlSection />
+
           {/* SA Leaderboard renders its own hero (team SGL) + table */}
           <WigSaLeaderboard dateRange={dateRange} />
 
-          {/* Summer of More Life — separate scoreboard, same page */}
-          <SomlSection />
-
 
           {/* Studio total leads — BIG hero card with pace-to-today */}
+
           <Card className={cn('border-2 ring-2 ring-offset-0', studioHeroCls.ring)}>
             <CardContent className="p-5 space-y-3">
               <div className="flex items-center gap-2">
