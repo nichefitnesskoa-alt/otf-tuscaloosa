@@ -267,10 +267,6 @@ All colors MUST be HSL.
   }
 
 
-  /* Hide sheet chrome inside the print-card portal so only the card shows */
-  [data-radix-portal]:has([data-print-card]) [role="dialog"] > *:not([data-print-card]) {
-    display: none !important;
-  }
 
   /* ── B&W Print Overrides ── */
   /* Beat labels: orange → black bold */
