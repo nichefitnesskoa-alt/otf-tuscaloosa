@@ -65,9 +65,14 @@ function HeroTile({ label, icon, actual, goal, pace, isAdmin, onEdit, savedFlash
             </span>
           </div>
           {isAdmin && (
-            <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px]" onClick={onEdit}>
-              {savedFlash ? <Check className="w-3 h-3 text-success" /> : <Pencil className="w-3 h-3" />}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px]" onClick={onEdit} aria-label={`Edit team goal for ${label}`}>
+                  {savedFlash ? <Check className="w-3 h-3 text-success" /> : <Pencil className="w-3 h-3" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Edit the team-wide goal for {label} this window.</TooltipContent>
+            </Tooltip>
           )}
         </div>
         <div className="flex items-baseline gap-1.5">
