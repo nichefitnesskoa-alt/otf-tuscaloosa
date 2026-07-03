@@ -242,22 +242,14 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           </div>
           <p className="text-[10px] text-muted-foreground text-center">From their questionnaire</p>
 
-          {/* ── CONVERSATION ANSWERS ROW — 3 columns (read-only for coach) ── */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* ── CONVERSATION ANSWERS ROW — 2 columns (read-only for coach) ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-brand">
                 What a 5/5 looks like
               </Label>
               <div className="min-h-[60px] rounded-md bg-muted/40 px-3 py-2 text-sm whitespace-pre-wrap">
                 {convGoal || <span className="text-muted-foreground italic">Not yet captured</span>}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs font-semibold text-brand">
-                What would change
-              </Label>
-              <div className="min-h-[60px] rounded-md bg-muted/40 px-3 py-2 text-sm whitespace-pre-wrap">
-                {convMeaning || <span className="text-muted-foreground italic">Not yet captured</span>}
               </div>
             </div>
             <div className="space-y-1">
@@ -270,12 +262,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             </div>
           </div>
 
-          {/* Orange highlight line */}
-          {convMeaning && (
-            <div className="rounded-md px-3 py-2 border border-brand bg-brand-dim">
-              <p className="text-sm font-semibold text-brand">↑ {convMeaning}</p>
-            </div>
-          )}
+
 
 
           {/* Coach Notes (if saved) */}
