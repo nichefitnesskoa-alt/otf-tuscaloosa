@@ -60,7 +60,7 @@ export function useSomlData(): SomlData {
       .select('start_date, end_date, referrals_goal, upgrades_goal, sales_goal')
       .eq('id', 1)
       .maybeSingle();
-    const cfg = (cfgRow as SomlConfig | null) || null;
+    const cfg = (cfgRow as unknown as SomlConfig | null) || null;
     setConfig(cfg);
     if (!cfg) { setRows([]); setTotals({ referrals: 0, upgrades: 0, sales: 0 }); setLoading(false); return; }
 
