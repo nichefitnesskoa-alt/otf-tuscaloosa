@@ -206,7 +206,7 @@ function ObjectionCard({
                 <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">
                   {s.step}
                 </p>
-                <div className="rounded-md bg-white dark:bg-background border border-amber-100 dark:border-amber-900 px-3 py-2">
+                <div className="rounded-md bg-card dark:bg-background border border-amber-100 dark:border-amber-900 px-3 py-2">
                   <p className="text-sm text-foreground leading-relaxed">
                     "{s.content}"
                   </p>

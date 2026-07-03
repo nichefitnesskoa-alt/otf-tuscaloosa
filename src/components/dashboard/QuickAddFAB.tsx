@@ -56,7 +56,7 @@ export function QuickAddFAB({
       icon: QrCode,
       label: 'My Intro Link',
       onClick: handleIntroLink,
-      color: 'bg-orange-500 text-white',
+      color: 'bg-orange-500 text-primary-foreground',
     },
     {
       icon: LogOut,
@@ -74,32 +74,32 @@ export function QuickAddFAB({
       icon: ShoppingBag,
       label: 'Walk-In Sale',
       onClick: handleWalkInSale,
-      color: 'bg-green-600 text-white',
+      color: 'bg-green-600 text-primary-foreground',
     },
     {
       icon: TrendingUp,
       label: 'Upgrade',
       onClick: handleUpgrade,
-      color: 'bg-blue-600 text-white',
+      color: 'bg-blue-600 text-primary-foreground',
     },
     {
       icon: Watch,
       label: 'HRM Add-On',
       onClick: handleHRM,
-      color: 'bg-purple-600 text-white',
+      color: 'bg-purple-600 text-primary-foreground',
     },
     {
       icon: RefreshCw,
       label: 'Follow-Up Purchase',
       onClick: handleFollowUpPurchase,
-      color: 'bg-emerald-600 text-white',
+      color: 'bg-emerald-600 text-primary-foreground',
     },
   ];
 
   return (
     <>
       {expanded && (
-        <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setExpanded(false)} />
+        <div className="fixed inset-0 bg-foreground/20 z-40" onClick={() => setExpanded(false)} />
       )}
 
       <div className="fixed bottom-24 right-4 z-50 flex flex-col items-end gap-2">

@@ -137,7 +137,7 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
                   <div key={o.id} className="border-2 border-[#E8540A]/50 bg-[#E8540A]/5 rounded-md p-3">
                     <div className="flex items-center justify-between">
                       <div className="font-semibold">{o.display_name}</div>
-                      <span className="text-[11px] uppercase tracking-wider bg-[#E8540A] text-white px-2 py-0.5 rounded">Architect</span>
+                      <span className="text-[11px] uppercase tracking-wider bg-[#E8540A] text-primary-foreground px-2 py-0.5 rounded">Architect</span>
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">Studio Leader — opens and closes the room. Not an Owner.</div>
                   </div>

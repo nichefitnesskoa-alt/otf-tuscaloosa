@@ -25,7 +25,7 @@ export function ReadyForIntroChecklist({
       {!isSecondIntro && <CheckItem label="Q" ok={qCompleted} />}
       <CheckItem label="Conf" ok={confirmationSent} />
       {allReady && (
-        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-emerald-600 text-white border-transparent gap-0.5">
+        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-emerald-600 text-primary-foreground border-transparent gap-0.5">
           <Check className="w-2.5 h-2.5" />
           Ready
         </Badge>

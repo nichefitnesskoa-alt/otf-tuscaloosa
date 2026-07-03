@@ -32,26 +32,26 @@ export function ShoutoutsSection({ shoutoutCategories, shoutouts, manualShoutout
     >
       {isPresentMode ? (
         <div className="space-y-8">
-          {cats.length === 0 && <p className="text-xl text-white/60">No shoutouts this week yet.</p>}
+          {cats.length === 0 && <p className="text-xl text-primary-foreground/60">No shoutouts this week yet.</p>}
           {cats.map((cat, ci) => (
             <div key={ci} className="mb-6">
-              <p className="text-lg text-white/50 uppercase tracking-wider mb-3">
+              <p className="text-lg text-primary-foreground/50 uppercase tracking-wider mb-3">
                 {cat.icon} {cat.category}
               </p>
               {cat.entries.map((e, i) => (
-                <div key={i} className="flex items-center gap-4 text-2xl text-white mb-2">
+                <div key={i} className="flex items-center gap-4 text-2xl text-primary-foreground mb-2">
                   <span className="text-3xl w-10 text-center">{MEDALS[i] || `#${i + 1}`}</span>
                   <span className="font-bold">{e.name}</span>
-                  <span className="text-white/60">— {e.metric}</span>
+                  <span className="text-primary-foreground/60">— {e.metric}</span>
                 </div>
               ))}
             </div>
           ))}
           {manualLines.length > 0 && (
             <div className="mt-4">
-              <p className="text-lg text-white/50 uppercase tracking-wider mb-3">⭐ Additional</p>
+              <p className="text-lg text-primary-foreground/50 uppercase tracking-wider mb-3">⭐ Additional</p>
               {manualLines.map((line, i) => (
-                <div key={i} className="flex items-center gap-4 text-2xl text-white mb-2">
+                <div key={i} className="flex items-center gap-4 text-2xl text-primary-foreground mb-2">
                   <span className="text-3xl w-10 text-center">⭐</span>
                   <span>{line}</span>
                 </div>

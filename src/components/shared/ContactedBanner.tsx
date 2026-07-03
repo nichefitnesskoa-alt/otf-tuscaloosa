@@ -38,9 +38,9 @@ export function ContactedBanner({ lastContactAt, contactNextDate }: ContactedBan
 
   return (
     <div className="w-full flex items-center justify-between gap-1.5 px-3 py-1.5" style={{ backgroundColor: '#16a34a' }}>
-      <span className="text-white text-xs font-medium">✓ Contacted {agoText}</span>
+      <span className="text-primary-foreground text-xs font-medium">✓ Contacted {agoText}</span>
       {daysRemaining > 0 && (
-        <span className="text-white/80 text-[10px]">
+        <span className="text-primary-foreground/80 text-[10px]">
           next in {daysRemaining}d
         </span>
       )}

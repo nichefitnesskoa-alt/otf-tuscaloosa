@@ -33,31 +33,31 @@ export function DrillSection({ topObjection, drillOverride, onOverrideChange, is
         </div>
       )}
 
-      <div className={isPresentMode ? 'text-white' : ''}>
+      <div className={isPresentMode ? 'text-primary-foreground' : ''}>
         <p className={isPresentMode ? 'text-2xl font-bold mb-6 text-warning' : 'text-sm font-semibold mb-3'}>
           EIRMA for "{activeObjection}"
         </p>
 
         {playbook ? (
           <div className={isPresentMode ? 'space-y-5 text-xl' : 'space-y-3 text-sm'}>
-            <div><span className="font-bold text-neutral">E — Empathize:</span> <span className={isPresentMode ? 'text-white/90' : ''}>{playbook.empathize_line}</span></div>
-            <div><span className="font-bold text-brand">I — Isolate:</span> <span className={isPresentMode ? 'text-white/90' : ''}>{playbook.isolate_question}</span></div>
-            <div><span className="font-bold text-success">R — Redirect:</span> <span className={isPresentMode ? 'text-white/90' : ''}>{playbook.redirect_framework}</span></div>
-            <div><span className="font-bold text-brand">M — Suggest:</span> <span className={isPresentMode ? 'text-white/90' : ''}>{playbook.suggestion_framework}</span></div>
-            <div><span className="font-bold text-danger">A — Ask:</span> <span className={isPresentMode ? 'text-white/90' : ''}>{playbook.ask_line}</span></div>
+            <div><span className="font-bold text-neutral">E — Empathize:</span> <span className={isPresentMode ? 'text-primary-foreground/90' : ''}>{playbook.empathize_line}</span></div>
+            <div><span className="font-bold text-brand">I — Isolate:</span> <span className={isPresentMode ? 'text-primary-foreground/90' : ''}>{playbook.isolate_question}</span></div>
+            <div><span className="font-bold text-success">R — Redirect:</span> <span className={isPresentMode ? 'text-primary-foreground/90' : ''}>{playbook.redirect_framework}</span></div>
+            <div><span className="font-bold text-brand">M — Suggest:</span> <span className={isPresentMode ? 'text-primary-foreground/90' : ''}>{playbook.suggestion_framework}</span></div>
+            <div><span className="font-bold text-danger">A — Ask:</span> <span className={isPresentMode ? 'text-primary-foreground/90' : ''}>{playbook.ask_line}</span></div>
           </div>
         ) : (
-          <p className={isPresentMode ? 'text-white/60 text-lg' : 'text-muted-foreground text-sm'}>
+          <p className={isPresentMode ? 'text-primary-foreground/60 text-lg' : 'text-muted-foreground text-sm'}>
             No playbook found for "{activeObjection}". Add one in Admin → Coaching.
           </p>
         )}
 
         <div className={cn(
           'mt-6 p-4 rounded-lg',
-          isPresentMode ? 'bg-white/10' : 'bg-muted'
+          isPresentMode ? 'bg-card/10' : 'bg-muted'
         )}>
           <p className={isPresentMode ? 'text-lg font-semibold text-warning mb-2' : 'text-sm font-medium mb-1'}>Drill Format:</p>
-          <p className={isPresentMode ? 'text-lg text-white/80' : 'text-sm text-muted-foreground'}>
+          <p className={isPresentMode ? 'text-lg text-primary-foreground/80' : 'text-sm text-muted-foreground'}>
             Pair up. One person is the member, one is the SA. The member gives the "{activeObjection}" objection. The SA runs EIRMA. Switch after 3 minutes. Go.
           </p>
         </div>

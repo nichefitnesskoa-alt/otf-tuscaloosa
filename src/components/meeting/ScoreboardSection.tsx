@@ -29,37 +29,37 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
   if (isPresentMode) {
     return (
       <MeetingSection title="This Week's Numbers" icon={<BarChart3 className="w-10 h-10" />} sectionId="scoreboard" isPresentMode>
-        <p className="text-lg text-white/50 mb-8 text-center">{dateLabel}</p>
+        <p className="text-lg text-primary-foreground/50 mb-8 text-center">{dateLabel}</p>
 
         {/* Hero Row */}
         <div className="grid grid-cols-3 gap-8 mb-10">
           <div className="text-center">
-            <p className="text-6xl font-black text-white">{m.amc}</p>
-            <p className="text-lg text-white/60 mt-1">AMC</p>
+            <p className="text-6xl font-black text-primary-foreground">{m.amc}</p>
+            <p className="text-lg text-primary-foreground/60 mt-1">AMC</p>
             <Trend current={m.amc} previous={m.amc - m.amcChange} />
           </div>
           <div className="text-center">
             <p className="text-6xl font-black text-success">{m.sales}</p>
-            <p className="text-lg text-white/60 mt-1">Sales</p>
+            <p className="text-lg text-primary-foreground/60 mt-1">Sales</p>
             <Trend current={m.sales} previous={m.salesPrev} />
           </div>
           <div className="text-center">
             <p className={cn("text-6xl font-black", m.closeRate >= CLOSE_RATE_THRESHOLDS.green ? 'text-success' : m.closeRate >= CLOSE_RATE_THRESHOLDS.amber ? 'text-warning' : 'text-danger')}>{m.closeRate.toFixed(0)}%</p>
-            <p className="text-lg text-white/60 mt-1">Close Rate</p>
-            <p className="text-xs text-white/40">(booked → any sale)</p>
+            <p className="text-lg text-primary-foreground/60 mt-1">Close Rate</p>
+            <p className="text-xs text-primary-foreground/40">(booked → any sale)</p>
             <Trend current={m.closeRate} previous={m.closeRatePrev} suffix="%" />
           </div>
         </div>
 
         {/* Pipeline Row */}
-        <div className="bg-white/10 rounded-xl p-6 mb-6 text-center">
-          <p className="text-2xl text-white">
+        <div className="bg-card/10 rounded-xl p-6 mb-6 text-center">
+          <p className="text-2xl text-primary-foreground">
             <span className="font-bold">{m.booked}</span> Booked → <span className="font-bold">{m.showed}</span> Showed
-            <span className="text-white/50"> ({m.showRate.toFixed(0)}%)</span> → <span className="font-bold text-success">{m.introSales}</span> Sold
+            <span className="text-primary-foreground/50"> ({m.showRate.toFixed(0)}%)</span> → <span className="font-bold text-success">{m.introSales}</span> Sold
           </p>
           <p className="text-lg text-danger mt-2">{m.noShows} No-Shows ({m.noShowRate.toFixed(0)}%)</p>
           {m.sales - m.introSales > 0 && (
-            <p className="text-sm text-white/60 mt-1">Total Sales: {m.sales} (includes {m.sales - m.introSales} outside-intro)</p>
+            <p className="text-sm text-primary-foreground/60 mt-1">Total Sales: {m.sales} (includes {m.sales - m.introSales} outside-intro)</p>
           )}
         </div>
 
@@ -69,23 +69,23 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
             { label: 'Q Completion', value: `${m.qCompletion.toFixed(0)}%`, trend: <Trend current={m.qCompletion} previous={m.qCompletionPrev} suffix="%" /> },
             { label: 'Prepped & Role Played', value: `${(m as any).prepRate?.toFixed(0) ?? '—'}%`, trend: (m as any).prepRatePrev !== undefined ? <Trend current={(m as any).prepRate ?? 0} previous={(m as any).prepRatePrev ?? 0} suffix="%" /> : null },
           ].map((item, i) => (
-            <div key={i} className="bg-white/10 rounded-lg p-4 text-center">
-              <p className="text-3xl font-bold text-white">{item.value}</p>
-              <p className="text-sm text-white/50 mt-1">{item.label}</p>
+            <div key={i} className="bg-card/10 rounded-lg p-4 text-center">
+              <p className="text-3xl font-bold text-primary-foreground">{item.value}</p>
+              <p className="text-sm text-primary-foreground/50 mt-1">{item.label}</p>
               {item.trend}
             </div>
           ))}
         </div>
 
         {/* Leads */}
-        <div className="bg-white/10 rounded-xl p-4 mb-6">
-          <p className="text-xl text-white mb-2">{m.newLeads} New Leads This Week</p>
-          <div className="flex flex-wrap gap-3 text-sm text-white/70">
+        <div className="bg-card/10 rounded-xl p-4 mb-6">
+          <p className="text-xl text-primary-foreground mb-2">{m.newLeads} New Leads This Week</p>
+          <div className="flex flex-wrap gap-3 text-sm text-primary-foreground/70">
             {Object.entries(m.leadsBySource).map(([src, count]) => (
               <span key={src}>{count} {src}</span>
             ))}
           </div>
-          <p className="text-sm text-white/50 mt-2">{m.leadsContacted} contacted · {m.leadsUncontacted} uncontacted</p>
+          <p className="text-sm text-primary-foreground/50 mt-2">{m.leadsContacted} contacted · {m.leadsUncontacted} uncontacted</p>
         </div>
 
         {/* Biggest Opportunity */}

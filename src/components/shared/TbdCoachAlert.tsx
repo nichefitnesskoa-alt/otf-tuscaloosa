@@ -25,7 +25,7 @@ export function TbdCoachAlert({ coachName, onFix, variant = 'card', className }:
       type="button"
       onClick={(e) => { e.stopPropagation(); onFix?.(); }}
       className={cn(
-        'w-full flex items-center justify-center gap-2 font-bold text-white',
+        'w-full flex items-center justify-center gap-2 font-bold text-primary-foreground',
         'bg-red-600 hover:bg-red-700 active:bg-red-800 border-2 border-red-700',
         'transition-colors cursor-pointer animate-pulse',
         isCard ? 'px-3 py-2 text-xs rounded-md min-h-[44px]' : 'px-2 py-1 text-[11px] rounded',

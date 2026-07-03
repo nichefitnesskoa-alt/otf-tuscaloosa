@@ -76,21 +76,21 @@ function getQStatus(j: ClientJourney): 'complete' | 'not_answered' | 'not_sent' 
 }
 
 function QStatusPill({ status }: { status: 'complete' | 'not_answered' | 'not_sent' }) {
-  if (status === 'complete') return <Badge className="bg-success-dim text-white text-[10px] px-1.5">Complete</Badge>;
-  if (status === 'not_answered') return <Badge className="bg-warning-dim text-white text-[10px] px-1.5">Not Answered</Badge>;
-  return <Badge className="bg-danger-dim text-white text-[10px] px-1.5">Not Sent</Badge>;
+  if (status === 'complete') return <Badge className="bg-success-dim text-primary-foreground text-[10px] px-1.5">Complete</Badge>;
+  if (status === 'not_answered') return <Badge className="bg-warning-dim text-primary-foreground text-[10px] px-1.5">Not Answered</Badge>;
+  return <Badge className="bg-danger-dim text-primary-foreground text-[10px] px-1.5">Not Sent</Badge>;
 }
 
 function OutcomeBadge({ result, run }: { result: string; run?: { result?: string | null; result_canon?: string | null; buy_date?: string | null } }) {
   if (isMembershipSale(result)) {
     if (run && isPostDatedSale(run)) {
-      return <Badge className="bg-warning-dim text-white text-[10px]" title={`Buys ${run.buy_date}`}>Pending</Badge>;
+      return <Badge className="bg-warning-dim text-primary-foreground text-[10px]" title={`Buys ${run.buy_date}`}>Pending</Badge>;
     }
-    return <Badge className="bg-success-dim text-white text-[10px]">Sold</Badge>;
+    return <Badge className="bg-success-dim text-primary-foreground text-[10px]">Sold</Badge>;
   }
   if (result === 'No-show') return <Badge variant="destructive" className="text-[10px]">No Show</Badge>;
-  if (result === "Didn't Buy" || result === 'Follow-up needed') return <Badge className="bg-warning-dim text-white text-[10px]">Follow-up</Badge>;
-  if (result === 'Follow-up needed' || result === 'Booked 2nd intro') return <Badge className="bg-neutral-dim text-white text-[10px]">Follow-up</Badge>;
+  if (result === "Didn't Buy" || result === 'Follow-up needed') return <Badge className="bg-warning-dim text-primary-foreground text-[10px]">Follow-up</Badge>;
+  if (result === 'Follow-up needed' || result === 'Booked 2nd intro') return <Badge className="bg-neutral-dim text-primary-foreground text-[10px]">Follow-up</Badge>;
   return <Badge variant="secondary" className="text-[10px]">{result}</Badge>;
 }
 
@@ -479,7 +479,7 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
       case 'commission': return r && (r.commission_amount || 0) > 0 ? <span className="text-xs text-success font-medium">${r.commission_amount}</span> : <span className="text-xs">—</span>;
       case 'status': {
         const s = journey.status;
-        if (s === 'purchased') return <Badge className="bg-success-dim text-white text-[10px]">Purchased</Badge>;
+        if (s === 'purchased') return <Badge className="bg-success-dim text-primary-foreground text-[10px]">Purchased</Badge>;
         if (s === 'not_interested') return <Badge variant="secondary" className="text-[10px]">Not Interested</Badge>;
         if (s === 'no_show') return <Badge variant="destructive" className="text-[10px]">No-show</Badge>;
         if (s === 'active') return <Badge variant="outline" className="text-[10px]">Active</Badge>;
@@ -762,7 +762,7 @@ function ExpandedRowDetail({
                 </div>
                 <div className="flex items-center gap-1">
                   <Badge variant={b.booking_status_canon === 'CLOSED_PURCHASED' ? 'default' : 'outline'}
-                    className={b.booking_status_canon === 'CLOSED_PURCHASED' ? 'bg-success-dim text-white' : ''}>
+                    className={b.booking_status_canon === 'CLOSED_PURCHASED' ? 'bg-success-dim text-primary-foreground' : ''}>
                     {b.booking_status || 'Active'}
                   </Badge>
                   <DropdownMenu>

@@ -497,7 +497,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
               {/* Generate buttons */}
               <div className="flex gap-2">
                 <Button
-                  className="flex-1 bg-warning-dim hover:bg-warning-dim text-white"
+                  className="flex-1 bg-warning-dim hover:bg-warning-dim text-primary-foreground"
                   onClick={handleAiGenerate}
                   disabled={aiGenerating}
                 >

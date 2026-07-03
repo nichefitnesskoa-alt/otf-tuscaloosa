@@ -491,7 +491,7 @@ function IntroNode({ booking, allBookings, runs, scorecard, isSecondIntro, chain
         {booking.intro_time && (
           <span className="text-[10px] text-muted-foreground">@ {booking.intro_time}</span>
         )}
-        {booking.is_vip && <Badge className="text-[9px] bg-purple-600 text-white border-transparent">VIP</Badge>}
+        {booking.is_vip && <Badge className="text-[9px] bg-purple-600 text-primary-foreground border-transparent">VIP</Badge>}
         {booking.booking_status && (
           <Badge variant="outline" className={cn(
             'text-[10px]',

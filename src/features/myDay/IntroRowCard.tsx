@@ -50,12 +50,12 @@ function getQBadgeStatic(status: UpcomingIntroItem['questionnaireStatus'], noQNe
   }
   switch (status) {
     case 'Q_COMPLETED':
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-white border-transparent">Questionnaire Complete</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-primary-foreground border-transparent">Questionnaire Complete</Badge>;
     case 'Q_SENT':
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning text-white border-transparent">Questionnaire Sent, Not Answered</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning text-primary-foreground border-transparent">Questionnaire Sent, Not Answered</Badge>;
     case 'NO_Q':
     default:
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-danger text-white border-transparent">Questionnaire Not Sent</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-danger text-primary-foreground border-transparent">Questionnaire Not Sent</Badge>;
   }
 }
 
@@ -76,7 +76,7 @@ function TappableQBadge({ status, onTap, noQNeeded = false }: { status: Upcoming
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex items-center rounded-full px-1.5 py-0 h-4 text-[9px] font-semibold bg-danger text-white border-transparent cursor-pointer hover:bg-danger/80 transition-colors min-h-[28px]"
+      className="inline-flex items-center rounded-full px-1.5 py-0 h-4 text-[9px] font-semibold bg-danger text-primary-foreground border-transparent cursor-pointer hover:bg-danger/80 transition-colors min-h-[28px]"
     >
       {copied ? 'Q link copied!' : 'Questionnaire Not Sent — tap to copy link'}
     </button>
@@ -92,7 +92,7 @@ function ConfirmationPill({ confirmedAt, onTap }: { confirmedAt: string | null; 
   const [tapped, setTapped] = useState(false);
 
   if (confirmedAt) {
-    return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-white border-transparent">Confirmation Text Sent</Badge>;
+    return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-primary-foreground border-transparent">Confirmation Text Sent</Badge>;
   }
 
   const handleClick = (e: React.MouseEvent) => {
@@ -106,7 +106,7 @@ function ConfirmationPill({ confirmedAt, onTap }: { confirmedAt: string | null; 
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex items-center rounded-full px-1.5 py-0 h-4 text-[9px] font-semibold bg-danger text-white border-transparent cursor-pointer hover:bg-danger/80 transition-colors min-h-[28px]"
+      className="inline-flex items-center rounded-full px-1.5 py-0 h-4 text-[9px] font-semibold bg-danger text-primary-foreground border-transparent cursor-pointer hover:bg-danger/80 transition-colors min-h-[28px]"
     >
       {tapped ? 'Marked sent ✓' : 'Confirmation Text Not Sent — tap when sent'}
     </button>
@@ -470,7 +470,7 @@ export default function IntroRowCard({
         >
           <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
             <span className="font-semibold text-sm truncate">{item.vipGroupName || 'VIP Group'}</span>
-            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning-dim text-white border-transparent">VIP Group</Badge>
+            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning-dim text-primary-foreground border-transparent">VIP Group</Badge>
             <span className="text-xs text-muted-foreground">
               {item.vipRegisteredCount || 0} registered · {item.introTime ? formatDisplayTime(item.introTime) : 'TBD'}
             </span>
@@ -541,7 +541,7 @@ export default function IntroRowCard({
     <>
       {isInFocusWindow && (
         <div className="flex items-center justify-center py-0.5 bg-warning-dim text-warning">
-          <Badge className="text-[10px] px-2 py-0 h-4 bg-warning-dim text-white border-transparent">
+          <Badge className="text-[10px] px-2 py-0 h-4 bg-warning-dim text-primary-foreground border-transparent">
             🕐 Class in {focusHours}h {focusMins}m
           </Badge>
         </div>
@@ -572,10 +572,10 @@ export default function IntroRowCard({
   const badges = (
     <>
       {item.isSecondIntro && (
-        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-neutral-dim text-white border-transparent">2nd</Badge>
+        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-neutral-dim text-primary-foreground border-transparent">2nd</Badge>
       )}
       {item.isVip && (
-        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-brand-dim text-white border-transparent">VIP</Badge>
+        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-brand-dim text-primary-foreground border-transparent">VIP</Badge>
       )}
     </>
   );
@@ -595,7 +595,7 @@ export default function IntroRowCard({
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); setClearOutcomeOpen(true); }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 text-white/70 hover:text-white text-[10px] py-1 px-1.5 rounded transition-colors min-w-[44px] min-h-[44px] justify-center"
+          className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 text-primary-foreground/70 hover:text-primary-foreground text-[10px] py-1 px-1.5 rounded transition-colors min-w-[44px] min-h-[44px] justify-center"
           title="Clear outcome"
         >
           <X className="w-3 h-3" />
@@ -612,7 +612,7 @@ export default function IntroRowCard({
         size="sm"
         className={cn(
           'h-9 flex-1 text-xs gap-1',
-          isInFocusWindow && !prepped && 'animate-pulse bg-warning-dim text-white hover:bg-warning-dim',
+          isInFocusWindow && !prepped && 'animate-pulse bg-warning-dim text-primary-foreground hover:bg-warning-dim',
         )}
         style={isInFocusWindow && !prepped ? { animationDuration: '2s' } : undefined}
         onClick={() => {

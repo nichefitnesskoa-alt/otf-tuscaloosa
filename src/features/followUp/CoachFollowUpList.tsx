@@ -272,7 +272,7 @@ function CoachFollowUpCard({ item, todayStr, onRefresh, userName }: {
         <div className="flex items-center gap-2 pt-1 flex-wrap">
           <Button
             size="sm"
-            className="min-h-[44px] bg-[#E8540A] hover:bg-[#D14A09] text-white flex-1 cursor-pointer"
+            className="min-h-[44px] bg-[#E8540A] hover:bg-[#D14A09] text-primary-foreground flex-1 cursor-pointer"
             onClick={handleSendText}
           >
             <Phone className="w-3.5 h-3.5 mr-1" />

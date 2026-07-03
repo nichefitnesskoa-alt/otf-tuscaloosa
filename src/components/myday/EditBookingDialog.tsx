@@ -246,7 +246,7 @@ export function EditBookingDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)} className="min-h-[44px]">
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving} className="min-h-[44px] bg-[#E8540A] hover:bg-[#E8540A]/90 text-white">
+            <Button onClick={handleSave} disabled={saving} className="min-h-[44px] bg-[#E8540A] hover:bg-[#E8540A]/90 text-primary-foreground">
               {saving ? 'Saving…' : 'Save Changes'}
             </Button>
           </DialogFooter>

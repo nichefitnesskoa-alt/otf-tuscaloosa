@@ -152,21 +152,21 @@ export function CoachScorecardGrid({
 
   if (isPresentMode) {
     return (
-      <div className="bg-white/10 rounded-xl p-4 overflow-x-auto">
+      <div className="bg-card/10 rounded-xl p-4 overflow-x-auto">
         <p className="text-lg font-semibold text-primary mb-1">{title}</p>
-        <p className="text-sm text-white/60 mb-3">{resolvedSubtitle}</p>
+        <p className="text-sm text-primary-foreground/60 mb-3">{resolvedSubtitle}</p>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/20">
-              <th className="text-left py-2 pr-3 text-white/60">Coach</th>
+            <tr className="border-b border-border/20">
+              <th className="text-left py-2 pr-3 text-primary-foreground/60">Coach</th>
               {weeks.map(w => (
-                <th key={w.key} className="text-center py-2 px-2 text-white/60 whitespace-nowrap">{w.label}</th>
+                <th key={w.key} className="text-center py-2 px-2 text-primary-foreground/60 whitespace-nowrap">{w.label}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {activeCoaches.map(coach => (
-              <tr key={coach} className="border-b border-white/10">
+              <tr key={coach} className="border-b border-border/10">
                 <td className="py-2 pr-3 font-medium">{coach}</td>
                 {weeks.map(w => (
                   <td key={w.key} className="text-center py-2 px-2">{renderCell(coach, w, true)}</td>
@@ -174,7 +174,7 @@ export function CoachScorecardGrid({
               </tr>
             ))}
             {!staffLoading && activeCoaches.length === 0 && (
-              <tr><td colSpan={weeks.length + 1} className="text-center py-4 text-white/60">No active coaches.</td></tr>
+              <tr><td colSpan={weeks.length + 1} className="text-center py-4 text-primary-foreground/60">No active coaches.</td></tr>
             )}
           </tbody>
         </table>

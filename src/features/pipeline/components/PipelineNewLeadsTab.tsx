@@ -416,7 +416,7 @@ export function PipelineNewLeadsTab() {
               {count > 0 && (
                 <Badge
                   variant={badgeVariant === 'warning' ? 'secondary' : badgeVariant}
-                  className={`h-3.5 px-1 text-[9px] min-w-[16px] ${value === 'flagged' ? 'bg-warning-dim text-white' : ''}`}
+                  className={`h-3.5 px-1 text-[9px] min-w-[16px] ${value === 'flagged' ? 'bg-warning-dim text-primary-foreground' : ''}`}
                 >
                   {count}
                 </Badge>

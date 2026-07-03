@@ -302,7 +302,7 @@ export const PipelineRowCard = memo(function PipelineRowCard({
                             <>
                               <Badge
                                 variant={isSale && !postDated ? 'default' : 'outline'}
-                                className={isSale && !postDated ? 'bg-success' : postDated ? 'bg-warning text-white border-warning' : ''}
+                                className={isSale && !postDated ? 'bg-success' : postDated ? 'bg-warning text-primary-foreground border-warning' : ''}
                               >
                                 {postDated ? `Pending · buys ${r.buy_date}` : r.result}
                               </Badge>

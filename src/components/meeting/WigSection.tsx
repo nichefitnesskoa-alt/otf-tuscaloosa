@@ -34,31 +34,31 @@ export function WigSection({ closeRate, wigTarget, wigCommitments, previousCommi
   return (
     <MeetingSection title="WIG Session — Lead Measures" icon={<Target className={isPresentMode ? 'w-10 h-10' : 'w-5 h-5'} />} sectionId="wig" isPresentMode={isPresentMode}>
       {isPresentMode ? (
-        <div className="text-white space-y-8">
-          <p className="text-lg text-white/50">Led by Alex</p>
+        <div className="text-primary-foreground space-y-8">
+          <p className="text-lg text-primary-foreground/50">Led by Alex</p>
 
           <div className="text-center">
             <p className="text-5xl font-black">{closeRate.toFixed(0)}%</p>
-            <p className="text-xl text-white/60 mt-2">Current Close Rate <span className="text-sm text-white/40">(booked → any sale)</span></p>
+            <p className="text-xl text-primary-foreground/60 mt-2">Current Close Rate <span className="text-sm text-primary-foreground/40">(booked → any sale)</span></p>
             {wigTarget && <p className="text-lg text-warning mt-1">Target: {wigTarget}</p>}
           </div>
 
           {/* Per-SA Lead Measures Table */}
           {perSAMetrics && perSAMetrics.length > 0 && (
-            <div className="bg-white/10 rounded-xl p-4 overflow-x-auto">
+            <div className="bg-card/10 rounded-xl p-4 overflow-x-auto">
               <p className="text-lg font-semibold text-primary mb-3">Lead Measures by SA</p>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/20">
-                    <th className="text-left py-2 pr-3 text-white/60">SA</th>
-                    <th className="text-center py-2 px-2 text-white/60">Q %</th>
-                    <th className="text-center py-2 px-2 text-white/60">Prep %</th>
-                    <th className="text-center py-2 px-2 text-white/60">Close Rate</th>
+                  <tr className="border-b border-border/20">
+                    <th className="text-left py-2 pr-3 text-primary-foreground/60">SA</th>
+                    <th className="text-center py-2 px-2 text-primary-foreground/60">Q %</th>
+                    <th className="text-center py-2 px-2 text-primary-foreground/60">Prep %</th>
+                    <th className="text-center py-2 px-2 text-primary-foreground/60">Close Rate</th>
                   </tr>
                 </thead>
                 <tbody>
                   {perSAMetrics.map(sa => (
-                    <tr key={sa.saName} className="border-b border-white/10">
+                    <tr key={sa.saName} className="border-b border-border/10">
                       <td className="py-2 pr-3 font-medium">{sa.saName}</td>
                       <td className={`text-center py-2 px-2 font-semibold ${pctColor(sa.qCompletionPct)}`}>{sa.qCompletionPct !== null ? `${sa.qCompletionPct}%` : '—'}</td>
                       <td className={`text-center py-2 px-2 font-semibold ${pctColor(sa.prepRatePct)}`}>{sa.prepRatePct !== null ? `${sa.prepRatePct}%` : '—'}</td>
@@ -67,7 +67,7 @@ export function WigSection({ closeRate, wigTarget, wigCommitments, previousCommi
                   ))}
                 </tbody>
               </table>
-              <p className="text-[10px] text-white/30 mt-2 text-right">Close Rate = booked → any sale</p>
+              <p className="text-[10px] text-primary-foreground/30 mt-2 text-right">Close Rate = booked → any sale</p>
             </div>
           )}
 
@@ -76,16 +76,16 @@ export function WigSection({ closeRate, wigTarget, wigCommitments, previousCommi
 
 
           {previousCommitments && (
-            <div className="bg-white/10 rounded-xl p-6">
+            <div className="bg-card/10 rounded-xl p-6">
               <p className="text-lg font-semibold text-warning mb-3">Last Week's Commitments</p>
-              <p className="text-lg text-white/80 whitespace-pre-wrap">{previousCommitments}</p>
+              <p className="text-lg text-primary-foreground/80 whitespace-pre-wrap">{previousCommitments}</p>
             </div>
           )}
 
           {wigCommitments && (
-            <div className="bg-white/10 rounded-xl p-6">
+            <div className="bg-card/10 rounded-xl p-6">
               <p className="text-lg font-semibold text-success mb-3">This Week's Commitments</p>
-              <p className="text-lg text-white/80 whitespace-pre-wrap">{wigCommitments}</p>
+              <p className="text-lg text-primary-foreground/80 whitespace-pre-wrap">{wigCommitments}</p>
             </div>
           )}
         </div>

@@ -118,11 +118,11 @@ interface MergedIntro {
 
 function getVisitBadge(v: MergedIntro['visitType']): { label: string; color: string } {
   switch (v) {
-    case 'FIRST': return { label: '1st Intro', color: 'bg-blue-600 text-white' };
-    case 'SECOND': return { label: '2nd Intro', color: 'bg-indigo-600 text-white' };
-    case 'VIP_ONLY': return { label: 'VIP Class', color: 'bg-purple-600 text-white' };
-    case 'VIP_THEN_FIRST': return { label: 'VIP → 1st Intro', color: 'bg-fuchsia-600 text-white' };
-    case 'VIP_THEN_SECOND': return { label: 'VIP → 2nd Intro', color: 'bg-fuchsia-700 text-white' };
+    case 'FIRST': return { label: '1st Intro', color: 'bg-blue-600 text-primary-foreground' };
+    case 'SECOND': return { label: '2nd Intro', color: 'bg-indigo-600 text-primary-foreground' };
+    case 'VIP_ONLY': return { label: 'VIP Class', color: 'bg-purple-600 text-primary-foreground' };
+    case 'VIP_THEN_FIRST': return { label: 'VIP → 1st Intro', color: 'bg-fuchsia-600 text-primary-foreground' };
+    case 'VIP_THEN_SECOND': return { label: 'VIP → 2nd Intro', color: 'bg-fuchsia-700 text-primary-foreground' };
   }
 }
 
@@ -171,12 +171,12 @@ function computePriority(
 function getStatusBadge(resultCanon: string, transferred: boolean): { label: string; color: string } {
   if (transferred) return { label: 'Transferred to SA', color: 'bg-muted text-muted-foreground' };
   switch (resultCanon) {
-    case 'SALE': return { label: 'Joined', color: 'bg-green-600 text-white' };
-    case 'DIDNT_BUY': return { label: 'Follow-Up', color: 'bg-[#E8540A] text-white' };
+    case 'SALE': return { label: 'Joined', color: 'bg-green-600 text-primary-foreground' };
+    case 'DIDNT_BUY': return { label: 'Follow-Up', color: 'bg-[#E8540A] text-primary-foreground' };
     case 'NO_SHOW': return { label: 'No-Show', color: 'bg-destructive text-destructive-foreground' };
-    case 'MISSED_GUEST': return { label: 'Missed Guest', color: 'bg-amber-500 text-white' };
-    case 'SECOND_INTRO': return { label: '2nd Intro Planned', color: 'bg-teal-600 text-white' };
-    case 'PLANNING_TO_BUY': return { label: 'Planning to Buy', color: 'bg-teal-500 text-white' };
+    case 'MISSED_GUEST': return { label: 'Missed Guest', color: 'bg-amber-500 text-primary-foreground' };
+    case 'SECOND_INTRO': return { label: '2nd Intro Planned', color: 'bg-teal-600 text-primary-foreground' };
+    case 'PLANNING_TO_BUY': return { label: 'Planning to Buy', color: 'bg-teal-500 text-primary-foreground' };
     default: return { label: 'Unresolved', color: 'bg-muted text-muted-foreground' };
   }
 }
@@ -645,7 +645,7 @@ export default function CoachMyIntros() {
       {urgentCount > 0 && (
         <button
           onClick={scrollToFirstUrgent}
-          className="w-full rounded-lg bg-amber-500 text-white px-4 py-3 text-sm font-semibold text-center cursor-pointer min-h-[44px]"
+          className="w-full rounded-lg bg-amber-500 text-primary-foreground px-4 py-3 text-sm font-semibold text-center cursor-pointer min-h-[44px]"
         >
           {urgentCount} intro{urgentCount !== 1 ? 's' : ''} need a touch within 48 hours
         </button>
@@ -653,7 +653,7 @@ export default function CoachMyIntros() {
 
       {/* Caught up banner */}
       {!hasFollowUpsDue && intros.length > 0 && (
-        <div className="w-full rounded-lg bg-green-600 text-white px-4 py-3 text-sm font-semibold text-center">
+        <div className="w-full rounded-lg bg-green-600 text-primary-foreground px-4 py-3 text-sm font-semibold text-center">
           ✓ You're caught up. No follow-ups due.
         </div>
       )}
@@ -668,7 +668,7 @@ export default function CoachMyIntros() {
               className={cn(
                 'px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0 cursor-pointer min-h-[36px]',
                 activeFilter === f.key
-                  ? 'bg-[#E8540A] text-white'
+                  ? 'bg-[#E8540A] text-primary-foreground'
                   : 'bg-muted text-muted-foreground hover:text-foreground border border-border'
               )}
             >
@@ -837,7 +837,7 @@ export default function CoachMyIntros() {
                     {!intro.transferred && intro.resultCanon !== 'SALE' && (
                       <div className="flex gap-2">
                         <Button
-                          className="flex-1 min-h-[44px] text-[13px] font-medium gap-1.5 cursor-pointer bg-[#E8540A] hover:bg-[#E8540A]/90 text-white"
+                          className="flex-1 min-h-[44px] text-[13px] font-medium gap-1.5 cursor-pointer bg-[#E8540A] hover:bg-[#E8540A]/90 text-primary-foreground"
                           onClick={(e) => {
                             e.stopPropagation();
                             setScriptDrawer({

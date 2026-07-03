@@ -236,7 +236,7 @@ export function ScriptSendDrawer({
             {copiedId && (
               <Button
                 size="sm"
-                className="h-9 min-h-[44px] text-xs gap-1 bg-success-dim hover:bg-success-dim text-white cursor-pointer"
+                className="h-9 min-h-[44px] text-xs gap-1 bg-success-dim hover:bg-success-dim text-primary-foreground cursor-pointer"
                 onClick={() => { setCopiedId(null); onOpenChange(false); }}
               >
                 <Check className="w-3.5 h-3.5" />
@@ -320,7 +320,7 @@ export function ScriptSendDrawer({
                       className={cn(
                         'w-full min-h-[44px] text-[13px] font-medium gap-1.5 cursor-pointer',
                         isCopied
-                          ? 'bg-success-dim hover:bg-success-dim text-white'
+                          ? 'bg-success-dim hover:bg-success-dim text-primary-foreground'
                           : 'bg-primary hover:bg-primary/90 text-primary-foreground'
                       )}
                       onClick={() => handleCopy(t)}

@@ -118,7 +118,7 @@ export function SourcedLeadsToText({ compact = true, defaultOpen = false }: Prop
     const days = daysSinceLogged(lead);
     const ageColor =
       days >= 7 ? 'bg-destructive text-destructive-foreground'
-      : days >= 3 ? 'bg-amber-500 text-white'
+      : days >= 3 ? 'bg-amber-500 text-primary-foreground'
       : 'bg-muted text-muted-foreground';
     const phoneClean = stripCountryCode(lead.phone);
     return (

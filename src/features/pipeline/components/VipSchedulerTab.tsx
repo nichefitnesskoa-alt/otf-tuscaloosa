@@ -119,9 +119,9 @@ function generateSlug(date: string, time: string): string {
 }
 
 function StatusBadge({ status, group }: { status: string; group: string | null }) {
-  if (status === 'open') return <Badge className="bg-success text-white border-transparent text-xs">Open</Badge>;
-  if (status === 'reserved') return <Badge className="bg-warning text-white border-transparent text-xs">Reserved — {group}</Badge>;
-  if (status === 'cancelled') return <Badge className="bg-danger text-white border-transparent text-xs">Cancelled</Badge>;
+  if (status === 'open') return <Badge className="bg-success text-primary-foreground border-transparent text-xs">Open</Badge>;
+  if (status === 'reserved') return <Badge className="bg-warning text-primary-foreground border-transparent text-xs">Reserved — {group}</Badge>;
+  if (status === 'cancelled') return <Badge className="bg-danger text-primary-foreground border-transparent text-xs">Cancelled</Badge>;
   return <Badge variant="secondary" className="text-xs">{status}</Badge>;
 }
 
@@ -533,7 +533,7 @@ export function VipSchedulerTab() {
           <Button variant="outline" size="sm" className="h-9 text-xs gap-1" onClick={handleCopyLink}>
             <Copy className="w-3.5 h-3.5" /> Copy Availability Link
           </Button>
-          <Button size="sm" className="h-9 text-xs gap-1 bg-brand hover:bg-brand text-white" onClick={() => setAddOpen(true)}>
+          <Button size="sm" className="h-9 text-xs gap-1 bg-brand hover:bg-brand text-primary-foreground" onClick={() => setAddOpen(true)}>
             <CalendarPlus className="w-3.5 h-3.5" /> Add One-Off Slot
           </Button>
         </div>
@@ -762,7 +762,7 @@ export function VipSchedulerTab() {
                             className="h-8 w-40 text-sm"
                             autoFocus
                           />
-                          <Button size="sm" className="h-8 text-xs bg-brand hover:bg-brand text-white" disabled={attendanceSaving} onClick={() => handleSaveAttendance(s.id)}>
+                          <Button size="sm" className="h-8 text-xs bg-brand hover:bg-brand text-primary-foreground" disabled={attendanceSaving} onClick={() => handleSaveAttendance(s.id)}>
                             {attendanceSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
                           </Button>
                           <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setAttendanceId(null); setAttendanceValue(''); }}>Cancel</Button>
@@ -786,7 +786,7 @@ export function VipSchedulerTab() {
                       </div>
                       <Button
                         size="sm"
-                        className="h-9 bg-brand hover:bg-brand text-white text-xs"
+                        className="h-9 bg-brand hover:bg-brand text-primary-foreground text-xs"
                         disabled={markSaving || !markGroupName.trim()}
                         onClick={() => handleMarkReserved(s.id)}
                       >
@@ -884,7 +884,7 @@ export function VipSchedulerTab() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
             <Button
-              className="bg-brand hover:bg-brand text-white"
+              className="bg-brand hover:bg-brand text-primary-foreground"
               onClick={handleAddSlot}
               disabled={saving}
             >
@@ -1057,7 +1057,7 @@ export function VipSchedulerTab() {
           <div className="flex items-center justify-between gap-2 pt-2">
             <Button
               size="sm"
-              className="h-9 text-xs bg-brand hover:bg-brand text-white"
+              className="h-9 text-xs bg-brand hover:bg-brand text-primary-foreground"
               onClick={() => setAddPersonOpen(o => !o)}
             >
               {addPersonOpen ? <X className="w-3.5 h-3.5 mr-1" /> : <Users className="w-3.5 h-3.5 mr-1" />}
@@ -1123,7 +1123,7 @@ export function VipSchedulerTab() {
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => setAddPersonOpen(false)}>Cancel</Button>
-                  <Button size="sm" className="h-9 text-xs bg-brand hover:bg-brand text-white" disabled={addPersonSaving} onClick={handleAddPerson}>
+                  <Button size="sm" className="h-9 text-xs bg-brand hover:bg-brand text-primary-foreground" disabled={addPersonSaving} onClick={handleAddPerson}>
                     {addPersonSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Check className="w-4 h-4 mr-1" />}
                     Add to roster
                   </Button>
@@ -1211,7 +1211,7 @@ export function VipSchedulerTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBookFromVip(null)}>Cancel</Button>
-            <Button className="bg-brand hover:bg-brand text-white" disabled={bookSaving} onClick={handleBookFromVip}>
+            <Button className="bg-brand hover:bg-brand text-primary-foreground" disabled={bookSaving} onClick={handleBookFromVip}>
               {bookSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CalendarCheck className="w-4 h-4 mr-1" />}
               Book Intro
             </Button>
@@ -1268,7 +1268,7 @@ export function VipSchedulerTab() {
           </DialogHeader>
           {qrSession?.shareable_slug && (
             <div className="flex flex-col items-center gap-4 py-2">
-              <div className="border-4 border-brand rounded-lg p-2 bg-white inline-block">
+              <div className="border-4 border-brand rounded-lg p-2 bg-card inline-block">
                 <QRCodeCanvas
                   id="scheduler-qr-canvas"
                   value={`https://otf-tuscaloosa.lovable.app/vip/${qrSession.shareable_slug}/register`}
@@ -1294,7 +1294,7 @@ export function VipSchedulerTab() {
                 </div>
               </div>
               <Button
-                className="w-full bg-brand hover:bg-brand text-white gap-2"
+                className="w-full bg-brand hover:bg-brand text-primary-foreground gap-2"
                 onClick={() => {
                   if (!qrSession) return;
                   const d = new Date(qrSession.session_date + 'T00:00:00');

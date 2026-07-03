@@ -153,7 +153,7 @@ export function MindbodyImportsPanel() {
               key={k}
               size="sm"
               variant={preset === k ? 'default' : 'outline'}
-              className={cn('h-9', preset === k && 'bg-brand hover:bg-brand text-white')}
+              className={cn('h-9', preset === k && 'bg-brand hover:bg-brand text-primary-foreground')}
               onClick={() => setPreset(k)}
             >
               {label}
@@ -188,7 +188,7 @@ export function MindbodyImportsPanel() {
             <Button
               size="sm"
               variant={saFilter === null ? 'default' : 'outline'}
-              className={cn('h-8 text-xs', saFilter === null && 'bg-brand hover:bg-brand text-white')}
+              className={cn('h-8 text-xs', saFilter === null && 'bg-brand hover:bg-brand text-primary-foreground')}
               onClick={() => setSaFilter(null)}
             >
               All ({rows.length})
@@ -200,7 +200,7 @@ export function MindbodyImportsPanel() {
                   key={sa}
                   size="sm"
                   variant={saFilter === sa ? 'default' : 'outline'}
-                  className={cn('h-8 text-xs', saFilter === sa && 'bg-brand hover:bg-brand text-white')}
+                  className={cn('h-8 text-xs', saFilter === sa && 'bg-brand hover:bg-brand text-primary-foreground')}
                   onClick={() => setSaFilter(sa)}
                 >
                   {sa} ({n})
