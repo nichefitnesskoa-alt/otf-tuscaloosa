@@ -2,9 +2,9 @@
  * Summer of More Life data hook.
  *
  * Reads soml_config (window + goals) and computes 3 metrics:
- *  - Referrals: automatic (Member Referral lead_source + qualifying sale via
- *    isSaleCanon, buy_date in window, credited to booked_by) PLUS manual
- *    entries from soml_manual_referrals (deduped by member_name against auto).
+ *  - Referrals: realized pending-referral rows in the SOML window, credited to
+ *    the original pending row's credited_sa, PLUS manual entries from
+ *    soml_manual_referrals (deduped by member_name against realized auto rows).
  *  - Upgrades: soml_upgrades rows in window, grouped by upgraded_by.
  *  - Sales: intros_run where isSaleCanon and getRunSaleDate ∈ window,
  *    credited to intros_booked.intro_owner (matches existing WIG sales attribution).
@@ -83,15 +83,40 @@ export function useSomlData(): SomlData {
     const start = cfg.start_date;
     const end = cfg.end_date;
 
-    // 2. Automatic referrals: Member Referral bookings + linked qualifying sale in window
+    // 2. Pending/referral ledger. Realized rows are the automatic referral
+    //    source of truth because reschedules resolve back to the chain root.
+    const { data: pendingRows } = await (supabase as any)
+      .from('soml_pending_referrals')
+      .select('id, booking_id, referring_member, credited_sa, state, resolved_outcome, realized_at, created_at')
+      .order('created_at', { ascending: false });
+    const pendingBookingIds = ((pendingRows as any[]) || []).map(p => p.booking_id);
+    let pendingBookingMap = new Map<string, any>();
+    if (pendingBookingIds.length) {
+      const { data: pb } = await supabase
+        .from('intros_booked')
+        .select('id, member_name, class_date')
+        .in('id', pendingBookingIds);
+      pendingBookingMap = new Map(((pb as any[]) || []).map(b => [b.id, b]));
+    }
+    const enrichedPending: PendingReferralRow[] = ((pendingRows as any[]) || []).map(p => ({
+      ...p,
+      member_name: pendingBookingMap.get(p.booking_id)?.member_name || null,
+      class_date: pendingBookingMap.get(p.booking_id)?.class_date || null,
+    }));
+
+    let autoReferralRows: Array<{ sa: string; member_name: string }> = enrichedPending
+      .filter(p => p.state === 'realized' && !!p.realized_at && p.realized_at >= start && p.realized_at <= end)
+      .map(p => ({ sa: p.credited_sa, member_name: p.member_name || '' }));
+
+    // Fallback for any legacy realized referral sale that predates the pending
+    // ledger. Exclude members already represented by the ledger to avoid double count.
+    const ledgerReferralMemberSet = new Set(autoReferralRows.map(r => norm(r.member_name)));
     const { data: refBookings } = await supabase
       .from('intros_booked')
       .select('id, member_name, booked_by, intro_owner, lead_source')
       .in('lead_source', MEMBER_REFERRAL_SOURCES)
       .is('deleted_at', null);
-
     const refBookingIds = (refBookings || []).map((b: any) => b.id);
-    let autoReferralRows: Array<{ sa: string; member_name: string }> = [];
     if (refBookingIds.length) {
       const saleCanons = Array.from(SALE_CANONS);
       const { data: runs } = await supabase
@@ -105,7 +130,7 @@ export function useSomlData(): SomlData {
         const saleDate = getRunSaleDate(r as any);
         if (!saleDate || saleDate < start || saleDate > end) continue;
         const bk = bookingMap.get((r as any).linked_intro_booked_id);
-        if (!bk) continue;
+        if (!bk || ledgerReferralMemberSet.has(norm(bk.member_name))) continue;
         const credit = (bk.booked_by && bk.booked_by !== 'Self booked' && bk.booked_by !== 'Self-booked')
           ? bk.booked_by
           : bk.intro_owner;
@@ -171,27 +196,8 @@ export function useSomlData(): SomlData {
     upgradeRows.forEach(r => bump(r.sa, 'upgrades'));
     salesRows.forEach(r => bump(r.sa, 'sales'));
 
-    // 7. Pending referrals (book-time visibility). Realized rows are still
-    //    counted by the existing referral logic above — pending is purely a
-    //    display layer, never summed into the real Referrals total.
-    const { data: pendingRows } = await (supabase as any)
-      .from('soml_pending_referrals')
-      .select('id, booking_id, referring_member, credited_sa, state, resolved_outcome, realized_at, created_at')
-      .order('created_at', { ascending: false });
-    const pendingBookingIds = ((pendingRows as any[]) || []).map(p => p.booking_id);
-    let pendingBookingMap = new Map<string, any>();
-    if (pendingBookingIds.length) {
-      const { data: pb } = await supabase
-        .from('intros_booked')
-        .select('id, member_name, class_date')
-        .in('id', pendingBookingIds);
-      pendingBookingMap = new Map(((pb as any[]) || []).map(b => [b.id, b]));
-    }
-    const enrichedPending: PendingReferralRow[] = ((pendingRows as any[]) || []).map(p => ({
-      ...p,
-      member_name: pendingBookingMap.get(p.booking_id)?.member_name || null,
-      class_date: pendingBookingMap.get(p.booking_id)?.class_date || null,
-    }));
+    // 7. Pending referrals are purely a display layer, never summed into the
+    //    real Referrals total until the ledger row becomes realized.
     // Per-SA pending count = state === 'pending' only
     enrichedPending.filter(p => p.state === 'pending').forEach(p => bump(p.credited_sa, 'pending'));
 
