@@ -79,6 +79,7 @@ function defaultForRole(u: User | null | undefined, key: PermissionKey): boolean
     case 'nav.vips': return sa || coach;
     case 'nav.my_intros': return coach;
     case 'nav.pipeline': return sa; // Pipeline shown to SA and Both
+    case 'nav.outreach_lists': return sa || coach; // Outreach lists visible to SA + Coach + Both
     case 'nav.admin': return false; // Admin tab is Koa-only (handled by isAdmin)
     case 'feature.coaching_scripts':
       // Restricted to Koa + Jackson by default (per Koa's request).
