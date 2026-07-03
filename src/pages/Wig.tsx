@@ -392,9 +392,13 @@ export default function Wig() {
       ];
       const promotedOrphanIds = resolvePromotedOrphanBookingIds(resolverPool, candidateRuns);
 
+      // A booking is a first intro iff it has no parent in a chain, OR the
+      // parent was excluded and this child was promoted as an orphan.
+      // referred_by_member_name alone does NOT promote a reschedule child to
+      // first-intro status — the child still belongs to the original chain.
+      // (Friend/referral bookings are already captured by !originating_booking_id.)
       const firstIntroBookings = allCoachBookings.filter(b =>
         !b.originating_booking_id
-        || !!b.referred_by_member_name
         || promotedOrphanIds.has(b.id)
       );
 
