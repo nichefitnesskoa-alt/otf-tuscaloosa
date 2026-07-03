@@ -13,6 +13,13 @@
 import { supabase } from '@/integrations/supabase/client';
 import { codeForSource } from './sourceCodes';
 
+/**
+ * Canonical public base for every shareable booking URL.
+ * Never derive from window.location.origin — that leaks the ugly preview host
+ * (`id-preview--…lovable.app`) into links copied out of the editor.
+ */
+export const PUBLIC_BOOKING_BASE = 'https://otf-tuscaloosa.lovable.app';
+
 export interface IntroLinkParams {
   sa: string;
   source: string;
