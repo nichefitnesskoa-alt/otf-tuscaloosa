@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Sun, Pencil, Plus, Check, Users, TrendingUp, DollarSign, Calendar, Info, Clock } from 'lucide-react';
+import { Sun, Pencil, Plus, Check, Users, TrendingUp, DollarSign, Calendar, Info, Clock, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -678,6 +678,20 @@ function PendingReferralsDialog({ open, onClose, saFilter, rows }: PendingReferr
     }
   };
 
+  const dismissReferral = async (row: PendingReferralRow) => {
+    if (!confirm(`Remove ${row.member_name || 'this referral'} from the pending list? This won't count as a referral.`)) return;
+    const { error } = await (supabase as any)
+      .from('soml_pending_referrals')
+      .update({ state: 'not_converted', resolved_outcome: 'Dismissed' })
+      .eq('id', row.id);
+    if (error) {
+      toast.error('Could not dismiss referral');
+    } else {
+      toast.success('Referral dismissed');
+      notifySomlChanged();
+    }
+  };
+
   const renderList = (list: PendingReferralRow[], emptyMsg: string) => {
     if (list.length === 0) return <p className="text-xs text-muted-foreground py-2">{emptyMsg}</p>;
     return (
@@ -732,7 +746,18 @@ function PendingReferralsDialog({ open, onClose, saFilter, rows }: PendingReferr
                 <span className="text-muted-foreground">{r.resolved_outcome || 'Did not convert'}</span>
               )}
               {r.state === 'pending' && (
-                <span className="text-primary">Pending</span>
+                <div className="flex items-center gap-2 justify-end">
+                  <span className="text-primary">Pending</span>
+                  <button
+                    type="button"
+                    onClick={() => dismissReferral(r)}
+                    className="text-muted-foreground hover:text-destructive"
+                    aria-label="Remove from pending"
+                    title="Not interested — remove from pending"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               )}
             </div>
           </div>
