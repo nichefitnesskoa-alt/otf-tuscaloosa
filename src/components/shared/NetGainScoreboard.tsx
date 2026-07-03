@@ -369,6 +369,10 @@ function HistoryDialog({ open, onClose }: { open: boolean; onClose: () => void }
 // ─────────────────────────────────────────────────────────────
 interface ParsedChurn { member_name: string; churn_date: string; notes: string; date_source: string; error?: string }
 
+function duplicateKey(name: string, churnDate: string): string {
+  return `${name.toLowerCase().trim().replace(/\s+/g, ' ')}|${churnDate}`;
+}
+
 function normalizeHeader(key: string): string {
   return key.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
 }
@@ -475,7 +479,7 @@ function UploadChurnsDialog({ open, onClose, onSaved }: { open: boolean; onClose
       const notesKey = pickNotesKey(keys);
       setDateColumn(dateKey || '');
       if (!dateKey) toast.error('No actual churn date column found. Use a column named “Churn date” or “Termination date”.');
-      const parsed: ParsedChurn[] = json.map((r) => {
+      const parsedDraft: ParsedChurn[] = json.map((r) => {
         const name = nameKey ? String(r[nameKey] ?? '').trim() : '';
         const dateRaw = dateKey ? r[dateKey] : '';
         const date = parseChurnDate(dateRaw);
@@ -483,6 +487,30 @@ function UploadChurnsDialog({ open, onClose, onSaved }: { open: boolean; onClose
         const err = !name ? 'Missing name' : !dateKey ? 'Missing actual churn date column' : !date ? 'Invalid date' : undefined;
         return { member_name: name, churn_date: date || '', notes, date_source: dateKey || '', error: err };
       }).filter(r => r.member_name || r.churn_date);
+
+      const validDraft = parsedDraft.filter(r => !r.error && r.churn_date);
+      const existingKeys = new Set<string>();
+      if (validDraft.length > 0) {
+        const minDate = validDraft.reduce((min, r) => r.churn_date < min ? r.churn_date : min, validDraft[0].churn_date);
+        const maxDate = validDraft.reduce((max, r) => r.churn_date > max ? r.churn_date : max, validDraft[0].churn_date);
+        const { data: existing } = await (supabase as any)
+          .from('net_gain_churns')
+          .select('member_name,churn_date')
+          .gte('churn_date', minDate)
+          .lte('churn_date', maxDate);
+        ((existing as Pick<Churn, 'member_name' | 'churn_date'>[]) || [])
+          .forEach(r => existingKeys.add(duplicateKey(r.member_name, r.churn_date)));
+      }
+
+      const seenInFile = new Set<string>();
+      const parsed = parsedDraft.map(r => {
+        if (r.error || !r.churn_date) return r;
+        const key = duplicateKey(r.member_name, r.churn_date);
+        if (existingKeys.has(key)) return { ...r, error: 'Already loaded' };
+        if (seenInFile.has(key)) return { ...r, error: 'Duplicate in file' };
+        seenInFile.add(key);
+        return r;
+      });
       setRows(parsed);
       if (parsed.length === 0) toast.error('No rows found. Expect columns like "Name" and "Churn Date".');
     } catch (e: any) {
