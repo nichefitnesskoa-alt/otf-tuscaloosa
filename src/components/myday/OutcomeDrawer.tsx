@@ -510,7 +510,7 @@ export function OutcomeDrawer({
       return;
     }
 
-    if (coachRequired && !coachName) { toast.error('Select the coach who taught the class'); return; }
+    if (coachRequired && isMissingCoach(coachName)) { toast.error('Pick the coach who taught the class before saving'); return; }
     if (isBookedSecondIntro && (!secondIntroDate || !secondIntroTime || !secondIntroCoach)) {
       toast.error('Fill in date, time, and coach for the 2nd intro');
       return;
@@ -523,6 +523,11 @@ export function OutcomeDrawer({
       toast.error('Select the objection before saving');
       return;
     }
+    // For 2nd-intro paths, persist the reason as the objection so it shows up
+    // in drilldowns and follow-up queues without a redundant second picker.
+    const resolvedObjection = isAny2ndIntroPath
+      ? (secondIntroReason === 'Other' ? (secondIntroReasonOther.trim() || 'Other') : secondIntroReason)
+      : (needsObjection ? objection : null);
     setSaving(true);
     try {
       let secondIntroBookingDraft: { class_start_at: string; coach_name: string } | undefined;
@@ -542,7 +547,8 @@ export function OutcomeDrawer({
         previousResult: currentResult || null,
         membershipType: isSale ? outcome : undefined,
         leadSource: leadSource || '',
-        objection: needsObjection ? objection : null,
+        objection: resolvedObjection,
+
         coachName: coachName || undefined,
         editedBy,
         sourceComponent: 'MyDay-OutcomeDrawer',
