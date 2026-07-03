@@ -686,7 +686,7 @@ function PendingReferralsDialog({ open, onClose, saFilter, rows }: PendingReferr
       <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {saFilter ? `${saFilter}'s referrals` : 'All referrals'}
+            {saFilter ? `${saFilter}'s pending referrals` : 'All pending referrals'}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
@@ -694,19 +694,10 @@ function PendingReferralsDialog({ open, onClose, saFilter, rows }: PendingReferr
             <div className="text-[11px] font-bold uppercase tracking-wide text-primary mb-1">
               Pending ({buckets.pending.length}) · counts when they buy
             </div>
+            <p className="text-[11px] text-muted-foreground mb-2">
+              Referrals who already bought show in the Referrals tile. Not-interested / no-show referrals drop off this list automatically.
+            </p>
             {renderList(buckets.pending, 'No pending referrals.')}
-          </div>
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-wide text-success mb-1">
-              Realized ({buckets.realized.length})
-            </div>
-            {renderList(buckets.realized, 'None realized yet.')}
-          </div>
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-1">
-              Did not convert ({buckets.not_converted.length})
-            </div>
-            {renderList(buckets.not_converted, 'None marked as not converted.')}
           </div>
         </div>
         <DialogFooter>
