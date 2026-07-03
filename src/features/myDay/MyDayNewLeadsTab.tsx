@@ -714,8 +714,38 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
           }
           mergeContext={scriptMergeContext}
           leadId={scriptLead.id}
-          onLogged={() => setScriptLead(null)}
+          onLogged={() => {
+            const sent = scriptLead;
+            setScriptLead(null);
+            if (sent && sent.stage === 'new') {
+              setConfirmContactLead(sent);
+            }
+          }}
         />
+      )}
+      {confirmContactLead && (
+        <AlertDialog open={!!confirmContactLead} onOpenChange={open => { if (!open) setConfirmContactLead(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Mark as Contacted?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You just sent a script to {confirmContactLead.first_name} {confirmContactLead.last_name}. Move them to the Contacted list?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Not yet</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  const id = confirmContactLead.id;
+                  setConfirmContactLead(null);
+                  handleAction(id, 'contacted');
+                }}
+              >
+                Yes, mark Contacted
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
       {lostLeadId && (
         <MarkLostDialog
