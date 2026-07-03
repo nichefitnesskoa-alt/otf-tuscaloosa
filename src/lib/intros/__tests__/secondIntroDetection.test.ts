@@ -29,6 +29,17 @@ describe('isSecondIntroBooking — canonical', () => {
     expect(isSecondIntroBooking(child, [child, parent], [])).toBe(false);
   });
 
+  it('returns true when a reschedule inherits referred_by but parent (same member) ran', () => {
+    // Brent Rogers case: 1st intro ran (booked 2nd), 2nd no-showed, rescheduled;
+    // the reschedule keeps referred_by_member_name — must still classify as 2nd.
+    const parent = mkBooking({ id: 'p1', member_name: 'Brent Rogers', booking_status_canon: 'SECOND_INTRO_SCHEDULED' });
+    const child = mkBooking({ id: 'c1', member_name: 'Brent Rogers', originating_booking_id: 'p1', referred_by_member_name: 'Michele Rogers' });
+    const runs: SecondIntroRunLike[] = [
+      { linked_intro_booked_id: 'p1', result: 'Booked 2nd intro', result_canon: 'SECOND_INTRO_SCHEDULED' },
+    ];
+    expect(isSecondIntroBooking(child, [child, parent], runs)).toBe(true);
+  });
+
   it('returns false when parent missing from list (orphan)', () => {
     const child = mkBooking({ id: 'c1', originating_booking_id: 'missing' });
     expect(isSecondIntroBooking(child, [child], [])).toBe(false);
