@@ -470,13 +470,15 @@ function PrimaryObjectionSection({ intro, index, onUpdate }: {
 
   // Map objection to obstacle trigger for EIRMA lookup
   const objectionToObstacle: Record<string, string> = {
-    'Pricing': 'Too expensive / budget concerns',
-    'Time': 'Schedule is too busy',
-    'Shopping Around': 'comparing options',
-    'Spousal/Parental': 'need to talk to spouse',
-    'Think About It': 'think about it',
-    'Out of Town': 'out of town',
+    'Price': 'Too expensive / budget concerns',
+    'Time / Schedule': 'Schedule is too busy',
+    'Trying other classes first': 'comparing options',
+    'Have to ask spouse': 'need to talk to spouse',
+    'Have to ask parents to pay': 'need to talk to parents',
+    'Thinking About It': 'think about it',
+    'Travel / Moving': 'out of town',
   };
+
 
   const obstacleForEirma = intro.primaryObjection ? objectionToObstacle[intro.primaryObjection] || null : null;
 
