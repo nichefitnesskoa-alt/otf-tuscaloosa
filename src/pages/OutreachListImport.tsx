@@ -287,6 +287,17 @@ export default function OutreachListImport() {
                 setPlans(pl => { const n = [...pl]; n[i] = { ...n[i], listName: e.target.value }; return n; });
               }} placeholder="List name" className="mt-1" />
             </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">
+                Header row (which spreadsheet row has the column titles like "Client", "Amount")
+              </Label>
+              <Input type="number" min={1} max={p.rawRows.length} value={p.headerRow}
+                onChange={e => updateHeaderRow(i, Number(e.target.value) || 1)}
+                className="h-8 text-xs w-24" />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Auto-detected. Adjust if the mapping below looks wrong. Detected columns: <span className="font-mono">{p.headers.slice(0, 6).join(', ')}{p.headers.length > 6 ? '…' : ''}</span>
+              </p>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {FIELDS.map(f => (
                 <div key={f.key}>
