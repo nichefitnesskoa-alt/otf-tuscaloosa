@@ -453,18 +453,27 @@ export default function BookIntro() {
                 href={buildGoogleCalendarUrl(calendarEvent)}
                 target="_blank"
                 rel="noreferrer"
-                className="h-12 flex items-center justify-center rounded-md bg-neutral-800 border border-neutral-700 hover:border-[#E8540A] font-semibold"
+                className="h-12 flex items-center justify-center rounded-md bg-[#FDF7EA] text-[#0A0A0A] hover:bg-white font-semibold transition-colors"
               >
                 <CalendarIcon className="w-4 h-4 mr-2" /> Add to Google Calendar
               </a>
             </div>
-            <Button
-              variant="ghost"
-              className="w-full mt-4 text-neutral-300"
-              onClick={() => setStep('friend')}
-            >
-              Continue <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+            <div className="flex gap-2 mt-4">
+              <Button
+                variant="outline"
+                onClick={() => toast.info('Your booking is confirmed — no need to redo it.')}
+                className="border-[#FDF7EA]/40 bg-transparent text-[#FDF7EA] hover:bg-[#FDF7EA]/10 hover:text-[#FDF7EA]"
+                aria-label="Back"
+              >
+                <ArrowLeft className="w-4 h-4 mr-1" /> Back
+              </Button>
+              <Button
+                className="flex-1 h-12 bg-[#E8540A] hover:bg-[#c94609] text-white font-semibold"
+                onClick={() => setStep('friend')}
+              >
+                Continue <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
           </Card>
         )}
 
@@ -480,14 +489,14 @@ export default function BookIntro() {
             </p>
             {!bookingId ? null : (
               <div className="space-y-3">
-                <div className="rounded-lg bg-neutral-800 border border-neutral-700 p-3 flex items-center gap-2">
-                  <code className="text-xs text-neutral-300 flex-1 truncate">{friendUrl}</code>
+                <div className="rounded-lg bg-[#FDF7EA] p-3 flex items-center gap-2">
+                  <code className="text-xs text-[#0A0A0A] flex-1 truncate font-medium">{friendUrl}</code>
                   <button
                     onClick={async () => {
                       await navigator.clipboard.writeText(friendUrl);
                       toast.success('Link copied');
                     }}
-                    className="p-2 rounded hover:bg-neutral-700"
+                    className="p-2 rounded bg-[#0A0A0A] text-[#FDF7EA] hover:bg-[#E8540A] transition-colors"
                     aria-label="Copy link"
                   >
                     <Copy className="w-4 h-4" />
@@ -499,7 +508,7 @@ export default function BookIntro() {
                         text: `I'm booked for an OrangeTheory class on ${longDayLabel(pickedDate!)} at ${formatClassTimeDisplay(pickedTime!)}. Come with me!`,
                         url: friendUrl,
                       })}
-                      className="p-2 rounded hover:bg-neutral-700"
+                      className="p-2 rounded bg-[#0A0A0A] text-[#FDF7EA] hover:bg-[#E8540A] transition-colors"
                       aria-label="Share"
                     >
                       <Share2 className="w-4 h-4" />
@@ -509,15 +518,24 @@ export default function BookIntro() {
                 <p className="text-xs text-neutral-400">Your friend is auto-booked into your same class time.</p>
               </div>
             )}
-            <Button
-              className="w-full mt-6 h-12 bg-[#E8540A] hover:bg-[#c94609] text-white font-semibold"
-              onClick={() => {
-                if (qSlug) window.location.href = `/q/${qSlug}`;
-                else setStep('done');
-              }}
-            >
-              Continue <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+            <div className="flex gap-2 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setStep('calendar')}
+                className="border-[#FDF7EA]/40 bg-transparent text-[#FDF7EA] hover:bg-[#FDF7EA]/10 hover:text-[#FDF7EA]"
+              >
+                <ArrowLeft className="w-4 h-4 mr-1" /> Back
+              </Button>
+              <Button
+                className="flex-1 h-12 bg-[#E8540A] hover:bg-[#c94609] text-white font-semibold"
+                onClick={() => {
+                  if (qSlug) window.location.href = `/q/${qSlug}`;
+                  else setStep('done');
+                }}
+              >
+                Continue <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
           </Card>
         )}
 
