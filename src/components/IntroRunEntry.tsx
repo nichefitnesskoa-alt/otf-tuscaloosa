@@ -19,16 +19,11 @@ import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 
 import { LEAD_SOURCES } from '@/types';
 
-const OBJECTION_CATEGORIES = [
-  'Pricing',
-  'Time',
-  'Shopping Around',
-  'Spousal/Parental',
-  'Think About It',
-  'Out of Town',
-  'None/Closed',
-  'Other',
-] as const;
+import { OBJECTION_OPTIONS } from '@/lib/intros/objections';
+
+// Include "None/Closed" for outcomes with no objection needed.
+const OBJECTION_CATEGORIES = [...OBJECTION_OPTIONS, 'None/Closed'] as const;
+
 
 const OUTCOMES = [
   { label: 'Premier + OTBeat', commission: 15.00 },
