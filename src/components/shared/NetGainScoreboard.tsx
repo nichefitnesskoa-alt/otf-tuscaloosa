@@ -63,8 +63,8 @@ export function NetGainScoreboard({ className }: { className?: string }) {
   const isAdmin = useEffectiveAdmin();
   const [state, setState] = useState<State | null>(null);
   const [pendingChurns, setPendingChurns] = useState<Churn[]>([]);
+  const [appliedChurns, setAppliedChurns] = useState<Churn[]>([]);
   const [editOpen, setEditOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [upcomingOpen, setUpcomingOpen] = useState(false);
@@ -72,16 +72,22 @@ export function NetGainScoreboard({ className }: { className?: string }) {
   const appliedRef = useRef(false);
 
   const load = useCallback(async () => {
-    const [{ data: s }, { data: c }] = await Promise.all([
+    const [{ data: s }, { data: pending }, { data: applied }] = await Promise.all([
       (supabase as any).from('net_gain_state').select('value,updated_at,updated_by').eq('id', 1).maybeSingle(),
       (supabase as any).from('net_gain_churns')
         .select('id,member_name,churn_date,notes,applied_at,created_by,created_at')
         .is('applied_at', null)
         .lte('churn_date', endOfThisMonthCST())
         .order('churn_date', { ascending: true }),
+      (supabase as any).from('net_gain_churns')
+        .select('id,member_name,churn_date,notes,applied_at,created_by,created_at')
+        .not('applied_at', 'is', null)
+        .order('churn_date', { ascending: false })
+        .limit(100),
     ]);
     if (s) setState(s as State);
-    setPendingChurns((c as Churn[]) || []);
+    setPendingChurns((pending as Churn[]) || []);
+    setAppliedChurns((applied as Churn[]) || []);
   }, []);
 
   // Auto-apply pending churns once per page-load, then hook the event bus.
