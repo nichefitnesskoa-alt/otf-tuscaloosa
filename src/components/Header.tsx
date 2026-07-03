@@ -3,11 +3,12 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { LogOut, User, CloudOff, Sun, Moon } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { GlobalSearch, GlobalSearchTrigger } from '@/components/GlobalSearch';
 import { NotificationsBell } from '@/components/NotificationsBell';
 import { useDarkMode } from '@/hooks/useDarkMode';
+import { OTF, brandFont } from '@/lib/otfBrand';
+import otfLogo from '@/assets/otf-logo-orange.png.asset.json';
 
 export function Header() {
   const { user, logout } = useAuth();
@@ -15,76 +16,102 @@ export function Header() {
   const [searchOpen, setSearchOpen] = useState(false);
   const { isDark, toggle: toggleDark } = useDarkMode();
 
-  const roleColors = {
-    Admin: 'bg-primary text-primary-foreground',
-    SA: 'bg-info text-info-foreground',
-    Coach: 'bg-success text-success-foreground',
-  };
-
   if (!user) return null;
 
   const syncLabel = lastSyncAt
     ? formatDistanceToNowStrict(new Date(lastSyncAt), { addSuffix: true })
     : null;
 
+  const iconBtn = 'flex-shrink-0 transition-opacity hover:opacity-70';
+
   return (
     <>
-      <header className="sticky top-0 z-40 bg-foreground text-background overflow-hidden">
+      <header
+        className="sticky top-0 z-40 overflow-hidden"
+        style={{
+          backgroundColor: OTF.dark,
+          color: OTF.bone,
+          borderBottom: `1px solid ${OTF.bone}22`,
+          ...brandFont,
+        }}
+      >
         <div className="flex items-center justify-between h-14 px-3 sm:px-4 min-w-0">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink-0">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-              <span className="text-primary-foreground font-bold text-sm">OTF</span>
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-sm font-bold tracking-tight">OrangeTheory</h1>
-              {syncLabel && (
-                <p className="text-[10px] opacity-50">Synced {syncLabel}</p>
+          {/* Left: logo lockup */}
+          <div className="flex items-center gap-2.5 min-w-0 flex-shrink-0">
+            <img src={otfLogo.url} alt="OTF" className="h-7 w-auto" />
+            <div className="min-w-0 leading-none">
+              <p
+                className="text-[11px] uppercase"
+                style={{ color: OTF.bone, opacity: 0.55, letterSpacing: '0.18em' }}
+              >
+                Shift Recap
+              </p>
+              {syncLabel ? (
+                <p className="text-[9px] mt-0.5" style={{ color: OTF.bone, opacity: 0.4 }}>
+                  Synced {syncLabel}
+                </p>
+              ) : (
+                <p className="text-[9px] mt-0.5" style={{ color: OTF.bone, opacity: 0.4 }}>
+                  Tuscaloosa
+                </p>
               )}
-              {!syncLabel && <p className="text-xs opacity-70">Shift Recap</p>}
             </div>
           </div>
-          
-          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-shrink-0">
+
+          {/* Right: controls */}
+          <div className="flex items-center gap-2 flex-shrink-0" style={{ color: OTF.bone }}>
             {pendingQueueCount > 0 && (
-              <Badge variant="outline" className="text-[10px] bg-warning/20 text-warning border-warning/30 gap-1">
+              <span
+                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5"
+                style={{
+                  color: OTF.orange,
+                  border: `1px solid ${OTF.orange}`,
+                }}
+              >
                 <CloudOff className="w-2.5 h-2.5" />
                 {pendingQueueCount}
-              </Badge>
+              </span>
             )}
-            {/* Global Search */}
             <GlobalSearchTrigger onOpen={() => setSearchOpen(true)} />
             <NotificationsBell />
-            <Button
-              variant="ghost"
-              size="icon"
+            <button
               onClick={toggleDark}
-              className="text-background hover:bg-background/10 flex-shrink-0"
+              className={iconBtn}
               title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              style={{ color: OTF.bone }}
             >
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </Button>
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-              <User className="w-4 h-4 flex-shrink-0" />
-              <span className="text-sm font-medium hidden sm:inline truncate">{user.name}</span>
-              <Badge className={roleColors[user.role]} variant="secondary">
+            </button>
+            <div className="flex items-center gap-1.5 min-w-0 pl-1" style={{ borderLeft: `1px solid ${OTF.bone}22` }}>
+              <User className="w-4 h-4 flex-shrink-0" style={{ color: OTF.bone, opacity: 0.7 }} />
+              <span className="text-sm font-semibold hidden sm:inline truncate" style={{ color: OTF.bone }}>
+                {user.name}
+              </span>
+              <span
+                className="text-[9px] uppercase px-1.5 py-0.5"
+                style={{
+                  backgroundColor: OTF.orange,
+                  color: OTF.dark,
+                  fontWeight: 700,
+                  letterSpacing: '0.12em',
+                }}
+              >
                 {user.role}
-              </Badge>
+              </span>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
+            <button
               onClick={logout}
-              className="text-background hover:bg-background/10 flex-shrink-0"
+              className={iconBtn}
+              style={{ color: OTF.bone }}
+              title="Sign out"
             >
               <LogOut className="w-4 h-4" />
-            </Button>
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Full-screen search overlay — rendered outside header to cover full viewport */}
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
   );
 }
-

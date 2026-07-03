@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { canSee, isAdmin as isAdminCheck, type PermissionKey } from '@/lib/auth/roles';
 import { useDarkMode } from '@/hooks/useDarkMode';
+import { OTF, brandFont } from '@/lib/otfBrand';
 
 type NavItem = { path: string; label: string; icon: any; permKey: PermissionKey };
 
@@ -47,14 +48,21 @@ export function BottomNav() {
     })();
   }, [showCoachBadge, user?.name]);
 
-  // Koa always sees Admin (identity-based). Otherwise rely on canSee.
   const visibleItems = ALL_NAV.filter(item => {
     if (item.path === '/admin') return isAdmin;
     return canSee(user, item.permKey);
   });
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb overflow-x-auto md:overflow-visible">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 safe-area-pb overflow-x-auto md:overflow-visible"
+      style={{
+        backgroundColor: OTF.dark,
+        color: OTF.bone,
+        borderTop: `1px solid ${OTF.bone}22`,
+        ...brandFont,
+      }}
+    >
       <div className="flex items-center h-16 min-w-max md:min-w-0 md:w-full">
         {visibleItems.map((item) => {
           const isActive = location.pathname === item.path;
@@ -63,33 +71,51 @@ export function BottomNav() {
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={cn(
-                'flex flex-col items-center justify-center px-3 h-full transition-colors relative min-w-[72px] md:min-w-0 md:flex-1',
-                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-              )}
+              className="flex flex-col items-center justify-center px-3 h-full transition-colors relative min-w-[72px] md:min-w-0 md:flex-1"
+              style={{
+                color: isActive ? OTF.orange : OTF.bone,
+                opacity: isActive ? 1 : 0.6,
+              }}
             >
               <div className="relative">
                 <Icon className={cn('w-5 h-5 mb-0.5', isActive && 'stroke-[2.5px]')} />
                 {item.path === '/admin' && failCount > 0 && (
-                  <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center px-0.5">
+                  <span
+                    className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] text-[9px] font-bold flex items-center justify-center px-0.5"
+                    style={{ backgroundColor: OTF.orange, color: OTF.dark }}
+                  >
                     {failCount > 9 ? '9+' : failCount}
                   </span>
                 )}
                 {item.path === '/my-intros' && coachFollowUpBadge > 0 && (
-                  <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] rounded-full bg-[#E8540A] text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                  <span
+                    className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] text-[9px] font-bold flex items-center justify-center px-0.5"
+                    style={{ backgroundColor: OTF.orange, color: OTF.dark }}
+                  >
                     {coachFollowUpBadge > 9 ? '9+' : coachFollowUpBadge}
                   </span>
                 )}
               </div>
-              <span className={cn('text-[11px] font-medium', isActive && 'font-semibold')}>{item.label}</span>
-              {isActive && <div className="absolute bottom-0 w-10 h-0.5 bg-primary rounded-full" />}
+              <span
+                className="text-[11px]"
+                style={{ fontWeight: isActive ? 700 : 500 }}
+              >
+                {item.label}
+              </span>
+              {isActive && (
+                <div
+                  className="absolute bottom-0 w-10 h-[2px]"
+                  style={{ backgroundColor: OTF.orange }}
+                />
+              )}
             </button>
           );
         })}
         <button
           onClick={toggleDark}
           title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          className="flex flex-col items-center justify-center px-3 h-full text-muted-foreground hover:text-foreground transition-colors min-w-[60px]"
+          className="flex flex-col items-center justify-center px-3 h-full transition-opacity min-w-[60px]"
+          style={{ color: OTF.bone, opacity: 0.6 }}
         >
           {isDark ? <Sun className="w-5 h-5 mb-0.5" /> : <Moon className="w-5 h-5 mb-0.5" />}
           <span className="text-[11px] font-medium">{isDark ? 'Light' : 'Dark'}</span>
