@@ -1323,9 +1323,9 @@ export default function Wig() {
                     </CardTitle>
                     <p className="text-sm text-muted-foreground">
                       <span className="font-semibold text-foreground">How OTF Corporate scores coaches.</span>{' '}
-                      Only <em>first visits</em> count. 2nd/3rd intros don't go in the denominator, and close credit
-                      follows the coach who ran the first visit — so a coach never gets penalized for a 2nd intro they
-                      inherited, and never gets credit for a chain they didn't originate.
+                      <em>Last-coach</em> attribution. Every ran intro (1st, 2nd, 3rd…) counts in the denominator,
+                      and close credit follows the coach who ran the class the member converted from — so the coach
+                      who actually closed the deal gets the credit, not the coach who ran the original intro.
                     </p>
                   </CardHeader>
                   <CardContent className="p-0">
