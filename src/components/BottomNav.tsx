@@ -1,12 +1,9 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { GitBranch, Home, Settings, Eye, Trophy, UserCheck, BarChart3, Star, Flag, Sun, Moon } from 'lucide-react';
+import { GitBranch, Home, Settings, Eye, Trophy, BarChart3, Star, Flag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useDataAudit } from '@/hooks/useDataAudit';
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { canSee, isAdmin as isAdminCheck, type PermissionKey } from '@/lib/auth/roles';
-import { useDarkMode } from '@/hooks/useDarkMode';
 import { OTF, Theme, brandFont } from '@/lib/otfBrand';
 
 type NavItem = { path: string; label: string; icon: any; permKey: PermissionKey };
@@ -18,7 +15,6 @@ const ALL_NAV: NavItem[] = [
   { path: '/wig',        label: 'WIG',             icon: Trophy,     permKey: 'nav.wig' },
   { path: '/the-table',  label: 'Own It',          icon: Flag,       permKey: 'nav.own_it' },
   { path: '/vips',       label: 'VIPs',            icon: Star,       permKey: 'nav.vips' },
-  { path: '/my-intros',  label: 'Text My Intros',  icon: UserCheck,  permKey: 'nav.my_intros' },
   { path: '/pipeline',   label: 'Pipeline',        icon: GitBranch,  permKey: 'nav.pipeline' },
   { path: '/admin',      label: 'Admin',           icon: Settings,   permKey: 'nav.admin' },
 ];
@@ -29,24 +25,6 @@ export function BottomNav() {
   const { user } = useAuth();
   const isAdmin = isAdminCheck(user);
   const { failCount } = useDataAudit(isAdmin);
-  const { isDark, toggle: toggleDark } = useDarkMode();
-  const [coachFollowUpBadge, setCoachFollowUpBadge] = useState(0);
-
-  const showCoachBadge = canSee(user, 'nav.my_intros') && user?.role !== 'SA';
-
-  useEffect(() => {
-    if (!showCoachBadge || !user?.name) return;
-    (async () => {
-      const { count } = await (supabase
-        .from('follow_up_queue')
-        .select('id', { count: 'exact', head: true }) as any)
-        .eq('owner_role', 'Coach')
-        .eq('coach_owner', user.name)
-        .is('not_interested_at', null)
-        .is('transferred_to_sa_at', null);
-      setCoachFollowUpBadge(count || 0);
-    })();
-  }, [showCoachBadge, user?.name]);
 
   const visibleItems = ALL_NAV.filter(item => {
     if (item.path === '/admin') return isAdmin;
@@ -87,14 +65,6 @@ export function BottomNav() {
                     {failCount > 9 ? '9+' : failCount}
                   </span>
                 )}
-                {item.path === '/my-intros' && coachFollowUpBadge > 0 && (
-                  <span
-                    className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] text-[9px] font-bold flex items-center justify-center px-0.5"
-                    style={{ backgroundColor: OTF.orange, color: OTF.dark }}
-                  >
-                    {coachFollowUpBadge > 9 ? '9+' : coachFollowUpBadge}
-                  </span>
-                )}
               </div>
               <span
                 className="text-[11px]"
@@ -111,15 +81,6 @@ export function BottomNav() {
             </button>
           );
         })}
-        <button
-          onClick={toggleDark}
-          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          className="flex flex-col items-center justify-center px-3 h-full transition-opacity min-w-[60px]"
-          style={{ color: OTF.bone, opacity: 0.6 }}
-        >
-          {isDark ? <Sun className="w-5 h-5 mb-0.5" /> : <Moon className="w-5 h-5 mb-0.5" />}
-          <span className="text-[11px] font-medium">{isDark ? 'Light' : 'Dark'}</span>
-        </button>
       </div>
     </nav>
   );
