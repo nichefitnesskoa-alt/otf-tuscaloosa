@@ -321,7 +321,7 @@ export default function OutreachListDetail() {
             </div>
           </div>
 
-          {/* Search + sort toolbar */}
+          {/* Search + clear-filters toolbar */}
           <div className="mb-3 flex items-center gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[200px] max-w-md">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -341,19 +341,13 @@ export default function OutreachListDetail() {
                 </button>
               )}
             </div>
-            <Select value={sortKey} onValueChange={v => setSortKey(v as SortKey)}>
-              <SelectTrigger className="h-8 w-[190px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Sort: Churning first</SelectItem>
-                <SelectItem value="name">Sort: Name (A→Z)</SelectItem>
-                <SelectItem value="amount">Sort: Amount (high→low)</SelectItem>
-                <SelectItem value="last_30d">Sort: 30d workouts (high→low)</SelectItem>
-                <SelectItem value="latest">Sort: Latest workout (recent→old)</SelectItem>
-                <SelectItem value="churn">Sort: Churn date (soonest)</SelectItem>
-              </SelectContent>
-            </Select>
+            {(activeFilterCount > 0 || sort || search) && (
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={clearAll}>
+                <X className="w-3.5 h-3.5 mr-1" /> Clear filters & sort
+                {activeFilterCount > 0 && <span className="ml-1 text-muted-foreground">({activeFilterCount})</span>}
+              </Button>
+            )}
+            <span className="text-[10px] text-muted-foreground">Click a column header to sort. Use the filter icon to filter that column.</span>
           </div>
 
           {/* Desktop / tablet: spreadsheet table */}
@@ -362,19 +356,20 @@ export default function OutreachListDetail() {
               <thead className="bg-muted/60 text-[10px] uppercase tracking-wide text-muted-foreground sticky top-0 z-10">
                 <tr>
                   <th className="text-left px-2 py-2 w-8"></th>
-                  <th className="text-left px-2 py-2 min-w-[160px]">Name</th>
-                  <th className="text-left px-2 py-2 min-w-[200px]">Item</th>
-                  <th className="text-right px-2 py-2 w-[80px]">Amount</th>
-                  <th className="text-left px-2 py-2 w-[130px]">Phone</th>
-                  <th className="text-right px-2 py-2 w-[70px]">30d</th>
-                  <th className="text-left px-2 py-2 w-[80px]">Latest</th>
-                  <th className="text-left px-2 py-2 w-[90px]">Churns</th>
-                  <th className="text-center px-2 py-2 w-[55px]">Text</th>
-                  <th className="text-center px-2 py-2 w-[60px]">In-Per</th>
-                  <th className="text-center px-2 py-2 w-[55px]">Not Int</th>
+                  <ColHeader col="name" label="Name" align="left" className="min-w-[160px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="item" label="Item" align="left" className="min-w-[200px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="amount" label="Amount" align="right" className="w-[90px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="phone" label="Phone" align="left" className="w-[130px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="last_30d" label="30d" align="right" className="w-[80px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="latest" label="Latest" align="left" className="w-[90px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="churns" label="Churns" align="left" className="w-[100px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="texted" label="Text" align="center" className="w-[65px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="in_person" label="In-Per" align="center" className="w-[70px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="not_interested" label="Not Int" align="center" className="w-[70px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
                   <th className="text-right px-2 py-2 w-[240px]">Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {filteredSorted.map((r, idx) => {
                   const rowActions = actions.filter(a => a.row_id === r.id);
