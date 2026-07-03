@@ -14,6 +14,11 @@ export default {
     },
     extend: {
       colors: {
+        'otf-orange': '#FF6F0D',
+        'otf-bone': '#FDF7EA',
+        'otf-dark': '#0A0A0A',
+        'otf-gray': '#D7D7D7',
+        'otf-blue': '#1DD0FD',
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
