@@ -583,29 +583,35 @@ export function PrepDrawer({
         </ScrollArea>
 
         {/* ══════════ PRINT LAYOUT — full-page 2-question sheet ══════════ */}
-        {(() => {
+        {/* Rendered via body-level portal so the print CSS in index.css that
+            hides every non-print-card body child actually reveals it.
+            Rendering inside the Sheet portal would keep it wrapped in a hidden
+            radix wrapper. Only mount when the drawer is open. */}
+      </SheetContent>
+      {open && createPortal(
+        (() => {
           const answerStyle = { fontSize: '18px', lineHeight: 1.6, color: '#111', whiteSpace: 'pre-wrap' as const };
           const blankLines = (
             <div style={{ marginTop: '8mm' }}>
               {Array.from({ length: 8 }).map((_, i) => (
-                <div
-                  key={i}
-                  style={{ borderBottom: '1px solid #333', height: '10mm' }}
-                />
+                <div key={i} style={{ borderBottom: '1px solid #333', height: '10mm' }} />
               ))}
             </div>
           );
-
           return (
             <div
+              id="print-card-root"
               data-print-card
-              className="hidden print:block fixed inset-0 bg-white text-black"
+              className="hidden print:block"
               style={{
-                zIndex: 9999,
+                position: 'fixed',
+                inset: 0,
+                background: 'white',
+                color: '#111',
+                zIndex: 99999,
                 fontFamily: 'Arial, Helvetica, sans-serif',
                 minHeight: '100vh',
                 padding: '15mm 18mm',
-                color: '#111',
               }}
             >
               {/* Header */}
@@ -615,35 +621,26 @@ export function PrepDrawer({
                   {classDate}{classTime ? ` @ ${classTime.substring(0, 5)}` : ''}{coachName ? `  ·  Coach: ${coachName}` : ''}
                 </div>
               </div>
-
-              {/* Q1 — What a 5/5 looks like */}
+              {/* Q1 */}
               <div style={{ marginBottom: '15mm' }}>
                 <div style={{ fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5mm' }}>
                   What would a 5/5 fitness level look like for you?
                 </div>
-                {goal ? (
-                  <div style={answerStyle}>{goal}</div>
-                ) : (
-                  blankLines
-                )}
+                {goal ? <div style={answerStyle}>{goal}</div> : blankLines}
               </div>
-
-              {/* Q2 — What's been holding you back */}
+              {/* Q2 */}
               <div>
                 <div style={{ fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5mm' }}>
                   What's been holding you back?
                 </div>
-                {obstacle ? (
-                  <div style={answerStyle}>{obstacle}</div>
-                ) : (
-                  blankLines
-                )}
+                {obstacle ? <div style={answerStyle}>{obstacle}</div> : blankLines}
               </div>
             </div>
           );
-        })()}
+        })(),
+        document.body,
+      )}
 
-      </SheetContent>
 
       <LinkQuestionnaireDialog
         open={linkQOpen}
