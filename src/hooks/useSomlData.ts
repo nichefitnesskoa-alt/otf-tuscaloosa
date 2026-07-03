@@ -63,7 +63,8 @@ function norm(s: string | null | undefined): string {
 export function useSomlData(): SomlData {
   const [config, setConfig] = useState<SomlConfig | null>(null);
   const [rows, setRows] = useState<SomlSaRow[]>([]);
-  const [totals, setTotals] = useState({ referrals: 0, upgrades: 0, sales: 0 });
+  const [totals, setTotals] = useState({ referrals: 0, upgrades: 0, sales: 0, pending: 0 });
+  const [pendingReferrals, setPendingReferrals] = useState<PendingReferralRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
@@ -77,7 +78,7 @@ export function useSomlData(): SomlData {
       .maybeSingle();
     const cfg = (cfgRow as unknown as SomlConfig | null) || null;
     setConfig(cfg);
-    if (!cfg) { setRows([]); setTotals({ referrals: 0, upgrades: 0, sales: 0 }); setLoading(false); return; }
+    if (!cfg) { setRows([]); setPendingReferrals([]); setTotals({ referrals: 0, upgrades: 0, sales: 0, pending: 0 }); setLoading(false); return; }
 
     const start = cfg.start_date;
     const end = cfg.end_date;
