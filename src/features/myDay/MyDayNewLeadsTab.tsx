@@ -596,9 +596,8 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
     'location-name': 'Tuscaloosa',
   } : {};
 
-  const newLeads = leads.filter(l => l.stage === 'new');
-  const bookedLeads = leads.filter(l => l.stage === 'booked' || l.stage === 'won');
-  // Contacted = anyone past New (includes booked/won). New leads live in NewLeadsAlert.
+  const nonContactedLeads = leads.filter(l => l.stage === 'new');
+  // Contacted = anyone past New (includes booked/won).
   const contactedLeads = leads.filter(l =>
     l.stage === 'contacted' || l.stage === 'booked' || l.stage === 'won'
   );
@@ -635,25 +634,26 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
     );
   };
 
-  const activeList = subTab === 'booked' ? bookedLeads : contactedLeads;
+  const activeList = subTab === 'non_contacted' ? nonContactedLeads : contactedLeads;
   const matchCount = filterBySearch(activeList).length;
+  const activeLabel = subTab === 'non_contacted' ? 'Non-Contacted' : 'Contacted';
 
   return (
     <div className="space-y-3">
       <SpeedToLeadBanner leads={leads} />
       <Tabs value={subTab} onValueChange={setSubTab}>
         <TabsList className="w-full flex h-auto gap-0.5 bg-muted/60 p-0.5 rounded-lg flex-wrap">
+          <TabsTrigger value="non_contacted" className="flex-1 text-[10px] py-1.5 flex items-center gap-1 justify-center rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+            Non-Contacted
+            {nonContactedLeads.length > 0 && <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[16px]">{nonContactedLeads.length}</Badge>}
+          </TabsTrigger>
           <TabsTrigger value="contacted" className="flex-1 text-[10px] py-1.5 flex items-center gap-1 justify-center rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
             Contacted
             {contactedLeads.length > 0 && <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[16px]">{contactedLeads.length}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="booked" className="flex-1 text-[10px] py-1.5 flex items-center gap-1 justify-center rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-            Booked
-            {bookedLeads.length > 0 && <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[16px]">{bookedLeads.length}</Badge>}
-          </TabsTrigger>
         </TabsList>
 
-        {/* Search bar — sits directly under the Contacted/Booked tab row, filters whichever tab is active */}
+        {/* Search bar — filters whichever tab is active */}
         <div className="mt-2 relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
           <Input
@@ -675,15 +675,18 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
         </div>
         {search.trim() && (
           <p className="text-[11px] text-muted-foreground mt-1 px-1">
-            {matchCount} match{matchCount === 1 ? '' : 'es'} in {subTab === 'booked' ? 'Booked' : 'Contacted'}
+            {matchCount} match{matchCount === 1 ? '' : 'es'} in {activeLabel}
           </p>
         )}
 
+        <TabsContent value="non_contacted" className="mt-2">
+          {renderList([...nonContactedLeads].sort((a, b) => b.created_at.localeCompare(a.created_at)), 'non-contacted')}
+        </TabsContent>
         <TabsContent value="contacted" className="mt-2">
           {renderList([...contactedLeads].sort((a, b) => b.created_at.localeCompare(a.created_at)), 'contacted')}
         </TabsContent>
-        <TabsContent value="booked" className="mt-2">{renderList(bookedLeads, 'booked')}</TabsContent>
       </Tabs>
+
 
       {bookLead && (
         <BookIntroDialog
