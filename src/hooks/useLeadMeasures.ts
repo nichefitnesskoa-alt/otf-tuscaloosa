@@ -153,7 +153,7 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           entry.followUpPeople.push({
             id: t.id,
             name,
-            subtitle: `${t.contact_method || 'touch'} · ${new Date(t.created_at).toLocaleDateString()}`,
+            subtitle: `${t.channel || 'touch'} · ${new Date(t.created_at).toLocaleDateString()}`,
           });
         }
       });
