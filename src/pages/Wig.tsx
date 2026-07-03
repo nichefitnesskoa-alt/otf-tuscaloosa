@@ -702,15 +702,12 @@ export default function Wig() {
           const root = (await resolveRoot(r.linked_intro_booked_id)) || linked;
           if (isBookingExcludedFromMetrics(root)) continue;
 
-          // Internal · Total Journey only credits coaches whose ROOT first
-          // intro was in the current window. If the root class is outside
-          // the window (e.g. sale in July but first intro in June), skip —
-          // the root coach's Coached/Close for this member belongs to the
-          // window that contained the first intro, not this one.
-          if (!root.class_date || root.class_date < rangeStart || root.class_date > rangeEnd) continue;
-
-          // Coach = root first intro's coach with VIP override (Total Journey),
-          // falling back to the sale run's coach if the root has none.
+          // Internal · Total Journey CLOSE credit follows the buy_date window,
+          // not the root class_date. If a member's first intro was in a prior
+          // window but they bought in this window, the root coach still gets
+          // the Close in this window. Coached (denominator) stays anchored to
+          // class_date, so a cross-period sale can produce Closes > Coached
+          // for that coach in this window — that's correct.
           const cName = resolveCloseCoach(root, root.coach_name || r.coach_name) || r.coach_name;
           if (!cName) continue;
 
