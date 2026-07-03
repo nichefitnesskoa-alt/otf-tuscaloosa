@@ -16,6 +16,8 @@ import { cn, generateSlug } from '@/lib/utils';
 import type { UpcomingIntroItem } from './myDayTypes';
 import { OutcomeDrawer } from '@/components/myday/OutcomeDrawer';
 import { StatusBanner } from '@/components/shared/StatusBanner';
+import { TbdCoachAlert } from '@/components/shared/TbdCoachAlert';
+
 import IntroCard from '@/components/shared/IntroCard';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { LeadSourceTag } from '@/components/dashboard/IntroTypeBadge';
