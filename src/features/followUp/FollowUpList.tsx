@@ -412,7 +412,9 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
               })()}
             </span>
           )}
+          <ObjectionChip objection={item.primaryObjection} />
         </div>
+
 
         {/* Line 2: Date · Coach · Phone */}
         <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground">
