@@ -245,15 +245,21 @@ export default function BookIntro() {
 
       // Insert/link lead (dedup on phone — if a lead already exists we just link it)
       const existingLead = (existingLeads || [])[0] as any;
+      let leadIdForLog: string | null = null;
       if (existingLead) {
-        await supabase.from('leads').update({
+        // Never overwrite the original SA credit on a pre-existing lead.
+        const leadUpdate: any = {
           booked_intro_id: newBookingId,
           stage: 'booked',
-          source: ctx.source,
-          sourced_by_sa: ctx.sa,
-        }).eq('id', existingLead.id);
+        };
+        const existingSa = (existingLead.sourced_by_sa || '').trim();
+        const existingSrc = (existingLead.source || '').trim();
+        if (!existingSa) leadUpdate.sourced_by_sa = ctx.sa;
+        if (!existingSrc) leadUpdate.source = ctx.source;
+        await supabase.from('leads').update(leadUpdate).eq('id', existingLead.id);
+        leadIdForLog = existingLead.id;
       } else {
-        await supabase.from('leads').insert({
+        const { data: newLead } = await supabase.from('leads').insert({
           first_name: info.firstName.trim(),
           last_name: info.lastName.trim(),
           phone: phone10,
@@ -262,8 +268,10 @@ export default function BookIntro() {
           stage: 'booked',
           sourced_by_sa: ctx.sa,
           booked_intro_id: newBookingId,
-        } as any);
+        } as any).select('id').maybeSingle();
+        leadIdForLog = (newLead as any)?.id || null;
       }
+      console.info('[IntroLink] credited SA=%s source=%s booking=%s lead=%s', ctx.sa, ctx.source, newBookingId, leadIdForLog);
 
       // Questionnaire slug: DB trigger auto_create_questionnaire fires — we just look it up
       // for immediate handoff. Fall back to generating one if the trigger raced us.
