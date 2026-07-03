@@ -20,7 +20,7 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
-import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
+import { useEffectiveAdmin } from '@/hooks/useViewAsAdmin';
 import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/pace';
 import { getNowCentral } from '@/lib/dateUtils';
 import { useSomlData, notifySomlChanged, type SomlConfig } from '@/hooks/useSomlData';
@@ -222,7 +222,7 @@ function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
 
 export function SomlSection() {
   const { user } = useAuth();
-  const isAdmin = isAdminCheck(user);
+  const isAdmin = useEffectiveAdmin();
   const { salesAssociates: activeSas } = useActiveStaff();
   const { config, totals, rows, refetch } = useSomlData();
 

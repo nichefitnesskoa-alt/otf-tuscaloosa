@@ -1,4 +1,5 @@
-import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
+import { useEffectiveAdmin } from '@/hooks/useViewAsAdmin';
+import { AdminViewToggle } from '@/components/shared/AdminViewToggle';
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -58,7 +59,7 @@ function shiftDate(ymd: string, days: number): string {
 
 export default function TheTable() {
   const { user } = useAuth();
-  const isAdmin = isAdminCheck(user);
+  const isAdmin = useEffectiveAdmin();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { meetingId: paramMeetingId } = useParams<{ meetingId?: string }>();
@@ -155,6 +156,7 @@ export default function TheTable() {
   // ---------- Header ----------
   const header = (
     <div className="mb-4">
+      <div className="flex justify-end mb-2"><AdminViewToggle /></div>
       <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">

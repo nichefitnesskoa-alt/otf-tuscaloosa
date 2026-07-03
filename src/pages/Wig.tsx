@@ -32,7 +32,8 @@ import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
 import { notifyDataChanged } from '@/lib/data/invalidation';
 import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/pace';
 import { loadMonthlyTargets, saveMonthlyTarget, type MonthlyTargets } from '@/lib/wig/targets';
-import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
+import { useEffectiveAdmin } from '@/hooks/useViewAsAdmin';
+import { AdminViewToggle } from '@/components/shared/AdminViewToggle';
 
 export default function Wig() {
   const { user } = useAuth();
@@ -82,7 +83,7 @@ export default function Wig() {
   const [closeTargetInput, setCloseTargetInput] = useState<string>('');
   const [studioTargetSaved, setStudioTargetSaved] = useState(false);
   const [closeTargetSaved, setCloseTargetSaved] = useState(false);
-  const isAdmin = isAdminCheck(user);
+  const isAdmin = useEffectiveAdmin();
 
   const targetMonthYM = useMemo(() => {
     return dateRange ? format(dateRange.start, 'yyyy-MM') : format(getNowCentral(), 'yyyy-MM');
@@ -1012,6 +1013,7 @@ export default function Wig() {
 
   return (
     <div className="p-4 space-y-4">
+      <div className="flex justify-end -mb-2"><AdminViewToggle /></div>
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-2xl font-black flex items-center gap-2">
