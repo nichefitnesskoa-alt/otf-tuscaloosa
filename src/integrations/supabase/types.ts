@@ -3421,6 +3421,99 @@ export type Database = {
         }
         Relationships: []
       }
+      soml_config: {
+        Row: {
+          end_date: string
+          id: number
+          referrals_goal: number
+          sales_goal: number
+          start_date: string
+          updated_at: string
+          updated_by: string | null
+          upgrades_goal: number
+        }
+        Insert: {
+          end_date: string
+          id?: number
+          referrals_goal?: number
+          sales_goal?: number
+          start_date: string
+          updated_at?: string
+          updated_by?: string | null
+          upgrades_goal?: number
+        }
+        Update: {
+          end_date?: string
+          id?: number
+          referrals_goal?: number
+          sales_goal?: number
+          start_date?: string
+          updated_at?: string
+          updated_by?: string | null
+          upgrades_goal?: number
+        }
+        Relationships: []
+      }
+      soml_manual_referrals: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          member_name: string
+          notes: string | null
+          referred_at: string
+          referred_by: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          member_name: string
+          notes?: string | null
+          referred_at?: string
+          referred_by: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          member_name?: string
+          notes?: string | null
+          referred_at?: string
+          referred_by?: string
+        }
+        Relationships: []
+      }
+      soml_upgrades: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          member_name: string
+          notes: string | null
+          upgraded_at: string
+          upgraded_by: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          member_name: string
+          notes?: string | null
+          upgraded_at?: string
+          upgraded_by: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          member_name?: string
+          notes?: string | null
+          upgraded_at?: string
+          upgraded_by?: string
+        }
+        Relationships: []
+      }
       staff: {
         Row: {
           created_at: string
