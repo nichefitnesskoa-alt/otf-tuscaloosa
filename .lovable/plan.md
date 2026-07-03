@@ -1,115 +1,81 @@
-# Summer of More Life — Diagnose Report + Build Plan
+# Net Gain automation + admin-only goal editing
 
-## DIAGNOSE (as requested, before building)
+## 1. Admin-only editing (Koa only)
 
-### 1. Canonical pace + leaderboard patterns to reuse
+Every "set a goal / change the number" control gets gated behind `useEffectiveAdmin()` (which already respects the Admin ↔ Staff view toggle on WIG). Non-admins see numbers, never inputs.
 
-- **Pace helper**: `paceToToday(monthlyTarget, on)` in `src/lib/wig/pace.ts`. Also exports `statusColor` (R/Y/G), `statusClasses`, `formatPace`. This is what Leads hero + `WigSaLeaderboard` already use.
-- **Hero tile pattern**: `src/pages/Wig.tsx` renders the Leads hero with `paceToToday(monthlyGoal)` + `statusColor(actual, pace)` + "X today" subline.
-- **Flat monthly ÷ active SA count**: `monthlyGoal / useActiveStaff().salesAssociates.length` — the per-SA target used in `WigSaLeaderboard`.
-- **Editable goal**: pencil icon on the hero tile writes to `studio_settings` (key/value). Same pattern will store SOML goals.
+**Net Gain scoreboard**
+- +1 / −1 / edit exact value / upload churns / manage churns → all admin-only
+- History dialog stays visible to everyone (read-only audit)
 
-### 2. Lead source for referrals
+**SOML section (WIG)**
+- Goal pencils, window edit, Log Upgrade, Log Referral → already admin, keep it that way and verify the pencil actually persists (uses the `useEffectiveAdmin` hook already)
+- **New**: per-SA override pencil next to each cell in the SA leaderboard (Referrals / Upgrades / Sales). Admin-only. Null override = use flat "goal ÷ SA count" default.
 
-- Canonical values in `src/types/index.ts`: `"Member Referral"` and `"Member Referral (5 class pack)"`.
-- Referring-member field **already exists**: `intros_booked.referred_by_member_name` (nullable text). Used in `useDashboardMetrics`, `useLeadMeasures`, `Wig.tsx`, and `applyIntroOutcomeUpdate.ts` (auto-detects referral purchase).
-- Captured in `IntroBookingEntry` / `EditBookingDialog` — currently **not required** when lead_source is Member Referral. This is the app-wide data-integrity fix.
+**WIG SA leaderboard**
+- Team lead goal + per-SA lead-goal overrides → already admin-gated in code; audit and confirm nothing leaks to non-admins.
 
-### 3. Sale detection reuse
+**WIG studio leads target + coach close target**
+- Already admin-gated. Verified.
 
-- `isSaleCanon(result_canon)` + `getRunSaleDate(run)` from `src/lib/sales-detection.ts` — already date-range filterable via `isSaleInRange`. SOML Sales tile = same helper, window = `soml_config.start_date..end_date`. No new sale logic.
+## 2. Net Gain visual redesign
 
-### 4. Booker vs closer (referral credit)
+Full-width card at the top of My Day, Studio, WIG. One giant number — the whole card mood shifts with the value:
+- Positive → deep green background, white number, up arrow
+- Negative → deep red background, white number, down arrow
+- Zero → neutral bone card
 
-- `intros_booked.booked_by` = SA who created the booking → **this is who gets referral credit** per Alex's intent.
-- `intros_booked.intro_owner` = commission owner (may differ, e.g. self-booked or reassigned).
-- `intros_run.sa_name` = closer.
-- Referral credit → **booked_by** (falls back to intro_owner only if booked_by is null/"Self booked").
+The number renders at ~text-6xl bold tabular. Sits above a small secondary line: "Need +N more net sales to be positive by MMM DD" (see §3). Admin controls collapse into a compact toolbar on the right.
 
-### 5. WIG page layout
+## 3. Auto Net Gain automation
 
-- `src/pages/Wig.tsx` composes stacked sections. The Leads scoreboard is one block (hero card + `WigSaLeaderboard`). SOML mounts as a **sibling block** below Leads, its own `<section>` with a distinct header ("Summer of More Life"), same card/tile styling but visually separated (divider + section title). Zero edits to the Leads block.
+**New tables**
+- `net_gain_churns` — planned churn list. Fields: `member_name`, `churn_date`, `notes`, `applied_at`, `upload_batch_id`, `created_by`. Applied when `churn_date` has passed CST midnight; each applied churn writes a −1 entry to `net_gain_log` tagged with the churn id (idempotent).
+- Extend `net_gain_log` with `source_type` (`manual` / `sale` / `churn`) and `source_id`. Unique partial index on (`source_type`, `source_id`) for non-manual rows so nothing double-counts.
 
----
+**Auto-add on every sale**
+- Postgres trigger on `intros_run` INSERT/UPDATE. When the row becomes a sale (`result_canon` in the canonical SALE set), insert a +1 log row with `source_type='sale'`, `source_id=intros_run.id` and bump `net_gain_state`. Reversal handled if a sale row is later flipped to non-sale.
+- Same trigger pattern for `sales_outside_intro` inserts (outside-intro membership sales).
 
-## BUILD PLAN
+**Auto-subtract the day after a churn**
+- A SQL function `apply_pending_net_gain_churns()` walks `net_gain_churns` where `churn_date < today CST` and `applied_at IS NULL`, writes a −1 log row per churn tagged with the churn id, bumps `net_gain_state`, and stamps `applied_at`. The Net Gain scoreboard calls this RPC on mount so any user opening the page picks up yesterday's churns — no cron required.
 
-### Part 1 — Require `referred_by_member_name` when lead_source = Member Referral (app-wide)
+**Spreadsheet upload (admin-only)**
+- New "Upload Churns" button on the Net Gain card. Accepts `.csv`, `.xlsx`, `.xls`. Parses columns `Name` and `Churn Date` (accepts common date formats — normalized to `YYYY-MM-DD` in CST). Preview grid shows the parsed rows and flags any obvious dupes against existing churns. Confirm → bulk insert with a shared `upload_batch_id`.
+- Adds `xlsx` (SheetJS) as a dependency for parsing.
 
-- **Client**: `IntroBookingEntry.tsx` + `EditBookingDialog.tsx` — when lead_source is either Member Referral value, mark field required, block Save with inline error.
-- **Server**: DB trigger `enforce_member_referral_has_referrer` on `intros_booked` (BEFORE INSERT/UPDATE) — raise if lead_source in the two values and `referred_by_member_name` is null/blank.
-- **Historical gap report**: run `SELECT count(*) FROM intros_booked WHERE lead_source IN ('Member Referral','Member Referral (5 class pack)') AND (referred_by_member_name IS NULL OR btrim(referred_by_member_name)='') AND deleted_at IS NULL` and report count. No backfill.
+**"Manage Churns" dialog (admin-only)**
+- Table of all this-month + next-month churns. Columns: Name, Churn Date, Status (Pending / Applied MMM D), row actions: edit, delete. Deleting an already-applied churn reverses its −1.
 
-### Part 2 — Data model (new tables only)
+**End-of-month goal line**
+- Under the giant number: "Need +N more net sales by MMM DD to be positive."
+- Formula: `N = max(0, pending_churns_in_month − current_net_gain)`. Recomputes live as churns get applied and sales roll in.
 
-Migration adds:
+## 4. Cross-page coherence
+All three mount points (My Day, Studio, WIG) render the same `NetGainScoreboard` and subscribe to the same `otf:netGainChanged` event, so upload/edit/auto-apply on one tab updates the others without refresh. Trigger-driven sales and churn RPC also fire the same invalidation via Realtime on `net_gain_state`.
 
-`**soml_config**` (singleton row, id=1):
+## Technical section
 
-- `start_date date`, `end_date date` (CST window)
-- `referrals_goal int`, `upgrades_goal int`, `sales_goal int` (monthly EOM)
-- `updated_at`, `updated_by`
-- GRANTs: `authenticated` read/write, `service_role` all. RLS: authenticated staff read+update.
+### Migrations
+- `ALTER TABLE public.net_gain_log ADD COLUMN source_type text NOT NULL DEFAULT 'manual', ADD COLUMN source_id text;`
+- `CREATE UNIQUE INDEX net_gain_log_source_unique ON public.net_gain_log(source_type, source_id) WHERE source_type <> 'manual';`
+- `CREATE TABLE public.net_gain_churns (id uuid pk, member_name text, churn_date date, notes text, applied_at timestamptz, upload_batch_id uuid, created_by text, created_at timestamptz);` + public RLS matching other app tables.
+- `CREATE TABLE public.soml_sa_goals (id uuid pk, sa_name text unique, referrals_goal int, upgrades_goal int, sales_goal int, updated_by, updated_at);` + public RLS.
+- Function `public.apply_pending_net_gain_churns()` — loops eligible churns, inserts log rows (idempotent via source_id), updates `net_gain_state`, returns `{applied: n}`.
+- Function `public.net_gain_apply_sale_delta()` — insert/update/delete trigger body for `intros_run` and `sales_outside_intro`; uses `source_type='sale'` + `source_id=row.id`.
+- Triggers wiring those functions.
 
-`**soml_upgrades**` (manual log):
+### Frontend files
+- `src/components/shared/NetGainScoreboard.tsx` — redesign, admin-gated controls, call `apply_pending_net_gain_churns` RPC on mount, show end-of-month goal line.
+- `src/components/shared/ChurnUploadDialog.tsx` — file picker, xlsx/csv parse, preview, confirm.
+- `src/components/shared/ChurnManageDialog.tsx` — list, edit, delete churns.
+- `src/hooks/useNetGainSummary.ts` — pulls state + pending-churn count + month goal calc, subscribes to event bus.
+- `src/features/wig/soml/SomlSection.tsx` — per-SA override pencils; overrides table read from `soml_sa_goals`.
+- `bun add xlsx`
 
-- `member_name text not null`, `upgraded_by text not null` (SA login name), `upgraded_at timestamptz default now()`, `notes text`, `created_by text`
-- GRANTs + RLS: authenticated insert/select; admin update/delete.
+### Files audited for admin-gating
+- `NetGainScoreboard.tsx`, `SomlSection.tsx`, `Wig.tsx` (studio/close/leads targets, per-SA lead overrides), `WigSaLeaderboard.tsx`.
 
-`**soml_manual_referrals**` (backup manual entries — additive):
-
-- Same shape: `member_name`, `referred_by text` (SA), `referred_at timestamptz`, `notes`, `created_by`
-- Dedup rule in hook: exclude a manual row if an automatic qualifying row exists for the same member_name (case-insensitive) within window.
-
-**No new referral or sales table** — automatic paths use existing data.
-
-### Part 3 — SOML section on WIG page
-
-New files:
-
-- `src/hooks/useSomlData.ts` — reads `soml_config`, computes:
-  - **Automatic referrals**: `intros_booked` where `lead_source ILIKE 'Member Referral%'` joined to `intros_run` where `isSaleCanon(result_canon)` and `getRunSaleDate` within SOML window → credit `booked_by`.
-  - **Manual referrals**: `soml_manual_referrals` in window, dedup by member_name against automatic.
-  - **Upgrades**: `soml_upgrades` in window, grouped by `upgraded_by`.
-  - **Sales**: same as WIG sales (`useSaSales` pattern) filtered to SOML window.
-- `src/features/wig/soml/SomlSection.tsx` — main section: header "Summer of More Life", 3 hero tiles, 2 log buttons, SA leaderboard.
-- `src/features/wig/soml/SomlHeroTile.tsx` — reuses `paceToToday`/`statusColor`/`statusClasses`; edit pencil for admin opens dialog to update the specific goal in `soml_config`.
-- `src/features/wig/soml/SomlLeaderboard.tsx` — table: SA | Referrals | Upgrades | Sales — each cell shows count + mini pace bar vs per-SA target (`goal / activeSaCount`).
-- `src/features/wig/soml/LogUpgradeDialog.tsx` + `LogManualReferralDialog.tsx` — member_name + notes, attributed to logged-in SA, invalidates SOML queries.
-- `src/features/wig/soml/SomlConfigDialog.tsx` — admin edit window dates.
-
-Mount inside `src/pages/Wig.tsx` as a separate `<section>` after the Leads block. Zero changes to Leads composition.
-
-### Scope guards enforced
-
-- Leads scoreboard code, queries, targets untouched.
-- No new date/sale/attribution logic — only reuses existing helpers.
-- Only app-wide data change = required `referred_by_member_name` when lead_source is Member Referral.
-
-### Verification (before "done")
-
-- SQL: `SELECT * FROM soml_config`; count automatic vs manual referrals; sales in window; upgrades in window.
-- UI: WIG page shows Leads block unchanged + SOML block below.
-- Create Member Referral booking without referrer → save blocked (client + server).
-- Mark as sale in window → SOML Referrals +1 credited to booker, SOML Sales +1.
-- Log upgrade → tile + leaderboard row updates.
-- Log manual referral for same member as an automatic one → suppressed.
-- Edit SOML goal → hero, per-SA target, pace all recompute.
-
----
-
-## Questions before I execute
-
-1. **SOML window default**: I'll seed `start_date = today`, `end_date = 2026-08-31`. Confirm or give exact dates.
-2. **Default monthly goals**: I'll seed all three to `0` and let Koa set them via the pencil. OK?
-3. **Log Upgrade / Manual Referral buttons**: visible to SAs + Admin (same as "Add Lead"), yes?
-
-Reply "go" with any answer overrides and I'll build the whole thing in one pass ending with the COHERENCE PROOF block.
-
-&nbsp;
-
-1. SOML window is all of July
-2. Ok
-3. Yes
-
-&nbsp;
+### Coherence proof I'll produce at the end
+- `net_gain_state.value` matches sum of all `net_gain_log.delta`.
+- One synthetic churn dated yesterday, one intros_run flipped to a sale canon, one manual +1 — verify all three land in `net_gain_log` with correct `source_type`, `net_gain_state.value` moves accordingly, and My Day + Studio + WIG all show the same number.
