@@ -19,7 +19,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { AlertTriangle, ArrowLeft, Check, Plus, Sparkles, ShieldAlert, Search, Trash2, X } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { AlertTriangle, ArrowLeft, ArrowUp, ArrowDown, ArrowUpDown, Check, Filter, Plus, Sparkles, ShieldAlert, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,7 +30,39 @@ import { useOutreachListDetail, OutreachRow, OutreachAction } from '@/features/o
 import { LogSomlDialog } from '@/features/soml/LogSomlDialog';
 import { cn } from '@/lib/utils';
 
-type SortKey = 'default' | 'name' | 'amount' | 'last_30d' | 'latest' | 'churn';
+type ColKey = 'name' | 'item' | 'amount' | 'phone' | 'last_30d' | 'latest' | 'churns' | 'texted' | 'in_person' | 'not_interested';
+type SortState = { key: ColKey; dir: 'asc' | 'desc' } | null;
+type ColType = 'text' | 'number' | 'date' | 'bool';
+type BoolFilter = 'any' | 'yes' | 'no';
+type FilterState = Partial<Record<ColKey, string>>; // for text/number/date it's the text; for bool it's 'yes'/'no' (absent = any)
+
+const COL_TYPES: Record<ColKey, ColType> = {
+  name: 'text', item: 'text', amount: 'number', phone: 'text',
+  last_30d: 'number', latest: 'date', churns: 'bool',
+  texted: 'bool', in_person: 'bool', not_interested: 'bool',
+};
+
+/** Parse a numeric filter like ">10", "<= 5", "=3", or "3" → predicate. */
+function makeNumberPredicate(raw: string): ((n: number | null | undefined) => boolean) | null {
+  const s = raw.trim();
+  if (!s) return null;
+  const m = s.match(/^(>=|<=|>|<|=)?\s*(-?\d+(?:\.\d+)?)$/);
+  if (!m) return null;
+  const op = m[1] || '=';
+  const val = Number(m[2]);
+  return (n) => {
+    if (n == null || isNaN(Number(n))) return false;
+    const x = Number(n);
+    switch (op) {
+      case '>': return x > val;
+      case '<': return x < val;
+      case '>=': return x >= val;
+      case '<=': return x <= val;
+      default: return x === val;
+    }
+  };
+}
+
 
 function fmtWhen(iso: string) {
   try { return format(new Date(iso), 'M/d h:mma').toLowerCase(); } catch { return iso; }
@@ -110,7 +143,115 @@ function SaveAttemptDialog({
   );
 }
 
+function ColHeader({
+  col, label, align, className, sort, filters, onSort, onFilter,
+}: {
+  col: ColKey;
+  label: string;
+  align: 'left' | 'right' | 'center';
+  className?: string;
+  sort: SortState;
+  filters: FilterState;
+  onSort: (c: ColKey) => void;
+  onFilter: (c: ColKey, v: string | undefined) => void;
+}) {
+  const type = COL_TYPES[col];
+  const active = sort?.key === col;
+  const filterVal = filters[col];
+  const hasFilter = !!filterVal;
+  const [draft, setDraft] = useState('');
+  return (
+    <th className={cn(
+      'px-1 py-2 select-none',
+      align === 'left' && 'text-left',
+      align === 'right' && 'text-right',
+      align === 'center' && 'text-center',
+      className,
+    )}>
+      <div className={cn(
+        'flex items-center gap-0.5',
+        align === 'right' && 'justify-end',
+        align === 'center' && 'justify-center',
+      )}>
+        <button
+          onClick={() => onSort(col)}
+          className={cn(
+            'inline-flex items-center gap-1 px-1 py-0.5 rounded hover:bg-accent hover:text-foreground cursor-pointer',
+            active && 'text-foreground font-bold',
+          )}
+          title={active ? `Sorted ${sort!.dir}. Click to cycle.` : 'Click to sort'}
+        >
+          <span>{label}</span>
+          {active
+            ? (sort!.dir === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)
+            : <ArrowUpDown className="w-3 h-3 opacity-30" />}
+        </button>
+        <Popover onOpenChange={o => { if (o) setDraft(filterVal || ''); }}>
+          <PopoverTrigger asChild>
+            <button
+              className={cn(
+                'inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent cursor-pointer',
+                hasFilter ? 'text-primary' : 'text-muted-foreground/50 hover:text-foreground',
+              )}
+              title={hasFilter ? `Filter: ${filterVal}` : 'Filter this column'}
+            >
+              <Filter className="w-3 h-3" fill={hasFilter ? 'currentColor' : 'none'} />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-2 space-y-2" align="start">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Filter {label}</div>
+            {type === 'bool' ? (
+              <div className="flex gap-1">
+                {(['any', 'yes', 'no'] as BoolFilter[]).map(v => {
+                  const isActive = (v === 'any' ? !filterVal : filterVal === v);
+                  return (
+                    <button
+                      key={v}
+                      onClick={() => onFilter(col, v === 'any' ? undefined : v)}
+                      className={cn(
+                        'flex-1 h-7 rounded border text-xs capitalize cursor-pointer',
+                        isActive ? 'bg-primary/20 border-primary text-primary font-bold' : 'border-border hover:bg-accent',
+                      )}
+                    >
+                      {v}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <>
+                <Input
+                  autoFocus
+                  value={draft}
+                  onChange={e => setDraft(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') onFilter(col, draft.trim() || undefined); }}
+                  placeholder={
+                    type === 'number' ? 'e.g. >5, <=10, =0, 3'
+                      : type === 'date' ? 'e.g. 2026-06'
+                      : 'Contains…'
+                  }
+                  className="h-7 text-xs"
+                />
+                <div className="flex gap-1">
+                  <Button size="sm" className="h-7 text-xs flex-1" onClick={() => onFilter(col, draft.trim() || undefined)}>Apply</Button>
+                  {hasFilter && (
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setDraft(''); onFilter(col, undefined); }}>Clear</Button>
+                  )}
+                </div>
+                {type === 'number' && (
+                  <p className="text-[10px] text-muted-foreground">Comparators: &gt; &lt; &gt;= &lt;= = (or blank contains)</p>
+                )}
+              </>
+            )}
+          </PopoverContent>
+        </Popover>
+      </div>
+    </th>
+  );
+}
+
 export default function OutreachListDetail() {
+
   const { id } = useParams();
   const { user } = useAuth();
   const isAdmin = isAdminCheck(user);
@@ -120,11 +261,37 @@ export default function OutreachListDetail() {
   const [rowToDelete, setRowToDelete] = useState<OutreachRow | null>(null);
   const [deletingRow, setDeletingRow] = useState(false);
   const [search, setSearch] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('default');
+  const [sort, setSort] = useState<SortState>(null);
+  const [filters, setFilters] = useState<FilterState>({});
+
+  const setFilter = (col: ColKey, val: string | undefined) => {
+    setFilters(f => {
+      const next = { ...f };
+      if (!val) delete next[col]; else next[col] = val;
+      return next;
+    });
+  };
+  const cycleSort = (col: ColKey) => {
+    setSort(s => {
+      if (!s || s.key !== col) return { key: col, dir: 'asc' };
+      if (s.dir === 'asc') return { key: col, dir: 'desc' };
+      return null;
+    });
+  };
+  const clearAll = () => { setFilters({}); setSort(null); setSearch(''); };
+
+  const rowBoolValue = (r: OutreachRow, col: ColKey): boolean => {
+    if (col === 'churns') return !!r.is_churning;
+    const rowActions = actions.filter(a => a.row_id === r.id);
+    if (col === 'texted') return rowActions.some(a => a.action_type === 'texted');
+    if (col === 'in_person') return rowActions.some(a => a.action_type === 'in_person');
+    if (col === 'not_interested') return rowActions.some(a => a.action_type === 'not_interested');
+    return false;
+  };
 
   const filteredSorted = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const filtered = q
+    let out = q
       ? rows.filter(r =>
           r.client_name.toLowerCase().includes(q) ||
           (r.phone || '').toLowerCase().includes(q) ||
@@ -132,28 +299,72 @@ export default function OutreachListDetail() {
           (r.email || '').toLowerCase().includes(q))
       : [...rows];
 
-    const cmp = (a: OutreachRow, b: OutreachRow) => {
-      switch (sortKey) {
-        case 'name':
-          return a.client_name.localeCompare(b.client_name);
-        case 'amount':
-          return (Number(b.amount) || 0) - (Number(a.amount) || 0);
-        case 'last_30d':
-          return (b.last_30d_count ?? -1) - (a.last_30d_count ?? -1);
-        case 'latest':
-          return (b.latest_workout_date || '').localeCompare(a.latest_workout_date || '');
-        case 'churn':
-          if (a.is_churning !== b.is_churning) return a.is_churning ? -1 : 1;
-          return (a.churn_date || '9999').localeCompare(b.churn_date || '9999');
-        case 'default':
-        default:
-          if (a.is_churning !== b.is_churning) return a.is_churning ? -1 : 1;
-          if (a.is_churning && b.is_churning) return (a.churn_date || '9999').localeCompare(b.churn_date || '9999');
-          return a.client_name.localeCompare(b.client_name);
+    // Per-column filters
+    for (const [k, raw] of Object.entries(filters) as [ColKey, string][]) {
+      if (!raw) continue;
+      const type = COL_TYPES[k];
+      if (type === 'bool') {
+        const want = raw === 'yes';
+        out = out.filter(r => rowBoolValue(r, k) === want);
+      } else if (type === 'number') {
+        const pred = makeNumberPredicate(raw);
+        if (pred) {
+          out = out.filter(r => pred(k === 'amount' ? (r.amount as any) : r.last_30d_count));
+        } else {
+          const s = raw.toLowerCase();
+          out = out.filter(r => String(k === 'amount' ? (r.amount ?? '') : (r.last_30d_count ?? '')).toLowerCase().includes(s));
+        }
+      } else {
+        const s = raw.toLowerCase();
+        out = out.filter(r => {
+          const v = k === 'name' ? r.client_name
+            : k === 'item' ? (r.item || '')
+            : k === 'phone' ? (r.phone || '')
+            : k === 'latest' ? (r.latest_workout_date || '')
+            : '';
+          return v.toLowerCase().includes(s);
+        });
       }
-    };
-    return filtered.sort(cmp);
-  }, [rows, search, sortKey]);
+    }
+
+    // Sort
+    if (sort) {
+      const dir = sort.dir === 'asc' ? 1 : -1;
+      const cmp = (a: OutreachRow, b: OutreachRow) => {
+        switch (sort.key) {
+          case 'name': return a.client_name.localeCompare(b.client_name) * dir;
+          case 'item': return (a.item || '').localeCompare(b.item || '') * dir;
+          case 'phone': return (a.phone || '').localeCompare(b.phone || '') * dir;
+          case 'amount': return ((Number(a.amount) || 0) - (Number(b.amount) || 0)) * dir;
+          case 'last_30d': return ((a.last_30d_count ?? -1) - (b.last_30d_count ?? -1)) * dir;
+          case 'latest': return (a.latest_workout_date || '').localeCompare(b.latest_workout_date || '') * dir;
+          case 'churns': {
+            if (a.is_churning !== b.is_churning) return (a.is_churning ? -1 : 1) * dir;
+            return ((a.churn_date || '9999').localeCompare(b.churn_date || '9999')) * dir;
+          }
+          case 'texted':
+          case 'in_person':
+          case 'not_interested': {
+            const av = rowBoolValue(a, sort.key) ? 1 : 0;
+            const bv = rowBoolValue(b, sort.key) ? 1 : 0;
+            return (bv - av) * dir;
+          }
+        }
+      };
+      out.sort(cmp);
+    } else {
+      // Default: churning first, then A→Z
+      out.sort((a, b) => {
+        if (a.is_churning !== b.is_churning) return a.is_churning ? -1 : 1;
+        if (a.is_churning && b.is_churning) return (a.churn_date || '9999').localeCompare(b.churn_date || '9999');
+        return a.client_name.localeCompare(b.client_name);
+      });
+    }
+    return out;
+  }, [rows, actions, search, sort, filters]);
+
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+
 
   const churnCount = rows.filter(r => r.is_churning).length;
 
@@ -218,7 +429,7 @@ export default function OutreachListDetail() {
             </div>
           </div>
 
-          {/* Search + sort toolbar */}
+          {/* Search + clear-filters toolbar */}
           <div className="mb-3 flex items-center gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[200px] max-w-md">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -238,19 +449,13 @@ export default function OutreachListDetail() {
                 </button>
               )}
             </div>
-            <Select value={sortKey} onValueChange={v => setSortKey(v as SortKey)}>
-              <SelectTrigger className="h-8 w-[190px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Sort: Churning first</SelectItem>
-                <SelectItem value="name">Sort: Name (A→Z)</SelectItem>
-                <SelectItem value="amount">Sort: Amount (high→low)</SelectItem>
-                <SelectItem value="last_30d">Sort: 30d workouts (high→low)</SelectItem>
-                <SelectItem value="latest">Sort: Latest workout (recent→old)</SelectItem>
-                <SelectItem value="churn">Sort: Churn date (soonest)</SelectItem>
-              </SelectContent>
-            </Select>
+            {(activeFilterCount > 0 || sort || search) && (
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={clearAll}>
+                <X className="w-3.5 h-3.5 mr-1" /> Clear filters & sort
+                {activeFilterCount > 0 && <span className="ml-1 text-muted-foreground">({activeFilterCount})</span>}
+              </Button>
+            )}
+            <span className="text-[10px] text-muted-foreground">Click a column header to sort. Use the filter icon to filter that column.</span>
           </div>
 
           {/* Desktop / tablet: spreadsheet table */}
@@ -259,19 +464,20 @@ export default function OutreachListDetail() {
               <thead className="bg-muted/60 text-[10px] uppercase tracking-wide text-muted-foreground sticky top-0 z-10">
                 <tr>
                   <th className="text-left px-2 py-2 w-8"></th>
-                  <th className="text-left px-2 py-2 min-w-[160px]">Name</th>
-                  <th className="text-left px-2 py-2 min-w-[200px]">Item</th>
-                  <th className="text-right px-2 py-2 w-[80px]">Amount</th>
-                  <th className="text-left px-2 py-2 w-[130px]">Phone</th>
-                  <th className="text-right px-2 py-2 w-[70px]">30d</th>
-                  <th className="text-left px-2 py-2 w-[80px]">Latest</th>
-                  <th className="text-left px-2 py-2 w-[90px]">Churns</th>
-                  <th className="text-center px-2 py-2 w-[55px]">Text</th>
-                  <th className="text-center px-2 py-2 w-[60px]">In-Per</th>
-                  <th className="text-center px-2 py-2 w-[55px]">Not Int</th>
+                  <ColHeader col="name" label="Name" align="left" className="min-w-[160px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="item" label="Item" align="left" className="min-w-[200px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="amount" label="Amount" align="right" className="w-[90px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="phone" label="Phone" align="left" className="w-[130px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="last_30d" label="30d" align="right" className="w-[80px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="latest" label="Latest" align="left" className="w-[90px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="churns" label="Churns" align="left" className="w-[100px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="texted" label="Text" align="center" className="w-[65px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="in_person" label="In-Per" align="center" className="w-[70px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
+                  <ColHeader col="not_interested" label="Not Int" align="center" className="w-[70px]" sort={sort} filters={filters} onSort={cycleSort} onFilter={setFilter} />
                   <th className="text-right px-2 py-2 w-[240px]">Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {filteredSorted.map((r, idx) => {
                   const rowActions = actions.filter(a => a.row_id === r.id);
