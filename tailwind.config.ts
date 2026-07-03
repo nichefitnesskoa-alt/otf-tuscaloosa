@@ -105,8 +105,9 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        display: ['Big Shoulders Display', 'Bebas Neue', 'Impact', 'sans-serif'],
-        body: ['Barlow', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['PP Right Grotesk', 'Arial Black', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        display: ['PP Right Grotesk', 'Arial Black', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        body: ['PP Right Grotesk', 'Arial Black', 'Helvetica Neue', 'Arial', 'sans-serif'],
       },
       keyframes: {
         "accordion-down": {
