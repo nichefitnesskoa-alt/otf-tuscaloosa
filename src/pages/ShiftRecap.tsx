@@ -34,6 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { OTF, brandFont } from '@/lib/otfBrand';
 
 
 const SHIFT_TYPES = ['AM Shift', 'PM Shift', 'Mid Shift'] as const;
@@ -985,21 +986,43 @@ export default function ShiftRecap() {
   };
 
   return (
-    <div className="p-4 pb-8 space-y-4">
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Shift Recap</h1>
+    <div
+      className="p-4 pb-8 space-y-4"
+      style={{ backgroundColor: OTF.dark, color: OTF.bone, minHeight: '100%', ...brandFont }}
+    >
+      {/* OTF brand page header */}
+      <div
+        className="mb-4 pt-2 pb-4"
+        style={{ borderBottom: `1px solid ${OTF.bone}22` }}
+      >
+        <p
+          className="text-[10px] uppercase mb-1"
+          style={{ color: OTF.bone, opacity: 0.55, letterSpacing: '0.18em' }}
+        >
+          End of shift
+        </p>
+        <div className="flex items-end justify-between gap-3">
+          <h1
+            className="text-3xl leading-none"
+            style={{ color: OTF.bone, fontWeight: 800, ...brandFont }}
+          >
+            Shift Recap<span style={{ color: OTF.orange }}>.</span>
+          </h1>
           {lastSaved && (
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <span
+              className="text-[10px] flex items-center gap-1 shrink-0 pb-1"
+              style={{ color: OTF.bone, opacity: 0.55 }}
+            >
               <Save className="w-3 h-3" />
-              Draft saved {format(lastSaved, 'h:mm a')}
+              Saved {format(lastSaved, 'h:mm a')}
             </span>
           )}
         </div>
-        <p className="text-sm text-muted-foreground">
-          Log your shift in under 3 minutes
+        <p className="text-xs mt-2" style={{ color: OTF.bone, opacity: 0.65 }}>
+          Log your shift in under 3 minutes.
         </p>
       </div>
+
 
       {/* Auto-captured from My Day */}
       <ShiftRecapAutoBuild onItemCount={setAutoCapturedCount} />

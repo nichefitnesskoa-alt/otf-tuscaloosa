@@ -19,6 +19,8 @@ import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { SelfSourcedLeadDialog } from '@/components/leads/SelfSourcedLeadDialog';
 import { MarkLostDialog } from '@/components/leads/MarkLostDialog';
 import { toast } from 'sonner';
+import { OTF, brandFont } from '@/lib/otfBrand';
+
 
 export default function Leads() {
   const { user } = useAuth();
@@ -194,34 +196,87 @@ export default function Leads() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Leads Pipeline</h1>
-        <div className="flex items-center gap-2">
-          <Button
-            variant={view === 'kanban' ? 'default' : 'ghost'}
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setView('kanban')}
+    <div
+      className="p-4 pb-8 space-y-4"
+      style={{ backgroundColor: OTF.dark, color: OTF.bone, minHeight: '100%', ...brandFont }}
+    >
+      {/* OTF brand page header */}
+      <div
+        className="pt-2 pb-4"
+        style={{ borderBottom: `1px solid ${OTF.bone}22` }}
+      >
+        <p
+          className="text-[10px] uppercase mb-1"
+          style={{ color: OTF.bone, opacity: 0.55, letterSpacing: '0.18em' }}
+        >
+          Lead tracking
+        </p>
+        <div className="flex items-end justify-between gap-3 flex-wrap">
+          <h1
+            className="text-3xl leading-none"
+            style={{ color: OTF.bone, fontWeight: 800, ...brandFont }}
           >
-            <LayoutGrid className="w-4 h-4" />
-          </Button>
-          <Button
-            variant={view === 'list' ? 'default' : 'ghost'}
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setView('list')}
-          >
-            <List className="w-4 h-4" />
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleCleanDuplicates} disabled={cleaning}>
-            <Sparkles className="w-4 h-4 mr-1" /> {cleaning ? 'Cleaning...' : 'Clean Duplicates'}
-          </Button>
-          <Button size="sm" onClick={() => setShowAddDialog(true)}>
-            <Plus className="w-4 h-4 mr-1" /> Add Lead
-          </Button>
+            Leads<span style={{ color: OTF.orange }}>.</span>
+          </h1>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setView('kanban')}
+              className="h-9 w-9 flex items-center justify-center transition-opacity"
+              style={{
+                backgroundColor: view === 'kanban' ? OTF.bone : 'transparent',
+                color: view === 'kanban' ? OTF.dark : OTF.bone,
+                border: `1px solid ${OTF.bone}55`,
+              }}
+              aria-label="Kanban view"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setView('list')}
+              className="h-9 w-9 flex items-center justify-center transition-opacity"
+              style={{
+                backgroundColor: view === 'list' ? OTF.bone : 'transparent',
+                color: view === 'list' ? OTF.dark : OTF.bone,
+                border: `1px solid ${OTF.bone}55`,
+              }}
+              aria-label="List view"
+            >
+              <List className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleCleanDuplicates}
+              disabled={cleaning}
+              className="h-9 px-3 text-xs inline-flex items-center gap-1.5 transition-opacity disabled:opacity-50"
+              style={{
+                color: OTF.bone,
+                border: `1px solid ${OTF.bone}55`,
+                fontWeight: 600,
+                ...brandFont,
+              }}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              {cleaning ? 'Cleaning…' : 'Clean dupes'}
+            </button>
+            <button
+              onClick={() => setShowAddDialog(true)}
+              className="h-9 px-3 text-xs inline-flex items-center gap-1.5 transition-opacity hover:opacity-90"
+              style={{
+                backgroundColor: OTF.orange,
+                color: OTF.dark,
+                fontWeight: 700,
+                ...brandFont,
+              }}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add lead
+            </button>
+          </div>
         </div>
+        <p className="text-xs mt-2" style={{ color: OTF.bone, opacity: 0.65 }}>
+          {sortedLeads.length} lead{sortedLeads.length === 1 ? '' : 's'} · speed to contact wins.
+        </p>
       </div>
+
 
       {/* Sort + search controls */}
       <div className="flex items-center gap-2 flex-wrap">
