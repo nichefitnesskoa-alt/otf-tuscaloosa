@@ -483,6 +483,9 @@ export function useFollowUpData() {
         const booking = bookings.find(b => b.id === ptb.booking_id);
         if (!booking) continue;
         if (notInterestedIds.has(ptb.booking_id)) continue;
+        // Skip if this member already purchased (terminal outcome on any run).
+        const nameLower = (ptb.person_name || booking.member_name).toLowerCase();
+        if (terminalMembers.has(nameLower)) continue;
         const touch = touchByBooking.get(ptb.booking_id);
         planningToBuyItems.push({
           bookingId: ptb.booking_id,
