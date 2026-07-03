@@ -1,35 +1,40 @@
 /**
  * Outreach List detail — dense spreadsheet-style table so the team can see
- * many people at once. Churning members are flagged inline (red row + ⚠)
- * and sorted to the top; no separate section. Prices, phone, workout
- * activity, and Texted/In-Person status are all visible in one row.
+ * many people at once. Search by name/phone/item, sort by any column,
+ * mark Texted / In Person / Not Interested, log Save/Upgrade/Refer, or
+ * delete a row (admin). Churning members flagged inline (red row + ⚠).
  */
 import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import { AlertTriangle, ArrowLeft, Check, Plus, Sparkles, ShieldAlert } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { AlertTriangle, ArrowLeft, Check, Plus, Sparkles, ShieldAlert, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 import { useOutreachListDetail, OutreachRow, OutreachAction } from '@/features/outreach/useOutreach';
 import { LogSomlDialog } from '@/features/soml/LogSomlDialog';
 import { cn } from '@/lib/utils';
 
+type SortKey = 'default' | 'name' | 'amount' | 'last_30d' | 'latest' | 'churn';
+
 function fmtWhen(iso: string) {
   try { return format(new Date(iso), 'M/d h:mma').toLowerCase(); } catch { return iso; }
 }
-function fmtChurnDate(d: string | null) {
-  if (!d) return '—';
-  const [y, m, day] = d.split('-').map(Number);
-  return format(new Date(y, m - 1, day), 'MMM d');
-}
-function fmtLatest(d: string | null) {
+function fmtDay(d: string | null) {
   if (!d) return '—';
   const [y, m, day] = d.split('-').map(Number);
   return format(new Date(y, m - 1, day), 'MMM d');
@@ -40,22 +45,23 @@ function fmtAmount(n: number | null) {
 }
 
 function CheckPill({
-  active, attribution, onClick, label,
+  active, attribution, onClick, label, tone = 'primary',
 }: {
   active: boolean;
   attribution?: OutreachAction;
   onClick: () => void;
   label: string;
+  tone?: 'primary' | 'destructive';
 }) {
   return (
     <button
       onClick={onClick}
       title={attribution ? `${label} · ${attribution.done_by} · ${fmtWhen(attribution.done_at)}` : `Mark as ${label}`}
       className={cn(
-        'inline-flex items-center justify-center h-6 w-6 rounded border transition-colors',
-        active
-          ? 'bg-primary/20 border-primary text-primary'
-          : 'border-border hover:border-primary/60 hover:bg-accent',
+        'inline-flex items-center justify-center h-6 w-6 rounded border transition-colors cursor-pointer',
+        active && tone === 'primary' && 'bg-primary/20 border-primary text-primary',
+        active && tone === 'destructive' && 'bg-destructive/20 border-destructive text-destructive',
+        !active && 'border-border hover:border-primary/60 hover:bg-accent',
       )}
     >
       {active ? <Check className="w-3.5 h-3.5" /> : <span className="text-[10px] opacity-40">—</span>}
@@ -107,23 +113,51 @@ function SaveAttemptDialog({
 export default function OutreachListDetail() {
   const { id } = useParams();
   const { user } = useAuth();
+  const isAdmin = isAdminCheck(user);
   const { list, rows, actions, loading } = useOutreachListDetail(id);
   const [somlDialog, setSomlDialog] = useState<{ kind: 'upgrade' | 'referral'; name: string } | null>(null);
   const [saveDialog, setSaveDialog] = useState<OutreachRow | null>(null);
+  const [rowToDelete, setRowToDelete] = useState<OutreachRow | null>(null);
+  const [deletingRow, setDeletingRow] = useState(false);
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('default');
 
-  const sorted = useMemo(() => {
-    return [...rows].sort((a, b) => {
-      if (a.is_churning !== b.is_churning) return a.is_churning ? -1 : 1;
-      if (a.is_churning && b.is_churning) {
-        return (a.churn_date || '9999').localeCompare(b.churn_date || '9999');
+  const filteredSorted = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = q
+      ? rows.filter(r =>
+          r.client_name.toLowerCase().includes(q) ||
+          (r.phone || '').toLowerCase().includes(q) ||
+          (r.item || '').toLowerCase().includes(q) ||
+          (r.email || '').toLowerCase().includes(q))
+      : [...rows];
+
+    const cmp = (a: OutreachRow, b: OutreachRow) => {
+      switch (sortKey) {
+        case 'name':
+          return a.client_name.localeCompare(b.client_name);
+        case 'amount':
+          return (Number(b.amount) || 0) - (Number(a.amount) || 0);
+        case 'last_30d':
+          return (b.last_30d_count ?? -1) - (a.last_30d_count ?? -1);
+        case 'latest':
+          return (b.latest_workout_date || '').localeCompare(a.latest_workout_date || '');
+        case 'churn':
+          if (a.is_churning !== b.is_churning) return a.is_churning ? -1 : 1;
+          return (a.churn_date || '9999').localeCompare(b.churn_date || '9999');
+        case 'default':
+        default:
+          if (a.is_churning !== b.is_churning) return a.is_churning ? -1 : 1;
+          if (a.is_churning && b.is_churning) return (a.churn_date || '9999').localeCompare(b.churn_date || '9999');
+          return a.client_name.localeCompare(b.client_name);
       }
-      return a.client_name.localeCompare(b.client_name);
-    });
-  }, [rows]);
+    };
+    return filtered.sort(cmp);
+  }, [rows, search, sortKey]);
 
   const churnCount = rows.filter(r => r.is_churning).length;
 
-  const toggle = async (row: OutreachRow, kind: 'texted' | 'in_person', existing?: OutreachAction) => {
+  const toggle = async (row: OutreachRow, kind: 'texted' | 'in_person' | 'not_interested', existing?: OutreachAction) => {
     if (!user?.name) { toast.error('Login required'); return; }
     if (existing) {
       const { error } = await (supabase as any).from('outreach_row_actions').delete().eq('id', existing.id);
@@ -133,6 +167,22 @@ export default function OutreachListDetail() {
         row_id: row.id, list_id: row.list_id, action_type: kind, done_by: user.name,
       });
       if (error) toast.error(error.message);
+    }
+  };
+
+  const confirmDeleteRow = async () => {
+    if (!rowToDelete) return;
+    setDeletingRow(true);
+    try {
+      await (supabase as any).from('outreach_row_actions').delete().eq('row_id', rowToDelete.id);
+      const { error } = await (supabase as any).from('outreach_list_rows').delete().eq('id', rowToDelete.id);
+      if (error) throw error;
+      toast.success(`Removed ${rowToDelete.client_name}`);
+      setRowToDelete(null);
+    } catch (e: any) {
+      toast.error(`Delete failed: ${e.message}`);
+    } finally {
+      setDeletingRow(false);
     }
   };
 
@@ -149,7 +199,7 @@ export default function OutreachListDetail() {
 
       {list && (
         <>
-          <div className="mb-4 flex items-baseline justify-between gap-3 flex-wrap">
+          <div className="mb-3 flex items-baseline justify-between gap-3 flex-wrap">
             <div className="min-w-0">
               <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 {list.campaign_tag}
@@ -157,13 +207,50 @@ export default function OutreachListDetail() {
               <h1 className="text-xl font-black uppercase tracking-wide truncate">{list.name}</h1>
             </div>
             <div className="flex items-center gap-3 text-[11px]">
-              <span className="text-muted-foreground">{rows.length} people</span>
+              <span className="text-muted-foreground">
+                {filteredSorted.length}{filteredSorted.length !== rows.length ? ` / ${rows.length}` : ''} people
+              </span>
               {churnCount > 0 && (
                 <span className="inline-flex items-center gap-1 text-destructive font-semibold">
                   <ShieldAlert className="w-3.5 h-3.5" /> {churnCount} churning
                 </span>
               )}
             </div>
+          </div>
+
+          {/* Search + sort toolbar */}
+          <div className="mb-3 flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search name, phone, item…"
+                className="h-8 pl-7 pr-7 text-xs"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <Select value={sortKey} onValueChange={v => setSortKey(v as SortKey)}>
+              <SelectTrigger className="h-8 w-[190px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Sort: Churning first</SelectItem>
+                <SelectItem value="name">Sort: Name (A→Z)</SelectItem>
+                <SelectItem value="amount">Sort: Amount (high→low)</SelectItem>
+                <SelectItem value="last_30d">Sort: 30d workouts (high→low)</SelectItem>
+                <SelectItem value="latest">Sort: Latest workout (recent→old)</SelectItem>
+                <SelectItem value="churn">Sort: Churn date (soonest)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Desktop / tablet: spreadsheet table */}
@@ -179,24 +266,28 @@ export default function OutreachListDetail() {
                   <th className="text-right px-2 py-2 w-[70px]">30d</th>
                   <th className="text-left px-2 py-2 w-[80px]">Latest</th>
                   <th className="text-left px-2 py-2 w-[90px]">Churns</th>
-                  <th className="text-center px-2 py-2 w-[60px]">Texted</th>
-                  <th className="text-center px-2 py-2 w-[70px]">In Person</th>
-                  <th className="text-right px-2 py-2 w-[220px]">Actions</th>
+                  <th className="text-center px-2 py-2 w-[55px]">Text</th>
+                  <th className="text-center px-2 py-2 w-[60px]">In-Per</th>
+                  <th className="text-center px-2 py-2 w-[55px]">Not Int</th>
+                  <th className="text-right px-2 py-2 w-[240px]">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {sorted.map((r, idx) => {
+                {filteredSorted.map((r, idx) => {
                   const rowActions = actions.filter(a => a.row_id === r.id);
                   const texted = rowActions.find(a => a.action_type === 'texted');
                   const inPerson = rowActions.find(a => a.action_type === 'in_person');
+                  const notInterested = rowActions.find(a => a.action_type === 'not_interested');
                   const saveAttempts = rowActions.filter(a => a.action_type === 'save_attempt');
                   return (
                     <tr key={r.id}
                       className={cn(
                         'border-t border-border h-10',
-                        r.is_churning
-                          ? 'bg-destructive/10 hover:bg-destructive/15 border-l-2 border-l-destructive'
-                          : idx % 2 === 0 ? 'bg-background hover:bg-accent/40' : 'bg-muted/20 hover:bg-accent/40',
+                        notInterested
+                          ? 'bg-muted/40 opacity-60'
+                          : r.is_churning
+                            ? 'bg-destructive/10 hover:bg-destructive/15 border-l-2 border-l-destructive'
+                            : idx % 2 === 0 ? 'bg-background hover:bg-accent/40' : 'bg-muted/20 hover:bg-accent/40',
                       )}
                     >
                       <td className="px-2 py-1 align-middle">
@@ -221,13 +312,13 @@ export default function OutreachListDetail() {
                         {r.last_30d_count ?? '—'}
                       </td>
                       <td className="px-2 py-1 align-middle text-muted-foreground whitespace-nowrap">
-                        {fmtLatest(r.latest_workout_date)}
+                        {fmtDay(r.latest_workout_date)}
                       </td>
                       <td className={cn(
                         'px-2 py-1 align-middle whitespace-nowrap',
                         r.is_churning ? 'text-destructive font-semibold' : 'text-muted-foreground',
                       )}>
-                        {r.is_churning ? fmtChurnDate(r.churn_date) : '—'}
+                        {r.is_churning ? fmtDay(r.churn_date) : '—'}
                       </td>
                       <td className="px-2 py-1 align-middle text-center">
                         <CheckPill label="Texted" active={!!texted} attribution={texted}
@@ -236,6 +327,11 @@ export default function OutreachListDetail() {
                       <td className="px-2 py-1 align-middle text-center">
                         <CheckPill label="In Person" active={!!inPerson} attribution={inPerson}
                           onClick={() => toggle(r, 'in_person', inPerson)} />
+                      </td>
+                      <td className="px-2 py-1 align-middle text-center">
+                        <CheckPill label="Not Interested" active={!!notInterested} attribution={notInterested}
+                          tone="destructive"
+                          onClick={() => toggle(r, 'not_interested', notInterested)} />
                       </td>
                       <td className="px-2 py-1 align-middle text-right whitespace-nowrap">
                         {r.is_churning && (
@@ -252,12 +348,21 @@ export default function OutreachListDetail() {
                           onClick={() => setSomlDialog({ kind: 'referral', name: r.client_name })}>
                           <Sparkles className="w-3 h-3 mr-0.5" /> Refer
                         </Button>
+                        {isAdmin && (
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                            title="Remove from list"
+                            onClick={() => setRowToDelete(r)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   );
                 })}
-                {sorted.length === 0 && (
-                  <tr><td colSpan={11} className="text-center py-6 text-muted-foreground">No people in this list.</td></tr>
+                {filteredSorted.length === 0 && (
+                  <tr><td colSpan={12} className="text-center py-6 text-muted-foreground">
+                    {rows.length === 0 ? 'No people in this list.' : 'No matches for your search.'}
+                  </td></tr>
                 )}
               </tbody>
             </table>
@@ -265,14 +370,17 @@ export default function OutreachListDetail() {
 
           {/* Mobile: compact cards */}
           <div className="md:hidden space-y-2">
-            {sorted.map(r => {
+            {filteredSorted.map(r => {
               const rowActions = actions.filter(a => a.row_id === r.id);
               const texted = rowActions.find(a => a.action_type === 'texted');
               const inPerson = rowActions.find(a => a.action_type === 'in_person');
+              const notInterested = rowActions.find(a => a.action_type === 'not_interested');
               return (
                 <div key={r.id} className={cn(
                   'rounded border p-2',
-                  r.is_churning ? 'bg-destructive/10 border-destructive/40' : 'bg-card border-border',
+                  notInterested ? 'bg-muted/40 border-border opacity-60'
+                    : r.is_churning ? 'bg-destructive/10 border-destructive/40'
+                    : 'bg-card border-border',
                 )}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
@@ -285,7 +393,7 @@ export default function OutreachListDetail() {
                       </div>
                       {r.is_churning && (
                         <div className="text-[10px] text-destructive font-semibold">
-                          Churns {fmtChurnDate(r.churn_date)}
+                          Churns {fmtDay(r.churn_date)}
                         </div>
                       )}
                     </div>
@@ -294,9 +402,12 @@ export default function OutreachListDetail() {
                         onClick={() => toggle(r, 'texted', texted)} />
                       <CheckPill label="In Person" active={!!inPerson} attribution={inPerson}
                         onClick={() => toggle(r, 'in_person', inPerson)} />
+                      <CheckPill label="Not Interested" active={!!notInterested} attribution={notInterested}
+                        tone="destructive"
+                        onClick={() => toggle(r, 'not_interested', notInterested)} />
                     </div>
                   </div>
-                  <div className="flex gap-1 mt-2 justify-end">
+                  <div className="flex gap-1 mt-2 justify-end flex-wrap">
                     {r.is_churning && (
                       <Button size="sm" variant="destructive" className="h-7 text-[10px]" onClick={() => setSaveDialog(r)}>
                         Save
@@ -310,10 +421,21 @@ export default function OutreachListDetail() {
                       onClick={() => setSomlDialog({ kind: 'referral', name: r.client_name })}>
                       Refer
                     </Button>
+                    {isAdmin && (
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground"
+                        onClick={() => setRowToDelete(r)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               );
             })}
+            {filteredSorted.length === 0 && (
+              <div className="text-center py-6 text-sm text-muted-foreground">
+                {rows.length === 0 ? 'No people in this list.' : 'No matches for your search.'}
+              </div>
+            )}
           </div>
         </>
       )}
@@ -329,6 +451,24 @@ export default function OutreachListDetail() {
         onClose={() => setSaveDialog(null)}
         row={saveDialog}
       />
+
+      <AlertDialog open={!!rowToDelete} onOpenChange={o => !o && setRowToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {rowToDelete?.client_name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Removes this person from the list and clears their Texted / In Person / Not Interested / Save Attempt history for this list. Upgrades and referrals already logged are kept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingRow}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteRow} disabled={deletingRow}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deletingRow ? 'Removing…' : 'Remove'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
