@@ -1,51 +1,115 @@
-## Goal
-Guarantee that every booking made through an SA's Intro Scheduler Link (short `/book-intro/<code>` URL, its `-eventShort` variant, or its friend `/book-intro/f/<code>` variant) credits that SA as a **self-generated lead** on the WIG SA Leaderboard — and add a safeguard so an existing lead's original SA credit can never be silently overwritten.
+# Summer of More Life — Diagnose Report + Build Plan
 
-## What's already correct (verified by reading the code)
+## DIAGNOSE (as requested, before building)
 
-In `src/pages/BookIntro.tsx` the insert already sets the fields WIG reads:
+### 1. Canonical pace + leaderboard patterns to reuse
 
-- `intros_booked.booked_by = ctx.sa` and `scheduler_link_sa = ctx.sa`
-- `intros_booked.lead_source = 'Intro Scheduler Link'` (or `'Intro Scheduler Link (Friend)'`)
-- `leads.sourced_by_sa = ctx.sa`, `source = ctx.source`, `booked_intro_id = newBookingId`
+- **Pace helper**: `paceToToday(monthlyTarget, on)` in `src/lib/wig/pace.ts`. Also exports `statusColor` (R/Y/G), `statusClasses`, `formatPace`. This is what Leads hero + `WigSaLeaderboard` already use.
+- **Hero tile pattern**: `src/pages/Wig.tsx` renders the Leads hero with `paceToToday(monthlyGoal)` + `statusColor(actual, pace)` + "X today" subline.
+- **Flat monthly ÷ active SA count**: `monthlyGoal / useActiveStaff().salesAssociates.length` — the per-SA target used in `WigSaLeaderboard`.
+- **Editable goal**: pencil icon on the hero tile writes to `studio_settings` (key/value). Same pattern will store SOML goals.
 
-`isSelfSourcedLeadSource()` in `src/lib/sa/leadsBooked.ts` only excludes `Lead Management` and `Online Intro Offer (self-booked)`, so both `Intro Scheduler Link` and `Intro Scheduler Link (Friend)` pass. `useSaLeads.ts` aggregates from `leads.sourced_by_sa` first and falls back to `intros_booked.booked_by`, deduped by `booked_intro_id`. So the SA already gets exactly one self-sourced credit per booking.
+### 2. Lead source for referrals
 
-## The one real gap
+- Canonical values in `src/types/index.ts`: `"Member Referral"` and `"Member Referral (5 class pack)"`.
+- Referring-member field **already exists**: `intros_booked.referred_by_member_name` (nullable text). Used in `useDashboardMetrics`, `useLeadMeasures`, `Wig.tsx`, and `applyIntroOutcomeUpdate.ts` (auto-detects referral purchase).
+- Captured in `IntroBookingEntry` / `EditBookingDialog` — currently **not required** when lead_source is Member Referral. This is the app-wide data-integrity fix.
 
-In `BookIntro.tsx` the "existing lead" branch does:
+### 3. Sale detection reuse
 
-```
-await supabase.from('leads').update({
-  booked_intro_id: newBookingId,
-  stage: 'booked',
-  source: ctx.source,
-  sourced_by_sa: ctx.sa,        // ← overwrites whoever originally sourced the lead
-}).eq('id', existingLead.id);
-```
+- `isSaleCanon(result_canon)` + `getRunSaleDate(run)` from `src/lib/sales-detection.ts` — already date-range filterable via `isSaleInRange`. SOML Sales tile = same helper, window = `soml_config.start_date..end_date`. No new sale logic.
 
-If SA-A originally logged the lead and later SA-B's link is used to book, SA-B silently steals SA-A's credit. Fix: only set `sourced_by_sa` / `source` when the existing lead has none. Otherwise keep the original.
+### 4. Booker vs closer (referral credit)
 
-## Changes
+- `intros_booked.booked_by` = SA who created the booking → **this is who gets referral credit** per Alex's intent.
+- `intros_booked.intro_owner` = commission owner (may differ, e.g. self-booked or reassigned).
+- `intros_run.sa_name` = closer.
+- Referral credit → **booked_by** (falls back to intro_owner only if booked_by is null/"Self booked").
 
-1. **`src/pages/BookIntro.tsx`** — existing-lead update:
-   - Select `sourced_by_sa, source` on the dedup query.
-   - Build the update payload conditionally:
-     - Always set `booked_intro_id`, `stage: 'booked'`.
-     - Set `sourced_by_sa: ctx.sa` **only if** the existing row's `sourced_by_sa` is null/empty.
-     - Set `source: ctx.source` **only if** the existing row's `source` is null/empty.
+### 5. WIG page layout
 
-2. **Add a small self-check log** (dev-only `console.info`) after insert:
-   `[IntroLink] credited SA=<ctx.sa> source=<ctx.source> booking=<id> lead=<id>`
-   so we can eyeball the flow during QA without adding UI.
+- `src/pages/Wig.tsx` composes stacked sections. The Leads scoreboard is one block (hero card + `WigSaLeaderboard`). SOML mounts as a **sibling block** below Leads, its own `<section>` with a distinct header ("Summer of More Life"), same card/tile styling but visually separated (divider + section title). Zero edits to the Leads block.
 
-3. **No changes to** `useSaLeads.ts`, `leadsBooked.ts`, or WIG components — they already count these correctly.
+---
 
-## Coherence proof (to run after build)
+## BUILD PLAN
 
-- `SELECT id, booked_by, scheduler_link_sa, lead_source, created_at FROM intros_booked WHERE via_scheduler_link = true ORDER BY created_at DESC LIMIT 10;` → every row has a real SA in `booked_by` and a self-sourced `lead_source`.
-- For the same SA + window, `useSaLeads` count on WIG must equal COUNT(distinct booking) from that query where the lead is deduped. Confirm the number on the WIG SA Leaderboard tile matches.
-- Booking made from SA-B's link against a lead already owned by SA-A → `leads.sourced_by_sa` stays SA-A; WIG credit stays with SA-A; SA-B gets no phantom credit; booking still appears under SA-B's "Booked" column via `booked_by`.
+### Part 1 — Require `referred_by_member_name` when lead_source = Member Referral (app-wide)
 
-## Out of scope
-No schema changes. No changes to `intro_link_codes`, VIP/event handling, or the friend-flow originator inheritance (already correct).
+- **Client**: `IntroBookingEntry.tsx` + `EditBookingDialog.tsx` — when lead_source is either Member Referral value, mark field required, block Save with inline error.
+- **Server**: DB trigger `enforce_member_referral_has_referrer` on `intros_booked` (BEFORE INSERT/UPDATE) — raise if lead_source in the two values and `referred_by_member_name` is null/blank.
+- **Historical gap report**: run `SELECT count(*) FROM intros_booked WHERE lead_source IN ('Member Referral','Member Referral (5 class pack)') AND (referred_by_member_name IS NULL OR btrim(referred_by_member_name)='') AND deleted_at IS NULL` and report count. No backfill.
+
+### Part 2 — Data model (new tables only)
+
+Migration adds:
+
+`**soml_config**` (singleton row, id=1):
+
+- `start_date date`, `end_date date` (CST window)
+- `referrals_goal int`, `upgrades_goal int`, `sales_goal int` (monthly EOM)
+- `updated_at`, `updated_by`
+- GRANTs: `authenticated` read/write, `service_role` all. RLS: authenticated staff read+update.
+
+`**soml_upgrades**` (manual log):
+
+- `member_name text not null`, `upgraded_by text not null` (SA login name), `upgraded_at timestamptz default now()`, `notes text`, `created_by text`
+- GRANTs + RLS: authenticated insert/select; admin update/delete.
+
+`**soml_manual_referrals**` (backup manual entries — additive):
+
+- Same shape: `member_name`, `referred_by text` (SA), `referred_at timestamptz`, `notes`, `created_by`
+- Dedup rule in hook: exclude a manual row if an automatic qualifying row exists for the same member_name (case-insensitive) within window.
+
+**No new referral or sales table** — automatic paths use existing data.
+
+### Part 3 — SOML section on WIG page
+
+New files:
+
+- `src/hooks/useSomlData.ts` — reads `soml_config`, computes:
+  - **Automatic referrals**: `intros_booked` where `lead_source ILIKE 'Member Referral%'` joined to `intros_run` where `isSaleCanon(result_canon)` and `getRunSaleDate` within SOML window → credit `booked_by`.
+  - **Manual referrals**: `soml_manual_referrals` in window, dedup by member_name against automatic.
+  - **Upgrades**: `soml_upgrades` in window, grouped by `upgraded_by`.
+  - **Sales**: same as WIG sales (`useSaSales` pattern) filtered to SOML window.
+- `src/features/wig/soml/SomlSection.tsx` — main section: header "Summer of More Life", 3 hero tiles, 2 log buttons, SA leaderboard.
+- `src/features/wig/soml/SomlHeroTile.tsx` — reuses `paceToToday`/`statusColor`/`statusClasses`; edit pencil for admin opens dialog to update the specific goal in `soml_config`.
+- `src/features/wig/soml/SomlLeaderboard.tsx` — table: SA | Referrals | Upgrades | Sales — each cell shows count + mini pace bar vs per-SA target (`goal / activeSaCount`).
+- `src/features/wig/soml/LogUpgradeDialog.tsx` + `LogManualReferralDialog.tsx` — member_name + notes, attributed to logged-in SA, invalidates SOML queries.
+- `src/features/wig/soml/SomlConfigDialog.tsx` — admin edit window dates.
+
+Mount inside `src/pages/Wig.tsx` as a separate `<section>` after the Leads block. Zero changes to Leads composition.
+
+### Scope guards enforced
+
+- Leads scoreboard code, queries, targets untouched.
+- No new date/sale/attribution logic — only reuses existing helpers.
+- Only app-wide data change = required `referred_by_member_name` when lead_source is Member Referral.
+
+### Verification (before "done")
+
+- SQL: `SELECT * FROM soml_config`; count automatic vs manual referrals; sales in window; upgrades in window.
+- UI: WIG page shows Leads block unchanged + SOML block below.
+- Create Member Referral booking without referrer → save blocked (client + server).
+- Mark as sale in window → SOML Referrals +1 credited to booker, SOML Sales +1.
+- Log upgrade → tile + leaderboard row updates.
+- Log manual referral for same member as an automatic one → suppressed.
+- Edit SOML goal → hero, per-SA target, pace all recompute.
+
+---
+
+## Questions before I execute
+
+1. **SOML window default**: I'll seed `start_date = today`, `end_date = 2026-08-31`. Confirm or give exact dates.
+2. **Default monthly goals**: I'll seed all three to `0` and let Koa set them via the pencil. OK?
+3. **Log Upgrade / Manual Referral buttons**: visible to SAs + Admin (same as "Add Lead"), yes?
+
+Reply "go" with any answer overrides and I'll build the whole thing in one pass ending with the COHERENCE PROOF block.
+
+&nbsp;
+
+1. SOML window is all of July
+2. Ok
+3. Yes
+
+&nbsp;
