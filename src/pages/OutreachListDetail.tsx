@@ -19,7 +19,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { AlertTriangle, ArrowLeft, Check, Plus, Sparkles, ShieldAlert, Search, Trash2, X } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { AlertTriangle, ArrowLeft, ArrowUp, ArrowDown, ArrowUpDown, Check, Filter, Plus, Sparkles, ShieldAlert, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,7 +30,39 @@ import { useOutreachListDetail, OutreachRow, OutreachAction } from '@/features/o
 import { LogSomlDialog } from '@/features/soml/LogSomlDialog';
 import { cn } from '@/lib/utils';
 
-type SortKey = 'default' | 'name' | 'amount' | 'last_30d' | 'latest' | 'churn';
+type ColKey = 'name' | 'item' | 'amount' | 'phone' | 'last_30d' | 'latest' | 'churns' | 'texted' | 'in_person' | 'not_interested';
+type SortState = { key: ColKey; dir: 'asc' | 'desc' } | null;
+type ColType = 'text' | 'number' | 'date' | 'bool';
+type BoolFilter = 'any' | 'yes' | 'no';
+type FilterState = Partial<Record<ColKey, string>>; // for text/number/date it's the text; for bool it's 'yes'/'no' (absent = any)
+
+const COL_TYPES: Record<ColKey, ColType> = {
+  name: 'text', item: 'text', amount: 'number', phone: 'text',
+  last_30d: 'number', latest: 'date', churns: 'bool',
+  texted: 'bool', in_person: 'bool', not_interested: 'bool',
+};
+
+/** Parse a numeric filter like ">10", "<= 5", "=3", or "3" → predicate. */
+function makeNumberPredicate(raw: string): ((n: number | null | undefined) => boolean) | null {
+  const s = raw.trim();
+  if (!s) return null;
+  const m = s.match(/^(>=|<=|>|<|=)?\s*(-?\d+(?:\.\d+)?)$/);
+  if (!m) return null;
+  const op = m[1] || '=';
+  const val = Number(m[2]);
+  return (n) => {
+    if (n == null || isNaN(Number(n))) return false;
+    const x = Number(n);
+    switch (op) {
+      case '>': return x > val;
+      case '<': return x < val;
+      case '>=': return x >= val;
+      case '<=': return x <= val;
+      default: return x === val;
+    }
+  };
+}
+
 
 function fmtWhen(iso: string) {
   try { return format(new Date(iso), 'M/d h:mma').toLowerCase(); } catch { return iso; }
