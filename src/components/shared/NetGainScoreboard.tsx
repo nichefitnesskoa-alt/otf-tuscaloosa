@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  Minus, Plus, Pencil, TrendingUp, TrendingDown, History, Upload, List, Trash2, Loader2,
+  Minus, Plus, Pencil, TrendingUp, TrendingDown, History, Upload, List, Trash2, Loader2, CalendarClock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -67,6 +67,7 @@ export function NetGainScoreboard({ className }: { className?: string }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [upcomingOpen, setUpcomingOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const appliedRef = useRef(false);
 
@@ -131,6 +132,13 @@ export function NetGainScoreboard({ className }: { className?: string }) {
   const scheduledTerminationsLeft = pendingChurns.length;
   const goalToBreakEven = Math.max(0, scheduledTerminationsLeft - value);
   const eomLabel = format(parseISO(endOfThisMonthCST()), 'MMM d');
+
+  // Next churn at-a-glance
+  const nextChurnDate = pendingChurns[0]?.churn_date ?? null;
+  const nextChurnCount = nextChurnDate
+    ? pendingChurns.filter(c => c.churn_date === nextChurnDate).length
+    : 0;
+  const nextChurnLabel = nextChurnDate ? format(parseISO(nextChurnDate), 'EEE, MMM d') : '';
 
   return (
     <>
@@ -219,6 +227,13 @@ export function NetGainScoreboard({ className }: { className?: string }) {
               <Button
                 size="sm" variant={positive || negative ? 'secondary' : 'ghost'}
                 className={cn('h-10 w-10 p-0', !(positive||negative) && 'hover:bg-secondary')}
+                aria-label="Upcoming churns" onClick={() => setUpcomingOpen(true)}
+              >
+                <CalendarClock className="w-4 h-4" />
+              </Button>
+              <Button
+                size="sm" variant={positive || negative ? 'secondary' : 'ghost'}
+                className={cn('h-10 w-10 p-0', !(positive||negative) && 'hover:bg-secondary')}
                 aria-label="Change history" onClick={() => setHistoryOpen(true)}
               >
                 <History className="w-4 h-4" />
@@ -226,13 +241,23 @@ export function NetGainScoreboard({ className }: { className?: string }) {
             </div>
           )}
           {!isAdmin && (
-            <Button
-              size="sm" variant="ghost"
-              className={cn('h-9 shrink-0 self-center', (positive || negative) && 'text-white hover:bg-white/10 hover:text-white')}
-              onClick={() => setHistoryOpen(true)}
-            >
-              <History className="w-4 h-4 mr-1" /> History
-            </Button>
+            <div className="flex items-center gap-1 shrink-0 self-center">
+              <Button
+                size="sm" variant="ghost"
+                className={cn('h-9', (positive || negative) && 'text-white hover:bg-white/10 hover:text-white')}
+                onClick={() => setUpcomingOpen(true)}
+              >
+                <CalendarClock className="w-4 h-4 mr-1" />
+                Upcoming{scheduledTerminationsLeft > 0 ? ` (${scheduledTerminationsLeft})` : ''}
+              </Button>
+              <Button
+                size="sm" variant="ghost"
+                className={cn('h-9', (positive || negative) && 'text-white hover:bg-white/10 hover:text-white')}
+                onClick={() => setHistoryOpen(true)}
+              >
+                <History className="w-4 h-4 mr-1" /> History
+              </Button>
+            </div>
           )}
         </div>
 
@@ -244,6 +269,27 @@ export function NetGainScoreboard({ className }: { className?: string }) {
             negative && 'border-white/20 bg-black/10 text-white/90',
             !positive && !negative && 'border-border bg-muted/30 text-muted-foreground',
           )}>
+            {nextChurnDate && (
+              <button
+                type="button"
+                onClick={() => setUpcomingOpen(true)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-md px-2 py-1 -my-1 border cursor-pointer transition-colors',
+                  (positive || negative)
+                    ? 'border-white/30 bg-white/10 hover:bg-white/20 text-white'
+                    : 'border-border bg-background hover:bg-muted text-foreground',
+                )}
+                aria-label="View upcoming churns"
+              >
+                <CalendarClock className="w-3.5 h-3.5" />
+                <span>
+                  Next churn: <span className="font-black">{nextChurnLabel}</span>
+                  {' · '}
+                  <span className="tabular-nums font-black">{nextChurnCount}</span> member{nextChurnCount === 1 ? '' : 's'}
+                </span>
+                <span className="opacity-70 underline underline-offset-2 ml-1">View all</span>
+              </button>
+            )}
             {scheduledTerminationsLeft > 0 && (
               <span>
                 <span className="tabular-nums font-black">{scheduledTerminationsLeft}</span> scheduled termination{scheduledTerminationsLeft === 1 ? '' : 's'} left this month.
@@ -267,6 +313,12 @@ export function NetGainScoreboard({ className }: { className?: string }) {
         onSubmit={async (v, note) => { await setAbsolute(v, note); setEditOpen(false); }}
       />
       <HistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} />
+      <UpcomingChurnsDialog
+        open={upcomingOpen}
+        onClose={() => setUpcomingOpen(false)}
+        churns={pendingChurns}
+        eomLabel={eomLabel}
+      />
       {isAdmin && (
         <>
           <UploadChurnsDialog open={uploadOpen} onClose={() => setUploadOpen(false)} onSaved={load} />
@@ -308,6 +360,71 @@ function EditDialog({
             onSubmit(n, note);
           }}>Save</Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Upcoming churns (read-only, all roles)
+// ─────────────────────────────────────────────────────────────
+function UpcomingChurnsDialog({
+  open, onClose, churns, eomLabel,
+}: { open: boolean; onClose: () => void; churns: Churn[]; eomLabel: string }) {
+  const grouped = useMemo(() => {
+    const byDate = new Map<string, Churn[]>();
+    for (const c of churns) {
+      const arr = byDate.get(c.churn_date) || [];
+      arr.push(c);
+      byDate.set(c.churn_date, arr);
+    }
+    return Array.from(byDate.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [churns]);
+  const today = todayCST();
+
+  return (
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="sm:max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Upcoming churns</DialogTitle>
+          <DialogDescription>
+            {churns.length === 0
+              ? 'No scheduled churns through end of month.'
+              : `${churns.length} scheduled through ${eomLabel}. Net Gain drops by −1 the day each member actually churns out.`}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="overflow-y-auto -mx-2 px-2">
+          {grouped.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-8 text-center">🎉 No scheduled churns.</div>
+          ) : (
+            <div className="space-y-4">
+              {grouped.map(([date, rows]) => {
+                const isPast = date < today;
+                return (
+                  <div key={date}>
+                    <div className="flex items-center justify-between mb-1.5 sticky top-0 bg-background/95 backdrop-blur py-1">
+                      <div className="text-sm font-black">
+                        {format(parseISO(date), 'EEE, MMM d')}
+                        {isPast && <span className="ml-2 text-[10px] uppercase tracking-wider text-amber-600 font-bold">Overdue</span>}
+                      </div>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-muted text-foreground tabular-nums">
+                        {rows.length} member{rows.length === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                    <ul className="space-y-1">
+                      {rows.map(r => (
+                        <li key={r.id} className="border border-border rounded-md px-3 py-2 text-sm">
+                          <div className="font-medium">{r.member_name}</div>
+                          {r.notes && <div className="text-xs text-muted-foreground mt-0.5">{r.notes}</div>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
