@@ -222,7 +222,7 @@ function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
 
 export function SomlSection() {
   const { user } = useAuth();
-  const isAdmin = isAdminCheck(user);
+  const isAdmin = useEffectiveAdmin();
   const { salesAssociates: activeSas } = useActiveStaff();
   const { config, totals, rows, refetch } = useSomlData();
 
