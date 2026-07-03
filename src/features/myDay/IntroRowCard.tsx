@@ -671,9 +671,10 @@ export default function IntroRowCard({
       <div className="px-3 pt-2">
         <TbdCoachAlert
           coachName={item.coachName}
-          onFix={() => setOutcomeDrawerOpen?.(true)}
+          onFix={() => setOutcomeOpen(true)}
         />
       </div>
+
 
 
 
