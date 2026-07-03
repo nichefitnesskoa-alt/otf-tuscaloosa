@@ -230,42 +230,10 @@ export function NetGainScoreboard({ className }: { className?: string }) {
               >
                 <List className="w-4 h-4" />
               </Button>
-              <Button
-                size="sm" variant={positive || negative ? 'secondary' : 'ghost'}
-                className={cn('h-10 w-10 p-0', !(positive||negative) && 'hover:bg-secondary')}
-                aria-label="Upcoming churns" onClick={() => setUpcomingOpen(true)}
-              >
-                <CalendarClock className="w-4 h-4" />
-              </Button>
-              <Button
-                size="sm" variant={positive || negative ? 'secondary' : 'ghost'}
-                className={cn('h-10 w-10 p-0', !(positive||negative) && 'hover:bg-secondary')}
-                aria-label="Change history" onClick={() => setHistoryOpen(true)}
-              >
-                <History className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
-          {!isAdmin && (
-            <div className="flex items-center gap-1 shrink-0 self-center">
-              <Button
-                size="sm" variant="ghost"
-                className={cn('h-9', (positive || negative) && 'text-white hover:bg-white/10 hover:text-white')}
-                onClick={() => setUpcomingOpen(true)}
-              >
-                <CalendarClock className="w-4 h-4 mr-1" />
-                Upcoming{scheduledTerminationsLeft > 0 ? ` (${scheduledTerminationsLeft})` : ''}
-              </Button>
-              <Button
-                size="sm" variant="ghost"
-                className={cn('h-9', (positive || negative) && 'text-white hover:bg-white/10 hover:text-white')}
-                onClick={() => setHistoryOpen(true)}
-              >
-                <History className="w-4 h-4 mr-1" /> History
-              </Button>
             </div>
           )}
         </div>
+
 
         {/* Bottom strip: end-of-month goal line */}
         {(scheduledTerminationsLeft > 0 || goalToBreakEven > 0 || negative) && (
