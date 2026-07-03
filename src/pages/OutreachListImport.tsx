@@ -112,14 +112,15 @@ function coerceBool(v: any): boolean | null {
 function coerceDate(v: any): string | null {
   if (v == null || v === '') return null;
   if (typeof v === 'number') {
-    // Excel serial
+    if (!isFinite(v) || v <= 0) return null;
     const d = XLSX.SSF.parse_date_code(v);
-    if (!d) return null;
+    if (!d || !d.y || !d.m || !d.d) return null;
     return `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
   }
   const s = String(v).trim();
+  if (!s || s === '-' || s === '0') return null;
   const d = new Date(s);
-  if (isNaN(d.getTime())) return null;
+  if (isNaN(d.getTime()) || d.getFullYear() < 1970) return null;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
