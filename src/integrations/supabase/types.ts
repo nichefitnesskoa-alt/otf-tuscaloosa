@@ -4832,6 +4832,10 @@ export type Database = {
         Returns: undefined
       }
       reconcile_questionnaire_statuses: { Args: never; Returns: Json }
+      soml_chain_root_booking_id: {
+        Args: { _booking_id: string }
+        Returns: string
+      }
       to_intro_time_canonical: { Args: { p: string }; Returns: string }
     }
     Enums: {
