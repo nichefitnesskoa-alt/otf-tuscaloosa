@@ -39,6 +39,7 @@ export const PERMISSION_KEYS = [
   'nav.vips',
   'nav.my_intros',
   'nav.pipeline',
+  'nav.outreach_lists',
   'nav.admin',
   'feature.coaching_scripts',
   'feature.scripts_tab',
@@ -55,10 +56,12 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'nav.vips': 'VIPs tab',
   'nav.my_intros': 'Text My Intros tab',
   'nav.pipeline': 'Pipeline tab',
+  'nav.outreach_lists': 'Outreach Lists tab',
   'nav.admin': 'Admin tab',
   'feature.coaching_scripts': 'Coaching Scripts (Workout Templates)',
   'feature.scripts_tab': 'Scripts tab (My Day)',
 };
+
 
 // Role-based defaults — what each role sees when no override is set.
 function defaultForRole(u: User | null | undefined, key: PermissionKey): boolean {
@@ -76,6 +79,7 @@ function defaultForRole(u: User | null | undefined, key: PermissionKey): boolean
     case 'nav.vips': return sa || coach;
     case 'nav.my_intros': return coach;
     case 'nav.pipeline': return sa; // Pipeline shown to SA and Both
+    case 'nav.outreach_lists': return sa || coach; // Outreach lists visible to SA + Coach + Both
     case 'nav.admin': return false; // Admin tab is Koa-only (handled by isAdmin)
     case 'feature.coaching_scripts':
       // Restricted to Koa + Jackson by default (per Koa's request).

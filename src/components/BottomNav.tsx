@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { GitBranch, Home, Settings, Eye, Trophy, BarChart3, Star, Flag } from 'lucide-react';
+import { GitBranch, Home, Settings, Eye, Trophy, BarChart3, Star, Flag, ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useDataAudit } from '@/hooks/useDataAudit';
@@ -16,6 +16,7 @@ const ALL_NAV: NavItem[] = [
   { path: '/the-table',  label: 'Own It',          icon: Flag,       permKey: 'nav.own_it' },
   { path: '/vips',       label: 'VIPs',            icon: Star,       permKey: 'nav.vips' },
   { path: '/pipeline',   label: 'Pipeline',        icon: GitBranch,  permKey: 'nav.pipeline' },
+  { path: '/outreach-lists', label: 'Outreach',    icon: ListChecks, permKey: 'nav.outreach_lists' },
   { path: '/admin',      label: 'Admin',           icon: Settings,   permKey: 'nav.admin' },
 ];
 

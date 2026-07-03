@@ -33,6 +33,9 @@ import SaDetail from "./pages/SaDetail";
 import TheTable from "./pages/TheTable";
 import TheTableHistory from "./pages/TheTableHistory";
 import Apply from "./pages/Apply";
+import OutreachLists from "./pages/OutreachLists";
+import OutreachListDetail from "./pages/OutreachListDetail";
+import OutreachListImport from "./pages/OutreachListImport";
 import NotFound from "./pages/NotFound";
 import GiveawayEntryPage from "./features/giveaway/GiveawayEntryPage";
 import GiveawayAdminPage from "./features/giveaway/GiveawayAdminPage";
@@ -252,6 +255,10 @@ function AppRoutes() {
       <Route path="/the-table" element={<ProtectedRoute><TheTable /></ProtectedRoute>} />
       <Route path="/the-table/history" element={<ProtectedRoute><TheTableHistory /></ProtectedRoute>} />
       <Route path="/the-table/:meetingId" element={<ProtectedRoute><TheTable /></ProtectedRoute>} />
+      <Route path="/outreach-lists" element={<ProtectedRoute><OutreachLists /></ProtectedRoute>} />
+      <Route path="/outreach-lists/new" element={<ProtectedRoute requireAdmin><OutreachListImport /></ProtectedRoute>} />
+      <Route path="/outreach-lists/:id" element={<ProtectedRoute><OutreachListDetail /></ProtectedRoute>} />
+
       <Route path="/" element={<Navigate to={defaultRoute} replace />} />
       <Route path="/:shareSlug" element={<PartnerDeckShareResolver />} />
       <Route path="*" element={<NotFound />} />

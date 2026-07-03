@@ -2841,6 +2841,149 @@ export type Database = {
         }
         Relationships: []
       }
+      outreach_list_rows: {
+        Row: {
+          amount: number | null
+          churn_date: string | null
+          client_name: string
+          created_at: string
+          created_by: string
+          email: string | null
+          id: string
+          is_churning: boolean
+          item: string | null
+          last_30d_count: number | null
+          latest_workout_date: string | null
+          list_id: string
+          metadata: Json
+          phone: string | null
+          updated_at: string
+          worked_out_30d: boolean | null
+        }
+        Insert: {
+          amount?: number | null
+          churn_date?: string | null
+          client_name: string
+          created_at?: string
+          created_by: string
+          email?: string | null
+          id?: string
+          is_churning?: boolean
+          item?: string | null
+          last_30d_count?: number | null
+          latest_workout_date?: string | null
+          list_id: string
+          metadata?: Json
+          phone?: string | null
+          updated_at?: string
+          worked_out_30d?: boolean | null
+        }
+        Update: {
+          amount?: number | null
+          churn_date?: string | null
+          client_name?: string
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          id?: string
+          is_churning?: boolean
+          item?: string | null
+          last_30d_count?: number | null
+          latest_workout_date?: string | null
+          list_id?: string
+          metadata?: Json
+          phone?: string | null
+          updated_at?: string
+          worked_out_30d?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_list_rows_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_lists: {
+        Row: {
+          active: boolean
+          campaign_tag: string
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          campaign_tag: string
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          campaign_tag?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      outreach_row_actions: {
+        Row: {
+          action_type: string
+          created_at: string
+          done_at: string
+          done_by: string
+          id: string
+          list_id: string
+          notes: string | null
+          row_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          done_at?: string
+          done_by: string
+          id?: string
+          list_id: string
+          notes?: string | null
+          row_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          done_at?: string
+          done_by?: string
+          id?: string
+          list_id?: string
+          notes?: string | null
+          row_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_row_actions_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_row_actions_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_list_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referral_asks: {
         Row: {
           asked_at: string
