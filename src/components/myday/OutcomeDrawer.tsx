@@ -23,6 +23,9 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { generateUniqueSlug } from '@/lib/utils';
+import { OBJECTION_OPTIONS } from '@/lib/intros/objections';
+import { isMissingCoach } from '@/lib/intros/coachAttribution';
+
 
 // ── Sale outcomes (Row A) ──
 const SALE_OUTCOMES = [
