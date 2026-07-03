@@ -340,12 +340,44 @@ export function SomlSection() {
     upgrades: paceToToday(goals.upgrades || null, paceAnchor),
     sales: paceToToday(goals.sales || null, paceAnchor),
   };
+  // Per-metric override tallies — used to redistribute the remaining
+  // team goal across non-overridden SAs so the team total stays locked
+  // to the monthly goal regardless of individual overrides.
+  const overrideStats = useMemo(() => {
+    const stats: Record<MetricKey, { sum: number; count: number }> = {
+      referrals: { sum: 0, count: 0 },
+      upgrades: { sum: 0, count: 0 },
+      sales: { sum: 0, count: 0 },
+    };
+    for (const sa of rosterSas) {
+      const ov = overrides[sa];
+      if (!ov) continue;
+      (['referrals', 'upgrades', 'sales'] as MetricKey[]).forEach(m => {
+        const v = ov[`${m}_goal` as const];
+        if (v != null) { stats[m].sum += v; stats[m].count += 1; }
+      });
+    }
+    return stats;
+  }, [rosterSas, overrides]);
+
+  const remainingPerSa = (metric: MetricKey): number => {
+    const nonOverridden = activeCount - overrideStats[metric].count;
+    if (nonOverridden <= 0) return 0;
+    const remaining = Math.max(0, goals[metric] - overrideStats[metric].sum);
+    return remaining / nonOverridden;
+  };
   const defaultPerSa = {
+    referrals: remainingPerSa('referrals'),
+    upgrades: remainingPerSa('upgrades'),
+    sales: remainingPerSa('sales'),
+  };
+  const flatPerSa = {
     referrals: activeCount > 0 ? goals.referrals / activeCount : 0,
     upgrades: activeCount > 0 ? goals.upgrades / activeCount : 0,
     sales: activeCount > 0 ? goals.sales / activeCount : 0,
   };
-  // Effective target for a given SA + metric: override wins, else divided default
+  const anyOverride = overrideStats.referrals.count + overrideStats.upgrades.count + overrideStats.sales.count > 0;
+  // Effective target for a given SA + metric: override wins, else redistributed default
   const effectiveTarget = (sa: string, metric: MetricKey): number => {
     const ov = overrides[sa];
     const key = `${metric}_goal` as const;

@@ -1,85 +1,43 @@
-REACH MAP for Net Gain churn upload/date correction
-- Tables touched: `net_gain_churns`, `net_gain_log`, `net_gain_state`
-- Hooks/queries that read these tables:
-  - `src/components/shared/NetGainScoreboard.tsx` reads `net_gain_state`, pending `net_gain_churns`, `net_gain_log`
-  - Same component calls `apply_pending_net_gain_churns()` on mount
-- Writers:
-  - Upload dialog inserts `net_gain_churns`
-  - Manual +/-/exact value uses `net_gain_write_delta()`
-  - Manage Churns currently deletes `net_gain_churns`, which reverses applied churns through backend function
-  - `apply_pending_net_gain_churns()` applies churn rows after their churn date has passed
-- Components that display this data:
-  - My Day: `NetGainScoreboard`
-  - Studio: `NetGainScoreboard`
-  - WIG: `NetGainScoreboard`
-  - Upload preview and Manage Churns dialogs
-  - History dialog
-- Metrics/helpers derived from this data:
-  - Current Net Gain = `net_gain_state.value`
-  - Remaining churn target = pending churn count through end of month minus current net gain
-  - Apply eligibility = `churn_date < today in America/Chicago`, so a July 3 churn applies on July 4
-- React Query cache keys: none, this component uses direct backend reads plus the `otf:netGainChanged` browser event
-- Cross-page surfaces affected: My Day, Studio, WIG
-- Backend functions/triggers involved:
-  - `apply_pending_net_gain_churns()`
-  - `net_gain_write_delta()`
-  - `net_gain_churn_reverse_on_delete()`
-  - Sale automation functions are separate and should remain unaffected
+## Goal
+When an admin overrides one SA's individual goal, automatically redistribute the remaining shortfall across the other non-overridden SAs so the team totals still equal the overall monthly goal — in both the **SOML** section and the **overall SA leads** section on WIG.
 
-Current finding
-- The upload parser is choosing the first spreadsheet column matching `/date|churn|end/`.
-- In your uploaded file, columns are: `Termination request date` first, then `Churn date`.
-- That made 17 people apply immediately from old request dates in May/June.
-- The actual uploaded file has 18 churns:
-  - 1 should already count: Caitlin Geary, actual churn date `2026-07-01`
-  - 17 should remain pending as of `2026-07-03`, including July 3 and future dates
-  - Sheena Gregg was missed because her request date was blank, even though actual churn date exists
+## Behavior change
 
-Plan
-1. Fix the upload parser at the source
-   - Replace the broad “first date-like column” detection with explicit header priority:
-     1. `Churn date`
-     2. `Actual churn date`
-     3. `Termination date`
-     4. `Cancellation effective date`
-     5. `Contract end date` only as a last fallback
-   - Explicitly exclude `Termination request date`, `Request date`, and similar request-only columns from being used as the churn-out date.
-   - Keep robust date parsing, but remove the unsafe `new Date(dateString)` fallback for bare spreadsheet strings.
-   - Show the selected date column in the upload preview so it is obvious when the app is reading “Churn date”.
+Today:
+- SOML: every SA's default = `totalGoal / activeCount`. Overriding Jayna to 0 leaves everyone else at 1.7 → team target only sums to 8.5, not 10.
+- WIG leads: overriding one SA below the per-SA target lowers the team target (team = sum of effective per-SA). Overrides do not push the remaining SAs' targets up.
 
-2. Make the upload preview match the business rule
-   - Update copy to say: “Uses actual churn date, not request date.”
-   - Keep application rule: subtracts the day after the churn date, meaning backend condition stays `churn_date < today Central`.
-   - Preview will show:
-     - actual churn date
-     - reason/notes
-     - status
-     - whether it will apply now or stay scheduled
+After:
+- Treat the overall goal as **fixed**:
+  - SOML: `soml_config.{referrals,upgrades,sales}_goal` = fixed team goal per metric.
+  - WIG leads: fixed team leads goal = `saSgl × activeCount` at the moment the admin sets it (i.e. the global per-SA target × active count is the team goal; individual overrides no longer change the team goal).
+- **Redistribute remaining goal** across non-overridden SAs:
+  - `remaining = max(0, teamGoal − Σ overrides)`
+  - `nonOverriddenCount = activeCount − #overrides`
+  - `newDefault = nonOverriddenCount > 0 ? remaining / nonOverriddenCount : 0`
+- Overridden SAs keep exactly their custom number; non-overridden SAs display and pace against `newDefault` (not the raw `totalGoal / activeCount`).
+- If overrides already meet or exceed the team goal, non-overridden SAs get target `0` (with a subtle "covered by overrides" hint).
 
-3. Repair the already-bad July upload safely
-   - Correct existing `net_gain_churns` rows from request dates to actual `Churn date` values from the uploaded file.
-   - Add the missing Sheena Gregg row as pending for `2026-07-29`.
-   - Reverse the 16 incorrect auto-applied future churns with a clear audit log correction.
-   - Preserve the one legitimate applied churn, Caitlin Geary, so Net Gain becomes `-1`.
-   - Reset future churn rows to pending so they can auto-subtract later on the day after their actual churn date.
-   - Preserve audit history by marking the old bad churn log rows as correction/error rows instead of silently erasing what happened.
+## Files to change
 
-4. Improve the scoreboard target line
-   - Show current Net Gain prominently as it does now.
-   - Add a clearer line like:
-     - “17 scheduled terminations left this month.”
-     - “Need +18 membership sales by Jul 31 to finish positive.”
-   - Formula after correction: pending churns this month minus current net gain, so at `-1` with 17 remaining, goal to finish positive is `18`.
+1. **`src/features/wig/soml/SomlSection.tsx`**
+   - Replace the current `defaultPerSa` calc with a redistribution that subtracts sum-of-overrides per metric and divides by non-overridden SA count.
+   - Update the "Default per-SA target: …" caption to reflect the redistributed number and note when it was auto-adjusted (e.g. `1.7 → 2.0 (auto-adjusted for overrides)`).
+   - Leaderboard rows already use `effectiveTarget(sa, metric)`; the redistributed default flows through unchanged.
 
-5. Verify cross-page coherence before reporting done
-   - Database checks:
-     - `net_gain_state.value = -1`
-     - `net_gain_churns`: 1 applied, 17 pending for July upload
-     - `net_gain_log` sums back to the state value
-   - UI checks:
-     - My Day shows `-1`
-     - Studio shows `-1`
-     - WIG shows `-1`
-     - Manage Churns shows 17 pending and 1 applied
-     - Upload preview for the same spreadsheet reads `Churn date`, not `Termination request date`
-   - Confirm sale automation and manual Net Gain controls still work without changing WIG/SOML or other scoreboards.
+2. **`src/components/wig/WigSaLeaderboard.tsx`**
+   - Treat `teamSglTarget` as fixed = `targets.saSgl × activeCount` (not sum of effective per-SA).
+   - Change `effectiveSaSglTarget(sa)`:
+     - If override exists → override value.
+     - Otherwise → `(teamSglTarget − Σ overrides) / nonOverriddenCount` (clamped ≥ 0).
+   - Update the hero footer copy so `Per-SA: X × N SAs` still makes sense — show the redistributed default for non-overridden SAs and a `(N overridden)` hint when any exist.
+
+## Out of scope
+- No DB changes. Overrides and totals already live in `soml_sa_goals`, `soml_config`, `monthly_lead_totals`, and the per-SA override table used by `loadPerSaOverrides`.
+- Booked/Sales columns on the WIG leaderboard have no per-SA override mechanism today, so no redistribution needed there.
+- Coach/Studio-wide tiles unaffected.
+
+## Coherence proof I'll produce after building
+- SOML: with sales goal = 30 and Jayna override = 0, verify each remaining SA shows `6.0` and team goal reads `30`.
+- WIG leads: with per-SA leads = 5 and Jayna override = 0 (6 SAs → team goal 30), verify remaining 5 SAs show `6` each and hero team target stays `30`.
+- Confirm overridden SAs display their override untouched, and clearing an override restores the flat default across all SAs.
