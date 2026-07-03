@@ -3,7 +3,7 @@
  * Visually distinct block, but reuses the exact pace + status helpers as
  * the Leads scoreboard so the two read as siblings, not different apps.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -219,6 +219,71 @@ function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
     </Dialog>
   );
 }
+interface SaOverrideDialogProps {
+  open: boolean; onClose: () => void;
+  sa: string; metric: MetricKey;
+  current: number | null; defaultValue: number;
+  onSaved: () => void;
+}
+function SaOverrideDialog({ open, onClose, sa, metric, current, defaultValue, onSaved }: SaOverrideDialogProps) {
+  const { user } = useAuth();
+  const [val, setVal] = useState('');
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (open) setVal(current == null ? '' : String(current));
+  }, [open, current, sa, metric]);
+
+  const save = async (clear: boolean) => {
+    setSaving(true);
+    const key = `${metric}_goal`;
+    let payload: any = { sa_name: sa, updated_by: user?.name || 'unknown' };
+    if (clear) {
+      payload[key] = null;
+    } else {
+      const n = parseInt(val, 10);
+      if (isNaN(n) || n < 0) { toast.error('Enter a number ≥ 0'); setSaving(false); return; }
+      payload[key] = n;
+    }
+    // Upsert on sa_name
+    const { error } = await (supabase as any)
+      .from('soml_sa_goals')
+      .upsert(payload, { onConflict: 'sa_name' });
+    setSaving(false);
+    if (error) { toast.error('Save failed: ' + error.message); return; }
+    toast.success(clear ? 'Override cleared' : 'Override saved');
+    onSaved();
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>Override {metric} goal — {sa}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label className="text-xs">Custom monthly {metric} goal for {sa}</Label>
+          <Input type="number" min={0} value={val} onChange={e => setVal(e.target.value)}
+            placeholder={`Default: ${defaultValue.toFixed(1)}`} autoFocus />
+          <p className="text-[11px] text-muted-foreground">
+            Leaves other SAs on the divided default. Clear to fall back to default.
+          </p>
+        </div>
+        <DialogFooter className="gap-2">
+          {current != null && (
+            <Button variant="ghost" onClick={() => save(true)} disabled={saving}>Clear</Button>
+          )}
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => save(false)} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+// Per-SA override row (nullable per metric — null = use divided default)
+interface SaOverride { sa_name: string; referrals_goal: number | null; upgrades_goal: number | null; sales_goal: number | null }
 
 export function SomlSection() {
   const { user } = useAuth();
@@ -230,6 +295,18 @@ export function SomlSection() {
   const [editWindowOpen, setEditWindowOpen] = useState(false);
   const [logOpen, setLogOpen] = useState<'upgrade' | 'referral' | null>(null);
   const [savedFlash, setSavedFlash] = useState<MetricKey | null>(null);
+  const [overrides, setOverrides] = useState<Record<string, SaOverride>>({});
+  const [editCell, setEditCell] = useState<{ sa: string; metric: MetricKey } | null>(null);
+
+  const loadOverrides = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from('soml_sa_goals')
+      .select('sa_name, referrals_goal, upgrades_goal, sales_goal');
+    const map: Record<string, SaOverride> = {};
+    ((data as SaOverride[]) || []).forEach(r => { map[r.sa_name] = r; });
+    setOverrides(map);
+  }, []);
+  useEffect(() => { loadOverrides(); }, [loadOverrides]);
 
   const activeCount = useMemo(
     () => (activeSas || []).filter(n => n !== 'Koa').length,
@@ -263,15 +340,17 @@ export function SomlSection() {
     upgrades: paceToToday(goals.upgrades || null, paceAnchor),
     sales: paceToToday(goals.sales || null, paceAnchor),
   };
-  const perSaTarget = {
+  const defaultPerSa = {
     referrals: activeCount > 0 ? goals.referrals / activeCount : 0,
     upgrades: activeCount > 0 ? goals.upgrades / activeCount : 0,
     sales: activeCount > 0 ? goals.sales / activeCount : 0,
   };
-  const perSaPace = {
-    referrals: paceToToday(perSaTarget.referrals || null, paceAnchor),
-    upgrades: paceToToday(perSaTarget.upgrades || null, paceAnchor),
-    sales: paceToToday(perSaTarget.sales || null, paceAnchor),
+  // Effective target for a given SA + metric: override wins, else divided default
+  const effectiveTarget = (sa: string, metric: MetricKey): number => {
+    const ov = overrides[sa];
+    const key = `${metric}_goal` as const;
+    if (ov && ov[key] != null) return ov[key] as number;
+    return defaultPerSa[metric];
   };
 
   const rowMap = useMemo(() => new Map(rows.map(r => [r.sa, r])), [rows]);
@@ -340,10 +419,11 @@ export function SomlSection() {
         />
       </div>
 
-      {/* Per-SA target row */}
+      {/* Per-SA default target row */}
       <div className="text-[11px] text-muted-foreground">
-        Per-SA target: {perSaTarget.referrals.toFixed(1)} referrals · {perSaTarget.upgrades.toFixed(1)} upgrades · {perSaTarget.sales.toFixed(1)} sales
+        Default per-SA target: {defaultPerSa.referrals.toFixed(1)} referrals · {defaultPerSa.upgrades.toFixed(1)} upgrades · {defaultPerSa.sales.toFixed(1)} sales
         {activeCount > 0 && <span className="ml-1">({activeCount} SAs)</span>}
+        {isAdmin && <span className="ml-1 italic">— tap a cell to override for one SA.</span>}
       </div>
 
       {/* SA Leaderboard */}
@@ -364,12 +444,32 @@ export function SomlSection() {
             {leaderboardRows.map(r => (
               <TableRow key={r.sa}>
                 <TableCell className="font-medium">{r.sa}</TableCell>
-                {(['referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => (
-                  <TableCell key={k} className="text-center">
-                    <div className="font-semibold tabular-nums">{r[k]}</div>
-                    <div className="mt-1"><PaceBar current={r[k]} target={perSaTarget[k] || null} pace={perSaPace[k]} /></div>
-                  </TableCell>
-                ))}
+                {(['referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => {
+                  const tgt = effectiveTarget(r.sa, k);
+                  const pace = paceToToday(tgt || null, paceAnchor);
+                  const isOverride = overrides[r.sa]?.[`${k}_goal`] != null;
+                  return (
+                    <TableCell key={k} className="text-center align-top">
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="font-semibold tabular-nums">{r[k]}</span>
+                        <span className="text-[10px] text-muted-foreground">/ {tgt.toFixed(1)}</span>
+                        {isAdmin && (
+                          <button
+                            onClick={() => setEditCell({ sa: r.sa, metric: k })}
+                            className={cn(
+                              'p-0.5 rounded hover:bg-secondary transition',
+                              isOverride && 'text-primary',
+                            )}
+                            aria-label={`Override ${k} goal for ${r.sa}`}
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="mt-1"><PaceBar current={r[k]} target={tgt || null} pace={pace} /></div>
+                    </TableCell>
+                  );
+                })}
               </TableRow>
             ))}
           </TableBody>
@@ -379,6 +479,15 @@ export function SomlSection() {
       <EditGoalDialog open={editMetric !== null} onClose={() => setEditMetric(null)} metric={editMetric} config={config} onSaved={handleSaved} />
       <EditWindowDialog open={editWindowOpen} onClose={() => setEditWindowOpen(false)} config={config} onSaved={refetch} />
       <LogDialog open={logOpen !== null} onClose={() => setLogOpen(null)} kind={logOpen || 'upgrade'} onSaved={refetch} />
+      <SaOverrideDialog
+        open={editCell !== null}
+        onClose={() => setEditCell(null)}
+        sa={editCell?.sa || ''}
+        metric={editCell?.metric || 'referrals'}
+        current={editCell ? (overrides[editCell.sa]?.[`${editCell.metric}_goal`] ?? null) : null}
+        defaultValue={editCell ? defaultPerSa[editCell.metric] : 0}
+        onSaved={() => { loadOverrides(); refetch(); }}
+      />
     </section>
   );
 }

@@ -2571,6 +2571,42 @@ export type Database = {
         }
         Relationships: []
       }
+      net_gain_churns: {
+        Row: {
+          applied_at: string | null
+          churn_date: string
+          created_at: string
+          created_by: string
+          id: string
+          member_name: string
+          notes: string | null
+          updated_at: string
+          upload_batch_id: string | null
+        }
+        Insert: {
+          applied_at?: string | null
+          churn_date: string
+          created_at?: string
+          created_by: string
+          id?: string
+          member_name: string
+          notes?: string | null
+          updated_at?: string
+          upload_batch_id?: string | null
+        }
+        Update: {
+          applied_at?: string | null
+          churn_date?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          member_name?: string
+          notes?: string | null
+          updated_at?: string
+          upload_batch_id?: string | null
+        }
+        Relationships: []
+      }
       net_gain_log: {
         Row: {
           changed_at: string
@@ -2579,6 +2615,8 @@ export type Database = {
           id: string
           new_value: number
           note: string | null
+          source_id: string | null
+          source_type: string
         }
         Insert: {
           changed_at?: string
@@ -2587,6 +2625,8 @@ export type Database = {
           id?: string
           new_value: number
           note?: string | null
+          source_id?: string | null
+          source_type?: string
         }
         Update: {
           changed_at?: string
@@ -2595,6 +2635,8 @@ export type Database = {
           id?: string
           new_value?: number
           note?: string | null
+          source_id?: string | null
+          source_type?: string
         }
         Relationships: []
       }
@@ -3529,6 +3571,39 @@ export type Database = {
           notes?: string | null
           referred_at?: string
           referred_by?: string
+        }
+        Relationships: []
+      }
+      soml_sa_goals: {
+        Row: {
+          created_at: string
+          id: string
+          referrals_goal: number | null
+          sa_name: string
+          sales_goal: number | null
+          updated_at: string
+          updated_by: string | null
+          upgrades_goal: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          referrals_goal?: number | null
+          sa_name: string
+          sales_goal?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          upgrades_goal?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          referrals_goal?: number | null
+          sa_name?: string
+          sales_goal?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          upgrades_goal?: number | null
         }
         Relationships: []
       }
@@ -4535,6 +4610,7 @@ export type Database = {
       }
     }
     Functions: {
+      apply_pending_net_gain_churns: { Args: never; Returns: Json }
       backfill_booking_phones: { Args: { p_days_back?: number }; Returns: Json }
       backfill_questionnaire_slugs: { Args: never; Returns: Json }
       gen_intro_friend_code: { Args: { _id: string }; Returns: string }
@@ -4547,6 +4623,16 @@ export type Database = {
         Returns: boolean
       }
       is_authenticated_staff: { Args: { _user_id: string }; Returns: boolean }
+      net_gain_write_delta: {
+        Args: {
+          p_changed_by: string
+          p_delta: number
+          p_note: string
+          p_source_id: string
+          p_source_type: string
+        }
+        Returns: number
+      }
       process_own_it_mentions: {
         Args: {
           p_meeting_id: string
