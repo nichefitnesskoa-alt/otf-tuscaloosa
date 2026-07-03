@@ -425,7 +425,7 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
   const [bookLead, setBookLead] = useState<Lead | null>(null);
   const [scriptLead, setScriptLead] = useState<Lead | null>(null);
   const [lostLeadId, setLostLeadId] = useState<string | null>(null);
-  const [subTab, setSubTab] = useState('contacted');
+  const [subTab, setSubTab] = useState('non_contacted');
   const [search, setSearch] = useState('');
   const dedupRunning = useRef(false);
   // Stable refs so backgroundDedupRecheck doesn't change identity each render (avoids React #300)
