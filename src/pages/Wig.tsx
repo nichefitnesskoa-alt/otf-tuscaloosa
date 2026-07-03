@@ -723,6 +723,24 @@ export default function Wig() {
             via: isViaSecond ? '2nd_intro' : 'direct',
           });
           countedRunBookingIds.add(r.linked_intro_booked_id);
+
+          // Cross-period close: the root 1st intro is outside the current
+          // window, so it never hit the Coached pass above. Credit the root
+          // coach with the coached count for this member too, so their
+          // denominator reflects the class they actually ran.
+          if (!coachMap.has(cName) || !ensureAttrib(cName).coached.some(c => c.bookingId === root.id)) {
+            const em = coachMap.get(cName) || { coached: 0 };
+            em.coached++;
+            coachMap.set(cName, em);
+            ensureAttrib(cName).coached.push({
+              bookingId: root.id,
+              member: root.member_name || linked.member_name || 'Unknown',
+              classDate: root.class_date || null,
+              source: root.lead_source || null,
+              resultLabel: 'SALE',
+              via2ndIntroSale: isViaSecond,
+            });
+          }
         }
       }
 
