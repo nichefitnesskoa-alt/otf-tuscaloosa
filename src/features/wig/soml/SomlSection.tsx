@@ -583,7 +583,18 @@ export function SomlSection() {
                   return (
                     <TableCell key={k} className="text-center align-middle py-4">
                       <div className="flex items-baseline justify-center gap-2">
-                        <span className="text-3xl md:text-4xl font-black tabular-nums leading-none text-foreground">{r[k]}</span>
+                        <button
+                          type="button"
+                          onClick={() => r[k] > 0 && setDrilldown({ metric: k, sa: r.sa })}
+                          disabled={r[k] === 0}
+                          className={cn(
+                            'text-3xl md:text-4xl font-black tabular-nums leading-none text-foreground rounded px-1',
+                            r[k] > 0 && 'hover:bg-secondary/60 cursor-pointer',
+                          )}
+                          aria-label={r[k] > 0 ? `View ${r.sa}'s ${k}` : undefined}
+                        >
+                          {r[k]}
+                        </button>
                         <span className="text-sm text-muted-foreground tabular-nums">/ {tgt.toFixed(1)}</span>
                         {isAdmin && (
                           <Tooltip>
