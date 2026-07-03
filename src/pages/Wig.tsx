@@ -1168,7 +1168,7 @@ export default function Wig() {
                 })}
                 {renderHero({
                   kicker: 'Studio close rate · OTF Corporate',
-                  rule: 'OTF scores coaches on the member\'s FIRST visit only. 2nd/3rd intros don\'t count in the denominator, and close credit follows the first-visit coach.',
+                  rule: 'Credit follows the LAST coach — the one who ran the class the member converted from. Every ran intro counts in the denominator.',
                   rate: corpCloseRate,
                   status: corpStatus,
                   cls: corpCls,
