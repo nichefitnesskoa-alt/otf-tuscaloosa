@@ -35,7 +35,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         </ErrorBoundary>
       </main>
       <BottomNav />
-      {user && <HowToDialog />}
+      
     </div>
   );
 }
