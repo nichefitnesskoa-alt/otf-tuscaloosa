@@ -45,11 +45,21 @@ export interface PendingReferralRow {
   class_date?: string | null;
 }
 
+export interface SomlDetailItem {
+  sa: string;
+  member_name: string;
+  date: string | null; // ISO date
+  source: 'auto' | 'manual' | 'legacy';
+}
+
 export interface SomlData {
   config: SomlConfig | null;
   totals: { referrals: number; upgrades: number; sales: number; pending: number };
   rows: SomlSaRow[];
   pendingReferrals: PendingReferralRow[];
+  realizedReferrals: SomlDetailItem[];
+  upgradesList: SomlDetailItem[];
+  salesList: SomlDetailItem[];
   loading: boolean;
   refetch: () => Promise<void>;
 }
