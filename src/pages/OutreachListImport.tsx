@@ -42,6 +42,40 @@ interface SheetPlan {
   data: Record<string, any>[];
   mapping: Partial<Record<FieldKey, string>>;
   autoChurnFallback: boolean; // if true, no is_churning column → all false
+  rawRows: any[][]; // full array-of-arrays for header-row override
+  headerRow: number; // 1-indexed row used as header
+}
+
+/** Find the first row (0-indexed) whose cells look like real column headers.
+ *  Skips title/description rows above the header. */
+function detectHeaderRow(rows: any[][]): number {
+  const isHeaderCell = (v: any) =>
+    typeof v === 'string' && /^(client|name|member|full ?name|first ?name|last ?name)/i.test(v.trim());
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    if ((rows[i] || []).some(isHeaderCell)) return i;
+  }
+  return 0;
+}
+
+/** Convert array-of-arrays + header row index into {headers, data} shape. */
+function shapeFromHeaderRow(rows: any[][], headerIdx: number) {
+  const rawHeaders = (rows[headerIdx] || []).map((h, i) =>
+    (h == null || String(h).trim() === '') ? `Column ${i + 1}` : String(h).trim());
+  // dedupe duplicate headers
+  const seen = new Map<string, number>();
+  const headers = rawHeaders.map(h => {
+    const n = (seen.get(h) || 0) + 1;
+    seen.set(h, n);
+    return n === 1 ? h : `${h} (${n})`;
+  });
+  const data = rows.slice(headerIdx + 1)
+    .filter(r => r && r.some(c => c !== '' && c != null))
+    .map(r => {
+      const obj: Record<string, any> = {};
+      headers.forEach((h, i) => { obj[h] = r[i] ?? ''; });
+      return obj;
+    });
+  return { headers, data };
 }
 
 function guessColumn(headers: string[], patterns: RegExp[]): string | undefined {
