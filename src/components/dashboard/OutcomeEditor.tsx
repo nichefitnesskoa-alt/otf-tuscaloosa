@@ -7,7 +7,7 @@ import { isMembershipSale } from '@/lib/sales-detection';
 import { applyIntroOutcomeUpdate } from '@/lib/outcome-update';
 import { useAuth } from '@/context/AuthContext';
 
-const OBJECTIONS = ['Pricing', 'Time', 'Shopping Around', 'Spousal/Parental', 'Think About It', 'Out of Town', 'Other'];
+import { OBJECTION_OPTIONS as OBJECTIONS } from '@/lib/intros/objections';
 
 const MEMBERSHIP_OPTIONS = [
   { label: 'Premier + OTBeat', commission: 15.00 },
