@@ -389,6 +389,11 @@ export function WigSaLeaderboard({ dateRange }: Props) {
               Per-SA: <span className="font-bold">{targets.saSgl ?? '—'}</span>
               <span className="mx-1">×</span>
               {activeCount} SAs
+              {overrideStats.count > 0 && redistributedPerSa != null && (
+                <span className="ml-2 text-primary italic">
+                  ({overrideStats.count} overridden → others {redistributedPerSa.toFixed(1)} each)
+                </span>
+              )}
               {isAdmin && (
                 <Button
                   size="sm"
