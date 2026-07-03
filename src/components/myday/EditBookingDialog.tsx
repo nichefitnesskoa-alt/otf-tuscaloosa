@@ -58,6 +58,7 @@ export function EditBookingDialog({
   const [source, setSource] = useState(leadSource || '');
   const [owner, setOwner] = useState(introOwner || '');
   const [booker, setBooker] = useState(bookedBy || '');
+  const [referredBy, setReferredBy] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -71,8 +72,9 @@ export function EditBookingDialog({
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const { data } = await sb.from('intros_booked').select('event_id').eq('id', bookingId).maybeSingle();
+      const { data } = await sb.from('intros_booked').select('event_id, referred_by_member_name').eq('id', bookingId).maybeSingle();
       setEventId((data?.event_id as string) || null);
+      setReferredBy((data?.referred_by_member_name as string) || '');
     })();
   }, [open, bookingId]);
 
@@ -94,6 +96,12 @@ export function EditBookingDialog({
 
   const handleSave = async () => {
     setSaving(true);
+    const isMemberReferral = source === 'Member Referral' || source === 'Member Referral (5 class pack)';
+    if (isMemberReferral && !referredBy.trim()) {
+      toast.error('Referring member name is required for Member Referral bookings');
+      setSaving(false);
+      return;
+    }
     try {
       const updateData: Record<string, any> = {
         coach_name: coach,
@@ -102,6 +110,7 @@ export function EditBookingDialog({
         intro_owner: owner || null,
         booked_by: booker || null,
         event_id: source === 'Event' ? eventId : null,
+        referred_by_member_name: isMemberReferral ? referredBy.trim() : null,
         last_edited_at: new Date().toISOString(),
         last_edited_by: editedBy,
       };
@@ -125,8 +134,8 @@ export function EditBookingDialog({
       toast.success('Booking updated');
       onSaved();
       onOpenChange(false);
-    } catch {
-      toast.error('Failed to save changes');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save changes');
     } finally {
       setSaving(false);
     }
@@ -216,6 +225,22 @@ export function EditBookingDialog({
             {source === 'Event' && (
               <EventPicker value={eventId} onValueChange={setEventId} required />
             )}
+
+            {(source === 'Member Referral' || source === 'Member Referral (5 class pack)') && (
+              <div className="space-y-1.5">
+                <Label className="text-sm">Referred By (Member Name) *</Label>
+                <NameAutocomplete
+                  value={referredBy}
+                  onChange={setReferredBy}
+                  placeholder="Who referred them? (required)"
+                  className={`h-11 ${!referredBy.trim() ? 'ring-1 ring-destructive/40' : ''}`}
+                />
+                {!referredBy.trim() && (
+                  <p className="text-[11px] text-destructive">Required when lead source is Member Referral.</p>
+                )}
+              </div>
+            )}
+
 
             {source !== 'VIP Class' && !showVipPicker && (
               <div>

@@ -14,6 +14,7 @@ import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { Target, Trophy, UserCheck, Check, Loader2, RefreshCw, Pencil } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WigSaLeaderboard } from '@/components/wig/WigSaLeaderboard';
+import { SomlSection } from '@/features/wig/soml/SomlSection';
 
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -1048,6 +1049,10 @@ export default function Wig() {
         <TabsContent value="sa" className="space-y-4">
           {/* SA Leaderboard renders its own hero (team SGL) + table */}
           <WigSaLeaderboard dateRange={dateRange} />
+
+          {/* Summer of More Life — separate scoreboard, same page */}
+          <SomlSection />
+
 
           {/* Studio total leads — BIG hero card with pace-to-today */}
           <Card className={cn('border-2 ring-2 ring-offset-0', studioHeroCls.ring)}>

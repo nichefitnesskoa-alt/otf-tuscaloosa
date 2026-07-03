@@ -1,0 +1,194 @@
+/**
+ * Summer of More Life data hook.
+ *
+ * Reads soml_config (window + goals) and computes 3 metrics:
+ *  - Referrals: automatic (Member Referral lead_source + qualifying sale via
+ *    isSaleCanon, buy_date in window, credited to booked_by) PLUS manual
+ *    entries from soml_manual_referrals (deduped by member_name against auto).
+ *  - Upgrades: soml_upgrades rows in window, grouped by upgraded_by.
+ *  - Sales: intros_run where isSaleCanon and getRunSaleDate ∈ window,
+ *    credited to intros_booked.intro_owner (matches existing WIG sales attribution).
+ *
+ * Reuses canonical helpers only — no new date/sale logic.
+ */
+import { useEffect, useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { SALE_CANONS, getRunSaleDate } from '@/lib/sales-detection';
+import { DATA_CHANGED_EVENT } from '@/lib/data/invalidation';
+
+export interface SomlConfig {
+  start_date: string;
+  end_date: string;
+  referrals_goal: number;
+  upgrades_goal: number;
+  sales_goal: number;
+}
+
+export interface SomlSaRow {
+  sa: string;
+  referrals: number;
+  upgrades: number;
+  sales: number;
+}
+
+export interface SomlData {
+  config: SomlConfig | null;
+  totals: { referrals: number; upgrades: number; sales: number };
+  rows: SomlSaRow[];
+  loading: boolean;
+  refetch: () => Promise<void>;
+}
+
+const MEMBER_REFERRAL_SOURCES = ['Member Referral', 'Member Referral (5 class pack)'];
+
+function norm(s: string | null | undefined): string {
+  return (s || '').trim().toLowerCase();
+}
+
+export function useSomlData(): SomlData {
+  const [config, setConfig] = useState<SomlConfig | null>(null);
+  const [rows, setRows] = useState<SomlSaRow[]>([]);
+  const [totals, setTotals] = useState({ referrals: 0, upgrades: 0, sales: 0 });
+  const [loading, setLoading] = useState(true);
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+
+    // 1. Config
+    const { data: cfgRow } = await supabase
+      .from('soml_config' as any)
+      .select('start_date, end_date, referrals_goal, upgrades_goal, sales_goal')
+      .eq('id', 1)
+      .maybeSingle();
+    const cfg = (cfgRow as unknown as SomlConfig | null) || null;
+    setConfig(cfg);
+    if (!cfg) { setRows([]); setTotals({ referrals: 0, upgrades: 0, sales: 0 }); setLoading(false); return; }
+
+    const start = cfg.start_date;
+    const end = cfg.end_date;
+
+    // 2. Automatic referrals: Member Referral bookings + linked qualifying sale in window
+    const { data: refBookings } = await supabase
+      .from('intros_booked')
+      .select('id, member_name, booked_by, intro_owner, lead_source')
+      .in('lead_source', MEMBER_REFERRAL_SOURCES)
+      .is('deleted_at', null);
+
+    const refBookingIds = (refBookings || []).map((b: any) => b.id);
+    let autoReferralRows: Array<{ sa: string; member_name: string }> = [];
+    if (refBookingIds.length) {
+      const saleCanons = Array.from(SALE_CANONS);
+      const { data: runs } = await supabase
+        .from('intros_run')
+        .select('id, result_canon, buy_date, run_date, created_at, linked_intro_booked_id, ignore_from_metrics')
+        .in('linked_intro_booked_id', refBookingIds)
+        .in('result_canon', saleCanons);
+      const bookingMap = new Map<string, any>((refBookings || []).map((b: any) => [b.id, b]));
+      for (const r of (runs || [])) {
+        if ((r as any).ignore_from_metrics) continue;
+        const saleDate = getRunSaleDate(r as any);
+        if (!saleDate || saleDate < start || saleDate > end) continue;
+        const bk = bookingMap.get((r as any).linked_intro_booked_id);
+        if (!bk) continue;
+        const credit = (bk.booked_by && bk.booked_by !== 'Self booked' && bk.booked_by !== 'Self-booked')
+          ? bk.booked_by
+          : bk.intro_owner;
+        if (!credit) continue;
+        autoReferralRows.push({ sa: credit, member_name: bk.member_name || '' });
+      }
+    }
+    const autoReferralMemberSet = new Set(autoReferralRows.map(r => norm(r.member_name)));
+
+    // 3. Manual referrals — dedup against auto by member_name
+    const { data: manualRefs } = await supabase
+      .from('soml_manual_referrals' as any)
+      .select('member_name, referred_by, referred_at')
+      .gte('referred_at', `${start}T00:00:00-06:00`)
+      .lte('referred_at', `${end}T23:59:59-05:00`);
+    const manualReferralRows = ((manualRefs as any[]) || [])
+      .filter(m => !autoReferralMemberSet.has(norm(m.member_name)))
+      .map(m => ({ sa: m.referred_by as string, member_name: m.member_name as string }));
+
+    // 4. Upgrades
+    const { data: upgrades } = await supabase
+      .from('soml_upgrades' as any)
+      .select('member_name, upgraded_by, upgraded_at')
+      .gte('upgraded_at', `${start}T00:00:00-06:00`)
+      .lte('upgraded_at', `${end}T23:59:59-05:00`);
+    const upgradeRows = ((upgrades as any[]) || []).map(u => ({ sa: u.upgraded_by as string }));
+
+    // 5. Sales — all qualifying sales in window (attributed to intro_owner)
+    const saleCanons = Array.from(SALE_CANONS);
+    const { data: allSaleRuns } = await supabase
+      .from('intros_run')
+      .select('id, result_canon, buy_date, run_date, created_at, linked_intro_booked_id, ignore_from_metrics')
+      .in('result_canon', saleCanons);
+    const saleBookingIds = Array.from(new Set(((allSaleRuns as any[]) || [])
+      .map(r => r.linked_intro_booked_id).filter(Boolean)));
+    let salesBookingMap = new Map<string, any>();
+    if (saleBookingIds.length) {
+      const { data: bks } = await supabase
+        .from('intros_booked')
+        .select('id, intro_owner, booked_by')
+        .in('id', saleBookingIds);
+      salesBookingMap = new Map(((bks as any[]) || []).map(b => [b.id, b]));
+    }
+    const salesRows: Array<{ sa: string }> = [];
+    for (const r of ((allSaleRuns as any[]) || [])) {
+      if (r.ignore_from_metrics) continue;
+      const d = getRunSaleDate(r);
+      if (!d || d < start || d > end) continue;
+      const bk = r.linked_intro_booked_id ? salesBookingMap.get(r.linked_intro_booked_id) : null;
+      const credit = bk?.intro_owner || bk?.booked_by;
+      if (!credit) continue;
+      salesRows.push({ sa: credit });
+    }
+
+    // 6. Aggregate per-SA
+    const byName = new Map<string, SomlSaRow>();
+    const bump = (sa: string, key: 'referrals' | 'upgrades' | 'sales') => {
+      const cur = byName.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0 };
+      cur[key] += 1;
+      byName.set(sa, cur);
+    };
+    [...autoReferralRows, ...manualReferralRows].forEach(r => bump(r.sa, 'referrals'));
+    upgradeRows.forEach(r => bump(r.sa, 'upgrades'));
+    salesRows.forEach(r => bump(r.sa, 'sales'));
+
+    const rowsOut = Array.from(byName.values())
+      .sort((a, b) =>
+        (b.referrals + b.upgrades + b.sales) - (a.referrals + a.upgrades + a.sales)
+        || a.sa.localeCompare(b.sa)
+      );
+    const t = rowsOut.reduce(
+      (acc, r) => ({
+        referrals: acc.referrals + r.referrals,
+        upgrades: acc.upgrades + r.upgrades,
+        sales: acc.sales + r.sales,
+      }),
+      { referrals: 0, upgrades: 0, sales: 0 },
+    );
+
+    setRows(rowsOut);
+    setTotals(t);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  useEffect(() => {
+    const handler = () => { fetchAll(); };
+    window.addEventListener(DATA_CHANGED_EVENT, handler);
+    window.addEventListener('soml-data-changed', handler);
+    return () => {
+      window.removeEventListener(DATA_CHANGED_EVENT, handler);
+      window.removeEventListener('soml-data-changed', handler);
+    };
+  }, [fetchAll]);
+
+  return { config, totals, rows, loading, refetch: fetchAll };
+}
+
+export function notifySomlChanged() {
+  window.dispatchEvent(new CustomEvent('soml-data-changed'));
+}
