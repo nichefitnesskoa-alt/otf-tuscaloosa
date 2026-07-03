@@ -1,23 +1,20 @@
 /**
- * Outreach List detail — two structurally separate sections:
- *   - RETENTION / AT-RISK (is_churning=true) with a Save Attempt flow
- *   - STANDARD (is_churning=false) with Texted / In Person live actions
- *
- * Any row can be logged as a SOML upgrade or referral via the shared
- * LogSomlDialog which posts to the SAME tables the WIG scoreboard reads.
+ * Outreach List detail — dense spreadsheet-style table so the team can see
+ * many people at once. Churning members are flagged inline (red row + ⚠)
+ * and sorted to the top; no separate section. Prices, phone, workout
+ * activity, and Texted/In-Person status are all visible in one row.
  */
 import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import { AlertTriangle, ArrowLeft, Check, MessageCircle, User, Plus, Sparkles } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, Plus, Sparkles, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useOutreachListDetail, OutreachRow, OutreachAction } from '@/features/outreach/useOutreach';
@@ -25,161 +22,44 @@ import { LogSomlDialog } from '@/features/soml/LogSomlDialog';
 import { cn } from '@/lib/utils';
 
 function fmtWhen(iso: string) {
-  try {
-    return format(new Date(iso), 'M/d h:mma').toLowerCase();
-  } catch { return iso; }
+  try { return format(new Date(iso), 'M/d h:mma').toLowerCase(); } catch { return iso; }
 }
-
 function fmtChurnDate(d: string | null) {
   if (!d) return '—';
   const [y, m, day] = d.split('-').map(Number);
-  return format(new Date(y, m - 1, day), 'EEE, MMM d');
+  return format(new Date(y, m - 1, day), 'MMM d');
+}
+function fmtLatest(d: string | null) {
+  if (!d) return '—';
+  const [y, m, day] = d.split('-').map(Number);
+  return format(new Date(y, m - 1, day), 'MMM d');
+}
+function fmtAmount(n: number | null) {
+  if (n == null || isNaN(Number(n))) return '—';
+  return `$${Number(n).toFixed(2)}`;
 }
 
-function ActionPill({
-  label, icon, active, attribution, onClick,
+function CheckPill({
+  active, attribution, onClick, label,
 }: {
-  label: string;
-  icon: React.ReactNode;
   active: boolean;
   attribution?: OutreachAction;
   onClick: () => void;
+  label: string;
 }) {
   return (
     <button
       onClick={onClick}
+      title={attribution ? `${label} · ${attribution.done_by} · ${fmtWhen(attribution.done_at)}` : `Mark as ${label}`}
       className={cn(
-        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors min-h-[32px]',
+        'inline-flex items-center justify-center h-6 w-6 rounded border transition-colors',
         active
-          ? 'bg-primary/15 border-primary text-primary'
+          ? 'bg-primary/20 border-primary text-primary'
           : 'border-border hover:border-primary/60 hover:bg-accent',
       )}
-      title={attribution ? `${label} · ${attribution.done_by} · ${fmtWhen(attribution.done_at)}` : `Mark as ${label}`}
     >
-      {active ? <Check className="w-3 h-3" /> : icon}
-      <span>{label}</span>
-      {active && attribution && (
-        <span className="opacity-80 font-normal">
-          · {attribution.done_by} · {fmtWhen(attribution.done_at)}
-        </span>
-      )}
+      {active ? <Check className="w-3.5 h-3.5" /> : <span className="text-[10px] opacity-40">—</span>}
     </button>
-  );
-}
-
-function StandardRowCard({
-  row, actions, onLogUpgrade, onLogReferral,
-}: {
-  row: OutreachRow;
-  actions: OutreachAction[];
-  onLogUpgrade: (r: OutreachRow) => void;
-  onLogReferral: (r: OutreachRow) => void;
-}) {
-  const { user } = useAuth();
-  const rowActions = actions.filter(a => a.row_id === row.id);
-  const texted = rowActions.find(a => a.action_type === 'texted');
-  const inPerson = rowActions.find(a => a.action_type === 'in_person');
-
-  const toggle = async (kind: 'texted' | 'in_person', existing?: OutreachAction) => {
-    if (!user?.name) { toast.error('Login required'); return; }
-    if (existing) {
-      const { error } = await (supabase as any).from('outreach_row_actions').delete().eq('id', existing.id);
-      if (error) toast.error(error.message);
-    } else {
-      const { error } = await (supabase as any).from('outreach_row_actions').insert({
-        row_id: row.id, list_id: row.list_id, action_type: kind, done_by: user.name,
-      });
-      if (error) toast.error(error.message);
-    }
-  };
-
-  return (
-    <Card>
-      <CardContent className="p-3 space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="font-semibold truncate">{row.client_name}</div>
-            <div className="text-[11px] text-muted-foreground truncate">
-              {row.item && <span>{row.item}</span>}
-              {row.amount != null && <span> · ${Number(row.amount).toFixed(0)}</span>}
-              {row.phone && <span> · {row.phone}</span>}
-            </div>
-            {(row.worked_out_30d != null || row.last_30d_count != null) && (
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                {row.last_30d_count != null && <>Last 30d: <b>{row.last_30d_count}</b> workouts</>}
-                {row.latest_workout_date && <> · latest {fmtChurnDate(row.latest_workout_date)}</>}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5">
-          <ActionPill label="Texted" icon={<MessageCircle className="w-3 h-3" />}
-            active={!!texted} attribution={texted} onClick={() => toggle('texted', texted)} />
-          <ActionPill label="In person" icon={<User className="w-3 h-3" />}
-            active={!!inPerson} attribution={inPerson} onClick={() => toggle('in_person', inPerson)} />
-          <div className="flex-1" />
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px]" onClick={() => onLogUpgrade(row)}>
-            <Plus className="w-3 h-3 mr-1" /> Log Upgrade
-          </Button>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px]" onClick={() => onLogReferral(row)}>
-            <Sparkles className="w-3 h-3 mr-1" /> Log Referral
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ChurningRowCard({
-  row, actions, onSaveAttempt, onLogUpgrade,
-}: {
-  row: OutreachRow;
-  actions: OutreachAction[];
-  onSaveAttempt: (r: OutreachRow) => void;
-  onLogUpgrade: (r: OutreachRow) => void;
-}) {
-  const rowActions = actions.filter(a => a.row_id === row.id && a.action_type === 'save_attempt');
-  const latest = rowActions[0];
-
-  return (
-    <Card className="border-destructive/50 bg-destructive/5">
-      <CardContent className="p-3 space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
-              <span className="font-semibold truncate">{row.client_name}</span>
-            </div>
-            <div className="text-[11px] text-destructive font-medium">
-              Churns {fmtChurnDate(row.churn_date)}
-            </div>
-            <div className="text-[11px] text-muted-foreground truncate">
-              {row.item && <span>{row.item}</span>}
-              {row.phone && <span> · {row.phone}</span>}
-            </div>
-          </div>
-          <Badge variant="destructive" className="shrink-0 text-[9px]">SAVE CALL</Badge>
-        </div>
-
-        {latest && (
-          <div className="text-[11px] text-muted-foreground bg-background/60 rounded px-2 py-1">
-            Last save attempt: <b>{latest.done_by}</b> · {fmtWhen(latest.done_at)}
-            {latest.notes && <> — {latest.notes}</>}
-            {rowActions.length > 1 && <> ({rowActions.length} total)</>}
-          </div>
-        )}
-
-        <div className="flex flex-wrap gap-1.5">
-          <Button size="sm" variant="destructive" className="h-8 text-[11px]" onClick={() => onSaveAttempt(row)}>
-            Log Save Attempt
-          </Button>
-          <Button size="sm" variant="outline" className="h-8 text-[11px]" onClick={() => onLogUpgrade(row)}>
-            <Plus className="w-3 h-3 mr-1" /> Log Upgrade
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -211,10 +91,8 @@ function SaveAttemptDialog({
           <DialogTitle>Log save attempt · {row?.client_name}</DialogTitle>
         </DialogHeader>
         <div className="space-y-2">
-          <Textarea
-            placeholder="What did you say? Any commitment or objection?"
-            rows={3} value={notes} onChange={e => setNotes(e.target.value)}
-          />
+          <Textarea placeholder="What did you say? Any commitment or objection?"
+            rows={3} value={notes} onChange={e => setNotes(e.target.value)} />
           <p className="text-[11px] text-muted-foreground">Logged as <b>{user?.name || '—'}</b>.</p>
         </div>
         <DialogFooter>
@@ -228,19 +106,38 @@ function SaveAttemptDialog({
 
 export default function OutreachListDetail() {
   const { id } = useParams();
+  const { user } = useAuth();
   const { list, rows, actions, loading } = useOutreachListDetail(id);
   const [somlDialog, setSomlDialog] = useState<{ kind: 'upgrade' | 'referral'; name: string } | null>(null);
   const [saveDialog, setSaveDialog] = useState<OutreachRow | null>(null);
 
-  const { churning, standard } = useMemo(() => {
-    const c = rows.filter(r => r.is_churning)
-      .sort((a, b) => (a.churn_date || '9999').localeCompare(b.churn_date || '9999'));
-    const s = rows.filter(r => !r.is_churning);
-    return { churning: c, standard: s };
+  const sorted = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      if (a.is_churning !== b.is_churning) return a.is_churning ? -1 : 1;
+      if (a.is_churning && b.is_churning) {
+        return (a.churn_date || '9999').localeCompare(b.churn_date || '9999');
+      }
+      return a.client_name.localeCompare(b.client_name);
+    });
   }, [rows]);
 
+  const churnCount = rows.filter(r => r.is_churning).length;
+
+  const toggle = async (row: OutreachRow, kind: 'texted' | 'in_person', existing?: OutreachAction) => {
+    if (!user?.name) { toast.error('Login required'); return; }
+    if (existing) {
+      const { error } = await (supabase as any).from('outreach_row_actions').delete().eq('id', existing.id);
+      if (error) toast.error(error.message);
+    } else {
+      const { error } = await (supabase as any).from('outreach_row_actions').insert({
+        row_id: row.id, list_id: row.list_id, action_type: kind, done_by: user.name,
+      });
+      if (error) toast.error(error.message);
+    }
+  };
+
   return (
-    <div className="p-4 max-w-4xl mx-auto pb-24">
+    <div className="p-4 max-w-[1400px] mx-auto pb-24">
       <div className="mb-3">
         <Button asChild variant="ghost" size="sm" className="h-8 -ml-2">
           <Link to="/outreach-lists"><ArrowLeft className="w-4 h-4 mr-1" /> All lists</Link>
@@ -252,49 +149,172 @@ export default function OutreachListDetail() {
 
       {list && (
         <>
-          <div className="mb-4">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-              {list.campaign_tag}
+          <div className="mb-4 flex items-baseline justify-between gap-3 flex-wrap">
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                {list.campaign_tag}
+              </div>
+              <h1 className="text-xl font-black uppercase tracking-wide truncate">{list.name}</h1>
             </div>
-            <h1 className="text-xl font-black uppercase tracking-wide">{list.name}</h1>
-            <div className="text-[11px] text-muted-foreground">
-              {rows.length} people · {churning.length} at-risk
+            <div className="flex items-center gap-3 text-[11px]">
+              <span className="text-muted-foreground">{rows.length} people</span>
+              {churnCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-destructive font-semibold">
+                  <ShieldAlert className="w-3.5 h-3.5" /> {churnCount} churning
+                </span>
+              )}
             </div>
           </div>
 
-          {churning.length > 0 && (
-            <section className="mb-6">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="w-4 h-4 text-destructive" />
-                <h2 className="text-sm font-bold uppercase tracking-wide text-destructive">
-                  Retention · Save calls, not upsells
-                </h2>
-                <span className="text-[11px] text-muted-foreground">({churning.length})</span>
-              </div>
-              <div className="grid gap-2">
-                {churning.map(r => (
-                  <ChurningRowCard key={r.id} row={r} actions={actions}
-                    onSaveAttempt={setSaveDialog}
-                    onLogUpgrade={(row) => setSomlDialog({ kind: 'upgrade', name: row.client_name })} />
-                ))}
-              </div>
-            </section>
-          )}
+          {/* Desktop / tablet: spreadsheet table */}
+          <div className="hidden md:block rounded border border-border overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead className="bg-muted/60 text-[10px] uppercase tracking-wide text-muted-foreground sticky top-0 z-10">
+                <tr>
+                  <th className="text-left px-2 py-2 w-8"></th>
+                  <th className="text-left px-2 py-2 min-w-[160px]">Name</th>
+                  <th className="text-left px-2 py-2 min-w-[200px]">Item</th>
+                  <th className="text-right px-2 py-2 w-[80px]">Amount</th>
+                  <th className="text-left px-2 py-2 w-[130px]">Phone</th>
+                  <th className="text-right px-2 py-2 w-[70px]">30d</th>
+                  <th className="text-left px-2 py-2 w-[80px]">Latest</th>
+                  <th className="text-left px-2 py-2 w-[90px]">Churns</th>
+                  <th className="text-center px-2 py-2 w-[60px]">Texted</th>
+                  <th className="text-center px-2 py-2 w-[70px]">In Person</th>
+                  <th className="text-right px-2 py-2 w-[220px]">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((r, idx) => {
+                  const rowActions = actions.filter(a => a.row_id === r.id);
+                  const texted = rowActions.find(a => a.action_type === 'texted');
+                  const inPerson = rowActions.find(a => a.action_type === 'in_person');
+                  const saveAttempts = rowActions.filter(a => a.action_type === 'save_attempt');
+                  return (
+                    <tr key={r.id}
+                      className={cn(
+                        'border-t border-border h-10',
+                        r.is_churning
+                          ? 'bg-destructive/10 hover:bg-destructive/15 border-l-2 border-l-destructive'
+                          : idx % 2 === 0 ? 'bg-background hover:bg-accent/40' : 'bg-muted/20 hover:bg-accent/40',
+                      )}
+                    >
+                      <td className="px-2 py-1 align-middle">
+                        {r.is_churning && <AlertTriangle className="w-3.5 h-3.5 text-destructive" />}
+                      </td>
+                      <td className="px-2 py-1 align-middle font-semibold whitespace-nowrap">
+                        {r.client_name}
+                        {saveAttempts.length > 0 && (
+                          <span className="ml-1 text-[9px] text-muted-foreground">({saveAttempts.length} save{saveAttempts.length !== 1 ? 's' : ''})</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1 align-middle text-muted-foreground truncate max-w-[280px]" title={r.item || ''}>
+                        {r.item || '—'}
+                      </td>
+                      <td className="px-2 py-1 align-middle text-right font-mono tabular-nums">
+                        {fmtAmount(r.amount)}
+                      </td>
+                      <td className="px-2 py-1 align-middle text-muted-foreground whitespace-nowrap">
+                        {r.phone || '—'}
+                      </td>
+                      <td className="px-2 py-1 align-middle text-right tabular-nums">
+                        {r.last_30d_count ?? '—'}
+                      </td>
+                      <td className="px-2 py-1 align-middle text-muted-foreground whitespace-nowrap">
+                        {fmtLatest(r.latest_workout_date)}
+                      </td>
+                      <td className={cn(
+                        'px-2 py-1 align-middle whitespace-nowrap',
+                        r.is_churning ? 'text-destructive font-semibold' : 'text-muted-foreground',
+                      )}>
+                        {r.is_churning ? fmtChurnDate(r.churn_date) : '—'}
+                      </td>
+                      <td className="px-2 py-1 align-middle text-center">
+                        <CheckPill label="Texted" active={!!texted} attribution={texted}
+                          onClick={() => toggle(r, 'texted', texted)} />
+                      </td>
+                      <td className="px-2 py-1 align-middle text-center">
+                        <CheckPill label="In Person" active={!!inPerson} attribution={inPerson}
+                          onClick={() => toggle(r, 'in_person', inPerson)} />
+                      </td>
+                      <td className="px-2 py-1 align-middle text-right whitespace-nowrap">
+                        {r.is_churning && (
+                          <Button size="sm" variant="destructive" className="h-6 px-2 text-[10px] mr-1"
+                            onClick={() => setSaveDialog(r)}>
+                            Save
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]"
+                          onClick={() => setSomlDialog({ kind: 'upgrade', name: r.client_name })}>
+                          <Plus className="w-3 h-3 mr-0.5" /> Upgrade
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]"
+                          onClick={() => setSomlDialog({ kind: 'referral', name: r.client_name })}>
+                          <Sparkles className="w-3 h-3 mr-0.5" /> Refer
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {sorted.length === 0 && (
+                  <tr><td colSpan={11} className="text-center py-6 text-muted-foreground">No people in this list.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
-          {standard.length > 0 && (
-            <section>
-              <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground mb-2">
-                Standard outreach <span className="text-[11px] font-normal">({standard.length})</span>
-              </h2>
-              <div className="grid gap-2">
-                {standard.map(r => (
-                  <StandardRowCard key={r.id} row={r} actions={actions}
-                    onLogUpgrade={(row) => setSomlDialog({ kind: 'upgrade', name: row.client_name })}
-                    onLogReferral={(row) => setSomlDialog({ kind: 'referral', name: row.client_name })} />
-                ))}
-              </div>
-            </section>
-          )}
+          {/* Mobile: compact cards */}
+          <div className="md:hidden space-y-2">
+            {sorted.map(r => {
+              const rowActions = actions.filter(a => a.row_id === r.id);
+              const texted = rowActions.find(a => a.action_type === 'texted');
+              const inPerson = rowActions.find(a => a.action_type === 'in_person');
+              return (
+                <div key={r.id} className={cn(
+                  'rounded border p-2',
+                  r.is_churning ? 'bg-destructive/10 border-destructive/40' : 'bg-card border-border',
+                )}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        {r.is_churning && <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" />}
+                        <span className="font-semibold truncate">{r.client_name}</span>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground truncate">
+                        {r.item || '—'} · <span className="font-mono">{fmtAmount(r.amount)}</span>
+                      </div>
+                      {r.is_churning && (
+                        <div className="text-[10px] text-destructive font-semibold">
+                          Churns {fmtChurnDate(r.churn_date)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <CheckPill label="Texted" active={!!texted} attribution={texted}
+                        onClick={() => toggle(r, 'texted', texted)} />
+                      <CheckPill label="In Person" active={!!inPerson} attribution={inPerson}
+                        onClick={() => toggle(r, 'in_person', inPerson)} />
+                    </div>
+                  </div>
+                  <div className="flex gap-1 mt-2 justify-end">
+                    {r.is_churning && (
+                      <Button size="sm" variant="destructive" className="h-7 text-[10px]" onClick={() => setSaveDialog(r)}>
+                        Save
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" className="h-7 text-[10px]"
+                      onClick={() => setSomlDialog({ kind: 'upgrade', name: r.client_name })}>
+                      Upgrade
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 text-[10px]"
+                      onClick={() => setSomlDialog({ kind: 'referral', name: r.client_name })}>
+                      Refer
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </>
       )}
 
