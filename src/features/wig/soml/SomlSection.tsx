@@ -395,7 +395,7 @@ export function SomlSection() {
 
   const rowMap = useMemo(() => new Map(rows.map(r => [r.sa, r])), [rows]);
   const leaderboardRows = useMemo(() => rosterSas.map(sa => (
-    rowMap.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0 }
+    rowMap.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0, pending: 0 }
   )), [rosterSas, rowMap]);
 
   const windowLabel = config
