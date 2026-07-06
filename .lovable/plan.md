@@ -1,54 +1,39 @@
-Two fixes on MyDay.
+## Root cause
 
-## 1. "Missing a coach" banner assigns the coach (doesn't open outcome)
+The missing-outcome banner is firing on Lauren, Manina, and Raegan even though their class is at **5:30 PM Central today** and it's only 3:43 PM.
 
-Today the banner calls `setOutcomeBookingId(tbdCoachBookings[0].id)` which pops the **Log Outcome** drawer — wrong tool for the job.
+Looked at the DB. `intros_booked.class_start_at` for all three rows is stored as `2026-07-06 17:30:00+00` — that's **5:30 PM UTC**, which is **12:30 PM Central**. So the banner code correctly sees "3+ hours elapsed since class start" and fires. The stored timestamp is wrong (should be `22:30:00+00` for a 5:30 PM CST class), but the banner is trusting it.
 
-Replace with a lightweight **Assign Coach** dialog:
-- New component `AssignCoachDialog` at `src/features/myDay/AssignCoachDialog.tsx`
-- Lists every booking in `tbdCoachBookings` as a compact row: `member · date · time` + a coach `<Select>` populated from the canonical coaches list (`mem://logic/canon-lists/coaches` — via `useActiveStaff({ role: 'coach' })` or the existing coach-picker used in `EditBookingDialog`)
-- On change, update `intros_booked.coach_name` immediately (with `last_edited_by = userName`, `edit_reason = 'Assigned coach from missing-coach banner'`, `last_edited_at = now()`), toast "Saved", strip the row from the list
-- When the list empties, auto-close and `refreshData()`
-- Wire the banner button to open this dialog instead of the outcome drawer
+Two problems, one fix now:
 
-Handles the case of multiple TBD bookings in one pass (Koa currently would have to click banner N times).
+1. **Banner (fix now):** `MyDayPage.tsx` prefers `class_start_at` when present, then falls back to computing local Central time from `class_date` + `intro_time`. Because `class_start_at` is mis-stored across the whole table, preferring it produces a class-time that's ~5 hours too early.
+2. **Underlying data issue (flag, don't fix in this pass):** `class_start_at` is being written as if `intro_time` were UTC. That affects any other surface reading `class_start_at`. Should be its own audit.
 
-## 2. "Missing an outcome" banner — 2 hours after class start
+## Plan
 
-New MyDay banner mirroring the "missing a coach" pattern, styled amber/red so it reads as urgent but distinct.
+**Only file touched: `src/features/myDay/MyDayPage.tsx**`
 
-**Detection (in MyDayPage, alongside `tbdCoachBookings`):**
-```
-missingOutcomeBookings = intros where:
-  - class_date + intro_time is ≥ 2h in the past (America/Chicago)
-  - not deleted, canon not in (CANCELLED, DELETED_SOFT, PLANNING_RESCHEDULE)
-  - has NO linked intros_run row (hasLinkedRun === false)
-  - class_date within last 7 days (same window as coach banner)
-```
-Uses the existing `class_start_at` column (already selected in `useUpcomingIntrosData`), no timezone reimplementation — anchored to America/Chicago via existing helpers.
+In the `missingOutcomeBookings` memo (lines 191–220):
 
-**Banner behavior:**
-- Copy: `"N intro{s} missing an outcome — tap to log"` (or singular member name if N=1: `"Log outcome for {name} — class was Xh ago"`)
-- Tap opens the **existing** `OutcomeDrawer` for the first booking (this IS the outcome flow, unlike the coach banner). After save, if more remain, drawer stays open with the next one.
-- Position directly below the coach banner so both are visible when both apply.
+- Remove the `class_start_at` branch entirely.
+- Always compute `startMs` from `class_date` + `intro_time` parsed as local (Central) time using the same pattern already in the file:
+  ```
+  const [y, m, d] = b.class_date.split('-').map(Number);
+  const [hh, mm] = (b.intro_time || '00:00').split(':').map(Number);
+  const startMs = new Date(y, m - 1, d, hh || 0, mm || 0).getTime();
+  ```
+- Keep the same `elapsed >= TWO_HR && elapsed <= SEVEN_DAYS` gate.
+- Keep the same exclusions (deleted, cancelled, planning-reschedule, already-ran).
 
-**Per-card signal (already partially there):**
-`IntroRowCard.isOutcomeOverdue` currently trips at `-60` minutes. Raise the threshold to `-120` so the card-level red banner matches the new page-level banner and Koa doesn't see conflicting timing signals.
+## Verification
 
-## Coherence
+- Query the three affected rows and confirm computed `startMs` = 5:30 PM Central today, elapsed is negative (~-1h 47m), so none appear in the banner.
+- Confirm banner disappears in the preview.
+- Confirm any legitimately-past intro from earlier today or the past week still shows.
 
-- Both banners use the same source of truth (`intros_booked` + `intros_run` from MyDay's `useIntroData`) — no new query hook, no divergent counts.
-- After assigning a coach in the new dialog, the same `refreshData()` used by EditBookingDialog runs, so Coach View / WIG / Studio pick up the change on next fetch (they already read `coach_name` off `intros_booked`).
-- After logging an outcome via the banner, the existing OutcomeDrawer `onSaved` already invalidates the right query keys.
-- The 2h-past-start check reuses `class_start_at` already loaded in the hook — no extra fetch, no new realtime channel needed.
+## Not doing in this pass (calling out)
 
-## Files touched
-
-- `src/features/myDay/MyDayPage.tsx` — swap banner handler, add missing-outcome banner + memo
-- `src/features/myDay/AssignCoachDialog.tsx` — new
-- `src/features/myDay/IntroRowCard.tsx` — raise `isOutcomeOverdue` threshold from -60 to -120
-
-## Verification before done
-
-- Trigger UI with a real TBD booking (find one via `SELECT id, member_name FROM intros_booked WHERE coach_name IS NULL OR coach_name='TBD' AND class_date >= current_date - 7 LIMIT 1`), tap banner → confirm the coach dropdown appears (not outcome), pick coach, confirm DB row updates.
-- Query DB for intros ≥2h past start with no run row today → confirm banner count matches; tap → OutcomeDrawer opens for that booking; save → banner count decrements.
+- Fixing the `class_start_at` write path. That field is wrong across the table and likely mis-feeds other surfaces (Coach View, WIG, etc.). Recommend a follow-up audit + backfill migration once you confirm you want it done as a separate change.  
+  
+Fix the class_start_at write path and make sure that doesn't happen again and make sure all other class times and times in general are in central time across all systems  
+  
