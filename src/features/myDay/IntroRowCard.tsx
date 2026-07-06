@@ -563,11 +563,11 @@ export default function IntroRowCard({
       ) : item.leadSource?.toLowerCase().includes('vip') ? (
         <StatusBanner
           bgColor="hsl(var(--brand))"
-          text={`🟣 VIP Class — ${localQStatus === 'Q_COMPLETED' ? 'Questionnaire Complete ✓' : localQStatus === 'Q_SENT' ? 'Questionnaire Sent' : 'Questionnaire Not Sent'}`}
+          text={`🟣 VIP Class — ${localQStatus === 'Q_COMPLETED' ? 'Questionnaire Complete ✓' : localQStatus === 'Q_OPENED' ? 'Q Opened, Not Submitted' : localQStatus === 'Q_SENT' ? 'Questionnaire Sent' : 'Questionnaire Not Sent'}`}
         />
       ) : (
         <StatusBanner
-          bgColor={localQStatus === 'Q_COMPLETED' ? 'hsl(var(--status-success))' : localQStatus === 'Q_SENT' ? 'hsl(var(--status-warning))' : 'hsl(var(--status-danger))'}
+          bgColor={localQStatus === 'Q_COMPLETED' ? 'hsl(var(--status-success))' : (localQStatus === 'Q_SENT' || localQStatus === 'Q_OPENED') ? 'hsl(var(--status-warning))' : 'hsl(var(--status-danger))'}
           text={qBar.bannerLabel}
         />
       )}
