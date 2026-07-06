@@ -194,7 +194,7 @@ export default function IntroRowCard({
   const focusHours = minutesUntilClass !== null ? Math.floor(minutesUntilClass / 60) : 0;
   const focusMins = minutesUntilClass !== null ? minutesUntilClass % 60 : 0;
 
-  const isQOverdue = !item.isSecondIntro && localQStatus === 'Q_SENT' && minutesUntilClass !== null && minutesUntilClass <= 180 && minutesUntilClass > 0;
+  const isQOverdue = !item.isSecondIntro && (localQStatus === 'Q_SENT' || localQStatus === 'Q_OPENED') && minutesUntilClass !== null && minutesUntilClass <= 180 && minutesUntilClass > 0;
   const isOutcomeOverdue = !item.latestRunResult && minutesUntilClass !== null && minutesUntilClass <= -60;
 
   // Auto-prep 2nd visits
