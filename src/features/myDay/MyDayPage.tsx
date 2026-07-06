@@ -717,6 +717,19 @@ export default function MyDayPage() {
         </SheetContent>
       </Sheet>
 
+      <AssignCoachDialog
+        open={assignCoachOpen}
+        onOpenChange={setAssignCoachOpen}
+        bookings={tbdCoachBookings.map(b => ({
+          id: b.id,
+          member_name: b.member_name,
+          class_date: b.class_date,
+          intro_time: b.intro_time,
+        }))}
+        editedBy={user?.name || 'Unknown'}
+        onSaved={() => { refreshData(); }}
+      />
+
 
       {bookIntroLead && (
         <BookIntroDialog
