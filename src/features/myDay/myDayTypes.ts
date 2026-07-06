@@ -5,7 +5,7 @@
 
 export type TimeRange = 'today' | 'restOfWeek' | 'needsOutcome' | 'weekFull';
 
-export type QuestionnaireStatus = 'NO_Q' | 'Q_SENT' | 'Q_COMPLETED';
+export type QuestionnaireStatus = 'NO_Q' | 'Q_SENT' | 'Q_OPENED' | 'Q_COMPLETED';
 
 export interface RiskFlags {
   noQ: boolean;
