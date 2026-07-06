@@ -76,11 +76,12 @@ function norm(s: string | null | undefined): string {
 export function useSomlData(): SomlData {
   const [config, setConfig] = useState<SomlConfig | null>(null);
   const [rows, setRows] = useState<SomlSaRow[]>([]);
-  const [totals, setTotals] = useState({ referrals: 0, upgrades: 0, sales: 0, pending: 0 });
+  const [totals, setTotals] = useState({ referrals: 0, upgrades: 0, sales: 0, pending: 0, referralLeads: 0 });
   const [pendingReferrals, setPendingReferrals] = useState<PendingReferralRow[]>([]);
   const [realizedReferrals, setRealizedReferrals] = useState<SomlDetailItem[]>([]);
   const [upgradesList, setUpgradesList] = useState<SomlDetailItem[]>([]);
   const [salesList, setSalesList] = useState<SomlDetailItem[]>([]);
+  const [referralLeadsList, setReferralLeadsList] = useState<SomlDetailItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
@@ -89,7 +90,7 @@ export function useSomlData(): SomlData {
     // 1. Config
     const { data: cfgRow } = await supabase
       .from('soml_config' as any)
-      .select('start_date, end_date, referrals_goal, upgrades_goal, sales_goal')
+      .select('start_date, end_date, referrals_goal, upgrades_goal, sales_goal, referral_leads_goal')
       .eq('id', 1)
       .maybeSingle();
     const cfg = (cfgRow as unknown as SomlConfig | null) || null;
@@ -97,7 +98,8 @@ export function useSomlData(): SomlData {
     if (!cfg) {
       setRows([]); setPendingReferrals([]);
       setRealizedReferrals([]); setUpgradesList([]); setSalesList([]);
-      setTotals({ referrals: 0, upgrades: 0, sales: 0, pending: 0 });
+      setReferralLeadsList([]);
+      setTotals({ referrals: 0, upgrades: 0, sales: 0, pending: 0, referralLeads: 0 });
       setLoading(false); return;
     }
 
