@@ -540,6 +540,19 @@ function IntroNode({ booking, allBookings, runs, scorecard, isSecondIntro, chain
                   {LEAD_SOURCES.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {isReferralLikeSource(draft) && (
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Referring member's full name *
+                  </Label>
+                  <Input
+                    value={referrerDraft}
+                    onChange={(e) => setReferrerDraft(e.target.value)}
+                    placeholder="Who referred them?"
+                    className="h-7 text-xs"
+                  />
+                </div>
+              )}
               <FriendRuleNotice leadSource={draft} bookedByName={booking.booked_by} />
             </div>
           }
