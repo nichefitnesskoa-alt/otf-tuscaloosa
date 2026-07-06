@@ -313,13 +313,13 @@ function SaOverrideDialog({ open, onClose, sa, metric, current, defaultValue, on
 
 
 // Per-SA override row (nullable per metric — null = use divided default)
-interface SaOverride { sa_name: string; referrals_goal: number | null; upgrades_goal: number | null; sales_goal: number | null }
+interface SaOverride { sa_name: string; referrals_goal: number | null; upgrades_goal: number | null; sales_goal: number | null; referral_leads_goal: number | null }
 
 export function SomlSection() {
   const { user } = useAuth();
   const isAdmin = useEffectiveAdmin();
   const { salesAssociates: activeSas } = useActiveStaff();
-  const { config, totals, rows, pendingReferrals, realizedReferrals, upgradesList, salesList, refetch } = useSomlData();
+  const { config, totals, rows, pendingReferrals, realizedReferrals, upgradesList, salesList, referralLeadsList, refetch } = useSomlData();
 
   const [editMetric, setEditMetric] = useState<MetricKey | null>(null);
   const [editWindowOpen, setEditWindowOpen] = useState(false);
@@ -333,7 +333,7 @@ export function SomlSection() {
   const loadOverrides = useCallback(async () => {
     const { data } = await (supabase as any)
       .from('soml_sa_goals')
-      .select('sa_name, referrals_goal, upgrades_goal, sales_goal');
+      .select('sa_name, referrals_goal, upgrades_goal, sales_goal, referral_leads_goal');
     const map: Record<string, SaOverride> = {};
     ((data as SaOverride[]) || []).forEach(r => { map[r.sa_name] = r; });
     setOverrides(map);
@@ -362,31 +362,31 @@ export function SomlSection() {
     return today;
   }, [config]);
 
-  const goals = {
+  const goals: Record<MetricKey, number> = {
     referrals: config?.referrals_goal ?? 0,
     upgrades: config?.upgrades_goal ?? 0,
     sales: config?.sales_goal ?? 0,
+    referralLeads: config?.referral_leads_goal ?? 0,
   };
-  const paces = {
+  const paces: Record<MetricKey, number | null> = {
     referrals: paceToToday(goals.referrals || null, paceAnchor),
     upgrades: paceToToday(goals.upgrades || null, paceAnchor),
     sales: paceToToday(goals.sales || null, paceAnchor),
+    referralLeads: paceToToday(goals.referralLeads || null, paceAnchor),
   };
-  // Per-metric override tallies — used to redistribute the remaining
-  // team goal across non-overridden SAs so the team total stays locked
-  // to the monthly goal regardless of individual overrides.
   const overrideStats = useMemo(() => {
     const stats: Record<MetricKey, { sum: number; count: number }> = {
       referrals: { sum: 0, count: 0 },
       upgrades: { sum: 0, count: 0 },
       sales: { sum: 0, count: 0 },
+      referralLeads: { sum: 0, count: 0 },
     };
     for (const sa of rosterSas) {
       const ov = overrides[sa];
       if (!ov) continue;
-      (['referrals', 'upgrades', 'sales'] as MetricKey[]).forEach(m => {
-        const v = ov[`${m}_goal` as const];
-        if (v != null) { stats[m].sum += v; stats[m].count += 1; }
+      (['referrals', 'upgrades', 'sales', 'referralLeads'] as MetricKey[]).forEach(m => {
+        const v = ov[METRIC_TO_GOAL_COL[m] as keyof SaOverride];
+        if (v != null) { stats[m].sum += v as number; stats[m].count += 1; }
       });
     }
     return stats;
@@ -398,28 +398,29 @@ export function SomlSection() {
     const remaining = Math.max(0, goals[metric] - overrideStats[metric].sum);
     return remaining / nonOverridden;
   };
-  const defaultPerSa = {
+  const defaultPerSa: Record<MetricKey, number> = {
     referrals: remainingPerSa('referrals'),
     upgrades: remainingPerSa('upgrades'),
     sales: remainingPerSa('sales'),
+    referralLeads: remainingPerSa('referralLeads'),
   };
-  const flatPerSa = {
+  const flatPerSa: Record<MetricKey, number> = {
     referrals: activeCount > 0 ? goals.referrals / activeCount : 0,
     upgrades: activeCount > 0 ? goals.upgrades / activeCount : 0,
     sales: activeCount > 0 ? goals.sales / activeCount : 0,
+    referralLeads: activeCount > 0 ? goals.referralLeads / activeCount : 0,
   };
-  const anyOverride = overrideStats.referrals.count + overrideStats.upgrades.count + overrideStats.sales.count > 0;
-  // Effective target for a given SA + metric: override wins, else redistributed default
+  const anyOverride = overrideStats.referrals.count + overrideStats.upgrades.count + overrideStats.sales.count + overrideStats.referralLeads.count > 0;
   const effectiveTarget = (sa: string, metric: MetricKey): number => {
     const ov = overrides[sa];
-    const key = `${metric}_goal` as const;
+    const key = METRIC_TO_GOAL_COL[metric] as keyof SaOverride;
     if (ov && ov[key] != null) return ov[key] as number;
     return defaultPerSa[metric];
   };
 
   const rowMap = useMemo(() => new Map(rows.map(r => [r.sa, r])), [rows]);
   const leaderboardRows = useMemo(() => rosterSas.map(sa => (
-    rowMap.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0, pending: 0 }
+    rowMap.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0, pending: 0, referralLeads: 0 }
   )), [rosterSas, rowMap]);
 
   const windowLabel = config
@@ -436,9 +437,13 @@ export function SomlSection() {
   };
 
   const metricInfo: Record<MetricKey, { blurb: string; header: string }> = {
+    referralLeads: {
+      header: 'Referral Leads',
+      blurb: 'Credit to the SA who booked the originator when a friend books through that person\'s shared intro link. Counted the moment the friend books — before any sale.',
+    },
     referrals: {
-      header: 'Referrals',
-      blurb: 'Credit to the SA who booked the person you talked to when THAT person refers someone new who buys a membership.',
+      header: 'Referrals that Close',
+      blurb: 'Credit to the SA who booked the originator when a referred/friend booking actually buys a membership.',
     },
     upgrades: {
       header: 'Upgrades',
