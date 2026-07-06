@@ -290,6 +290,23 @@ export default function BookIntro() {
       }
       setQSlug(slug);
 
+      // Mark questionnaire as "sent" on the booking + row: the link is being
+      // served to the intro on the very next screen. No SA action needed.
+      const nowIso = new Date().toISOString();
+      try {
+        await Promise.all([
+          supabase.from('intros_booked').update({
+            questionnaire_status_canon: 'sent',
+            questionnaire_sent_at: nowIso,
+          } as any).eq('id', newBookingId).is('questionnaire_completed_at', null),
+          supabase.from('intro_questionnaires').update({ status: 'sent' } as any)
+            .eq('booking_id', newBookingId)
+            .eq('status', 'not_sent'),
+        ]);
+      } catch (e) {
+        console.warn('Failed to stamp questionnaire sent at booking:', e);
+      }
+
       setStep('calendar');
       toast.success('You\'re booked!');
     } catch (err: any) {
