@@ -3658,6 +3658,7 @@ export type Database = {
         Row: {
           end_date: string
           id: number
+          referral_leads_goal: number
           referrals_goal: number
           sales_goal: number
           start_date: string
@@ -3668,6 +3669,7 @@ export type Database = {
         Insert: {
           end_date: string
           id?: number
+          referral_leads_goal?: number
           referrals_goal?: number
           sales_goal?: number
           start_date: string
@@ -3678,6 +3680,7 @@ export type Database = {
         Update: {
           end_date?: string
           id?: number
+          referral_leads_goal?: number
           referrals_goal?: number
           sales_goal?: number
           start_date?: string
@@ -3765,6 +3768,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          referral_leads_goal: number | null
           referrals_goal: number | null
           sa_name: string
           sales_goal: number | null
@@ -3775,6 +3779,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          referral_leads_goal?: number | null
           referrals_goal?: number | null
           sa_name: string
           sales_goal?: number | null
@@ -3785,6 +3790,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          referral_leads_goal?: number | null
           referrals_goal?: number | null
           sa_name?: string
           sales_goal?: number | null

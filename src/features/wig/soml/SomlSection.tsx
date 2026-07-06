@@ -28,7 +28,14 @@ import { getNowCentral } from '@/lib/dateUtils';
 import { useSomlData, notifySomlChanged, type SomlConfig, type PendingReferralRow, type SomlDetailItem } from '@/hooks/useSomlData';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 
-type MetricKey = 'referrals' | 'upgrades' | 'sales';
+type MetricKey = 'referrals' | 'upgrades' | 'sales' | 'referralLeads';
+
+const METRIC_TO_GOAL_COL: Record<MetricKey, string> = {
+  referrals: 'referrals_goal',
+  upgrades: 'upgrades_goal',
+  sales: 'sales_goal',
+  referralLeads: 'referral_leads_goal',
+};
 
 interface HeroTileProps {
   label: string;
@@ -111,7 +118,10 @@ function EditGoalDialog({ open, onClose, metric, config, onSaved }: EditGoalDial
   const [saving, setSaving] = useState(false);
   useMemo(() => {
     if (open && metric && config) {
-      const g = metric === 'referrals' ? config.referrals_goal : metric === 'upgrades' ? config.upgrades_goal : config.sales_goal;
+      const g = metric === 'referrals' ? config.referrals_goal
+              : metric === 'upgrades' ? config.upgrades_goal
+              : metric === 'sales' ? config.sales_goal
+              : config.referral_leads_goal;
       setVal(String(g ?? 0));
     }
   }, [open, metric, config]);
@@ -121,7 +131,7 @@ function EditGoalDialog({ open, onClose, metric, config, onSaved }: EditGoalDial
     if (isNaN(n) || n < 0) { toast.error('Enter a number ≥ 0'); return; }
     setSaving(true);
     const patch: any = { updated_by: user?.name || 'unknown' };
-    patch[`${metric}_goal`] = n;
+    patch[METRIC_TO_GOAL_COL[metric]] = n;
     const { error } = await (supabase as any).from('soml_config').update(patch).eq('id', 1);
     setSaving(false);
     if (error) { toast.error('Save failed'); return; }
@@ -255,7 +265,7 @@ function SaOverrideDialog({ open, onClose, sa, metric, current, defaultValue, on
 
   const save = async (clear: boolean) => {
     setSaving(true);
-    const key = `${metric}_goal`;
+    const key = METRIC_TO_GOAL_COL[metric];
     let payload: any = { sa_name: sa, updated_by: user?.name || 'unknown' };
     if (clear) {
       payload[key] = null;
@@ -303,13 +313,13 @@ function SaOverrideDialog({ open, onClose, sa, metric, current, defaultValue, on
 
 
 // Per-SA override row (nullable per metric — null = use divided default)
-interface SaOverride { sa_name: string; referrals_goal: number | null; upgrades_goal: number | null; sales_goal: number | null }
+interface SaOverride { sa_name: string; referrals_goal: number | null; upgrades_goal: number | null; sales_goal: number | null; referral_leads_goal: number | null }
 
 export function SomlSection() {
   const { user } = useAuth();
   const isAdmin = useEffectiveAdmin();
   const { salesAssociates: activeSas } = useActiveStaff();
-  const { config, totals, rows, pendingReferrals, realizedReferrals, upgradesList, salesList, refetch } = useSomlData();
+  const { config, totals, rows, pendingReferrals, realizedReferrals, upgradesList, salesList, referralLeadsList, refetch } = useSomlData();
 
   const [editMetric, setEditMetric] = useState<MetricKey | null>(null);
   const [editWindowOpen, setEditWindowOpen] = useState(false);
@@ -323,7 +333,7 @@ export function SomlSection() {
   const loadOverrides = useCallback(async () => {
     const { data } = await (supabase as any)
       .from('soml_sa_goals')
-      .select('sa_name, referrals_goal, upgrades_goal, sales_goal');
+      .select('sa_name, referrals_goal, upgrades_goal, sales_goal, referral_leads_goal');
     const map: Record<string, SaOverride> = {};
     ((data as SaOverride[]) || []).forEach(r => { map[r.sa_name] = r; });
     setOverrides(map);
@@ -352,31 +362,31 @@ export function SomlSection() {
     return today;
   }, [config]);
 
-  const goals = {
+  const goals: Record<MetricKey, number> = {
     referrals: config?.referrals_goal ?? 0,
     upgrades: config?.upgrades_goal ?? 0,
     sales: config?.sales_goal ?? 0,
+    referralLeads: config?.referral_leads_goal ?? 0,
   };
-  const paces = {
+  const paces: Record<MetricKey, number | null> = {
     referrals: paceToToday(goals.referrals || null, paceAnchor),
     upgrades: paceToToday(goals.upgrades || null, paceAnchor),
     sales: paceToToday(goals.sales || null, paceAnchor),
+    referralLeads: paceToToday(goals.referralLeads || null, paceAnchor),
   };
-  // Per-metric override tallies — used to redistribute the remaining
-  // team goal across non-overridden SAs so the team total stays locked
-  // to the monthly goal regardless of individual overrides.
   const overrideStats = useMemo(() => {
     const stats: Record<MetricKey, { sum: number; count: number }> = {
       referrals: { sum: 0, count: 0 },
       upgrades: { sum: 0, count: 0 },
       sales: { sum: 0, count: 0 },
+      referralLeads: { sum: 0, count: 0 },
     };
     for (const sa of rosterSas) {
       const ov = overrides[sa];
       if (!ov) continue;
-      (['referrals', 'upgrades', 'sales'] as MetricKey[]).forEach(m => {
-        const v = ov[`${m}_goal` as const];
-        if (v != null) { stats[m].sum += v; stats[m].count += 1; }
+      (['referrals', 'upgrades', 'sales', 'referralLeads'] as MetricKey[]).forEach(m => {
+        const v = ov[METRIC_TO_GOAL_COL[m] as keyof SaOverride];
+        if (v != null) { stats[m].sum += v as number; stats[m].count += 1; }
       });
     }
     return stats;
@@ -388,28 +398,29 @@ export function SomlSection() {
     const remaining = Math.max(0, goals[metric] - overrideStats[metric].sum);
     return remaining / nonOverridden;
   };
-  const defaultPerSa = {
+  const defaultPerSa: Record<MetricKey, number> = {
     referrals: remainingPerSa('referrals'),
     upgrades: remainingPerSa('upgrades'),
     sales: remainingPerSa('sales'),
+    referralLeads: remainingPerSa('referralLeads'),
   };
-  const flatPerSa = {
+  const flatPerSa: Record<MetricKey, number> = {
     referrals: activeCount > 0 ? goals.referrals / activeCount : 0,
     upgrades: activeCount > 0 ? goals.upgrades / activeCount : 0,
     sales: activeCount > 0 ? goals.sales / activeCount : 0,
+    referralLeads: activeCount > 0 ? goals.referralLeads / activeCount : 0,
   };
-  const anyOverride = overrideStats.referrals.count + overrideStats.upgrades.count + overrideStats.sales.count > 0;
-  // Effective target for a given SA + metric: override wins, else redistributed default
+  const anyOverride = overrideStats.referrals.count + overrideStats.upgrades.count + overrideStats.sales.count + overrideStats.referralLeads.count > 0;
   const effectiveTarget = (sa: string, metric: MetricKey): number => {
     const ov = overrides[sa];
-    const key = `${metric}_goal` as const;
+    const key = METRIC_TO_GOAL_COL[metric] as keyof SaOverride;
     if (ov && ov[key] != null) return ov[key] as number;
     return defaultPerSa[metric];
   };
 
   const rowMap = useMemo(() => new Map(rows.map(r => [r.sa, r])), [rows]);
   const leaderboardRows = useMemo(() => rosterSas.map(sa => (
-    rowMap.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0, pending: 0 }
+    rowMap.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0, pending: 0, referralLeads: 0 }
   )), [rosterSas, rowMap]);
 
   const windowLabel = config
@@ -426,9 +437,13 @@ export function SomlSection() {
   };
 
   const metricInfo: Record<MetricKey, { blurb: string; header: string }> = {
+    referralLeads: {
+      header: 'Referral Leads',
+      blurb: 'Credit to the SA who booked the originator when a friend books through that person\'s shared intro link. Counted the moment the friend books — before any sale.',
+    },
     referrals: {
-      header: 'Referrals',
-      blurb: 'Credit to the SA who booked the person you talked to when THAT person refers someone new who buys a membership.',
+      header: 'Referrals that Close',
+      blurb: 'Credit to the SA who booked the originator when a referred/friend booking actually buys a membership.',
     },
     upgrades: {
       header: 'Upgrades',
@@ -483,9 +498,16 @@ export function SomlSection() {
       </div>
 
       {/* Hero tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <HeroTile
-          label="Referrals" icon={<Users className="w-4 h-4" />}
+          label="Referral Leads" icon={<Users className="w-4 h-4" />}
+          actual={totals.referralLeads} goal={goals.referralLeads} pace={paces.referralLeads}
+          isAdmin={isAdmin} onEdit={() => openEditMetric('referralLeads')}
+          savedFlash={savedFlash === 'referralLeads'}
+          onDrilldown={() => setDrilldown({ metric: 'referralLeads', sa: '' })}
+        />
+        <HeroTile
+          label="Referrals that Close" icon={<Users className="w-4 h-4" />}
           actual={totals.referrals} goal={goals.referrals} pace={paces.referrals}
           isAdmin={isAdmin} onEdit={() => openEditMetric('referrals')}
           savedFlash={savedFlash === 'referrals'}
@@ -518,7 +540,7 @@ export function SomlSection() {
             <Clock className="w-4 h-4 text-primary" />
             <span className="text-sm">
               <span className="font-bold">{totals.pending} pending referral{totals.pending === 1 ? '' : 's'}</span>
-              <span className="text-muted-foreground"> · counts when they buy</span>
+              <span className="text-muted-foreground"> · counts as a Close when they buy</span>
             </span>
           </div>
           <span className="text-[11px] text-primary underline">View</span>
@@ -528,7 +550,7 @@ export function SomlSection() {
       {/* What each metric means */}
       <div className="rounded-md border border-border/60 bg-muted/30 p-3 space-y-1.5">
         <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">How credit works</div>
-        {(['referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => (
+        {(['referralLeads', 'referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => (
           <div key={k} className="text-[11px] leading-snug text-foreground/90">
             <span className="font-semibold text-primary">{metricInfo[k].header}:</span>{' '}
             <span className="text-muted-foreground">{metricInfo[k].blurb}</span>
@@ -538,15 +560,16 @@ export function SomlSection() {
 
       {/* Per-SA default target row */}
       <div className="text-[11px] text-muted-foreground">
-        Default per-SA target: {defaultPerSa.referrals.toFixed(1)} referrals · {defaultPerSa.upgrades.toFixed(1)} upgrades · {defaultPerSa.sales.toFixed(1)} sales
+        Default per-SA target: {defaultPerSa.referralLeads.toFixed(1)} referral leads · {defaultPerSa.referrals.toFixed(1)} closes · {defaultPerSa.upgrades.toFixed(1)} upgrades · {defaultPerSa.sales.toFixed(1)} sales
         {activeCount > 0 && <span className="ml-1">({activeCount} SAs)</span>}
         {anyOverride && (
           <span className="ml-1 italic text-primary">
-            — auto-adjusted from {flatPerSa.referrals.toFixed(1)}/{flatPerSa.upgrades.toFixed(1)}/{flatPerSa.sales.toFixed(1)} to cover overrides so team totals still hit the goal.
+            — auto-adjusted to cover per-SA overrides so team totals still hit the goal.
           </span>
         )}
         {isAdmin && <span className="ml-1 italic">— tap a cell to override for one SA.</span>}
       </div>
+
 
       {/* SA Leaderboard */}
       <div className="rounded-lg border bg-background overflow-hidden">
@@ -554,11 +577,11 @@ export function SomlSection() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[110px]">SA</TableHead>
-              {(['referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => (
-                <TableHead key={k} className="text-center w-[30%]">
+              {(['referralLeads', 'referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => (
+                <TableHead key={k} className="text-center">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="inline-flex items-center gap-1 cursor-help text-sm font-bold uppercase tracking-wide">
+                      <span className="inline-flex items-center gap-1 cursor-help text-xs font-bold uppercase tracking-wide">
                         {metricInfo[k].header}
                         <Info className="w-3 h-3 text-muted-foreground" />
                       </span>
@@ -571,31 +594,32 @@ export function SomlSection() {
           </TableHeader>
           <TableBody>
             {leaderboardRows.length === 0 && (
-              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-4">No active SAs</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-4">No active SAs</TableCell></TableRow>
             )}
             {leaderboardRows.map(r => (
               <TableRow key={r.sa}>
                 <TableCell className="font-semibold text-sm truncate py-4">{r.sa}</TableCell>
-                {(['referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => {
+                {(['referralLeads', 'referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => {
                   const tgt = effectiveTarget(r.sa, k);
                   const pace = paceToToday(tgt || null, paceAnchor);
-                  const isOverride = overrides[r.sa]?.[`${k}_goal`] != null;
+                  const isOverride = overrides[r.sa]?.[METRIC_TO_GOAL_COL[k] as keyof SaOverride] != null;
+                  const val = r[k as keyof typeof r] as number;
                   return (
                     <TableCell key={k} className="text-center align-middle py-4">
                       <div className="flex items-baseline justify-center gap-2">
                         <button
                           type="button"
-                          onClick={() => r[k] > 0 && setDrilldown({ metric: k, sa: r.sa })}
-                          disabled={r[k] === 0}
+                          onClick={() => val > 0 && setDrilldown({ metric: k, sa: r.sa })}
+                          disabled={val === 0}
                           className={cn(
-                            'text-3xl md:text-4xl font-black tabular-nums leading-none text-foreground rounded px-1',
-                            r[k] > 0 && 'hover:bg-secondary/60 cursor-pointer',
+                            'text-2xl md:text-3xl font-black tabular-nums leading-none text-foreground rounded px-1',
+                            val > 0 && 'hover:bg-secondary/60 cursor-pointer',
                           )}
-                          aria-label={r[k] > 0 ? `View ${r.sa}'s ${k}` : undefined}
+                          aria-label={val > 0 ? `View ${r.sa}'s ${k}` : undefined}
                         >
-                          {r[k]}
+                          {val}
                         </button>
-                        <span className="text-sm text-muted-foreground tabular-nums">/ {tgt.toFixed(1)}</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">/ {tgt.toFixed(1)}</span>
                         {isAdmin && (
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -605,24 +629,24 @@ export function SomlSection() {
                                   'p-1 rounded hover:bg-secondary transition',
                                   isOverride && 'text-primary',
                                 )}
-                                aria-label={`Override ${k} goal for ${r.sa}`}
+                                aria-label={`Override ${metricInfo[k].header} goal for ${r.sa}`}
                               >
-                                <Pencil className="w-3.5 h-3.5" />
+                                <Pencil className="w-3 h-3" />
                               </button>
                             </TooltipTrigger>
                             <TooltipContent className="max-w-[240px]">
-                              Override {r.sa}'s {k} goal. Overrides pull the default down for the other SAs so the team total still hits the goal.
+                              Override {r.sa}'s {metricInfo[k].header} goal. Overrides pull the default down for the other SAs so the team total still hits the goal.
                             </TooltipContent>
                           </Tooltip>
                         )}
                       </div>
-                      <div className="mt-2 px-2"><PaceBar current={r[k]} target={tgt || null} pace={pace} /></div>
+                      <div className="mt-2 px-2"><PaceBar current={val} target={tgt || null} pace={pace} /></div>
                       {k === 'referrals' && r.pending > 0 && (
                         <button
                           type="button"
                           onClick={() => setPendingDialogSa(r.sa)}
                           className="mt-1 inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
-                          title="counts when they buy"
+                          title="counts as a Close when they buy"
                         >
                           <Clock className="w-3 h-3" />
                           +{r.pending} pending
@@ -645,7 +669,7 @@ export function SomlSection() {
         onClose={() => setEditCell(null)}
         sa={editCell?.sa || ''}
         metric={editCell?.metric || 'referrals'}
-        current={editCell ? (overrides[editCell.sa]?.[`${editCell.metric}_goal`] ?? null) : null}
+        current={editCell ? ((overrides[editCell.sa]?.[METRIC_TO_GOAL_COL[editCell.metric] as keyof SaOverride] as number | null) ?? null) : null}
         defaultValue={editCell ? defaultPerSa[editCell.metric] : 0}
         onSaved={() => { loadOverrides(); refetch(); }}
       />
@@ -663,11 +687,13 @@ export function SomlSection() {
         referrals={realizedReferrals}
         upgrades={upgradesList}
         sales={salesList}
+        referralLeads={referralLeadsList}
       />
     </section>
     </TooltipProvider>
   );
 }
+
 
 interface SomlDrilldownDialogProps {
   open: boolean;
@@ -677,15 +703,26 @@ interface SomlDrilldownDialogProps {
   referrals: SomlDetailItem[];
   upgrades: SomlDetailItem[];
   sales: SomlDetailItem[];
+  referralLeads: SomlDetailItem[];
 }
-function SomlDrilldownDialog({ open, onClose, metric, saFilter, referrals, upgrades, sales }: SomlDrilldownDialogProps) {
-  const source = metric === 'referrals' ? referrals : metric === 'upgrades' ? upgrades : sales;
+function SomlDrilldownDialog({ open, onClose, metric, saFilter, referrals, upgrades, sales, referralLeads }: SomlDrilldownDialogProps) {
+  const source = metric === 'referrals' ? referrals
+               : metric === 'upgrades' ? upgrades
+               : metric === 'sales' ? sales
+               : referralLeads;
   const filtered = useMemo(() => {
     const rows = saFilter ? source.filter(r => r.sa === saFilter) : source;
     return [...rows].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   }, [source, saFilter]);
-  const label = metric === 'referrals' ? 'Referrals' : metric === 'upgrades' ? 'Upgrades' : 'Sales';
-  const dateLabel = metric === 'sales' ? 'Sold' : metric === 'upgrades' ? 'Upgraded' : 'Bought';
+  const label = metric === 'referrals' ? 'Referrals that Close'
+              : metric === 'upgrades' ? 'Upgrades'
+              : metric === 'sales' ? 'Sales'
+              : 'Referral Leads';
+  const dateLabel = metric === 'sales' ? 'Sold'
+                  : metric === 'upgrades' ? 'Upgraded'
+                  : metric === 'referralLeads' ? 'Booked'
+                  : 'Bought';
+
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>

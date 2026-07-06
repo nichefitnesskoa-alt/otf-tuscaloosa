@@ -22,6 +22,7 @@ export interface SomlConfig {
   referrals_goal: number;
   upgrades_goal: number;
   sales_goal: number;
+  referral_leads_goal: number;
 }
 
 export interface SomlSaRow {
@@ -30,6 +31,7 @@ export interface SomlSaRow {
   upgrades: number;
   sales: number;
   pending: number;
+  referralLeads: number;
 }
 
 export interface PendingReferralRow {
@@ -54,12 +56,13 @@ export interface SomlDetailItem {
 
 export interface SomlData {
   config: SomlConfig | null;
-  totals: { referrals: number; upgrades: number; sales: number; pending: number };
+  totals: { referrals: number; upgrades: number; sales: number; pending: number; referralLeads: number };
   rows: SomlSaRow[];
   pendingReferrals: PendingReferralRow[];
   realizedReferrals: SomlDetailItem[];
   upgradesList: SomlDetailItem[];
   salesList: SomlDetailItem[];
+  referralLeadsList: SomlDetailItem[];
   loading: boolean;
   refetch: () => Promise<void>;
 }
@@ -73,11 +76,12 @@ function norm(s: string | null | undefined): string {
 export function useSomlData(): SomlData {
   const [config, setConfig] = useState<SomlConfig | null>(null);
   const [rows, setRows] = useState<SomlSaRow[]>([]);
-  const [totals, setTotals] = useState({ referrals: 0, upgrades: 0, sales: 0, pending: 0 });
+  const [totals, setTotals] = useState({ referrals: 0, upgrades: 0, sales: 0, pending: 0, referralLeads: 0 });
   const [pendingReferrals, setPendingReferrals] = useState<PendingReferralRow[]>([]);
   const [realizedReferrals, setRealizedReferrals] = useState<SomlDetailItem[]>([]);
   const [upgradesList, setUpgradesList] = useState<SomlDetailItem[]>([]);
   const [salesList, setSalesList] = useState<SomlDetailItem[]>([]);
+  const [referralLeadsList, setReferralLeadsList] = useState<SomlDetailItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
@@ -86,7 +90,7 @@ export function useSomlData(): SomlData {
     // 1. Config
     const { data: cfgRow } = await supabase
       .from('soml_config' as any)
-      .select('start_date, end_date, referrals_goal, upgrades_goal, sales_goal')
+      .select('start_date, end_date, referrals_goal, upgrades_goal, sales_goal, referral_leads_goal')
       .eq('id', 1)
       .maybeSingle();
     const cfg = (cfgRow as unknown as SomlConfig | null) || null;
@@ -94,7 +98,8 @@ export function useSomlData(): SomlData {
     if (!cfg) {
       setRows([]); setPendingReferrals([]);
       setRealizedReferrals([]); setUpgradesList([]); setSalesList([]);
-      setTotals({ referrals: 0, upgrades: 0, sales: 0, pending: 0 });
+      setReferralLeadsList([]);
+      setTotals({ referrals: 0, upgrades: 0, sales: 0, pending: 0, referralLeads: 0 });
       setLoading(false); return;
     }
 
@@ -218,16 +223,28 @@ export function useSomlData(): SomlData {
       });
     }
 
+    // Referral Leads: any pending-referral row whose booking's class_date
+    // (fallback: created_at date) is inside the SOML window, regardless of state.
+    const referralLeadsItems: SomlDetailItem[] = enrichedPending
+      .map(p => ({
+        sa: p.credited_sa,
+        member_name: p.member_name || '',
+        date: p.class_date || (p.created_at ? p.created_at.slice(0, 10) : null),
+      }))
+      .filter(x => !!x.date && x.date! >= start && x.date! <= end && !!x.sa)
+      .map(x => ({ ...x, source: 'auto' as const }));
+
     // 6. Aggregate per-SA
     const byName = new Map<string, SomlSaRow>();
-    const bump = (sa: string, key: 'referrals' | 'upgrades' | 'sales' | 'pending') => {
-      const cur = byName.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0, pending: 0 };
+    const bump = (sa: string, key: 'referrals' | 'upgrades' | 'sales' | 'pending' | 'referralLeads') => {
+      const cur = byName.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0, pending: 0, referralLeads: 0 };
       cur[key] += 1;
       byName.set(sa, cur);
     };
     allReferralItems.forEach(r => bump(r.sa, 'referrals'));
     upgradeItems.forEach(r => bump(r.sa, 'upgrades'));
     salesItems.forEach(r => bump(r.sa, 'sales'));
+    referralLeadsItems.forEach(r => bump(r.sa, 'referralLeads'));
 
     // 7. Pending display-only
     enrichedPending.filter(p => p.state === 'pending').forEach(p => bump(p.credited_sa, 'pending'));
@@ -243,8 +260,9 @@ export function useSomlData(): SomlData {
         upgrades: acc.upgrades + r.upgrades,
         sales: acc.sales + r.sales,
         pending: acc.pending + r.pending,
+        referralLeads: acc.referralLeads + r.referralLeads,
       }),
-      { referrals: 0, upgrades: 0, sales: 0, pending: 0 },
+      { referrals: 0, upgrades: 0, sales: 0, pending: 0, referralLeads: 0 },
     );
 
     setRows(rowsOut);
@@ -252,6 +270,7 @@ export function useSomlData(): SomlData {
     setRealizedReferrals(allReferralItems);
     setUpgradesList(upgradeItems);
     setSalesList(salesItems);
+    setReferralLeadsList(referralLeadsItems);
     setTotals(t);
     setLoading(false);
   }, []);
@@ -270,7 +289,7 @@ export function useSomlData(): SomlData {
 
   return {
     config, totals, rows, pendingReferrals,
-    realizedReferrals, upgradesList, salesList,
+    realizedReferrals, upgradesList, salesList, referralLeadsList,
     loading, refetch: fetchAll,
   };
 }
