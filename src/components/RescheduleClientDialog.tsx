@@ -210,22 +210,15 @@ export default function RescheduleClientDialog({
             </div>
           </div>
 
-          {/* Lead source */}
-          <div>
-            <Label htmlFor="leadSource">Lead Source</Label>
-            <Select value={leadSource} onValueChange={setLeadSource}>
-              <SelectTrigger className="mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LEAD_SOURCES.map((source) => (
-                  <SelectItem key={source} value={source}>
-                    {source}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Lead source + referring member (auto-shown for friend variants) */}
+          <LeadSourceWithReferrerField
+            value={leadSource}
+            referredByMemberName={referredBy}
+            onChange={({ lead_source, referred_by_member_name }) => {
+              setLeadSource(lead_source);
+              setReferredBy(referred_by_member_name);
+            }}
+          />
 
           {/* Notes */}
           <div>
