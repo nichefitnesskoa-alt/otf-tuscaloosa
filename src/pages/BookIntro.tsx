@@ -566,10 +566,7 @@ export default function BookIntro() {
               </Button>
               <Button
                 className="flex-1 h-12 bg-[#E8540A] hover:bg-[#c94609] text-white font-semibold"
-                onClick={() => {
-                  if (qSlug) window.location.href = `/q/${qSlug}`;
-                  else setStep('done');
-                }}
+                onClick={() => setStep('done')}
               >
                 Continue <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
