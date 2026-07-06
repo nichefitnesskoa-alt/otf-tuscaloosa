@@ -498,9 +498,16 @@ export function SomlSection() {
       </div>
 
       {/* Hero tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <HeroTile
-          label="Referrals" icon={<Users className="w-4 h-4" />}
+          label="Referral Leads" icon={<Users className="w-4 h-4" />}
+          actual={totals.referralLeads} goal={goals.referralLeads} pace={paces.referralLeads}
+          isAdmin={isAdmin} onEdit={() => openEditMetric('referralLeads')}
+          savedFlash={savedFlash === 'referralLeads'}
+          onDrilldown={() => setDrilldown({ metric: 'referralLeads', sa: '' })}
+        />
+        <HeroTile
+          label="Referrals that Close" icon={<Users className="w-4 h-4" />}
           actual={totals.referrals} goal={goals.referrals} pace={paces.referrals}
           isAdmin={isAdmin} onEdit={() => openEditMetric('referrals')}
           savedFlash={savedFlash === 'referrals'}
@@ -533,7 +540,7 @@ export function SomlSection() {
             <Clock className="w-4 h-4 text-primary" />
             <span className="text-sm">
               <span className="font-bold">{totals.pending} pending referral{totals.pending === 1 ? '' : 's'}</span>
-              <span className="text-muted-foreground"> · counts when they buy</span>
+              <span className="text-muted-foreground"> · counts as a Close when they buy</span>
             </span>
           </div>
           <span className="text-[11px] text-primary underline">View</span>
@@ -543,7 +550,7 @@ export function SomlSection() {
       {/* What each metric means */}
       <div className="rounded-md border border-border/60 bg-muted/30 p-3 space-y-1.5">
         <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">How credit works</div>
-        {(['referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => (
+        {(['referralLeads', 'referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => (
           <div key={k} className="text-[11px] leading-snug text-foreground/90">
             <span className="font-semibold text-primary">{metricInfo[k].header}:</span>{' '}
             <span className="text-muted-foreground">{metricInfo[k].blurb}</span>
@@ -553,15 +560,16 @@ export function SomlSection() {
 
       {/* Per-SA default target row */}
       <div className="text-[11px] text-muted-foreground">
-        Default per-SA target: {defaultPerSa.referrals.toFixed(1)} referrals · {defaultPerSa.upgrades.toFixed(1)} upgrades · {defaultPerSa.sales.toFixed(1)} sales
+        Default per-SA target: {defaultPerSa.referralLeads.toFixed(1)} referral leads · {defaultPerSa.referrals.toFixed(1)} closes · {defaultPerSa.upgrades.toFixed(1)} upgrades · {defaultPerSa.sales.toFixed(1)} sales
         {activeCount > 0 && <span className="ml-1">({activeCount} SAs)</span>}
         {anyOverride && (
           <span className="ml-1 italic text-primary">
-            — auto-adjusted from {flatPerSa.referrals.toFixed(1)}/{flatPerSa.upgrades.toFixed(1)}/{flatPerSa.sales.toFixed(1)} to cover overrides so team totals still hit the goal.
+            — auto-adjusted to cover per-SA overrides so team totals still hit the goal.
           </span>
         )}
         {isAdmin && <span className="ml-1 italic">— tap a cell to override for one SA.</span>}
       </div>
+
 
       {/* SA Leaderboard */}
       <div className="rounded-lg border bg-background overflow-hidden">
