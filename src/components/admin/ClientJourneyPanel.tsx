@@ -3013,18 +3013,14 @@ export default function ClientJourneyPanel() {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">Lead Source</Label>
-                <Select
+                <LeadSourceWithReferrerField
                   value={newRun.lead_source}
-                  onValueChange={(v) => setNewRun({...newRun, lead_source: v})}
-                >
-                  <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
-                  <SelectContent>
-                    {LEAD_SOURCES.map(src => (
-                      <SelectItem key={src} value={src}>{src}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  referredByMemberName={newRun.referred_by_member_name}
+                  onChange={({ lead_source, referred_by_member_name }) =>
+                    setNewRun({ ...newRun, lead_source, referred_by_member_name })
+                  }
+                  label="Lead Source"
+                />
               </div>
               <div>
                 <Label className="text-xs">Result/Outcome *</Label>
