@@ -69,6 +69,7 @@ import { ReferralAskActions } from './ReferralAskActions';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 import { IntroLinkBookingBanner } from './IntroLinkBookingBanner';
 import { PlanningToBuyUrgent } from './PlanningToBuyUrgent';
+import { AssignCoachDialog } from './AssignCoachDialog';
 
 import { OTF, Theme, brandFont } from '@/lib/otfBrand';
 import { NetGainScoreboard } from '@/components/shared/NetGainScoreboard';
