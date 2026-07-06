@@ -61,16 +61,19 @@ function getDateRange(options: UseUpcomingIntrosOptions): { start: string; end: 
 }
 
 function deriveQStatus(
-  qData: { status: string; submitted_at: string | null; created_at: string } | null,
-): { status: QuestionnaireStatus; sentAt: string | null; completedAt: string | null } {
-  if (!qData) return { status: 'NO_Q', sentAt: null, completedAt: null };
+  qData: { status: string; submitted_at: string | null; created_at: string; last_opened_at: string | null } | null,
+): { status: QuestionnaireStatus; sentAt: string | null; completedAt: string | null; openedAt: string | null } {
+  if (!qData) return { status: 'NO_Q', sentAt: null, completedAt: null, openedAt: null };
   if (qData.status === 'completed' || qData.status === 'submitted') {
-    return { status: 'Q_COMPLETED', sentAt: qData.created_at, completedAt: qData.submitted_at || qData.created_at };
+    return { status: 'Q_COMPLETED', sentAt: qData.created_at, completedAt: qData.submitted_at || qData.created_at, openedAt: qData.last_opened_at };
+  }
+  if (qData.last_opened_at) {
+    return { status: 'Q_OPENED', sentAt: qData.created_at, completedAt: null, openedAt: qData.last_opened_at };
   }
   if (qData.status === 'sent') {
-    return { status: 'Q_SENT', sentAt: qData.created_at, completedAt: null };
+    return { status: 'Q_SENT', sentAt: qData.created_at, completedAt: null, openedAt: null };
   }
-  return { status: 'NO_Q', sentAt: null, completedAt: null };
+  return { status: 'NO_Q', sentAt: null, completedAt: null, openedAt: null };
 }
 
 export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpcomingIntrosReturn {
