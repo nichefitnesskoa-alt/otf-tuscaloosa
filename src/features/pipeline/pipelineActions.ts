@@ -102,6 +102,7 @@ export interface BookingFieldParams {
   saWorkingShift?: string;
   bookingStatus?: string;
   fitnessGoal?: string | null;
+  referredByMemberName?: string | null;
   editedBy: string;
   editReason?: string;
 }
@@ -121,6 +122,10 @@ export async function updateBookingFieldsFromPipeline(params: BookingFieldParams
   if (params.bookedBy !== undefined) updates.booked_by = params.bookedBy;
   if (params.saWorkingShift !== undefined) updates.sa_working_shift = params.saWorkingShift;
   if (params.fitnessGoal !== undefined) updates.fitness_goal = params.fitnessGoal;
+  if (params.referredByMemberName !== undefined) {
+    const v = params.referredByMemberName;
+    updates.referred_by_member_name = v == null || v.trim() === '' ? null : v.trim();
+  }
 
   // If booking_status is edited, also set canon field
   if (params.bookingStatus !== undefined) {

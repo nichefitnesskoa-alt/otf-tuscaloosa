@@ -17,6 +17,7 @@ import { EventPicker } from '@/components/events/EventPicker';
 import { format } from 'date-fns';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { LEAD_SOURCES } from '@/types';
+import { isReferralLikeSource } from '@/lib/sa/leadsBooked';
 
 const sb = supabase as any;
 
@@ -96,9 +97,9 @@ export function EditBookingDialog({
 
   const handleSave = async () => {
     setSaving(true);
-    const isMemberReferral = source === 'Member Referral' || source === 'Member Referral (5 class pack)';
+    const isMemberReferral = isReferralLikeSource(source);
     if (isMemberReferral && !referredBy.trim()) {
-      toast.error('Referring member name is required for Member Referral bookings');
+      toast.error('Referring member name is required for referral/friend lead sources');
       setSaving(false);
       return;
     }
@@ -226,9 +227,9 @@ export function EditBookingDialog({
               <EventPicker value={eventId} onValueChange={setEventId} required />
             )}
 
-            {(source === 'Member Referral' || source === 'Member Referral (5 class pack)') && (
+            {isReferralLikeSource(source) && (
               <div className="space-y-1.5">
-                <Label className="text-sm">Referred By (Member Name) *</Label>
+                <Label className="text-sm">Referring member's full name *</Label>
                 <NameAutocomplete
                   value={referredBy}
                   onChange={setReferredBy}
@@ -236,7 +237,7 @@ export function EditBookingDialog({
                   className={`h-11 ${!referredBy.trim() ? 'ring-1 ring-destructive/40' : ''}`}
                 />
                 {!referredBy.trim() && (
-                  <p className="text-[11px] text-destructive">Required when lead source is Member Referral.</p>
+                  <p className="text-[11px] text-destructive">Required for referral / friend lead sources.</p>
                 )}
               </div>
             )}

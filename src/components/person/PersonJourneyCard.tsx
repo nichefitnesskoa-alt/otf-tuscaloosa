@@ -38,6 +38,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { supabase } from '@/integrations/supabase/client';
 import { LEAD_SOURCES } from '@/types';
+import { isReferralLikeSource } from '@/lib/sa/leadsBooked';
 import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 import { parseLocalDate, cn } from '@/lib/utils';
 import { formatPhoneDisplay } from '@/lib/parsing/phone';
@@ -69,6 +70,7 @@ interface BookingRow {
   deleted_at: string | null;
   is_vip: boolean;
   created_at: string;
+  referred_by_member_name: string | null;
 }
 
 interface RunRow {
@@ -138,7 +140,7 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
         const [bkRes, runRes, scRes] = await Promise.all([
           supabase
             .from('intros_booked')
-            .select('id, member_name, class_date, intro_time, coach_name, booked_by, intro_owner, intro_owner_locked, lead_source, phone, phone_e164, email, originating_booking_id, booking_status, booking_status_canon, deleted_at, is_vip, created_at')
+            .select('id, member_name, class_date, intro_time, coach_name, booked_by, intro_owner, intro_owner_locked, lead_source, phone, phone_e164, email, originating_booking_id, booking_status, booking_status_canon, deleted_at, is_vip, created_at, referred_by_member_name')
             .in('id', res.bookingIds),
           supabase
             .from('intros_run')
@@ -400,6 +402,7 @@ function IntroNode({ booking, allBookings, runs, scorecard, isSecondIntro, chain
   const [editField, setEditField] = useState<null | 'booked_by' | 'coach_name' | 'lead_source' | 'class_date' | 'intro_owner'>(null);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<string>('');
+  const [referrerDraft, setReferrerDraft] = useState<string>('');
 
   const latestRun = useMemo(() => {
     if (runs.length === 0) return null;
@@ -427,8 +430,11 @@ function IntroNode({ booking, allBookings, runs, scorecard, isSecondIntro, chain
   const startEdit = (field: typeof editField, currentValue: string | null | undefined) => {
     setEditField(field);
     setDraft(currentValue || '');
+    if (field === 'lead_source') {
+      setReferrerDraft(booking.referred_by_member_name || '');
+    }
   };
-  const cancelEdit = () => { setEditField(null); setDraft(''); };
+  const cancelEdit = () => { setEditField(null); setDraft(''); setReferrerDraft(''); };
 
   const commitEdit = async () => {
     if (!editField) return;
@@ -446,7 +452,20 @@ function IntroNode({ booking, allBookings, runs, scorecard, isSecondIntro, chain
         };
         if (editField === 'booked_by') payload.bookedBy = draft;
         if (editField === 'coach_name') payload.coachName = draft;
-        if (editField === 'lead_source') payload.leadSource = draft;
+        if (editField === 'lead_source') {
+          payload.leadSource = draft;
+          if (isReferralLikeSource(draft)) {
+            if (!referrerDraft.trim()) {
+              toast.error('Referring member name is required for this lead source');
+              setSaving(false);
+              return;
+            }
+            payload.referredByMemberName = referrerDraft.trim();
+          } else {
+            // Clear stale referrer when moving away from a referral source
+            payload.referredByMemberName = null;
+          }
+        }
         if (editField === 'class_date') payload.classDate = draft;
         await updateBookingFieldsFromPipeline(payload);
         toast.success('Saved');
@@ -521,6 +540,19 @@ function IntroNode({ booking, allBookings, runs, scorecard, isSecondIntro, chain
                   {LEAD_SOURCES.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {isReferralLikeSource(draft) && (
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Referring member's full name *
+                  </Label>
+                  <Input
+                    value={referrerDraft}
+                    onChange={(e) => setReferrerDraft(e.target.value)}
+                    placeholder="Who referred them?"
+                    className="h-7 text-xs"
+                  />
+                </div>
+              )}
               <FriendRuleNotice leadSource={draft} bookedByName={booking.booked_by} />
             </div>
           }
