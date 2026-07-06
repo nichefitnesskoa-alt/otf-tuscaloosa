@@ -227,9 +227,9 @@ export function EditBookingDialog({
               <EventPicker value={eventId} onValueChange={setEventId} required />
             )}
 
-            {(source === 'Member Referral' || source === 'Member Referral (5 class pack)') && (
+            {isReferralLikeSource(source) && (
               <div className="space-y-1.5">
-                <Label className="text-sm">Referred By (Member Name) *</Label>
+                <Label className="text-sm">Referring member's full name *</Label>
                 <NameAutocomplete
                   value={referredBy}
                   onChange={setReferredBy}
@@ -237,7 +237,7 @@ export function EditBookingDialog({
                   className={`h-11 ${!referredBy.trim() ? 'ring-1 ring-destructive/40' : ''}`}
                 />
                 {!referredBy.trim() && (
-                  <p className="text-[11px] text-destructive">Required when lead source is Member Referral.</p>
+                  <p className="text-[11px] text-destructive">Required for referral / friend lead sources.</p>
                 )}
               </div>
             )}
