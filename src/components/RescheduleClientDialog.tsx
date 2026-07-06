@@ -10,6 +10,7 @@ import { PotentialMatch } from '@/hooks/useDuplicateDetection';
 import { Calendar, Clock, User, Star } from 'lucide-react';
 import { LEAD_SOURCES } from '@/types';
 import { ClassTimeSelect, DatePickerField } from '@/components/shared/FormHelpers';
+import { LeadSourceWithReferrerField, validateLeadSourceReferrer, resolveReferrerForWrite } from '@/components/shared/LeadSourceWithReferrerField';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 
@@ -33,6 +34,7 @@ export default function RescheduleClientDialog({
   const [newDate, setNewDate] = useState(isVipMode ? '' : client.class_date);
   const [newTime, setNewTime] = useState(isVipMode ? '' : (client.intro_time || ''));
   const [leadSource, setLeadSource] = useState(client.lead_source || (isVipMode ? 'VIP Class' : ''));
+  const [referredBy, setReferredBy] = useState<string | null>((client as any).referred_by_member_name ?? null);
   const [notes, setNotes] = useState(client.fitness_goal || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -43,6 +45,12 @@ export default function RescheduleClientDialog({
         description: 'Please pick an intro date',
         variant: 'destructive',
       });
+      return;
+    }
+
+    const referrerErr = validateLeadSourceReferrer(leadSource, referredBy);
+    if (referrerErr) {
+      toast({ title: 'Referring member required', description: referrerErr, variant: 'destructive' });
       return;
     }
 
@@ -60,6 +68,7 @@ export default function RescheduleClientDialog({
             coach_name: '',
             sa_working_shift: currentUserName,
             lead_source: leadSource || 'VIP Class',
+            referred_by_member_name: resolveReferrerForWrite(leadSource || 'VIP Class', referredBy),
             booked_by: currentUserName,
             phone: client.phone || null,
             email: client.email || null,
@@ -98,6 +107,7 @@ export default function RescheduleClientDialog({
           class_date: newDate,
           intro_time: newTime || null,
           lead_source: leadSource,
+          referred_by_member_name: resolveReferrerForWrite(leadSource, referredBy),
           fitness_goal: notes || null,
           last_edited_at: new Date().toISOString(),
           last_edited_by: currentUserName,
@@ -200,22 +210,15 @@ export default function RescheduleClientDialog({
             </div>
           </div>
 
-          {/* Lead source */}
-          <div>
-            <Label htmlFor="leadSource">Lead Source</Label>
-            <Select value={leadSource} onValueChange={setLeadSource}>
-              <SelectTrigger className="mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LEAD_SOURCES.map((source) => (
-                  <SelectItem key={source} value={source}>
-                    {source}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Lead source + referring member (auto-shown for friend variants) */}
+          <LeadSourceWithReferrerField
+            value={leadSource}
+            referredByMemberName={referredBy}
+            onChange={({ lead_source, referred_by_member_name }) => {
+              setLeadSource(lead_source);
+              setReferredBy(referred_by_member_name);
+            }}
+          />
 
           {/* Notes */}
           <div>

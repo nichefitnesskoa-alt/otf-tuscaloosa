@@ -27,7 +27,10 @@ import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 import type { ClientJourney, PipelineBooking, PipelineRun, JourneyTab, VipInfo, PipelineScriptAction } from '../pipelineTypes';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
-import { setIntroOwnerForJourney } from '../pipelineActions';
+import { setIntroOwnerForJourney, updateBookingFieldsFromPipeline } from '../pipelineActions';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { LeadSourceWithReferrerField, validateLeadSourceReferrer, resolveReferrerForWrite } from '@/components/shared/LeadSourceWithReferrerField';
+import { isReferralLikeSource } from '@/lib/sa/leadsBooked';
 
 interface PipelineSpreadsheetProps {
   journeys: ClientJourney[];
@@ -629,7 +632,7 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
 // ── Expanded Row Detail ──
 
 
-const LEAD_SOURCES = ['Member Referral', 'Online Intro Offer', 'Online Intro Offer (self-booked)', 'Walk-in', 'IG DM', 'Cold Lead', 'Friend/Family Referral', 'Corporate', 'Website', 'Other'];
+// LEAD_SOURCES imported via shared LeadSourceWithReferrerField (single source of truth).
 
 function ExpandedRowDetail({
   journey, vipInfoMap, scriptActionsMap, isOnline, onOpenDialog, onOpenScript, userName,
@@ -650,7 +653,6 @@ function ExpandedRowDetail({
 
   // Inline editing state
   const [editingOwner, setEditingOwner] = useState(false);
-  const [editingLeadSource, setEditingLeadSource] = useState<string | null>(null);
   const [editingCommission, setEditingCommission] = useState<string | null>(null);
   const [commissionValue, setCommissionValue] = useState('');
 
@@ -736,28 +738,8 @@ function ExpandedRowDetail({
                   <span className="font-medium">{b.class_date}</span>
                   {b.intro_time && <span className="text-muted-foreground"> @ {b.intro_time}</span>}
                   <span className="text-muted-foreground"> · {b.coach_name} · </span>
-                  {/* Inline lead source edit */}
-                  {editingLeadSource === b.id ? (
-                    <select
-                      className="h-5 text-xs border rounded px-1 bg-background text-foreground"
-                      defaultValue={b.lead_source}
-                      autoFocus
-                      onChange={async (e) => {
-                        const val = e.target.value;
-                        await supabase.from('intros_booked').update({ lead_source: val }).eq('id', b.id);
-                        toast.success(`Lead source → ${val}`);
-                        setEditingLeadSource(null);
-                        handleRefresh();
-                      }}
-                      onBlur={() => setEditingLeadSource(null)}
-                    >
-                      {LEAD_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  ) : (
-                    <button className="hover:underline cursor-pointer text-muted-foreground" onClick={() => setEditingLeadSource(b.id)}>
-                      {b.lead_source}
-                    </button>
-                  )}
+                  {/* Inline lead source edit — pops referrer field for friend variants */}
+                  <InlineLeadSourceEditor booking={b} userName={userName} onSaved={handleRefresh} />
                   {b.originating_booking_id && <Badge variant="outline" className="text-[10px] ml-1">2nd</Badge>}
                 </div>
                 <div className="flex items-center gap-1">
@@ -1024,5 +1006,82 @@ function BySourceTable({
       )}
       {journeyCard.element}
     </div>
+  );
+}
+
+// Inline lead-source editor for Pipeline drilldowns. Opens a Popover so a
+// user can pick the source AND (when referral-like) supply the referring
+// member's name in one commit. Writes through updateBookingFieldsFromPipeline
+// so the referrer is persisted and the SOML trigger sees a coherent update.
+function InlineLeadSourceEditor({
+  booking,
+  userName,
+  onSaved,
+}: {
+  booking: PipelineBooking;
+  userName: string;
+  onSaved: () => void | Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [source, setSource] = useState(booking.lead_source || '');
+  const [referrer, setReferrer] = useState<string | null>((booking as any).referred_by_member_name || null);
+  const [saving, setSaving] = useState(false);
+
+  // Keep local state in sync when the row changes underneath the popover
+  useEffect(() => {
+    setSource(booking.lead_source || '');
+    setReferrer((booking as any).referred_by_member_name || null);
+  }, [booking.id, booking.lead_source]);
+
+  const commit = async () => {
+    const err = validateLeadSourceReferrer(source, referrer);
+    if (err) { toast.error(err); return; }
+    setSaving(true);
+    try {
+      await updateBookingFieldsFromPipeline({
+        bookingId: booking.id,
+        leadSource: source,
+        referredByMemberName: resolveReferrerForWrite(source, referrer),
+        editedBy: userName || 'Pipeline (inline)',
+        editReason: 'Lead source edited inline in Pipeline',
+      });
+      toast.success(`Lead source → ${source}`);
+      setOpen(false);
+      await onSaved();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save lead source');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button className="hover:underline cursor-pointer text-muted-foreground">
+          {booking.lead_source || '—'}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-3" align="start">
+        <LeadSourceWithReferrerField
+          value={source}
+          referredByMemberName={referrer}
+          onChange={({ lead_source, referred_by_member_name }) => {
+            setSource(lead_source);
+            setReferrer(referred_by_member_name);
+          }}
+          size="compact"
+          label="Lead source"
+        />
+        <div className="flex justify-end gap-1.5 mt-3">
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setOpen(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button size="sm" className="h-7 text-xs" onClick={commit} disabled={saving || !source}>
+            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

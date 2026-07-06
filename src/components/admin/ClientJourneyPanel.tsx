@@ -70,6 +70,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
+import { LeadSourceWithReferrerField, validateLeadSourceReferrer, resolveReferrerForWrite } from '@/components/shared/LeadSourceWithReferrerField';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
@@ -117,6 +118,7 @@ interface ClientBooking {
   sa_working_shift: string;
   booked_by: string | null;
   lead_source: string;
+  referred_by_member_name: string | null;
   fitness_goal: string | null;
   booking_status: string | null;
   intro_owner: string | null;
@@ -258,6 +260,9 @@ export default function ClientJourneyPanel() {
   // Run editing
   const [editingRun, setEditingRun] = useState<ClientRun | null>(null);
   const [editRunReason, setEditRunReason] = useState('');
+  // Referrer name captured when editing a run's lead source to a friend
+  // variant. Persisted onto the linked booking (intros_run has no such column).
+  const [editingRunReferrer, setEditingRunReferrer] = useState<string | null>(null);
   
   // Mark as Purchased dialog
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
@@ -304,6 +309,7 @@ export default function ClientJourneyPanel() {
     coach_name: '',
     sa_working_shift: '',
     lead_source: '',
+    referred_by_member_name: '' as string | null,
     fitness_goal: '',
   });
 
@@ -316,6 +322,7 @@ export default function ClientJourneyPanel() {
     class_time: '',
     ran_by: '',
     lead_source: '',
+    referred_by_member_name: '' as string | null,
     result: '',
     notes: '',
     linked_intro_booked_id: '',
@@ -340,7 +347,7 @@ export default function ClientJourneyPanel() {
       const [bookingsRes, runsRes] = await Promise.all([
         supabase
           .from('intros_booked')
-          .select('id, booking_id, member_name, class_date, intro_time, coach_name, sa_working_shift, booked_by, lead_source, fitness_goal, booking_status, intro_owner, intro_owner_locked, originating_booking_id, vip_class_name, phone, email')
+          .select('id, booking_id, member_name, class_date, intro_time, coach_name, sa_working_shift, booked_by, lead_source, referred_by_member_name, fitness_goal, booking_status, intro_owner, intro_owner_locked, originating_booking_id, vip_class_name, phone, email')
           .order('class_date', { ascending: false }),
         supabase
           .from('intros_run')
@@ -775,7 +782,10 @@ export default function ClientJourneyPanel() {
 
   const handleSaveBooking = async () => {
     if (!editingBooking) return;
-    
+
+    const referrerErr = validateLeadSourceReferrer(editingBooking.lead_source, editingBooking.referred_by_member_name);
+    if (referrerErr) { toast.error(referrerErr); return; }
+
     setIsSaving(true);
     try {
       const { error } = await supabase
@@ -788,6 +798,7 @@ export default function ClientJourneyPanel() {
           sa_working_shift: editingBooking.sa_working_shift,
           booked_by: editingBooking.booked_by,
           lead_source: editingBooking.lead_source,
+          referred_by_member_name: resolveReferrerForWrite(editingBooking.lead_source, editingBooking.referred_by_member_name),
           fitness_goal: editingBooking.fitness_goal,
           booking_status: editingBooking.booking_status,
           last_edited_at: new Date().toISOString(),
@@ -1091,6 +1102,7 @@ export default function ClientJourneyPanel() {
       coach_name: '',
       sa_working_shift: '',
       lead_source: '',
+      referred_by_member_name: null,
       fitness_goal: '',
     });
     setIsSelfBooked(false);
@@ -1141,6 +1153,7 @@ export default function ClientJourneyPanel() {
         class_time: '',
         ran_by: '',
         lead_source: firstBooking.lead_source || '',
+        referred_by_member_name: firstBooking.referred_by_member_name || null,
         result: '',
         notes: '',
         linked_intro_booked_id: insertedBooking.id,
@@ -1167,6 +1180,7 @@ export default function ClientJourneyPanel() {
       coach_name: firstBooking.coach_name || '',
       sa_working_shift: '',
       lead_source: firstBooking.lead_source || '',
+      referred_by_member_name: firstBooking.referred_by_member_name || null,
       fitness_goal: firstBooking.fitness_goal || '',
     });
     setIsSelfBooked(false);
@@ -1184,6 +1198,7 @@ export default function ClientJourneyPanel() {
       coach_name: '',
       sa_working_shift: '',
       lead_source: run.lead_source || '',
+      referred_by_member_name: null,
       fitness_goal: '',
     });
     const isSelfBookedSource = run.lead_source === 'Online Intro Offer (self-booked)';
@@ -1209,10 +1224,13 @@ export default function ClientJourneyPanel() {
       const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const bookedBy = isSelfBooked ? 'Self-booked' : newBooking.sa_working_shift;
       const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || 'Instagram DMs');
-      
+
+      const referrerErr = validateLeadSourceReferrer(leadSource, newBooking.referred_by_member_name);
+      if (referrerErr) { toast.error(referrerErr); setIsSaving(false); return; }
+
       // Determine intro_owner from the linked run if creating from run
       const introOwner = creatingBookingFromRun?.intro_owner || creatingBookingFromRun?.ran_by || null;
-      
+
       const { data: insertedBooking, error } = await supabase
         .from('intros_booked')
         .insert({
@@ -1224,6 +1242,7 @@ export default function ClientJourneyPanel() {
           sa_working_shift: bookedBy,
           booked_by: bookedBy,
           lead_source: leadSource,
+          referred_by_member_name: resolveReferrerForWrite(leadSource, newBooking.referred_by_member_name),
           fitness_goal: newBooking.fitness_goal || null,
           booking_status: 'Active',
           intro_owner: introOwner,
@@ -1284,6 +1303,7 @@ export default function ClientJourneyPanel() {
       class_time: latestBooking?.intro_time || '',
       ran_by: '',
       lead_source: latestBooking?.lead_source || '',
+      referred_by_member_name: latestBooking?.referred_by_member_name || null,
       result: '',
       notes: '',
       linked_intro_booked_id: latestBooking?.id || '',
@@ -1309,10 +1329,14 @@ export default function ClientJourneyPanel() {
       return;
     }
 
+    const leadSource = newRun.lead_source || 'Instagram DMs';
+    const referrerErr = validateLeadSourceReferrer(leadSource, newRun.referred_by_member_name);
+    if (referrerErr) { toast.error(referrerErr); return; }
+
     setIsSaving(true);
     try {
       const runId = `run_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
       const { error } = await supabase
         .from('intros_run')
         .insert({
@@ -1322,7 +1346,7 @@ export default function ClientJourneyPanel() {
           class_time: newRun.class_time,
           ran_by: newRun.ran_by,
           intro_owner: newRun.ran_by, // Set intro_owner to ran_by
-          lead_source: newRun.lead_source || 'Instagram DMs',
+          lead_source: leadSource,
           result: newRun.result,
           notes: newRun.notes || null,
           linked_intro_booked_id: newRun.linked_intro_booked_id && newRun.linked_intro_booked_id !== '__NONE__' ? newRun.linked_intro_booked_id : null,
@@ -1330,9 +1354,20 @@ export default function ClientJourneyPanel() {
 
       if (error) throw error;
 
-      // Sync intro_owner to linked booking if applicable
+      // Sync intro_owner + lead source + referrer to linked booking so
+      // referral attribution fires as if the source were true from the start.
       if (newRun.linked_intro_booked_id && newRun.linked_intro_booked_id !== '__NONE__' && newRun.result !== 'No-show') {
         await syncIntroOwnerToBooking(newRun.linked_intro_booked_id, newRun.ran_by, user?.name || 'Admin');
+        await supabase
+          .from('intros_booked')
+          .update({
+            lead_source: leadSource,
+            referred_by_member_name: resolveReferrerForWrite(leadSource, newRun.referred_by_member_name),
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: `${user?.name || 'Admin'} (Auto-Sync)`,
+            edit_reason: 'Synced lead source / referrer from new run',
+          })
+          .eq('id', newRun.linked_intro_booked_id);
       }
 
       toast.success('Intro run logged');
@@ -1350,19 +1385,36 @@ export default function ClientJourneyPanel() {
   
   const [originalRunResult, setOriginalRunResult] = useState<string>('');
 
-  const handleEditRun = (run: ClientRun) => {
+  const handleEditRun = async (run: ClientRun) => {
     setEditingRun({ ...run });
     setOriginalRunResult(run.result);
     setEditRunReason('');
+    // Seed the referrer from the linked booking so the shared control
+    // shows the current value when editing a friend-source run.
+    let referrer: string | null = null;
+    if (run.linked_intro_booked_id) {
+      const { data } = await supabase
+        .from('intros_booked')
+        .select('referred_by_member_name')
+        .eq('id', run.linked_intro_booked_id)
+        .maybeSingle();
+      referrer = (data as any)?.referred_by_member_name ?? null;
+    }
+    setEditingRunReferrer(referrer);
   };
 
   const handleSaveRun = async () => {
     if (!editingRun) return;
-    
+
+    // Referrer is validated against the run's chosen lead source and
+    // persisted onto the linked booking (intros_run has no referrer column).
+    const referrerErr = validateLeadSourceReferrer(editingRun.lead_source, editingRunReferrer);
+    if (referrerErr) { toast.error(referrerErr); return; }
+
     setIsSaving(true);
     try {
       const effectiveIntroOwner = editingRun.intro_owner || editingRun.ran_by || null;
-      
+
       const { error } = await supabase
         .from('intros_run')
         .update({
@@ -1389,24 +1441,36 @@ export default function ClientJourneyPanel() {
         .eq('id', editingRun.id);
 
       if (error) throw error;
-      
-      // Real-time sync to linked booking (intro_owner and coach_name)
+
+      // Real-time sync to linked booking (intro_owner, coach_name, lead_source,
+      // referrer). Lead-source + referrer are the source of truth on the
+      // booking — the DB trigger reads from intros_booked to attribute SOML
+      // referrals, so late edits behave as if the source were true from the
+      // start.
       if (editingRun.linked_intro_booked_id && editingRun.result !== 'No-show') {
         const updateData: Record<string, unknown> = {
           last_edited_at: new Date().toISOString(),
           last_edited_by: `${user?.name || 'Admin'} (Auto-Sync)`,
           edit_reason: 'Synced from linked run',
         };
-        
+
         if (effectiveIntroOwner) {
           updateData.intro_owner = effectiveIntroOwner;
           updateData.intro_owner_locked = true;
         }
-        
+
         if (editingRun.coach_name) {
           updateData.coach_name = editingRun.coach_name;
         }
-        
+
+        if (editingRun.lead_source) {
+          updateData.lead_source = editingRun.lead_source;
+          updateData.referred_by_member_name = resolveReferrerForWrite(
+            editingRun.lead_source,
+            editingRunReferrer,
+          );
+        }
+
         await supabase
           .from('intros_booked')
           .update(updateData)
@@ -2267,18 +2331,14 @@ export default function ClientJourneyPanel() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Lead Source</Label>
-                  <Select
+                  <LeadSourceWithReferrerField
                     value={editingBooking.lead_source || ''}
-                    onValueChange={(v) => setEditingBooking({...editingBooking, lead_source: v})}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
-                    <SelectContent>
-                      {LEAD_SOURCES.map(src => (
-                        <SelectItem key={src} value={src}>{src}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    referredByMemberName={editingBooking.referred_by_member_name}
+                    onChange={({ lead_source, referred_by_member_name }) =>
+                      setEditingBooking({ ...editingBooking, lead_source, referred_by_member_name })
+                    }
+                    label="Lead Source"
+                  />
                 </div>
                 <div>
                   <Label className="text-xs">Coach</Label>
@@ -2387,18 +2447,15 @@ export default function ClientJourneyPanel() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Lead Source</Label>
-                  <Select
+                  <LeadSourceWithReferrerField
                     value={editingRun.lead_source || ''}
-                    onValueChange={(v) => setEditingRun({...editingRun, lead_source: v})}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
-                    <SelectContent>
-                      {LEAD_SOURCES.map(src => (
-                        <SelectItem key={src} value={src}>{src}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    referredByMemberName={editingRunReferrer}
+                    onChange={({ lead_source, referred_by_member_name }) => {
+                      setEditingRun({ ...editingRun, lead_source });
+                      setEditingRunReferrer(referred_by_member_name);
+                    }}
+                    label="Lead Source"
+                  />
                 </div>
                 <div>
                   <Label className="text-xs">Result/Outcome</Label>
@@ -2920,18 +2977,14 @@ export default function ClientJourneyPanel() {
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs">Lead Source {creatingBookingFromRun ? '(from run)' : ''}</Label>
-                    <Select
+                    <LeadSourceWithReferrerField
                       value={newBooking.lead_source}
-                      onValueChange={(v) => setNewBooking({...newBooking, lead_source: v})}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
-                      <SelectContent>
-                        {LEAD_SOURCES.map(src => (
-                          <SelectItem key={src} value={src}>{src}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      referredByMemberName={newBooking.referred_by_member_name}
+                      onChange={({ lead_source, referred_by_member_name }) =>
+                        setNewBooking({ ...newBooking, lead_source, referred_by_member_name })
+                      }
+                      label={`Lead Source ${creatingBookingFromRun ? '(from run)' : ''}`}
+                    />
                   </div>
                 </>
               )}
@@ -3012,18 +3065,14 @@ export default function ClientJourneyPanel() {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">Lead Source</Label>
-                <Select
+                <LeadSourceWithReferrerField
                   value={newRun.lead_source}
-                  onValueChange={(v) => setNewRun({...newRun, lead_source: v})}
-                >
-                  <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
-                  <SelectContent>
-                    {LEAD_SOURCES.map(src => (
-                      <SelectItem key={src} value={src}>{src}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  referredByMemberName={newRun.referred_by_member_name}
+                  onChange={({ lead_source, referred_by_member_name }) =>
+                    setNewRun({ ...newRun, lead_source, referred_by_member_name })
+                  }
+                  label="Lead Source"
+                />
               </div>
               <div>
                 <Label className="text-xs">Result/Outcome *</Label>
