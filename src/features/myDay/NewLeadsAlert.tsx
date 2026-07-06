@@ -17,6 +17,9 @@ interface NewLead {
   phone: string;
   source: string;
   created_at: string;
+  is_buddy_card?: boolean | null;
+  referred_by_member_name?: string | null;
+  referring_member_contact?: string | null;
 }
 
 interface NewLeadsAlertProps {
