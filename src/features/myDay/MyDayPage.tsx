@@ -185,6 +185,40 @@ export default function MyDayPage() {
     });
   }, [introsBooked]);
   const tbdCoachCount = tbdCoachBookings.length;
+  const [assignCoachOpen, setAssignCoachOpen] = useState(false);
+
+  // Intros ≥2h past class start with NO logged outcome (missing-outcome banner).
+  const missingOutcomeBookings = useMemo(() => {
+    const now = Date.now();
+    const TWO_HR = 2 * 60 * 60 * 1000;
+    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+    // Set of booking ids that already have a run row
+    const ranBookingIds = new Set(
+      introsRun.map(r => (r as any).linked_intro_booked_id).filter(Boolean) as string[]
+    );
+    return introsBooked.filter(b => {
+      if (b.deleted_at) return false;
+      const status = b.booking_status_canon;
+      if (status === 'CANCELLED' || status === 'DELETED_SOFT' || status === 'PLANNING_RESCHEDULE') return false;
+      if (ranBookingIds.has(b.id)) return false;
+      if (!b.class_date) return false;
+      // Prefer explicit class_start_at; else compute local from class_date + intro_time.
+      let startMs: number | null = null;
+      const startIso = (b as any).class_start_at as string | null | undefined;
+      if (startIso) {
+        const t = Date.parse(startIso);
+        if (!isNaN(t)) startMs = t;
+      }
+      if (startMs == null) {
+        const [y, m, d] = b.class_date.split('-').map(Number);
+        const [hh, mm] = (b.intro_time || '00:00').split(':').map(Number);
+        startMs = new Date(y, m - 1, d, hh || 0, mm || 0).getTime();
+      }
+      const elapsed = now - startMs;
+      return elapsed >= TWO_HR && elapsed <= SEVEN_DAYS;
+    });
+  }, [introsBooked, introsRun]);
+  const missingOutcomeCount = missingOutcomeBookings.length;
 
   const completedTodayCount = todayRuns.filter(r => didIntroActuallyRun(r)).length;
 
