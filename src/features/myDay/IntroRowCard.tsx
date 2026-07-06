@@ -36,8 +36,10 @@ function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
   switch (status) {
     case 'Q_COMPLETED':
       return { bg: 'bg-success', label: 'Q✓', title: 'Complete', bannerLabel: '✓ Questionnaire Complete' };
+    case 'Q_OPENED':
+      return { bg: 'bg-warning', label: 'Q…', title: 'Opened, not submitted', bannerLabel: '⚠ Questionnaire Opened — Not Submitted' };
     case 'Q_SENT':
-      return { bg: 'bg-warning', label: 'Q?', title: 'Sent, not answered', bannerLabel: '⚠ Questionnaire Sent — Not Answered' };
+      return { bg: 'bg-warning', label: 'Q?', title: 'Sent, not opened', bannerLabel: '⚠ Questionnaire Sent — Not Opened' };
     case 'NO_Q':
     default:
       return { bg: 'bg-danger', label: 'Q!', title: 'Questionnaire not sent', bannerLabel: '! Questionnaire Not Sent' };
@@ -51,8 +53,10 @@ function getQBadgeStatic(status: UpcomingIntroItem['questionnaireStatus'], noQNe
   switch (status) {
     case 'Q_COMPLETED':
       return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-primary-foreground border-transparent">Questionnaire Complete</Badge>;
+    case 'Q_OPENED':
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning text-primary-foreground border-transparent">Q Opened, Not Submitted</Badge>;
     case 'Q_SENT':
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning text-primary-foreground border-transparent">Questionnaire Sent, Not Answered</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning text-primary-foreground border-transparent">Q Sent, Not Opened</Badge>;
     case 'NO_Q':
     default:
       return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-danger text-primary-foreground border-transparent">Questionnaire Not Sent</Badge>;
@@ -190,7 +194,7 @@ export default function IntroRowCard({
   const focusHours = minutesUntilClass !== null ? Math.floor(minutesUntilClass / 60) : 0;
   const focusMins = minutesUntilClass !== null ? minutesUntilClass % 60 : 0;
 
-  const isQOverdue = !item.isSecondIntro && localQStatus === 'Q_SENT' && minutesUntilClass !== null && minutesUntilClass <= 180 && minutesUntilClass > 0;
+  const isQOverdue = !item.isSecondIntro && (localQStatus === 'Q_SENT' || localQStatus === 'Q_OPENED') && minutesUntilClass !== null && minutesUntilClass <= 180 && minutesUntilClass > 0;
   const isOutcomeOverdue = !item.latestRunResult && minutesUntilClass !== null && minutesUntilClass <= -60;
 
   // Auto-prep 2nd visits
@@ -214,14 +218,16 @@ export default function IntroRowCard({
     (async () => {
       const { data } = await supabase
         .from('intro_questionnaires')
-        .select('status')
+        .select('status, last_opened_at')
         .eq('booking_id', item.bookingId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
       if (cancelled || !data) return;
       const s = (data as any).status;
+      const opened = (data as any).last_opened_at;
       if (s === 'completed' || s === 'submitted') setLocalQStatus('Q_COMPLETED');
+      else if (opened) setLocalQStatus('Q_OPENED');
       else if (s === 'sent') setLocalQStatus('Q_SENT');
     })();
     return () => { cancelled = true; };
@@ -557,11 +563,11 @@ export default function IntroRowCard({
       ) : item.leadSource?.toLowerCase().includes('vip') ? (
         <StatusBanner
           bgColor="hsl(var(--brand))"
-          text={`🟣 VIP Class — ${localQStatus === 'Q_COMPLETED' ? 'Questionnaire Complete ✓' : localQStatus === 'Q_SENT' ? 'Questionnaire Sent' : 'Questionnaire Not Sent'}`}
+          text={`🟣 VIP Class — ${localQStatus === 'Q_COMPLETED' ? 'Questionnaire Complete ✓' : localQStatus === 'Q_OPENED' ? 'Q Opened, Not Submitted' : localQStatus === 'Q_SENT' ? 'Questionnaire Sent' : 'Questionnaire Not Sent'}`}
         />
       ) : (
         <StatusBanner
-          bgColor={localQStatus === 'Q_COMPLETED' ? 'hsl(var(--status-success))' : localQStatus === 'Q_SENT' ? 'hsl(var(--status-warning))' : 'hsl(var(--status-danger))'}
+          bgColor={localQStatus === 'Q_COMPLETED' ? 'hsl(var(--status-success))' : (localQStatus === 'Q_SENT' || localQStatus === 'Q_OPENED') ? 'hsl(var(--status-warning))' : 'hsl(var(--status-danger))'}
           text={qBar.bannerLabel}
         />
       )}

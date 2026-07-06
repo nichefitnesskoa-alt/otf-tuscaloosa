@@ -70,7 +70,7 @@ export default function IntroDayGroup({
                     const firstIntros = trueIntrosInBlock.filter(i => !i.isSecondIntro);
                     if (firstIntros.length === 0) return null;
                     const notSent = firstIntros.filter(i => i.questionnaireStatus === 'NO_Q').length;
-                    const sent = firstIntros.filter(i => i.questionnaireStatus === 'Q_SENT').length;
+                    const sent = firstIntros.filter(i => i.questionnaireStatus === 'Q_SENT' || i.questionnaireStatus === 'Q_OPENED').length;
                     const done = firstIntros.filter(i => i.questionnaireStatus === 'Q_COMPLETED').length;
                     const allDone = done === firstIntros.length && firstIntros.length > 0;
                     if (allDone) return <span className="text-emerald-300 font-medium ml-1">· ✓ All done</span>;

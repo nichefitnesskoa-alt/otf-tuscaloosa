@@ -1,50 +1,66 @@
-## Goal
+## Problem
 
-1. When a booked lead shares their friend-link and someone books through it, that friend-booking already gets the `(Friend)` lead source — but it should also count toward the SOML referral pipeline (pending referral, then realized if they buy).
-2. Add a new **Referral Leads** goal to the SOML WIG section, side-by-side with the existing **Referrals that Close** goal. Two separate targets, two separate columns.
+Lauren self-booked via her intro link but her MyDay card gives Koa no signal about the questionnaire. Reality:
 
-## Part 1 — Friend-link bookings create pending referrals
+- Her `intros_booked.questionnaire_status_canon = 'not_sent'` (the auto-created questionnaire never got marked "sent" because no SA texted it — she was handed it immediately after booking)
+- Her `intro_questionnaires.last_opened_at = null` and `submitted_at = null` — so she clicked "Copy Link" for a friend, skipped "Continue", and never opened the form
+- MyDay card just shows "Not sent" which is misleading — the link WAS effectively served to her
 
-Currently `soml_create_pending_referral` trigger only fires when `lead_source IN ('Member Referral', 'Member Referral (5 class pack)')`. Friend-link bookings (`Intro Scheduler Link (Friend)`, `Instagram DMs (Friend)`, etc.) have `paired_booking_id` set to the originator and `referred_by_member_name` set to the originator's first name, but no pending referral row is created.
+We need the card to distinguish four real states for self-booked leads.
 
-Migration to expand the trigger:
-- Also fire when `NEW.paired_booking_id IS NOT NULL` (the "someone brought a friend" signal), regardless of lead_source. This catches every `(Friend)` variant.
-- `referring_member` = originator booking's `member_name`.
-- `credited_sa` = originator booking's `booked_by`/`intro_owner` (the SA whose link started the chain), same fallback rules as today.
-- Reuses the existing chain-root dedup so reschedules don't create duplicates.
+## Plan
 
-The existing `soml_resolve_pending_referral` trigger already flips these rows to `realized` on sale — no change needed.
+### 1. Mark self-booked questionnaires as "sent" at booking time
 
-## Part 2 — "Referral Leads" as its own SOML goal
+In `src/pages/BookIntro.tsx`, right after we look up the auto-created questionnaire slug (~line 291), also stamp the linked booking:
 
-Data (in `useSomlData`):
-- Add a fourth metric `referralLeads` alongside `referrals` / `upgrades` / `sales`.
-- Count: pending-referral rows whose **booking's `class_date`** falls inside the SOML window (any state: pending, realized, or not_converted) — a referral lead counts the moment the friend is booked in-window, not when they buy.
-- Per-SA: `credited_sa` on the pending row.
-- Returns a new `referralLeadsList` for drilldown.
+```
+questionnaire_status_canon = 'sent'
+questionnaire_sent_at = now()
+```
 
-Config:
-- Add `referral_leads_goal` column to `soml_config` (default 0). Read/write alongside the existing three goals.
+This reflects reality: the link is being served to the intro on the very next screen. No SA action needed.
 
-UI (`SomlSection.tsx`):
-- Fourth `HeroTile` for "Referral Leads" (Users icon), same pace/edit/drilldown pattern as the others.
-- New column in the per-SA leaderboard table, same override behavior (`soml_sa_goals.referral_leads_goal` column, per-SA override dialog gains the new metric).
-- Rename existing tile from "Referrals" → "Referrals that Close" to make the distinction obvious.
+### 2. Track "opened" as a first-class card state
 
-Migration:
-- `ALTER TABLE soml_config ADD COLUMN referral_leads_goal int NOT NULL DEFAULT 0;`
-- `ALTER TABLE soml_sa_goals ADD COLUMN referral_leads_goal int;`
+Add a derived status in `src/features/myDay/useUpcomingIntrosData.ts` for self-booked leads where the joined `intro_questionnaires.last_opened_at` is set but `submitted_at` is null. Include `last_opened_at` in the existing `qMap` select.
 
-## Coherence check (before done)
+New `QuestionnaireStatus` value: `Q_OPENED`. Priority order when deriving:
+`submitted → Q_COMPLETED` › `last_opened_at → Q_OPENED` › `booking flag 'sent' → Q_SENT` › else `Q_NOT_SENT`.
 
-- Verify one friend-booking now yields a `soml_pending_referrals` row with correct `credited_sa` and `referring_member`.
-- Verify the same row realizes to a Close on sale (Referrals-that-Close +1) — no double-count.
-- Verify Referral Leads count matches pending-referral rows with in-window class_date.
-- SA per-row totals across all four columns match the SA-level pending/realized/sales rows.
+### 3. Surface all four states on the MyDay intro card
+
+In `src/features/shiftView/ShiftIntroCards.tsx` (and the coach mirror in `CoachIntroCard.tsx`), replace the current two-state badge with:
+
+- **Gray** "Q not opened" — link served, never opened
+- **Amber** "Q opened, not submitted · {relative time}" — she started but bailed
+- **Green** "Q completed · {relative time}" — done
+- Legacy **Gray** "Q not sent" — for older bookings that never got the sent stamp
+
+Lauren's card would immediately read **"Q not opened"** — telling Koa she copied the friend link and left without filling anything out.
+
+### 4. DB safety net — trigger on questionnaire submit
+
+Add a trigger on `intro_questionnaires` AFTER UPDATE: when `status` transitions to `submitted`/`completed` and `booking_id` is set, mirror the update into `intros_booked.questionnaire_status_canon = 'completed'` + `questionnaire_completed_at = NEW.submitted_at`. Belt-and-suspenders for the existing client-side write in `Questionnaire.tsx` (RLS or a race could drop it today).
+
+### 5. Backfill
+
+One-time UPDATE for existing self-booked bookings where a questionnaire exists but the booking is still `not_sent`:
+- If questionnaire `submitted_at` is set → mark booking `completed` + copy timestamps
+- Else if `last_opened_at` is set → leave booking canon at `sent` (the "opened" state is derived, not stored)
+- Else if booking came from the intro-link flow → set canon to `sent`
 
 ## Files touched
 
-- New migration (trigger update + two columns).
-- `src/hooks/useSomlData.ts` — add referralLeads metric + list.
-- `src/features/wig/soml/SomlSection.tsx` — new tile, new column, override dialog, edit-goal dialog, rename copy.
-- `src/pages/Wig.tsx` — only if it references the SOML metric shape (likely just re-renders).
+- `src/pages/BookIntro.tsx` — stamp `sent` at booking time
+- `src/features/myDay/useUpcomingIntrosData.ts` — pull `last_opened_at`, derive `Q_OPENED`
+- `src/features/shiftView/ShiftIntroCards.tsx` — 4-state badge
+- `src/components/coach/CoachIntroCard.tsx` — same badge (Coach View mirror)
+- New migration — submit trigger + one-time backfill
+
+## Coherence check before done
+
+- Query Lauren's booking after deploy: card status = `Q not opened`, questionnaire row unchanged
+- Simulate: open her `/q/…` slug → card flips to `Q opened, not submitted`
+- Submit the form → card flips to `Q completed` on both MyDay and Coach View (same underlying field)
+- Verify no other consumer of `questionnaire_status_canon` breaks on the new `sent` writes at booking time (Pipeline, WalkIn sheet, dashboard funnels)

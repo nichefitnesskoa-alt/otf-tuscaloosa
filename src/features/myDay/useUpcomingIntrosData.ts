@@ -61,16 +61,19 @@ function getDateRange(options: UseUpcomingIntrosOptions): { start: string; end: 
 }
 
 function deriveQStatus(
-  qData: { status: string; submitted_at: string | null; created_at: string } | null,
-): { status: QuestionnaireStatus; sentAt: string | null; completedAt: string | null } {
-  if (!qData) return { status: 'NO_Q', sentAt: null, completedAt: null };
+  qData: { status: string; submitted_at: string | null; created_at: string; last_opened_at: string | null } | null,
+): { status: QuestionnaireStatus; sentAt: string | null; completedAt: string | null; openedAt: string | null } {
+  if (!qData) return { status: 'NO_Q', sentAt: null, completedAt: null, openedAt: null };
   if (qData.status === 'completed' || qData.status === 'submitted') {
-    return { status: 'Q_COMPLETED', sentAt: qData.created_at, completedAt: qData.submitted_at || qData.created_at };
+    return { status: 'Q_COMPLETED', sentAt: qData.created_at, completedAt: qData.submitted_at || qData.created_at, openedAt: qData.last_opened_at };
+  }
+  if (qData.last_opened_at) {
+    return { status: 'Q_OPENED', sentAt: qData.created_at, completedAt: null, openedAt: qData.last_opened_at };
   }
   if (qData.status === 'sent') {
-    return { status: 'Q_SENT', sentAt: qData.created_at, completedAt: null };
+    return { status: 'Q_SENT', sentAt: qData.created_at, completedAt: null, openedAt: null };
   }
-  return { status: 'NO_Q', sentAt: null, completedAt: null };
+  return { status: 'NO_Q', sentAt: null, completedAt: null, openedAt: null };
 }
 
 export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpcomingIntrosReturn {
@@ -123,7 +126,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         : await Promise.all([
         supabase
           .from('intro_questionnaires')
-          .select('booking_id, status, submitted_at, created_at')
+          .select('booking_id, status, submitted_at, created_at, last_opened_at')
           .in('booking_id', bookingIds),
         supabase
           .from('intros_run')
@@ -153,13 +156,13 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         });
       }
 
-      const qMap = new Map<string, { status: string; submitted_at: string | null; created_at: string }>();
+      const qMap = new Map<string, { status: string; submitted_at: string | null; created_at: string; last_opened_at: string | null }>();
       for (const q of (qRes.data || [])) {
         if (!q.booking_id) continue;
         const existing = qMap.get(q.booking_id);
         const isCompleted = q.status === 'completed' || q.status === 'submitted';
         if (!existing || isCompleted) {
-          qMap.set(q.booking_id, { status: q.status, submitted_at: q.submitted_at, created_at: q.created_at });
+          qMap.set(q.booking_id, { status: q.status, submitted_at: q.submitted_at, created_at: q.created_at, last_opened_at: (q as any).last_opened_at ?? null });
         }
       }
 
@@ -186,23 +189,23 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
       const rawItems: UpcomingIntroItem[] = bookings.map(b => {
         // Use canonical questionnaire status from DB if available, fall back to joined data
         const bookingQStatus = (b as any).questionnaire_status_canon as string | undefined;
-        let qStatus: QuestionnaireStatus;
-        let qSentAt: string | null = null;
-        let qCompletedAt: string | null = null;
+
+        // Always derive from joined questionnaire row so we can surface the
+        // "opened but not submitted" state (last_opened_at). Completed status
+        // still trusts the booking canon as an override.
+        const q = deriveQStatus(qMap.get(b.id) || null);
+        let qStatus: QuestionnaireStatus = q.status;
+        let qSentAt: string | null = q.sentAt;
+        let qCompletedAt: string | null = q.completedAt;
 
         if (bookingQStatus === 'completed') {
           qStatus = 'Q_COMPLETED';
-          qSentAt = (b as any).questionnaire_sent_at || null;
-          qCompletedAt = (b as any).questionnaire_completed_at || null;
-        } else if (bookingQStatus === 'sent') {
+          qSentAt = (b as any).questionnaire_sent_at || q.sentAt;
+          qCompletedAt = (b as any).questionnaire_completed_at || q.completedAt;
+        } else if (bookingQStatus === 'sent' && qStatus === 'NO_Q') {
+          // Booking says sent but no questionnaire row surfaced — respect it
           qStatus = 'Q_SENT';
           qSentAt = (b as any).questionnaire_sent_at || null;
-        } else {
-          // Fall back to joined questionnaire data
-          const q = deriveQStatus(qMap.get(b.id) || null);
-          qStatus = q.status;
-          qSentAt = q.sentAt;
-          qCompletedAt = q.completedAt;
         }
 
         const run = runMap.get(b.id);
