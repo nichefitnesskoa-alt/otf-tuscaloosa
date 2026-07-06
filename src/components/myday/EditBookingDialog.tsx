@@ -97,9 +97,9 @@ export function EditBookingDialog({
 
   const handleSave = async () => {
     setSaving(true);
-    const isMemberReferral = source === 'Member Referral' || source === 'Member Referral (5 class pack)';
+    const isMemberReferral = isReferralLikeSource(source);
     if (isMemberReferral && !referredBy.trim()) {
-      toast.error('Referring member name is required for Member Referral bookings');
+      toast.error('Referring member name is required for referral/friend lead sources');
       setSaving(false);
       return;
     }
