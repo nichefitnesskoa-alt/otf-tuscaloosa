@@ -92,12 +92,16 @@ export function AssignCoachDialog({ open, onOpenChange, bookings, editedBy, onSa
                   {b.intro_time ? ` · ${formatDisplayTime(b.intro_time)}` : ''}
                 </div>
                 <div className="flex gap-2">
-                  <NameAutocomplete
-                    value={drafts[b.id] || ''}
-                    onChange={v => setCoach(b.id, v)}
-                    placeholder="Coach name"
-                    className="h-11 flex-1"
-                  />
+                  <Select value={drafts[b.id] || ''} onValueChange={v => setCoach(b.id, v)}>
+                    <SelectTrigger className="h-11 flex-1">
+                      <SelectValue placeholder="Select coach" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {coaches.map(c => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
                     onClick={() => saveOne(b.id)}
                     disabled={savingId === b.id || !(drafts[b.id] || '').trim()}
