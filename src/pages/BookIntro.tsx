@@ -38,7 +38,9 @@ import { stripCountryCode } from '@/lib/parsing/phone';
 import { generateUniqueSlug } from '@/lib/utils';
 import { CalendarIcon, Check, Copy, Share2, Users, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 
-type Step = 'time' | 'info' | 'calendar' | 'friend' | 'done';
+import { InlineQuestionnaire } from '@/features/bookIntro/InlineQuestionnaire';
+
+type Step = 'time' | 'info' | 'questions' | 'calendar' | 'friend' | 'done';
 
 const infoSchema = z.object({
   firstName: z.string().trim().min(1, 'First name required').max(60),
