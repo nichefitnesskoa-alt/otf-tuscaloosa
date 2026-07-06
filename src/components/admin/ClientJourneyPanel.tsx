@@ -1094,6 +1094,7 @@ export default function ClientJourneyPanel() {
       coach_name: '',
       sa_working_shift: '',
       lead_source: '',
+      referred_by_member_name: null,
       fitness_goal: '',
     });
     setIsSelfBooked(false);
@@ -1144,6 +1145,7 @@ export default function ClientJourneyPanel() {
         class_time: '',
         ran_by: '',
         lead_source: firstBooking.lead_source || '',
+        referred_by_member_name: firstBooking.referred_by_member_name || null,
         result: '',
         notes: '',
         linked_intro_booked_id: insertedBooking.id,
@@ -1170,6 +1172,7 @@ export default function ClientJourneyPanel() {
       coach_name: firstBooking.coach_name || '',
       sa_working_shift: '',
       lead_source: firstBooking.lead_source || '',
+      referred_by_member_name: firstBooking.referred_by_member_name || null,
       fitness_goal: firstBooking.fitness_goal || '',
     });
     setIsSelfBooked(false);
@@ -1187,6 +1190,7 @@ export default function ClientJourneyPanel() {
       coach_name: '',
       sa_working_shift: '',
       lead_source: run.lead_source || '',
+      referred_by_member_name: null,
       fitness_goal: '',
     });
     const isSelfBookedSource = run.lead_source === 'Online Intro Offer (self-booked)';
@@ -1287,6 +1291,7 @@ export default function ClientJourneyPanel() {
       class_time: latestBooking?.intro_time || '',
       ran_by: '',
       lead_source: latestBooking?.lead_source || '',
+      referred_by_member_name: latestBooking?.referred_by_member_name || null,
       result: '',
       notes: '',
       linked_intro_booked_id: latestBooking?.id || '',
