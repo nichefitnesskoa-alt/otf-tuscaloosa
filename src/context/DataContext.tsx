@@ -4,6 +4,7 @@ import { Tables } from '@/integrations/supabase/types';
 import { writeCache, readCache, getLastCacheTime } from '@/lib/offline/cache';
 import { getPendingCount } from '@/lib/offline/writeQueue';
 import { runSync, SyncResult } from '@/lib/offline/sync';
+import { useAuth } from '@/context/AuthContext';
 
 export interface ShiftRecap {
   id: string;
@@ -117,6 +118,9 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
+  // Don't hammer the API on public / pre-login screens — those 6 full-table
+  // selects can starve the small staff query the Login screen depends on.
+  const { isAuthenticated } = useAuth();
   const [shiftRecaps, setShiftRecaps] = useState<ShiftRecap[]>([]);
   const [introsBooked, setIntrosBooked] = useState<IntroBooked[]>([]);
   const [introsRun, setIntrosRun] = useState<IntroRun[]>([]);
@@ -207,8 +211,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!isAuthenticated) { setIsLoading(false); return; }
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, isAuthenticated]);
+
 
   // Poll pending queue count
   useEffect(() => {
