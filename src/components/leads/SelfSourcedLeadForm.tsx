@@ -4,38 +4,45 @@
  * "+ Add Lead" dialog so both surfaces write identical rows (with
  * `sourced_by_sa`) and refresh the same query keys.
  */
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel,
+  SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { notifyDataChanged } from '@/lib/data/invalidation';
-import { isSelfSourcedLeadSource } from '@/lib/sa/leadsBooked';
+import { isSelfSourcedLeadSource, isReferralLikeSource } from '@/lib/sa/leadsBooked';
+import { LEAD_SOURCES } from '@/types';
 import type { Tables } from '@/integrations/supabase/types';
 
-/** Sources an SA can pick for a self-sourced lead. Inbound sources are
- *  intentionally excluded — those count when the booking is made through
- *  the normal flow. */
+/** Extra sources allowed on the log-a-lead form that aren't in the canonical
+ *  intro-booking LEAD_SOURCES list. Kept for backwards compatibility with how
+ *  SAs described self-sourced leads before the canon list existed. */
+const FORM_ONLY_EXTRA_SOURCES = ['Walk-in', 'Event', 'Cold Lead Re-engagement', 'Manual Entry'] as const;
+
+const CANON_SOURCES = LEAD_SOURCES.filter(isSelfSourcedLeadSource);
+const REFERRAL_SOURCES = CANON_SOURCES.filter(isReferralLikeSource);
+const OTHER_CANON_SOURCES = CANON_SOURCES.filter(s => !isReferralLikeSource(s));
+
 export const SELF_SOURCED_OPTIONS = [
-  'Member Referral',
-  'Instagram DM',
-  'Walk-in',
-  'Event',
-  'Cold Lead Re-engagement',
-  'Manual Entry',
+  ...REFERRAL_SOURCES,
+  ...OTHER_CANON_SOURCES,
+  ...FORM_ONLY_EXTRA_SOURCES,
 ] as const;
 
+const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+const digits = (s: string) => s.replace(/\D/g, '');
+
 interface Props {
-  /** Called after successful save (and optional book flow). */
   onSaved?: () => void;
-  /** Hide the "Save and book intro" button (dialog contexts where booking
-   *  right after is awkward can pass false). Default true. */
   allowBookIntro?: boolean;
 }
 
@@ -46,13 +53,18 @@ export function SelfSourcedLeadForm({ onSaved, allowBookIntro = true }: Props) {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [source, setSource] = useState<string>('Member Referral');
+  const [referrerName, setReferrerName] = useState('');
+  const [referrerContact, setReferrerContact] = useState('');
   const [saving, setSaving] = useState(false);
   const [savedLead, setSavedLead] = useState<Tables<'leads'> | null>(null);
   const [bookOpen, setBookOpen] = useState(false);
 
+  const needsReferrer = useMemo(() => isReferralLikeSource(source), [source]);
+
   const reset = () => {
     setFirstName(''); setLastName(''); setPhone(''); setEmail('');
-    setSource('Member Referral'); setSavedLead(null);
+    setSource('Member Referral'); setReferrerName(''); setReferrerContact('');
+    setSavedLead(null);
   };
 
   const submit = async (alsoBook: boolean) => {
@@ -68,6 +80,17 @@ export function SelfSourcedLeadForm({ onSaved, allowBookIntro = true }: Props) {
       toast.error('That source counts as inbound — log it through the normal booking flow.');
       return;
     }
+    if (needsReferrer) {
+      if (!referrerName.trim() || referrerName.trim().length < 2) {
+        toast.error("Who referred them? Add the referring member's name.");
+        return;
+      }
+      const contact = referrerContact.trim();
+      if (!contact || (!isEmail(contact) && digits(contact).length < 10)) {
+        toast.error("Add the referring member's phone or email so we can credit them.");
+        return;
+      }
+    }
 
     setSaving(true);
     try {
@@ -81,7 +104,9 @@ export function SelfSourcedLeadForm({ onSaved, allowBookIntro = true }: Props) {
           source,
           stage: 'new',
           sourced_by_sa: user.name,
-        })
+          referred_by_member_name: needsReferrer ? referrerName.trim() : null,
+          referring_member_contact: needsReferrer ? referrerContact.trim() : null,
+        } as any)
         .select('*')
         .single();
       if (error) throw error;
@@ -90,7 +115,9 @@ export function SelfSourcedLeadForm({ onSaved, allowBookIntro = true }: Props) {
         lead_id: lead.id,
         activity_type: 'note',
         performed_by: user.name,
-        notes: `Logged as self-sourced by ${user.name}`,
+        notes: needsReferrer
+          ? `Logged as self-sourced by ${user.name}. Referred by ${referrerName.trim()} (${referrerContact.trim()}).`
+          : `Logged as self-sourced by ${user.name}`,
       });
 
       toast.success(alsoBook ? 'Lead saved — book the intro' : 'Lead logged');
@@ -164,12 +191,51 @@ export function SelfSourcedLeadForm({ onSaved, allowBookIntro = true }: Props) {
           <Select value={source} onValueChange={setSource}>
             <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {SELF_SOURCED_OPTIONS.map(s => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
-              ))}
+              <SelectGroup>
+                <SelectLabel>Referrals &amp; Friends</SelectLabel>
+                {REFERRAL_SOURCES.map(s => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectGroup>
+              <SelectGroup>
+                <SelectLabel>Other sources</SelectLabel>
+                {OTHER_CANON_SOURCES.map(s => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+                {FORM_ONLY_EXTRA_SOURCES.map(s => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </div>
+
+        {needsReferrer && (
+          <div className="space-y-2 rounded-md border border-primary/30 bg-primary/5 p-3">
+            <p className="text-xs font-semibold">This person was referred — who sent them?</p>
+            <div>
+              <Label className="text-xs">Referring member's full name *</Label>
+              <Input
+                value={referrerName}
+                onChange={e => setReferrerName(autoCapitalizeName(e.target.value))}
+                placeholder="Jane Smith"
+                className="h-10"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Referring member's phone or email *</Label>
+              <Input
+                value={referrerContact}
+                onChange={e => setReferrerContact(e.target.value)}
+                placeholder="(205) 555-1234 or jane@email.com"
+                className="h-10"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                So we know who to credit when the referral converts.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row gap-2 pt-1">
           <Button
