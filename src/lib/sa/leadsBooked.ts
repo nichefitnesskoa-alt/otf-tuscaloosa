@@ -69,6 +69,8 @@ export const PHANTOM_BOOKED_BY = new Set<string>([
   'AM Shift',
   'Unknown',
   'TBD',
+  // Placeholder for /buddy submissions — no SA earns credit until claimed
+  'Buddy Card',
 ]);
 
 export interface LeadBookedBookingInput {
