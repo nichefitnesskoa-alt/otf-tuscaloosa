@@ -117,6 +117,7 @@ interface ClientBooking {
   sa_working_shift: string;
   booked_by: string | null;
   lead_source: string;
+  referred_by_member_name: string | null;
   fitness_goal: string | null;
   booking_status: string | null;
   intro_owner: string | null;
@@ -304,6 +305,7 @@ export default function ClientJourneyPanel() {
     coach_name: '',
     sa_working_shift: '',
     lead_source: '',
+    referred_by_member_name: '' as string | null,
     fitness_goal: '',
   });
 
@@ -316,6 +318,7 @@ export default function ClientJourneyPanel() {
     class_time: '',
     ran_by: '',
     lead_source: '',
+    referred_by_member_name: '' as string | null,
     result: '',
     notes: '',
     linked_intro_booked_id: '',
@@ -340,7 +343,7 @@ export default function ClientJourneyPanel() {
       const [bookingsRes, runsRes] = await Promise.all([
         supabase
           .from('intros_booked')
-          .select('id, booking_id, member_name, class_date, intro_time, coach_name, sa_working_shift, booked_by, lead_source, fitness_goal, booking_status, intro_owner, intro_owner_locked, originating_booking_id, vip_class_name, phone, email')
+          .select('id, booking_id, member_name, class_date, intro_time, coach_name, sa_working_shift, booked_by, lead_source, referred_by_member_name, fitness_goal, booking_status, intro_owner, intro_owner_locked, originating_booking_id, vip_class_name, phone, email')
           .order('class_date', { ascending: false }),
         supabase
           .from('intros_run')
