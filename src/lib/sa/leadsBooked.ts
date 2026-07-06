@@ -69,7 +69,13 @@ export const PHANTOM_BOOKED_BY = new Set<string>([
   'AM Shift',
   'Unknown',
   'TBD',
-  // Placeholder for /buddy submissions — no SA earns credit until claimed
+]);
+
+/** Placeholder sourced_by_sa values that represent inbound channels rather
+ *  than a real SA. They appear in the Self-Sourced Leads dialog as their
+ *  own group so someone can claim them, but never appear on the WIG SA
+ *  leaderboard (which iterates active staff). */
+export const PLACEHOLDER_SOURCED_BY = new Set<string>([
   'Buddy Card',
 ]);
 
