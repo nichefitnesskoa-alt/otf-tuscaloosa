@@ -27,7 +27,10 @@ import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 import type { ClientJourney, PipelineBooking, PipelineRun, JourneyTab, VipInfo, PipelineScriptAction } from '../pipelineTypes';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
-import { setIntroOwnerForJourney } from '../pipelineActions';
+import { setIntroOwnerForJourney, updateBookingFieldsFromPipeline } from '../pipelineActions';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { LeadSourceWithReferrerField, validateLeadSourceReferrer, resolveReferrerForWrite } from '@/components/shared/LeadSourceWithReferrerField';
+import { isReferralLikeSource } from '@/lib/sa/leadsBooked';
 
 interface PipelineSpreadsheetProps {
   journeys: ClientJourney[];
@@ -629,7 +632,7 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
 // ── Expanded Row Detail ──
 
 
-const LEAD_SOURCES = ['Member Referral', 'Online Intro Offer', 'Online Intro Offer (self-booked)', 'Walk-in', 'IG DM', 'Cold Lead', 'Friend/Family Referral', 'Corporate', 'Website', 'Other'];
+// LEAD_SOURCES imported via shared LeadSourceWithReferrerField (single source of truth).
 
 function ExpandedRowDetail({
   journey, vipInfoMap, scriptActionsMap, isOnline, onOpenDialog, onOpenScript, userName,
@@ -650,7 +653,6 @@ function ExpandedRowDetail({
 
   // Inline editing state
   const [editingOwner, setEditingOwner] = useState(false);
-  const [editingLeadSource, setEditingLeadSource] = useState<string | null>(null);
   const [editingCommission, setEditingCommission] = useState<string | null>(null);
   const [commissionValue, setCommissionValue] = useState('');
 
@@ -736,28 +738,8 @@ function ExpandedRowDetail({
                   <span className="font-medium">{b.class_date}</span>
                   {b.intro_time && <span className="text-muted-foreground"> @ {b.intro_time}</span>}
                   <span className="text-muted-foreground"> · {b.coach_name} · </span>
-                  {/* Inline lead source edit */}
-                  {editingLeadSource === b.id ? (
-                    <select
-                      className="h-5 text-xs border rounded px-1 bg-background text-foreground"
-                      defaultValue={b.lead_source}
-                      autoFocus
-                      onChange={async (e) => {
-                        const val = e.target.value;
-                        await supabase.from('intros_booked').update({ lead_source: val }).eq('id', b.id);
-                        toast.success(`Lead source → ${val}`);
-                        setEditingLeadSource(null);
-                        handleRefresh();
-                      }}
-                      onBlur={() => setEditingLeadSource(null)}
-                    >
-                      {LEAD_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  ) : (
-                    <button className="hover:underline cursor-pointer text-muted-foreground" onClick={() => setEditingLeadSource(b.id)}>
-                      {b.lead_source}
-                    </button>
-                  )}
+                  {/* Inline lead source edit — pops referrer field for friend variants */}
+                  <InlineLeadSourceEditor booking={b} userName={userName} onSaved={handleRefresh} />
                   {b.originating_booking_id && <Badge variant="outline" className="text-[10px] ml-1">2nd</Badge>}
                 </div>
                 <div className="flex items-center gap-1">
