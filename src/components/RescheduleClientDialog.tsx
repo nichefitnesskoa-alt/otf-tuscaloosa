@@ -10,6 +10,7 @@ import { PotentialMatch } from '@/hooks/useDuplicateDetection';
 import { Calendar, Clock, User, Star } from 'lucide-react';
 import { LEAD_SOURCES } from '@/types';
 import { ClassTimeSelect, DatePickerField } from '@/components/shared/FormHelpers';
+import { LeadSourceWithReferrerField, validateLeadSourceReferrer, resolveReferrerForWrite } from '@/components/shared/LeadSourceWithReferrerField';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 
@@ -33,6 +34,7 @@ export default function RescheduleClientDialog({
   const [newDate, setNewDate] = useState(isVipMode ? '' : client.class_date);
   const [newTime, setNewTime] = useState(isVipMode ? '' : (client.intro_time || ''));
   const [leadSource, setLeadSource] = useState(client.lead_source || (isVipMode ? 'VIP Class' : ''));
+  const [referredBy, setReferredBy] = useState<string | null>((client as any).referred_by_member_name ?? null);
   const [notes, setNotes] = useState(client.fitness_goal || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -43,6 +45,12 @@ export default function RescheduleClientDialog({
         description: 'Please pick an intro date',
         variant: 'destructive',
       });
+      return;
+    }
+
+    const referrerErr = validateLeadSourceReferrer(leadSource, referredBy);
+    if (referrerErr) {
+      toast({ title: 'Referring member required', description: referrerErr, variant: 'destructive' });
       return;
     }
 
