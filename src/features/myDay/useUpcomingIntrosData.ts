@@ -193,19 +193,22 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         let qSentAt: string | null = null;
         let qCompletedAt: string | null = null;
 
+        // Always derive from joined questionnaire row so we can surface the
+        // "opened but not submitted" state (last_opened_at). Completed status
+        // still trusts the booking canon as an override.
+        const q = deriveQStatus(qMap.get(b.id) || null);
+        let qStatus: QuestionnaireStatus = q.status;
+        let qSentAt: string | null = q.sentAt;
+        let qCompletedAt: string | null = q.completedAt;
+
         if (bookingQStatus === 'completed') {
           qStatus = 'Q_COMPLETED';
-          qSentAt = (b as any).questionnaire_sent_at || null;
-          qCompletedAt = (b as any).questionnaire_completed_at || null;
-        } else if (bookingQStatus === 'sent') {
+          qSentAt = (b as any).questionnaire_sent_at || q.sentAt;
+          qCompletedAt = (b as any).questionnaire_completed_at || q.completedAt;
+        } else if (bookingQStatus === 'sent' && qStatus === 'NO_Q') {
+          // Booking says sent but no questionnaire row surfaced — respect it
           qStatus = 'Q_SENT';
           qSentAt = (b as any).questionnaire_sent_at || null;
-        } else {
-          // Fall back to joined questionnaire data
-          const q = deriveQStatus(qMap.get(b.id) || null);
-          qStatus = q.status;
-          qSentAt = q.sentAt;
-          qCompletedAt = q.completedAt;
         }
 
         const run = runMap.get(b.id);
