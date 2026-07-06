@@ -227,7 +227,7 @@ export default function BuddyCard() {
             style={{ backgroundColor: OTF_ORANGE }}
           >
             {submitting ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending\u2026</>
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending&hellip;</>
             ) : (
               'Send it over'
             )}
