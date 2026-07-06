@@ -1220,10 +1220,13 @@ export default function ClientJourneyPanel() {
       const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const bookedBy = isSelfBooked ? 'Self-booked' : newBooking.sa_working_shift;
       const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || 'Instagram DMs');
-      
+
+      const referrerErr = validateLeadSourceReferrer(leadSource, newBooking.referred_by_member_name);
+      if (referrerErr) { toast.error(referrerErr); setIsSaving(false); return; }
+
       // Determine intro_owner from the linked run if creating from run
       const introOwner = creatingBookingFromRun?.intro_owner || creatingBookingFromRun?.ran_by || null;
-      
+
       const { data: insertedBooking, error } = await supabase
         .from('intros_booked')
         .insert({
@@ -1235,6 +1238,7 @@ export default function ClientJourneyPanel() {
           sa_working_shift: bookedBy,
           booked_by: bookedBy,
           lead_source: leadSource,
+          referred_by_member_name: resolveReferrerForWrite(leadSource, newBooking.referred_by_member_name),
           fitness_goal: newBooking.fitness_goal || null,
           booking_status: 'Active',
           intro_owner: introOwner,
