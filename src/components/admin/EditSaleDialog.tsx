@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { LeadSourceWithReferrerField, validateLeadSourceReferrer, resolveReferrerForWrite } from '@/components/shared/LeadSourceWithReferrerField';
 
 interface EditSaleDialogProps {
   open: boolean;
@@ -34,6 +35,7 @@ export default function EditSaleDialog({ open, onOpenChange, purchase, onSaved }
   const [membershipType, setMembershipType] = useState('');
   const [commission, setCommission] = useState('');
   const [leadSource, setLeadSource] = useState('');
+  const [referredBy, setReferredBy] = useState<string | null>(null);
   const [introOwner, setIntroOwner] = useState('');
   const [date, setDate] = useState('');
   const [saving, setSaving] = useState(false);
@@ -46,6 +48,29 @@ export default function EditSaleDialog({ open, onOpenChange, purchase, onSaved }
       setLeadSource(purchase.lead_source || '');
       setIntroOwner(purchase.intro_owner || '');
       setDate(purchase.purchase_date);
+      // Fetch linked booking's referrer if this is an intro_run sale
+      if (purchase.source === 'intro_run') {
+        (async () => {
+          const { data: run } = await supabase
+            .from('intros_run')
+            .select('linked_intro_booked_id')
+            .eq('id', purchase.id)
+            .maybeSingle();
+          const linkedId = (run as any)?.linked_intro_booked_id;
+          if (linkedId) {
+            const { data: b } = await supabase
+              .from('intros_booked')
+              .select('referred_by_member_name')
+              .eq('id', linkedId)
+              .maybeSingle();
+            setReferredBy((b as any)?.referred_by_member_name ?? null);
+          } else {
+            setReferredBy(null);
+          }
+        })();
+      } else {
+        setReferredBy(null);
+      }
     }
   }, [purchase]);
 
