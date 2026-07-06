@@ -126,7 +126,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         : await Promise.all([
         supabase
           .from('intro_questionnaires')
-          .select('booking_id, status, submitted_at, created_at')
+          .select('booking_id, status, submitted_at, created_at, last_opened_at')
           .in('booking_id', bookingIds),
         supabase
           .from('intros_run')
@@ -156,13 +156,13 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         });
       }
 
-      const qMap = new Map<string, { status: string; submitted_at: string | null; created_at: string }>();
+      const qMap = new Map<string, { status: string; submitted_at: string | null; created_at: string; last_opened_at: string | null }>();
       for (const q of (qRes.data || [])) {
         if (!q.booking_id) continue;
         const existing = qMap.get(q.booking_id);
         const isCompleted = q.status === 'completed' || q.status === 'submitted';
         if (!existing || isCompleted) {
-          qMap.set(q.booking_id, { status: q.status, submitted_at: q.submitted_at, created_at: q.created_at });
+          qMap.set(q.booking_id, { status: q.status, submitted_at: q.submitted_at, created_at: q.created_at, last_opened_at: (q as any).last_opened_at ?? null });
         }
       }
 
