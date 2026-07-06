@@ -70,6 +70,7 @@ interface BookingRow {
   deleted_at: string | null;
   is_vip: boolean;
   created_at: string;
+  referred_by_member_name: string | null;
 }
 
 interface RunRow {
