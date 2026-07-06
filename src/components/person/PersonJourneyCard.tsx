@@ -402,6 +402,7 @@ function IntroNode({ booking, allBookings, runs, scorecard, isSecondIntro, chain
   const [editField, setEditField] = useState<null | 'booked_by' | 'coach_name' | 'lead_source' | 'class_date' | 'intro_owner'>(null);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<string>('');
+  const [referrerDraft, setReferrerDraft] = useState<string>('');
 
   const latestRun = useMemo(() => {
     if (runs.length === 0) return null;
