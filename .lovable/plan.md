@@ -1,70 +1,31 @@
-## Goal
+## Problem
 
-Make the "Log a lead you sourced" form on WIG the single place to log any lead (referred or not), with every canonical source available and the referring member captured cleanly whenever the source is a referral / friend variant.
+Changing a booking's lead source to any referral / friend source has no place to enter the referring member. In MyDay's Edit Booking dialog the referring-member field only shows for "Member Referral" and "Member Referral (5 class pack)" — every `(Friend)` variant and `Business Partnership Referral` / `My Personal Friend I Invited` silently skips it. In the WIG drilldown (PersonJourneyCard) the inline Lead Source select has no referrer input at all, so the `enforce_member_referral_has_referrer` DB trigger rejects the update ("Member Referral bookings require a referring member name") with no way to comply.
 
-## Problems today
+## Fix
 
-1. `SELF_SOURCED_OPTIONS` in `src/components/leads/SelfSourcedLeadForm.tsx` only lists 6 sources. All the `(Friend)` variants, `Business Partnership Referral`, `Intro Scheduler Link`, `Member Referral (5 class pack)`, `My Personal Friend I Invited`, and `VIP Class` are missing. So SAs can't log those leads at all from WIG.
-2. Nothing on the form captures **who referred the lead**. The referring member's name only shows up later at the booking dialog. That means Member-Referral and `(Friend)` leads logged from WIG never get credited as referrals until an intro is booked.
-3. `soml_create_pending_referral` only fires on `Member Referral` / `Member Referral (5 class pack)`. `(Friend)` variants — which the user explicitly wants counted as referrals — never enter the referral pipeline.
+### 1. `PersonJourneyCard` (WIG drilldown inline edit)
+When the inline `lead_source` editor is open AND the draft value passes `isReferralLikeSource(...)`, render a required "Referring member's full name" text input directly below the source select. Pre-fill from the booking's existing `referred_by_member_name`. Block commit with a toast if empty. Pass the value into `updateBookingFieldsFromPipeline` alongside `leadSource`.
 
-## Build
+### 2. `updateBookingFieldsFromPipeline` (`src/features/pipeline/pipelineActions.ts`)
+Add optional `referredByMemberName?: string | null` to `BookingFieldParams` and, when defined, write it to `intros_booked.referred_by_member_name`. No other call sites break — existing callers omit the field and behavior is unchanged.
 
-### 1. Expand the source list on the form (`SelfSourcedLeadForm.tsx`)
-Replace `SELF_SOURCED_OPTIONS` with the full canonical list from `src/types/index.ts` minus the two hard-excluded inbound sources (already codified in `EXCLUDED_LEAD_SOURCES` in `src/lib/sa/leadsBooked.ts`):
+### 3. `EditBookingDialog` (MyDay)
+Replace the hardcoded `source === 'Member Referral' || source === 'Member Referral (5 class pack)'` checks (in both the render guard and the save validation) with `isReferralLikeSource(source)` from `@/lib/sa/leadsBooked`. Copy on the field becomes "Referring member's full name *" and appears for every referral / friend source. Save persists `referred_by_member_name` for all referral-like sources and clears it when the source moves back to a non-referral.
 
-```
-Business Partnership Referral
-Event
-Instagram DMs
-Instagram DMs (Friend)
-Intro Scheduler Link
-Intro Scheduler Link (Friend)
-Member Referral
-Member Referral (5 class pack)
-My Personal Friend I Invited
-VIP Class
-VIP Class (Friend)
-Walk-in                      ← keep, not in LEAD_SOURCES but used today
-Cold Lead Re-engagement      ← keep
-Manual Entry                 ← keep
-```
-
-Drive the list from `LEAD_SOURCES` filtered by `isSelfSourcedLeadSource(...)` so it can never drift from the canon again, then append the three form-only extras. Group with `<SelectGroup>`: "Referrals & Friends" first, then "Other sources".
-
-### 2. Referring-member fields appear when the source is a referral
-Define a helper `isReferralLikeSource(source)` = true when source is `Member Referral`, `Member Referral (5 class pack)`, `Business Partnership Referral`, `My Personal Friend I Invited`, or ends with `(Friend)`.
-
-When true, render two required fields **above the "Save lead" buttons**:
-- `Referring member's full name *`
-- `Referring member's phone or email *` (validated same as the /buddy page)
-
-Copy above the fields: "This person was referred — who sent them?"
-
-Persist to `leads.referred_by_member_name` and `leads.referring_member_contact` (columns already exist per the buddy migration).
-
-### 3. Route friend variants into the referral pipeline
-Extend `soml_create_pending_referral` in a new migration so `v_is_member_ref` also matches any lead source ending in `(Friend)` PLUS `Business Partnership Referral` and `My Personal Friend I Invited`, provided `referred_by_member_name` is populated. This makes the friend/referral leads count toward SOML pending referrals the same way Member Referral does today. The `$50-off owed` logic from the Buddy Card build is untouched — it stays gated on `is_buddy_card_referral`.
-
-Also relax the existing enforcement trigger (`20260703040117`) so Member-Referral bookings created from a form that already captured the referrer keep working (no change needed — the form now always sends it).
-
-### 4. WIG "+ Add Lead" reuses the same form
-`SelfSourcedLeadForm` is already the shared component for MyDay + WIG. No new dialog needed — the WIG entry point automatically gets the expanded sources + referrer capture.
-
-### 5. Book-intro prefill
-When "Save and book intro" is used and the source is referral-like, prefill `BookIntroDialog`'s `referred_by_member_name` / `referring_member_contact` from the just-saved lead so the SA doesn't retype.
+### 4. DB enforcement trigger — expand to match
+Update `enforce_member_referral_has_referrer` so it raises on every referral-like source (`Member Referral`, `Member Referral (5 class pack)`, `Business Partnership Referral`, `My Personal Friend I Invited`, and any source ending in `(Friend)`) when `referred_by_member_name` is missing. This is the SQL mirror of the client-side `isReferralLikeSource` helper — single source of truth in two languages, same rule in both places, so no path can slip through without a referrer.
 
 ## Files touched
 
-- `src/components/leads/SelfSourcedLeadForm.tsx` — expand sources, add conditional referrer fields, insert new columns, prefill book-intro.
-- `src/lib/sa/leadsBooked.ts` — export `isReferralLikeSource` helper (single source of truth used by form + trigger docs).
-- `src/components/leads/BookIntroDialog.tsx` — accept `initialReferredByMemberName` / `initialReferringMemberContact` props for prefill.
-- New migration — extend `soml_create_pending_referral` to include `(Friend)` + Business Partnership Referral + My Personal Friend I Invited as referral sources when `referred_by_member_name` is set.
+- `src/features/pipeline/pipelineActions.ts` — add `referredByMemberName` param.
+- `src/components/person/PersonJourneyCard.tsx` — inline referrer input when editing to a referral-like source, validation, pass-through to the action.
+- `src/components/myday/EditBookingDialog.tsx` — swap hardcoded Member Referral checks for `isReferralLikeSource`.
+- New migration — extend `enforce_member_referral_has_referrer` to all referral-like sources.
 
-## Coherence checks before done
+## Coherence proof (to run after build)
 
-- DB: insert a test lead with `source='Instagram DMs (Friend)'` + a referrer name → confirm a `soml_pending_referrals` row is created on booking, and confirm the referrer credit shows up in SOML.
-- WIG: the "+ Add Lead" dialog shows all 14 sources grouped, and referrer fields appear/disappear based on selection.
-- MyDay: `SelfSourcedLeadEntry` gets the identical dropdown and referrer capture (same component).
-- SA leaderboard: `aggregateLeadsBookedBySa` still counts these bookings as self-generated (unchanged — `(Friend)` variants were never in `EXCLUDED_LEAD_SOURCES`).
-- Buddy Card path untouched — `$50 off owed` still only fires for `is_buddy_card_referral=true`.
+- DB: run an UPDATE against a booking setting `lead_source='Instagram DMs (Friend)'` with `referred_by_member_name=NULL` → confirm trigger raises. Repeat with a name → confirm success and that `soml_pending_referrals` row is created for the friend variant (already wired in prior migration).
+- WIG drilldown → change Lauren Moerbe's booking from Member Referral to `Instagram DMs (Friend)` → referrer field appears, save succeeds, DB row shows updated `lead_source` + `referred_by_member_name`.
+- MyDay Edit Booking dialog → same booking, change to `VIP Class (Friend)` → referrer field appears, save succeeds.
+- New leads logged from the WIG "+ Add Lead" form (existing build) still work — no schema change to `leads`, only the trigger on `intros_booked` changed.
