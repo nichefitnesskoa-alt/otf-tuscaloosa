@@ -211,8 +211,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!isAuthenticated) { setIsLoading(false); return; }
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, isAuthenticated]);
+
 
   // Poll pending queue count
   useEffect(() => {
