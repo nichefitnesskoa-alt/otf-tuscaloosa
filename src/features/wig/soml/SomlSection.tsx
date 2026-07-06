@@ -118,7 +118,10 @@ function EditGoalDialog({ open, onClose, metric, config, onSaved }: EditGoalDial
   const [saving, setSaving] = useState(false);
   useMemo(() => {
     if (open && metric && config) {
-      const g = metric === 'referrals' ? config.referrals_goal : metric === 'upgrades' ? config.upgrades_goal : config.sales_goal;
+      const g = metric === 'referrals' ? config.referrals_goal
+              : metric === 'upgrades' ? config.upgrades_goal
+              : metric === 'sales' ? config.sales_goal
+              : config.referral_leads_goal;
       setVal(String(g ?? 0));
     }
   }, [open, metric, config]);
@@ -128,7 +131,7 @@ function EditGoalDialog({ open, onClose, metric, config, onSaved }: EditGoalDial
     if (isNaN(n) || n < 0) { toast.error('Enter a number ≥ 0'); return; }
     setSaving(true);
     const patch: any = { updated_by: user?.name || 'unknown' };
-    patch[`${metric}_goal`] = n;
+    patch[METRIC_TO_GOAL_COL[metric]] = n;
     const { error } = await (supabase as any).from('soml_config').update(patch).eq('id', 1);
     setSaving(false);
     if (error) { toast.error('Save failed'); return; }
