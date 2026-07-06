@@ -38,6 +38,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { supabase } from '@/integrations/supabase/client';
 import { LEAD_SOURCES } from '@/types';
+import { isReferralLikeSource } from '@/lib/sa/leadsBooked';
 import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 import { parseLocalDate, cn } from '@/lib/utils';
 import { formatPhoneDisplay } from '@/lib/parsing/phone';
