@@ -28,7 +28,14 @@ import { getNowCentral } from '@/lib/dateUtils';
 import { useSomlData, notifySomlChanged, type SomlConfig, type PendingReferralRow, type SomlDetailItem } from '@/hooks/useSomlData';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 
-type MetricKey = 'referrals' | 'upgrades' | 'sales';
+type MetricKey = 'referrals' | 'upgrades' | 'sales' | 'referralLeads';
+
+const METRIC_TO_GOAL_COL: Record<MetricKey, string> = {
+  referrals: 'referrals_goal',
+  upgrades: 'upgrades_goal',
+  sales: 'sales_goal',
+  referralLeads: 'referral_leads_goal',
+};
 
 interface HeroTileProps {
   label: string;
