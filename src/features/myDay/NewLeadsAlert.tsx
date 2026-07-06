@@ -215,12 +215,22 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
               <div key={lead.id} className="flex items-center justify-between py-2 gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{lead.first_name} {lead.last_name}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">{lead.source}</Badge>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    {lead.is_buddy_card ? (
+                      <Badge className="text-[10px] px-1.5 py-0 h-4 bg-[#FF6900] text-black hover:bg-[#FF6900]">Buddy Card</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">{lead.source}</Badge>
+                    )}
                     <span className="text-[10px] text-muted-foreground">
                       {formatDistanceToNow(parseISO(lead.created_at), { addSuffix: true })}
                     </span>
                   </div>
+                  {lead.is_buddy_card && lead.referred_by_member_name && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                      Referred by <span className="font-medium text-foreground">{lead.referred_by_member_name}</span>
+                      {lead.referring_member_contact ? ` \u00b7 ${lead.referring_member_contact}` : ''}
+                    </p>
+                  )}
                 </div>
                 <Button
                   size="sm"
