@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -30,6 +31,7 @@ function fmtDate(s?: string | null) {
 }
 
 export function AssignCoachDialog({ open, onOpenChange, bookings, editedBy, onSaved }: Props) {
+  const { coaches } = useActiveStaff();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
@@ -90,12 +92,16 @@ export function AssignCoachDialog({ open, onOpenChange, bookings, editedBy, onSa
                   {b.intro_time ? ` · ${formatDisplayTime(b.intro_time)}` : ''}
                 </div>
                 <div className="flex gap-2">
-                  <NameAutocomplete
-                    value={drafts[b.id] || ''}
-                    onChange={v => setCoach(b.id, v)}
-                    placeholder="Coach name"
-                    className="h-11 flex-1"
-                  />
+                  <Select value={drafts[b.id] || ''} onValueChange={v => setCoach(b.id, v)}>
+                    <SelectTrigger className="h-11 flex-1">
+                      <SelectValue placeholder="Select coach" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {coaches.map(c => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
                     onClick={() => saveOne(b.id)}
                     disabled={savingId === b.id || !(drafts[b.id] || '').trim()}
