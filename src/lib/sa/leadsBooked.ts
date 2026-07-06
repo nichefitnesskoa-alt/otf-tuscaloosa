@@ -37,6 +37,22 @@ export function isSelfSourcedLeadSource(source: string | null | undefined): bool
   return !EXCLUDED_LEAD_SOURCES.has(source);
 }
 
+/** Sources where the lead was referred by an existing member / friend and
+ *  therefore should capture a referring-member name AND route into the SOML
+ *  referral pipeline. Single source of truth used by the log-a-lead form and
+ *  the soml_create_pending_referral trigger. */
+const REFERRAL_LIKE_EXPLICIT = new Set<string>([
+  'Member Referral',
+  'Member Referral (5 class pack)',
+  'Business Partnership Referral',
+  'My Personal Friend I Invited',
+]);
+export function isReferralLikeSource(source: string | null | undefined): boolean {
+  if (!source) return false;
+  if (REFERRAL_LIKE_EXPLICIT.has(source)) return true;
+  return source.endsWith('(Friend)');
+}
+
 const VIP_LEAD_SOURCES = new Set<string>([
   'VIP Class',
   'VIP Class (Friend)',
