@@ -20,7 +20,7 @@ export function computeRiskFlags(item: UpcomingIntroItem, nowISO: string): RiskF
   const isWithin24h = item.timeStartISO <= new Date(new Date(nowISO).getTime() + 24 * 60 * 60 * 1000).toISOString();
   return {
     noQ: item.questionnaireStatus === 'NO_Q',
-    qIncomplete: item.questionnaireStatus === 'Q_SENT',
+    qIncomplete: item.questionnaireStatus === 'Q_SENT' || item.questionnaireStatus === 'Q_OPENED',
     unconfirmed: item.confirmedAt === null && isWithin24h,
     coachTbd: !item.coachName || item.coachName === 'TBD',
     missingOwner: !item.introOwner || item.introOwner.trim() === '',
