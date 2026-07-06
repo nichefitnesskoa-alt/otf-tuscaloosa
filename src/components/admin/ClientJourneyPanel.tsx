@@ -2925,18 +2925,14 @@ export default function ClientJourneyPanel() {
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs">Lead Source {creatingBookingFromRun ? '(from run)' : ''}</Label>
-                    <Select
+                    <LeadSourceWithReferrerField
                       value={newBooking.lead_source}
-                      onValueChange={(v) => setNewBooking({...newBooking, lead_source: v})}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
-                      <SelectContent>
-                        {LEAD_SOURCES.map(src => (
-                          <SelectItem key={src} value={src}>{src}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      referredByMemberName={newBooking.referred_by_member_name}
+                      onChange={({ lead_source, referred_by_member_name }) =>
+                        setNewBooking({ ...newBooking, lead_source, referred_by_member_name })
+                      }
+                      label={`Lead Source ${creatingBookingFromRun ? '(from run)' : ''}`}
+                    />
                   </div>
                 </>
               )}
