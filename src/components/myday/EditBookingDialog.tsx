@@ -17,6 +17,7 @@ import { EventPicker } from '@/components/events/EventPicker';
 import { format } from 'date-fns';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { LEAD_SOURCES } from '@/types';
+import { isReferralLikeSource } from '@/lib/sa/leadsBooked';
 
 const sb = supabase as any;
 
