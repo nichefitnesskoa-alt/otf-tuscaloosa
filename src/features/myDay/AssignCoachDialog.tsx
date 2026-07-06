@@ -31,6 +31,7 @@ function fmtDate(s?: string | null) {
 }
 
 export function AssignCoachDialog({ open, onOpenChange, bookings, editedBy, onSaved }: Props) {
+  const { coaches } = useActiveStaff();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
