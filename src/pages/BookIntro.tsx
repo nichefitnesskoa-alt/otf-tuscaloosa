@@ -309,8 +309,8 @@ export default function BookIntro() {
         console.warn('Failed to stamp questionnaire sent at booking:', e);
       }
 
-      setStep('calendar');
-      toast.success('You\'re booked!');
+      setStep('questions');
+      toast.success("You're booked!");
     } catch (err: any) {
       console.error(err);
       toast.error(err?.message || 'Booking failed — please try again.');
