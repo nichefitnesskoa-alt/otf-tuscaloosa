@@ -265,7 +265,7 @@ function SaOverrideDialog({ open, onClose, sa, metric, current, defaultValue, on
 
   const save = async (clear: boolean) => {
     setSaving(true);
-    const key = `${metric}_goal`;
+    const key = METRIC_TO_GOAL_COL[metric];
     let payload: any = { sa_name: sa, updated_by: user?.name || 'unknown' };
     if (clear) {
       payload[key] = null;
