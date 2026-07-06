@@ -140,7 +140,7 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
         const [bkRes, runRes, scRes] = await Promise.all([
           supabase
             .from('intros_booked')
-            .select('id, member_name, class_date, intro_time, coach_name, booked_by, intro_owner, intro_owner_locked, lead_source, phone, phone_e164, email, originating_booking_id, booking_status, booking_status_canon, deleted_at, is_vip, created_at')
+            .select('id, member_name, class_date, intro_time, coach_name, booked_by, intro_owner, intro_owner_locked, lead_source, phone, phone_e164, email, originating_booking_id, booking_status, booking_status_canon, deleted_at, is_vip, created_at, referred_by_member_name')
             .in('id', res.bookingIds),
           supabase
             .from('intros_run')
