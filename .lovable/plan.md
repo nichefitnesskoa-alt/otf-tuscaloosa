@@ -1,93 +1,50 @@
-## The bug
+## Goal
 
-Brent Rogers chain (member has 3 rows):
+1. When a booked lead shares their friend-link and someone books through it, that friend-booking already gets the `(Friend)` lead source — but it should also count toward the SOML referral pipeline (pending referral, then realized if they buy).
+2. Add a new **Referral Leads** goal to the SOML WIG section, side-by-side with the existing **Referrals that Close** goal. Two separate targets, two separate columns.
 
-- Jun 23 · Nathan · root · ran (SECOND_INTRO_SCHEDULED)
-- Jun 25 · Nathan · child of Jun 23 · NO_SHOW
-- **Jul 3 · Koa · child of Jun 23 · PREMIER (sale)**
+## Part 1 — Friend-link bookings create pending referrals
 
-With WIG scoped to **July only**, the user is seeing:
+Currently `soml_create_pending_referral` trigger only fires when `lead_source IN ('Member Referral', 'Member Referral (5 class pack)')`. Friend-link bookings (`Intro Scheduler Link (Friend)`, `Instagram DMs (Friend)`, etc.) have `paired_booking_id` set to the originator and `referred_by_member_name` set to the originator's first name, but no pending referral row is created.
 
-1. **Internal · Total Journey → Coach table** credits **Koa** for the Brent close. It should credit **Nathan** (the coach who ran the first intro in the chain).
-2. **OTF Corporate · Last Coach** correctly credits Koa for the close, but Koa also gets **+1 in Coached** for the Jul 3 class — that pulls her denominator up for a 2nd intro. OTF Corporate scores on the **first visit only**; a member's second, third, etc. intros must not appear in any coach's Coached column.
+Migration to expand the trigger:
+- Also fire when `NEW.paired_booking_id IS NOT NULL` (the "someone brought a friend" signal), regardless of lead_source. This catches every `(Friend)` variant.
+- `referring_member` = originator booking's `member_name`.
+- `credited_sa` = originator booking's `booked_by`/`intro_owner` (the SA whose link started the chain), same fallback rules as today.
+- Reuses the existing chain-root dedup so reschedules don't create duplicates.
 
-## Root cause (Internal · Total Journey)
+The existing `soml_resolve_pending_referral` trigger already flips these rows to `realized` on sale — no change needed.
 
-In `src/pages/Wig.tsx`, the cross-period buy-date backfill for closes uses `resolveRoot(startId)` to walk `originating_booking_id` up to the chain root. For July-only, Jul 3 is the only in-range Brent row and is picked up by that backfill. Two problems combine to make the walk stop at Jul 3 instead of Jun 23:
+## Part 2 — "Referral Leads" as its own SOML goal
 
-- `**candidateChildren` filter (line 354)** excludes any child that has `referred_by_member_name` set, so Jul 3 is never considered for orphan/root resolution even though it's clearly a chain child (has `originating_booking_id`).
-- `**resolveRoot` (line 648-676)** breaks the walk if the parent isn't in `bookingByIdMap` and the parent fetch returns a row whose *own* `booking_status_canon` (`SECOND_INTRO_SCHEDULED`) or missing runs cause `parentActuallyRan` to evaluate against runs never loaded. The result is that for a Brent-shaped chain (root ran with `SECOND_INTRO_SCHEDULED`, single sale-child has `referred_by_member_name`), the walk halts on the child and TJ credits Koa.
+Data (in `useSomlData`):
+- Add a fourth metric `referralLeads` alongside `referrals` / `upgrades` / `sales`.
+- Count: pending-referral rows whose **booking's `class_date`** falls inside the SOML window (any state: pending, realized, or not_converted) — a referral lead counts the moment the friend is booked in-window, not when they buy.
+- Per-SA: `credited_sa` on the pending row.
+- Returns a new `referralLeadsList` for drilldown.
 
-Net effect: TJ close for Brent lands on Koa, exactly the symptom Koa (the user) reported.
+Config:
+- Add `referral_leads_goal` column to `soml_config` (default 0). Read/write alongside the existing three goals.
 
-## Root cause (OTF Corporate)
+UI (`SomlSection.tsx`):
+- Fourth `HeroTile` for "Referral Leads" (Users icon), same pace/edit/drilldown pattern as the others.
+- New column in the per-SA leaderboard table, same override behavior (`soml_sa_goals.referral_leads_goal` column, per-SA override dialog gains the new metric).
+- Rename existing tile from "Referrals" → "Referrals that Close" to make the distinction obvious.
 
-In the Corporate `Coached` pass (line 756-778) we iterate **every** in-range booking whose run actually ran, including 2nd-intro children. Koa's Jul 3 class is a 2nd intro for Brent; it must not add to Koa's Coached. OTF corporate rule: **coaches are only scored on the member's first visit**. Corporate `Closes` (last-coach attribution) is separate and stays as-is.
+Migration:
+- `ALTER TABLE soml_config ADD COLUMN referral_leads_goal int NOT NULL DEFAULT 0;`
+- `ALTER TABLE soml_sa_goals ADD COLUMN referral_leads_goal int;`
 
-## The fix
+## Coherence check (before done)
 
-**File: `src/pages/Wig.tsx**`
-
-### 1. Total Journey — always walk to true chain root
-
-- Remove the `!b.referred_by_member_name` guard from `candidateChildren` (line 354). A booking with `originating_booking_id` set is *always* a chain child — an inherited `referred_by_member_name` on a rebooked class doesn't change that.
-- Harden `resolveRoot` (line 648-676) so the parent walk continues as long as: parent booking exists, is not soft-deleted, is not `DELETED_SOFT` / `RESCHEDULED`, and either (a) has no runs loaded yet — in which case we fetch parent runs on demand instead of treating "no runs cached" as "didn't run" — or (b) has at least one run where `didIntroActuallyRun(r)` is true. This fixes the Brent case (root Jun 23 has a `SECOND_INTRO_SCHEDULED` run — which IS a ran intro).
-- Ensure `bookingByIdMap` is seeded with the resolved root before `resolveCloseCoach` reads `root.coach_name`, so `cName` for the buy-date backfill becomes **Nathan** for Brent.
-
-### 2. Corporate — Coached counts first visits only
-
-In the Corporate Coached pass (line 756-778), replace `allCoachBookings.forEach` with a filter that restricts to **first-intro bookings only** (reuse the same `firstIntroBookings` set already computed for Internal above, or the shared `isFirstIntroForMetrics` helper). Corporate `Closes` (line 866-919) stays as-is — sale is still re-attributed to the coach of the latest ran class in the chain (Koa for Brent).
-
-### 3. Extract the chain-root walker
-
-`resolveRoot` currently lives inline inside a 200-line function. Move it to `src/lib/intros/journey.ts` next to the existing chain helpers as `resolveChainRoot(bookingId, { bookingByIdMap, runsByBookingId, fetchBooking, fetchRuns })`, and call it from Wig.tsx. Any future consumer (Studio close-rate, Per-Coach page, commission) reuses the same walker instead of reinventing it.
-
-### 4. Tests
-
-Add a test in `src/lib/intros/__tests__/journey.test.ts` for the exact Brent shape:
-
-- root ran with `SECOND_INTRO_SCHEDULED`
-- child A: NO_SHOW
-- child B: PREMIER + `referred_by_member_name` set
-Assert `resolveChainRoot(childB) === root`.
-
-## Coherence proof (to produce during build)
-
-Query with July-only date range:
-
-```sql
--- Brent's 3 rows
-SELECT id, class_date, coach_name, originating_booking_id, booking_status_canon
-FROM intros_booked WHERE member_name = 'Brent Rogers' AND deleted_at IS NULL;
-```
-
-Then verify in-app:
-
-- **Internal · TJ hero tile** — total closes unchanged, Brent's sale is inside it.
-- **Internal · TJ coach table** — Nathan Closes +1 for Brent; Koa Closes -1 for Brent (Koa should have 0 Brent credit here).
-- **Corporate · Last Coach hero tile** — total closes unchanged.
-- **Corporate coach table** — Koa Closes still +1 for Brent (last-coach rule preserved); Koa Coached **no longer** includes Jul 3 (denominator drops by 1 for the Brent 2nd-intro row); Nathan Coached unchanged for July (Jun 23 is out of range).
-- Drilldown on Nathan's TJ Closes row shows Brent Rogers with `via: 2nd_intro`.
-- Drilldown on Koa's Corporate Closes row shows Brent Rogers (last-coach).
-- Drilldown on Koa's Corporate Coached row does **not** show Brent Rogers.
-
-Sums check: `sum(Corp closes) === sum(TJ closes)` still holds.
+- Verify one friend-booking now yields a `soml_pending_referrals` row with correct `credited_sa` and `referring_member`.
+- Verify the same row realizes to a Close on sale (Referrals-that-Close +1) — no double-count.
+- Verify Referral Leads count matches pending-referral rows with in-window class_date.
+- SA per-row totals across all four columns match the SA-level pending/realized/sales rows.
 
 ## Files touched
 
-- `src/pages/Wig.tsx` — TJ walk fix, Corporate denominator = first intros only, call shared root walker.
-- `src/lib/intros/journey.ts` — new `resolveChainRoot` helper (extracted from Wig).
-- `src/lib/intros/__tests__/journey.test.ts` — Brent-shape regression test.
-
-## Out of scope
-
-- SOML, referrals, FV Scorecard tiles — untouched.
-- Commission attribution (already goes to `intro_owner`, not coach).
-- Per-SA tables (unchanged; SA attribution is a separate axis from coach).  
-  
-
-  It should show a booked intro ran under Koa in OTF corporate. Koa doesn't need a first visit scorecard though because he coached brent on a 2nd intro not a first and we only do a FVS on the first intro
-    
-  so Nathan should have 4 intros coached instead of 3 and 1 sale in total journey and OTF corporate  
-    
-  Koa should not have anything at the moment in total journey cause he didn't coach a 1st intro this month  
+- New migration (trigger update + two columns).
+- `src/hooks/useSomlData.ts` — add referralLeads metric + list.
+- `src/features/wig/soml/SomlSection.tsx` — new tile, new column, override dialog, edit-goal dialog, rename copy.
+- `src/pages/Wig.tsx` — only if it references the SOML metric shape (likely just re-renders).
