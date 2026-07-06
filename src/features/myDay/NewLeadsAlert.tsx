@@ -42,7 +42,7 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
 
     const { data: newLeads } = await supabase
       .from('leads')
-      .select('id, first_name, last_name, phone, source, created_at')
+      .select('id, first_name, last_name, phone, source, created_at, is_buddy_card, referred_by_member_name, referring_member_contact')
       .eq('stage', 'new')
       .gte('created_at', cutoff)
       .order('created_at', { ascending: false });
