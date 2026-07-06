@@ -168,6 +168,7 @@ function AppRoutes() {
       <Route path="/book" element={<BookIntro />} />
       <Route path="/book-intro/f/:friendCode" element={<BookIntro />} />
       <Route path="/book-intro/:code" element={<BookIntro />} />
+      <Route path="/buddy" element={<BuddyCard />} />
       <Route path="/story/:id" element={<SuccessStory />} />
       <Route path="/vip-register" element={<VipRegister />} />
       <Route path="/vip-availability" element={<VipAvailability />} />
