@@ -118,6 +118,9 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
+  // Don't hammer the API on public / pre-login screens — those 6 full-table
+  // selects can starve the small staff query the Login screen depends on.
+  const { isAuthenticated } = useAuth();
   const [shiftRecaps, setShiftRecaps] = useState<ShiftRecap[]>([]);
   const [introsBooked, setIntrosBooked] = useState<IntroBooked[]>([]);
   const [introsRun, setIntrosRun] = useState<IntroRun[]>([]);
