@@ -1008,3 +1008,80 @@ function BySourceTable({
     </div>
   );
 }
+
+// Inline lead-source editor for Pipeline drilldowns. Opens a Popover so a
+// user can pick the source AND (when referral-like) supply the referring
+// member's name in one commit. Writes through updateBookingFieldsFromPipeline
+// so the referrer is persisted and the SOML trigger sees a coherent update.
+function InlineLeadSourceEditor({
+  booking,
+  userName,
+  onSaved,
+}: {
+  booking: PipelineBooking;
+  userName: string;
+  onSaved: () => void | Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [source, setSource] = useState(booking.lead_source || '');
+  const [referrer, setReferrer] = useState<string | null>((booking as any).referred_by_member_name || null);
+  const [saving, setSaving] = useState(false);
+
+  // Keep local state in sync when the row changes underneath the popover
+  useEffect(() => {
+    setSource(booking.lead_source || '');
+    setReferrer((booking as any).referred_by_member_name || null);
+  }, [booking.id, booking.lead_source]);
+
+  const commit = async () => {
+    const err = validateLeadSourceReferrer(source, referrer);
+    if (err) { toast.error(err); return; }
+    setSaving(true);
+    try {
+      await updateBookingFieldsFromPipeline({
+        bookingId: booking.id,
+        leadSource: source,
+        referredByMemberName: resolveReferrerForWrite(source, referrer),
+        editedBy: userName || 'Pipeline (inline)',
+        editReason: 'Lead source edited inline in Pipeline',
+      });
+      toast.success(`Lead source → ${source}`);
+      setOpen(false);
+      await onSaved();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save lead source');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button className="hover:underline cursor-pointer text-muted-foreground">
+          {booking.lead_source || '—'}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-3" align="start">
+        <LeadSourceWithReferrerField
+          value={source}
+          referredByMemberName={referrer}
+          onChange={({ lead_source, referred_by_member_name }) => {
+            setSource(lead_source);
+            setReferrer(referred_by_member_name);
+          }}
+          size="compact"
+          label="Lead source"
+        />
+        <div className="flex justify-end gap-1.5 mt-3">
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setOpen(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button size="sm" className="h-7 text-xs" onClick={commit} disabled={saving || !source}>
+            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
