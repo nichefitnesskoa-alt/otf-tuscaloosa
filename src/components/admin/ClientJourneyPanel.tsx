@@ -1370,19 +1370,36 @@ export default function ClientJourneyPanel() {
   
   const [originalRunResult, setOriginalRunResult] = useState<string>('');
 
-  const handleEditRun = (run: ClientRun) => {
+  const handleEditRun = async (run: ClientRun) => {
     setEditingRun({ ...run });
     setOriginalRunResult(run.result);
     setEditRunReason('');
+    // Seed the referrer from the linked booking so the shared control
+    // shows the current value when editing a friend-source run.
+    let referrer: string | null = null;
+    if (run.linked_intro_booked_id) {
+      const { data } = await supabase
+        .from('intros_booked')
+        .select('referred_by_member_name')
+        .eq('id', run.linked_intro_booked_id)
+        .maybeSingle();
+      referrer = (data as any)?.referred_by_member_name ?? null;
+    }
+    setEditingRunReferrer(referrer);
   };
 
   const handleSaveRun = async () => {
     if (!editingRun) return;
-    
+
+    // Referrer is validated against the run's chosen lead source and
+    // persisted onto the linked booking (intros_run has no referrer column).
+    const referrerErr = validateLeadSourceReferrer(editingRun.lead_source, editingRunReferrer);
+    if (referrerErr) { toast.error(referrerErr); return; }
+
     setIsSaving(true);
     try {
       const effectiveIntroOwner = editingRun.intro_owner || editingRun.ran_by || null;
-      
+
       const { error } = await supabase
         .from('intros_run')
         .update({
@@ -1409,24 +1426,36 @@ export default function ClientJourneyPanel() {
         .eq('id', editingRun.id);
 
       if (error) throw error;
-      
-      // Real-time sync to linked booking (intro_owner and coach_name)
+
+      // Real-time sync to linked booking (intro_owner, coach_name, lead_source,
+      // referrer). Lead-source + referrer are the source of truth on the
+      // booking — the DB trigger reads from intros_booked to attribute SOML
+      // referrals, so late edits behave as if the source were true from the
+      // start.
       if (editingRun.linked_intro_booked_id && editingRun.result !== 'No-show') {
         const updateData: Record<string, unknown> = {
           last_edited_at: new Date().toISOString(),
           last_edited_by: `${user?.name || 'Admin'} (Auto-Sync)`,
           edit_reason: 'Synced from linked run',
         };
-        
+
         if (effectiveIntroOwner) {
           updateData.intro_owner = effectiveIntroOwner;
           updateData.intro_owner_locked = true;
         }
-        
+
         if (editingRun.coach_name) {
           updateData.coach_name = editingRun.coach_name;
         }
-        
+
+        if (editingRun.lead_source) {
+          updateData.lead_source = editingRun.lead_source;
+          updateData.referred_by_member_name = resolveReferrerForWrite(
+            editingRun.lead_source,
+            editingRunReferrer,
+          );
+        }
+
         await supabase
           .from('intros_booked')
           .update(updateData)
