@@ -4,6 +4,7 @@ import { Tables } from '@/integrations/supabase/types';
 import { writeCache, readCache, getLastCacheTime } from '@/lib/offline/cache';
 import { getPendingCount } from '@/lib/offline/writeQueue';
 import { runSync, SyncResult } from '@/lib/offline/sync';
+import { useAuth } from '@/context/AuthContext';
 
 export interface ShiftRecap {
   id: string;
