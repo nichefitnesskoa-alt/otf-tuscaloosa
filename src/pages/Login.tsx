@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import otfLogo from '@/assets/otf-logo-orange.png.asset.json';
 
 // OTF brand palette (locked)
@@ -17,23 +16,11 @@ const brandFont = {
 
 export default function Login() {
   const [selectedName, setSelectedName] = useState('');
-  const [staff, setStaff] = useState<{ name: string; role?: string }[]>([]);
+  const { staff, loading: staffLoading } = useActiveStaff();
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const staffNames = useMemo(() => staff.map(s => s.name), [staff]);
-
-  useEffect(() => {
-    const fetchStaff = async () => {
-      const { data } = await supabase
-        .from('staff')
-        .select('name, role')
-        .eq('is_active', true)
-        .order('name');
-      setStaff((data || []).map((s: any) => ({ name: s.name, role: s.role })));
-    };
-    fetchStaff();
-  }, []);
 
   const handleLogin = () => {
     if (!selectedName) return;
@@ -97,35 +84,38 @@ export default function Login() {
           >
             Your name
           </label>
-          <Select value={selectedName} onValueChange={setSelectedName}>
-            <SelectTrigger
-              className="h-14 w-full rounded-none border-0 text-base focus:ring-0 focus:ring-offset-0"
+          <div className="relative">
+            <select
+              value={selectedName}
+              onChange={(event) => setSelectedName(event.target.value)}
+              disabled={staffLoading || staffNames.length === 0}
+              aria-label="Your name"
+              className="h-14 w-full appearance-none rounded-none border-0 bg-transparent text-base outline-none disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
               style={{
-                backgroundColor: 'transparent',
                 color: BONE,
                 borderBottom: `1px solid ${BONE}`,
                 paddingLeft: 0,
-                paddingRight: 0,
+                paddingRight: 32,
                 ...brandFont,
               }}
             >
-              <SelectValue placeholder="Select your name" />
-            </SelectTrigger>
-            <SelectContent
-              style={{ backgroundColor: DARK, color: BONE, border: `1px solid ${BONE}20` }}
-            >
+              <option value="" disabled style={{ backgroundColor: DARK, color: BONE }}>
+                {staffLoading ? 'Loading names...' : 'Select your name'}
+              </option>
               {staffNames.map(name => (
-                <SelectItem
-                  key={name}
-                  value={name}
-                  className="focus:bg-transparent"
-                  style={{ color: BONE }}
-                >
+                <option key={name} value={name} style={{ backgroundColor: DARK, color: BONE }}>
                   {name}
-                </SelectItem>
+                </option>
               ))}
-            </SelectContent>
-          </Select>
+            </select>
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-sm"
+              style={{ color: BONE, opacity: 0.7 }}
+            >
+              ▾
+            </span>
+          </div>
 
           {/* Primary action — the ONE orange element */}
           <button
