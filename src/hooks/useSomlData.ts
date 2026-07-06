@@ -22,6 +22,7 @@ export interface SomlConfig {
   referrals_goal: number;
   upgrades_goal: number;
   sales_goal: number;
+  referral_leads_goal: number;
 }
 
 export interface SomlSaRow {
@@ -30,6 +31,7 @@ export interface SomlSaRow {
   upgrades: number;
   sales: number;
   pending: number;
+  referralLeads: number;
 }
 
 export interface PendingReferralRow {
