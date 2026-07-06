@@ -430,8 +430,11 @@ function IntroNode({ booking, allBookings, runs, scorecard, isSecondIntro, chain
   const startEdit = (field: typeof editField, currentValue: string | null | undefined) => {
     setEditField(field);
     setDraft(currentValue || '');
+    if (field === 'lead_source') {
+      setReferrerDraft(booking.referred_by_member_name || '');
+    }
   };
-  const cancelEdit = () => { setEditField(null); setDraft(''); };
+  const cancelEdit = () => { setEditField(null); setDraft(''); setReferrerDraft(''); };
 
   const commitEdit = async () => {
     if (!editField) return;
@@ -449,7 +452,20 @@ function IntroNode({ booking, allBookings, runs, scorecard, isSecondIntro, chain
         };
         if (editField === 'booked_by') payload.bookedBy = draft;
         if (editField === 'coach_name') payload.coachName = draft;
-        if (editField === 'lead_source') payload.leadSource = draft;
+        if (editField === 'lead_source') {
+          payload.leadSource = draft;
+          if (isReferralLikeSource(draft)) {
+            if (!referrerDraft.trim()) {
+              toast.error('Referring member name is required for this lead source');
+              setSaving(false);
+              return;
+            }
+            payload.referredByMemberName = referrerDraft.trim();
+          } else {
+            // Clear stale referrer when moving away from a referral source
+            payload.referredByMemberName = null;
+          }
+        }
         if (editField === 'class_date') payload.classDate = draft;
         await updateBookingFieldsFromPipeline(payload);
         toast.success('Saved');
