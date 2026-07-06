@@ -18,6 +18,7 @@ import { format } from 'date-fns';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { LEAD_SOURCES } from '@/types';
 import { isReferralLikeSource } from '@/lib/sa/leadsBooked';
+import { LeadSourceWithReferrerField, validateLeadSourceReferrer, resolveReferrerForWrite } from '@/components/shared/LeadSourceWithReferrerField';
 
 const sb = supabase as any;
 
@@ -97,9 +98,9 @@ export function EditBookingDialog({
 
   const handleSave = async () => {
     setSaving(true);
-    const isMemberReferral = isReferralLikeSource(source);
-    if (isMemberReferral && !referredBy.trim()) {
-      toast.error('Referring member name is required for referral/friend lead sources');
+    const validationError = validateLeadSourceReferrer(source, referredBy);
+    if (validationError) {
+      toast.error(validationError);
       setSaving(false);
       return;
     }
@@ -111,7 +112,7 @@ export function EditBookingDialog({
         intro_owner: owner || null,
         booked_by: booker || null,
         event_id: source === 'Event' ? eventId : null,
-        referred_by_member_name: isMemberReferral ? referredBy.trim() : null,
+        referred_by_member_name: resolveReferrerForWrite(source, referredBy),
         last_edited_at: new Date().toISOString(),
         last_edited_by: editedBy,
       };
@@ -206,18 +207,16 @@ export function EditBookingDialog({
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-sm">Lead Source</Label>
-              <Select value={source} onValueChange={v => { setSource(v); if (v === 'VIP Class' && !vipSessionId) setShowVipPicker(true); }}>
-                <SelectTrigger className="h-11"><SelectValue placeholder="Select source" /></SelectTrigger>
-                <SelectContent>
-                  {LEAD_SOURCES.map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FriendRuleNotice leadSource={source} bookedByName={booker} />
-            </div>
+            <LeadSourceWithReferrerField
+              value={source}
+              referredByMemberName={referredBy}
+              onChange={({ lead_source, referred_by_member_name }) => {
+                setSource(lead_source);
+                setReferredBy(referred_by_member_name ?? '');
+                if (lead_source === 'VIP Class' && !vipSessionId) setShowVipPicker(true);
+              }}
+            />
+            <FriendRuleNotice leadSource={source} bookedByName={booker} />
 
             {(source === 'VIP Class' || showVipPicker) && (
               <VipSessionPicker value={vipSessionId} onValueChange={v => { setVipSessionId(v); setShowVipPicker(false); }} required showWarning={source === 'VIP Class'} />
@@ -225,21 +224,6 @@ export function EditBookingDialog({
 
             {source === 'Event' && (
               <EventPicker value={eventId} onValueChange={setEventId} required />
-            )}
-
-            {isReferralLikeSource(source) && (
-              <div className="space-y-1.5">
-                <Label className="text-sm">Referring member's full name *</Label>
-                <NameAutocomplete
-                  value={referredBy}
-                  onChange={setReferredBy}
-                  placeholder="Who referred them? (required)"
-                  className={`h-11 ${!referredBy.trim() ? 'ring-1 ring-destructive/40' : ''}`}
-                />
-                {!referredBy.trim() && (
-                  <p className="text-[11px] text-destructive">Required for referral / friend lead sources.</p>
-                )}
-              </div>
             )}
 
 
