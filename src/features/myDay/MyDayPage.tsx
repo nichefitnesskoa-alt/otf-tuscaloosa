@@ -447,7 +447,7 @@ export default function MyDayPage() {
         <div className="mx-4 mt-3">
           <button
             type="button"
-            onClick={() => setOutcomeBookingId(tbdCoachBookings[0].id)}
+            onClick={() => setAssignCoachOpen(true)}
             className="w-full flex items-center justify-center gap-2 px-3 py-3 text-sm min-h-[44px] transition-opacity hover:opacity-90"
             style={{
               backgroundColor: OTF.orange,
@@ -461,6 +461,31 @@ export default function MyDayPage() {
             <AlertTriangle className="w-5 h-5 shrink-0" />
             <span>
               {tbdCoachCount} intro{tbdCoachCount === 1 ? '' : 's'} missing a coach — tap to assign
+            </span>
+          </button>
+        </div>
+      )}
+
+      {missingOutcomeCount > 0 && (
+        <div className="mx-4 mt-3">
+          <button
+            type="button"
+            onClick={() => setOutcomeBookingId(missingOutcomeBookings[0].id)}
+            className="w-full flex items-center justify-center gap-2 px-3 py-3 text-sm min-h-[44px] transition-opacity hover:opacity-90"
+            style={{
+              backgroundColor: '#B91C1C',
+              color: '#FFF',
+              fontWeight: 700,
+              letterSpacing: '-0.01em',
+              ...brandFont,
+            }}
+            aria-label="Log outcome for intros missing an outcome"
+          >
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            <span>
+              {missingOutcomeCount === 1
+                ? `Missing an outcome: ${missingOutcomeBookings[0].member_name || 'intro'} — tap to log`
+                : `${missingOutcomeCount} intros missing an outcome — tap to log`}
             </span>
           </button>
         </div>
