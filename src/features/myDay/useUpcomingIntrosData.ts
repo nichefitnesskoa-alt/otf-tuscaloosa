@@ -189,9 +189,6 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
       const rawItems: UpcomingIntroItem[] = bookings.map(b => {
         // Use canonical questionnaire status from DB if available, fall back to joined data
         const bookingQStatus = (b as any).questionnaire_status_canon as string | undefined;
-        let qStatus: QuestionnaireStatus;
-        let qSentAt: string | null = null;
-        let qCompletedAt: string | null = null;
 
         // Always derive from joined questionnaire row so we can surface the
         // "opened but not submitted" state (last_opened_at). Completed status
