@@ -70,6 +70,8 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
           phone: lead.phone || null,
           email: lead.email || null,
           event_id: lead.source === 'Event' ? eventId : null,
+          referred_by_member_name: (lead as any).referred_by_member_name || null,
+          referring_member_contact: (lead as any).referring_member_contact || null,
         } as any)
         .select('id')
         .single();
