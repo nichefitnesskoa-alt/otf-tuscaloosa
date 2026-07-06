@@ -69,6 +69,7 @@ import { ReferralAskActions } from './ReferralAskActions';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 import { IntroLinkBookingBanner } from './IntroLinkBookingBanner';
 import { PlanningToBuyUrgent } from './PlanningToBuyUrgent';
+import { AssignCoachDialog } from './AssignCoachDialog';
 
 import { OTF, Theme, brandFont } from '@/lib/otfBrand';
 import { NetGainScoreboard } from '@/components/shared/NetGainScoreboard';
@@ -184,6 +185,40 @@ export default function MyDayPage() {
     });
   }, [introsBooked]);
   const tbdCoachCount = tbdCoachBookings.length;
+  const [assignCoachOpen, setAssignCoachOpen] = useState(false);
+
+  // Intros ≥2h past class start with NO logged outcome (missing-outcome banner).
+  const missingOutcomeBookings = useMemo(() => {
+    const now = Date.now();
+    const TWO_HR = 2 * 60 * 60 * 1000;
+    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+    // Set of booking ids that already have a run row
+    const ranBookingIds = new Set(
+      introsRun.map(r => (r as any).linked_intro_booked_id).filter(Boolean) as string[]
+    );
+    return introsBooked.filter(b => {
+      if (b.deleted_at) return false;
+      const status = b.booking_status_canon;
+      if (status === 'CANCELLED' || status === 'DELETED_SOFT' || status === 'PLANNING_RESCHEDULE') return false;
+      if (ranBookingIds.has(b.id)) return false;
+      if (!b.class_date) return false;
+      // Prefer explicit class_start_at; else compute local from class_date + intro_time.
+      let startMs: number | null = null;
+      const startIso = (b as any).class_start_at as string | null | undefined;
+      if (startIso) {
+        const t = Date.parse(startIso);
+        if (!isNaN(t)) startMs = t;
+      }
+      if (startMs == null) {
+        const [y, m, d] = b.class_date.split('-').map(Number);
+        const [hh, mm] = (b.intro_time || '00:00').split(':').map(Number);
+        startMs = new Date(y, m - 1, d, hh || 0, mm || 0).getTime();
+      }
+      const elapsed = now - startMs;
+      return elapsed >= TWO_HR && elapsed <= SEVEN_DAYS;
+    });
+  }, [introsBooked, introsRun]);
+  const missingOutcomeCount = missingOutcomeBookings.length;
 
   const completedTodayCount = todayRuns.filter(r => didIntroActuallyRun(r)).length;
 
@@ -412,7 +447,7 @@ export default function MyDayPage() {
         <div className="mx-4 mt-3">
           <button
             type="button"
-            onClick={() => setOutcomeBookingId(tbdCoachBookings[0].id)}
+            onClick={() => setAssignCoachOpen(true)}
             className="w-full flex items-center justify-center gap-2 px-3 py-3 text-sm min-h-[44px] transition-opacity hover:opacity-90"
             style={{
               backgroundColor: OTF.orange,
@@ -426,6 +461,31 @@ export default function MyDayPage() {
             <AlertTriangle className="w-5 h-5 shrink-0" />
             <span>
               {tbdCoachCount} intro{tbdCoachCount === 1 ? '' : 's'} missing a coach — tap to assign
+            </span>
+          </button>
+        </div>
+      )}
+
+      {missingOutcomeCount > 0 && (
+        <div className="mx-4 mt-3">
+          <button
+            type="button"
+            onClick={() => setOutcomeBookingId(missingOutcomeBookings[0].id)}
+            className="w-full flex items-center justify-center gap-2 px-3 py-3 text-sm min-h-[44px] transition-opacity hover:opacity-90"
+            style={{
+              backgroundColor: '#B91C1C',
+              color: '#FFF',
+              fontWeight: 700,
+              letterSpacing: '-0.01em',
+              ...brandFont,
+            }}
+            aria-label="Log outcome for intros missing an outcome"
+          >
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            <span>
+              {missingOutcomeCount === 1
+                ? `Missing an outcome: ${missingOutcomeBookings[0].member_name || 'intro'} — tap to log`
+                : `${missingOutcomeCount} intros missing an outcome — tap to log`}
             </span>
           </button>
         </div>
@@ -656,6 +716,19 @@ export default function MyDayPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <AssignCoachDialog
+        open={assignCoachOpen}
+        onOpenChange={setAssignCoachOpen}
+        bookings={tbdCoachBookings.map(b => ({
+          id: b.id,
+          member_name: b.member_name,
+          class_date: b.class_date,
+          intro_time: b.intro_time,
+        }))}
+        editedBy={user?.name || 'Unknown'}
+        onSaved={() => { refreshData(); }}
+      />
 
 
       {bookIntroLead && (
