@@ -38,7 +38,9 @@ import { stripCountryCode } from '@/lib/parsing/phone';
 import { generateUniqueSlug } from '@/lib/utils';
 import { CalendarIcon, Check, Copy, Share2, Users, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 
-type Step = 'time' | 'info' | 'calendar' | 'friend' | 'done';
+import { InlineQuestionnaire } from '@/features/bookIntro/InlineQuestionnaire';
+
+type Step = 'time' | 'info' | 'questions' | 'calendar' | 'friend' | 'done';
 
 const infoSchema = z.object({
   firstName: z.string().trim().min(1, 'First name required').max(60),
@@ -307,8 +309,8 @@ export default function BookIntro() {
         console.warn('Failed to stamp questionnaire sent at booking:', e);
       }
 
-      setStep('calendar');
-      toast.success('You\'re booked!');
+      setStep('questions');
+      toast.success("You're booked!");
     } catch (err: any) {
       console.error(err);
       toast.error(err?.message || 'Booking failed — please try again.');
@@ -449,6 +451,17 @@ export default function BookIntro() {
           </Card>
         )}
 
+        {/* STEP: questions (inline questionnaire, dark theme, before calendar) */}
+        {step === 'questions' && bookingId && (
+          <InlineQuestionnaire
+            bookingId={bookingId}
+            firstName={info.firstName || 'friend'}
+            onComplete={() => setStep('calendar')}
+          />
+        )}
+
+
+
         {/* STEP: calendar */}
         {step === 'calendar' && calendarEvent && (
           <Card className="bg-neutral-900 border-neutral-800 p-5">
@@ -553,10 +566,7 @@ export default function BookIntro() {
               </Button>
               <Button
                 className="flex-1 h-12 bg-[#E8540A] hover:bg-[#c94609] text-white font-semibold"
-                onClick={() => {
-                  if (qSlug) window.location.href = `/q/${qSlug}`;
-                  else setStep('done');
-                }}
+                onClick={() => setStep('done')}
               >
                 Continue <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
