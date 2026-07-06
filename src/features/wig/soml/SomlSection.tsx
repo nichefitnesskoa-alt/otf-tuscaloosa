@@ -577,11 +577,11 @@ export function SomlSection() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[110px]">SA</TableHead>
-              {(['referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => (
-                <TableHead key={k} className="text-center w-[30%]">
+              {(['referralLeads', 'referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => (
+                <TableHead key={k} className="text-center">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="inline-flex items-center gap-1 cursor-help text-sm font-bold uppercase tracking-wide">
+                      <span className="inline-flex items-center gap-1 cursor-help text-xs font-bold uppercase tracking-wide">
                         {metricInfo[k].header}
                         <Info className="w-3 h-3 text-muted-foreground" />
                       </span>
@@ -594,31 +594,32 @@ export function SomlSection() {
           </TableHeader>
           <TableBody>
             {leaderboardRows.length === 0 && (
-              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-4">No active SAs</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-4">No active SAs</TableCell></TableRow>
             )}
             {leaderboardRows.map(r => (
               <TableRow key={r.sa}>
                 <TableCell className="font-semibold text-sm truncate py-4">{r.sa}</TableCell>
-                {(['referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => {
+                {(['referralLeads', 'referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => {
                   const tgt = effectiveTarget(r.sa, k);
                   const pace = paceToToday(tgt || null, paceAnchor);
-                  const isOverride = overrides[r.sa]?.[`${k}_goal`] != null;
+                  const isOverride = overrides[r.sa]?.[METRIC_TO_GOAL_COL[k] as keyof SaOverride] != null;
+                  const val = r[k as keyof typeof r] as number;
                   return (
                     <TableCell key={k} className="text-center align-middle py-4">
                       <div className="flex items-baseline justify-center gap-2">
                         <button
                           type="button"
-                          onClick={() => r[k] > 0 && setDrilldown({ metric: k, sa: r.sa })}
-                          disabled={r[k] === 0}
+                          onClick={() => val > 0 && setDrilldown({ metric: k, sa: r.sa })}
+                          disabled={val === 0}
                           className={cn(
-                            'text-3xl md:text-4xl font-black tabular-nums leading-none text-foreground rounded px-1',
-                            r[k] > 0 && 'hover:bg-secondary/60 cursor-pointer',
+                            'text-2xl md:text-3xl font-black tabular-nums leading-none text-foreground rounded px-1',
+                            val > 0 && 'hover:bg-secondary/60 cursor-pointer',
                           )}
-                          aria-label={r[k] > 0 ? `View ${r.sa}'s ${k}` : undefined}
+                          aria-label={val > 0 ? `View ${r.sa}'s ${k}` : undefined}
                         >
-                          {r[k]}
+                          {val}
                         </button>
-                        <span className="text-sm text-muted-foreground tabular-nums">/ {tgt.toFixed(1)}</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">/ {tgt.toFixed(1)}</span>
                         {isAdmin && (
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -628,24 +629,24 @@ export function SomlSection() {
                                   'p-1 rounded hover:bg-secondary transition',
                                   isOverride && 'text-primary',
                                 )}
-                                aria-label={`Override ${k} goal for ${r.sa}`}
+                                aria-label={`Override ${metricInfo[k].header} goal for ${r.sa}`}
                               >
-                                <Pencil className="w-3.5 h-3.5" />
+                                <Pencil className="w-3 h-3" />
                               </button>
                             </TooltipTrigger>
                             <TooltipContent className="max-w-[240px]">
-                              Override {r.sa}'s {k} goal. Overrides pull the default down for the other SAs so the team total still hits the goal.
+                              Override {r.sa}'s {metricInfo[k].header} goal. Overrides pull the default down for the other SAs so the team total still hits the goal.
                             </TooltipContent>
                           </Tooltip>
                         )}
                       </div>
-                      <div className="mt-2 px-2"><PaceBar current={r[k]} target={tgt || null} pace={pace} /></div>
+                      <div className="mt-2 px-2"><PaceBar current={val} target={tgt || null} pace={pace} /></div>
                       {k === 'referrals' && r.pending > 0 && (
                         <button
                           type="button"
                           onClick={() => setPendingDialogSa(r.sa)}
                           className="mt-1 inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
-                          title="counts when they buy"
+                          title="counts as a Close when they buy"
                         >
                           <Clock className="w-3 h-3" />
                           +{r.pending} pending
@@ -668,7 +669,7 @@ export function SomlSection() {
         onClose={() => setEditCell(null)}
         sa={editCell?.sa || ''}
         metric={editCell?.metric || 'referrals'}
-        current={editCell ? (overrides[editCell.sa]?.[`${editCell.metric}_goal`] ?? null) : null}
+        current={editCell ? ((overrides[editCell.sa]?.[METRIC_TO_GOAL_COL[editCell.metric] as keyof SaOverride] as number | null) ?? null) : null}
         defaultValue={editCell ? defaultPerSa[editCell.metric] : 0}
         onSaved={() => { loadOverrides(); refetch(); }}
       />
@@ -686,11 +687,13 @@ export function SomlSection() {
         referrals={realizedReferrals}
         upgrades={upgradesList}
         sales={salesList}
+        referralLeads={referralLeadsList}
       />
     </section>
     </TooltipProvider>
   );
 }
+
 
 interface SomlDrilldownDialogProps {
   open: boolean;
