@@ -782,7 +782,10 @@ export default function ClientJourneyPanel() {
 
   const handleSaveBooking = async () => {
     if (!editingBooking) return;
-    
+
+    const referrerErr = validateLeadSourceReferrer(editingBooking.lead_source, editingBooking.referred_by_member_name);
+    if (referrerErr) { toast.error(referrerErr); return; }
+
     setIsSaving(true);
     try {
       const { error } = await supabase
@@ -795,6 +798,7 @@ export default function ClientJourneyPanel() {
           sa_working_shift: editingBooking.sa_working_shift,
           booked_by: editingBooking.booked_by,
           lead_source: editingBooking.lead_source,
+          referred_by_member_name: resolveReferrerForWrite(editingBooking.lead_source, editingBooking.referred_by_member_name),
           fitness_goal: editingBooking.fitness_goal,
           booking_status: editingBooking.booking_status,
           last_edited_at: new Date().toISOString(),
