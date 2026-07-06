@@ -76,9 +76,14 @@ export default function EditSaleDialog({ open, onOpenChange, purchase, onSaved }
 
   const handleSave = async () => {
     if (!purchase) return;
+
+    const referrerErr = validateLeadSourceReferrer(leadSource, referredBy);
+    if (referrerErr) { toast.error(referrerErr); return; }
+
     setSaving(true);
     try {
       const commissionNum = parseFloat(commission) || 0;
+      const normalizedReferrer = resolveReferrerForWrite(leadSource, referredBy);
 
       if (purchase.source === 'intro_run') {
         const { error } = await supabase
@@ -93,6 +98,27 @@ export default function EditSaleDialog({ open, onOpenChange, purchase, onSaved }
           })
           .eq('id', purchase.id);
         if (error) throw error;
+
+        // Sync lead source + referrer onto the linked booking so the
+        // SOML/referral trigger sees the change as source-of-truth.
+        const { data: run } = await supabase
+          .from('intros_run')
+          .select('linked_intro_booked_id')
+          .eq('id', purchase.id)
+          .maybeSingle();
+        const linkedId = (run as any)?.linked_intro_booked_id;
+        if (linkedId && leadSource) {
+          await supabase
+            .from('intros_booked')
+            .update({
+              lead_source: leadSource,
+              referred_by_member_name: normalizedReferrer,
+              last_edited_at: new Date().toISOString(),
+              last_edited_by: 'Edit Sale (Auto-Sync)',
+              edit_reason: 'Synced lead source / referrer from Edit Sale',
+            })
+            .eq('id', linkedId);
+        }
       } else {
         const { error } = await supabase
           .from('sales_outside_intro')
@@ -138,10 +164,14 @@ export default function EditSaleDialog({ open, onOpenChange, purchase, onSaved }
             <Label>Commission ($)</Label>
             <Input type="number" step="0.01" value={commission} onChange={e => setCommission(e.target.value)} />
           </div>
-          <div className="grid gap-1.5">
-            <Label>Lead Source</Label>
-            <Input value={leadSource} onChange={e => setLeadSource(e.target.value)} />
-          </div>
+          <LeadSourceWithReferrerField
+            value={leadSource}
+            referredByMemberName={referredBy}
+            onChange={({ lead_source, referred_by_member_name }) => {
+              setLeadSource(lead_source);
+              setReferredBy(referred_by_member_name);
+            }}
+          />
           <div className="grid gap-1.5">
             <Label>Intro Owner</Label>
             <Input value={introOwner} onChange={e => setIntroOwner(e.target.value)} />
