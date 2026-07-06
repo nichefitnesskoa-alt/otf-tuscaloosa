@@ -451,6 +451,17 @@ export default function BookIntro() {
           </Card>
         )}
 
+        {/* STEP: questions (inline questionnaire, dark theme, before calendar) */}
+        {step === 'questions' && bookingId && (
+          <InlineQuestionnaire
+            bookingId={bookingId}
+            firstName={info.firstName || 'friend'}
+            onComplete={() => setStep('calendar')}
+          />
+        )}
+
+
+
         {/* STEP: calendar */}
         {step === 'calendar' && calendarEvent && (
           <Card className="bg-neutral-900 border-neutral-800 p-5">
