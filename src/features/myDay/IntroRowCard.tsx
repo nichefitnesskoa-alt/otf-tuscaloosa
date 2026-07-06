@@ -218,14 +218,16 @@ export default function IntroRowCard({
     (async () => {
       const { data } = await supabase
         .from('intro_questionnaires')
-        .select('status')
+        .select('status, last_opened_at')
         .eq('booking_id', item.bookingId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
       if (cancelled || !data) return;
       const s = (data as any).status;
+      const opened = (data as any).last_opened_at;
       if (s === 'completed' || s === 'submitted') setLocalQStatus('Q_COMPLETED');
+      else if (opened) setLocalQStatus('Q_OPENED');
       else if (s === 'sent') setLocalQStatus('Q_SENT');
     })();
     return () => { cancelled = true; };
