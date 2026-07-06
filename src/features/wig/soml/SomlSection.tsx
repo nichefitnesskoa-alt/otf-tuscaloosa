@@ -703,15 +703,26 @@ interface SomlDrilldownDialogProps {
   referrals: SomlDetailItem[];
   upgrades: SomlDetailItem[];
   sales: SomlDetailItem[];
+  referralLeads: SomlDetailItem[];
 }
-function SomlDrilldownDialog({ open, onClose, metric, saFilter, referrals, upgrades, sales }: SomlDrilldownDialogProps) {
-  const source = metric === 'referrals' ? referrals : metric === 'upgrades' ? upgrades : sales;
+function SomlDrilldownDialog({ open, onClose, metric, saFilter, referrals, upgrades, sales, referralLeads }: SomlDrilldownDialogProps) {
+  const source = metric === 'referrals' ? referrals
+               : metric === 'upgrades' ? upgrades
+               : metric === 'sales' ? sales
+               : referralLeads;
   const filtered = useMemo(() => {
     const rows = saFilter ? source.filter(r => r.sa === saFilter) : source;
     return [...rows].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   }, [source, saFilter]);
-  const label = metric === 'referrals' ? 'Referrals' : metric === 'upgrades' ? 'Upgrades' : 'Sales';
-  const dateLabel = metric === 'sales' ? 'Sold' : metric === 'upgrades' ? 'Upgraded' : 'Bought';
+  const label = metric === 'referrals' ? 'Referrals that Close'
+              : metric === 'upgrades' ? 'Upgrades'
+              : metric === 'sales' ? 'Sales'
+              : 'Referral Leads';
+  const dateLabel = metric === 'sales' ? 'Sold'
+                  : metric === 'upgrades' ? 'Upgraded'
+                  : metric === 'referralLeads' ? 'Booked'
+                  : 'Bought';
+
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
