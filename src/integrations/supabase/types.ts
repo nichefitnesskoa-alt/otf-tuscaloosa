@@ -1914,6 +1914,7 @@ export type Database = {
           intro_owner: string | null
           intro_owner_locked: boolean | null
           intro_time: string | null
+          is_buddy_card_referral: boolean
           is_vip: boolean
           last_edited_at: string | null
           last_edited_by: string | null
@@ -1987,6 +1988,7 @@ export type Database = {
           intro_owner?: string | null
           intro_owner_locked?: boolean | null
           intro_time?: string | null
+          is_buddy_card_referral?: boolean
           is_vip?: boolean
           last_edited_at?: string | null
           last_edited_by?: string | null
@@ -2060,6 +2062,7 @@ export type Database = {
           intro_owner?: string | null
           intro_owner_locked?: boolean | null
           intro_time?: string | null
+          is_buddy_card_referral?: boolean
           is_vip?: boolean
           last_edited_at?: string | null
           last_edited_by?: string | null
@@ -2353,11 +2356,14 @@ export type Database = {
           first_name: string
           follow_up_at: string | null
           id: string
+          is_buddy_card: boolean
           last_name: string
           lost_reason: string | null
           mindbody_imported_at: string | null
           mindbody_imported_by: string | null
           phone: string
+          referred_by_member_name: string | null
+          referring_member_contact: string | null
           source: string
           sourced_by_sa: string | null
           stage: string
@@ -2376,11 +2382,14 @@ export type Database = {
           first_name: string
           follow_up_at?: string | null
           id?: string
+          is_buddy_card?: boolean
           last_name: string
           lost_reason?: string | null
           mindbody_imported_at?: string | null
           mindbody_imported_by?: string | null
           phone: string
+          referred_by_member_name?: string | null
+          referring_member_contact?: string | null
           source?: string
           sourced_by_sa?: string | null
           stage?: string
@@ -2399,11 +2408,14 @@ export type Database = {
           first_name?: string
           follow_up_at?: string | null
           id?: string
+          is_buddy_card?: boolean
           last_name?: string
           lost_reason?: string | null
           mindbody_imported_at?: string | null
           mindbody_imported_by?: string | null
           phone?: string
+          referred_by_member_name?: string | null
+          referring_member_contact?: string | null
           source?: string
           sourced_by_sa?: string | null
           stage?: string
@@ -3725,6 +3737,11 @@ export type Database = {
           booking_id: string
           created_at: string
           credited_sa: string
+          discount_honored_at: string | null
+          discount_honored_by: string | null
+          discount_owed_amount_cents: number | null
+          discount_owed_contact: string | null
+          discount_owed_to: string | null
           id: string
           realized_at: string | null
           referring_member: string
@@ -3736,6 +3753,11 @@ export type Database = {
           booking_id: string
           created_at?: string
           credited_sa: string
+          discount_honored_at?: string | null
+          discount_honored_by?: string | null
+          discount_owed_amount_cents?: number | null
+          discount_owed_contact?: string | null
+          discount_owed_to?: string | null
           id?: string
           realized_at?: string | null
           referring_member: string
@@ -3747,6 +3769,11 @@ export type Database = {
           booking_id?: string
           created_at?: string
           credited_sa?: string
+          discount_honored_at?: string | null
+          discount_honored_by?: string | null
+          discount_owed_amount_cents?: number | null
+          discount_owed_contact?: string | null
+          discount_owed_to?: string | null
           id?: string
           realized_at?: string | null
           referring_member?: string
