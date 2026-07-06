@@ -36,8 +36,10 @@ function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
   switch (status) {
     case 'Q_COMPLETED':
       return { bg: 'bg-success', label: 'Q✓', title: 'Complete', bannerLabel: '✓ Questionnaire Complete' };
+    case 'Q_OPENED':
+      return { bg: 'bg-warning', label: 'Q…', title: 'Opened, not submitted', bannerLabel: '⚠ Questionnaire Opened — Not Submitted' };
     case 'Q_SENT':
-      return { bg: 'bg-warning', label: 'Q?', title: 'Sent, not answered', bannerLabel: '⚠ Questionnaire Sent — Not Answered' };
+      return { bg: 'bg-warning', label: 'Q?', title: 'Sent, not opened', bannerLabel: '⚠ Questionnaire Sent — Not Opened' };
     case 'NO_Q':
     default:
       return { bg: 'bg-danger', label: 'Q!', title: 'Questionnaire not sent', bannerLabel: '! Questionnaire Not Sent' };
@@ -51,8 +53,10 @@ function getQBadgeStatic(status: UpcomingIntroItem['questionnaireStatus'], noQNe
   switch (status) {
     case 'Q_COMPLETED':
       return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-primary-foreground border-transparent">Questionnaire Complete</Badge>;
+    case 'Q_OPENED':
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning text-primary-foreground border-transparent">Q Opened, Not Submitted</Badge>;
     case 'Q_SENT':
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning text-primary-foreground border-transparent">Questionnaire Sent, Not Answered</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning text-primary-foreground border-transparent">Q Sent, Not Opened</Badge>;
     case 'NO_Q':
     default:
       return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-danger text-primary-foreground border-transparent">Questionnaire Not Sent</Badge>;
