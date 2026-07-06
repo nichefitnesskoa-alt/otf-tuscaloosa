@@ -56,12 +56,13 @@ export interface SomlDetailItem {
 
 export interface SomlData {
   config: SomlConfig | null;
-  totals: { referrals: number; upgrades: number; sales: number; pending: number };
+  totals: { referrals: number; upgrades: number; sales: number; pending: number; referralLeads: number };
   rows: SomlSaRow[];
   pendingReferrals: PendingReferralRow[];
   realizedReferrals: SomlDetailItem[];
   upgradesList: SomlDetailItem[];
   salesList: SomlDetailItem[];
+  referralLeadsList: SomlDetailItem[];
   loading: boolean;
   refetch: () => Promise<void>;
 }
