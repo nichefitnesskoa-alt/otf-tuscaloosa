@@ -1329,10 +1329,14 @@ export default function ClientJourneyPanel() {
       return;
     }
 
+    const leadSource = newRun.lead_source || 'Instagram DMs';
+    const referrerErr = validateLeadSourceReferrer(leadSource, newRun.referred_by_member_name);
+    if (referrerErr) { toast.error(referrerErr); return; }
+
     setIsSaving(true);
     try {
       const runId = `run_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
       const { error } = await supabase
         .from('intros_run')
         .insert({
@@ -1342,7 +1346,7 @@ export default function ClientJourneyPanel() {
           class_time: newRun.class_time,
           ran_by: newRun.ran_by,
           intro_owner: newRun.ran_by, // Set intro_owner to ran_by
-          lead_source: newRun.lead_source || 'Instagram DMs',
+          lead_source: leadSource,
           result: newRun.result,
           notes: newRun.notes || null,
           linked_intro_booked_id: newRun.linked_intro_booked_id && newRun.linked_intro_booked_id !== '__NONE__' ? newRun.linked_intro_booked_id : null,
@@ -1350,9 +1354,20 @@ export default function ClientJourneyPanel() {
 
       if (error) throw error;
 
-      // Sync intro_owner to linked booking if applicable
+      // Sync intro_owner + lead source + referrer to linked booking so
+      // referral attribution fires as if the source were true from the start.
       if (newRun.linked_intro_booked_id && newRun.linked_intro_booked_id !== '__NONE__' && newRun.result !== 'No-show') {
         await syncIntroOwnerToBooking(newRun.linked_intro_booked_id, newRun.ran_by, user?.name || 'Admin');
+        await supabase
+          .from('intros_booked')
+          .update({
+            lead_source: leadSource,
+            referred_by_member_name: resolveReferrerForWrite(leadSource, newRun.referred_by_member_name),
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: `${user?.name || 'Admin'} (Auto-Sync)`,
+            edit_reason: 'Synced lead source / referrer from new run',
+          })
+          .eq('id', newRun.linked_intro_booked_id);
       }
 
       toast.success('Intro run logged');
