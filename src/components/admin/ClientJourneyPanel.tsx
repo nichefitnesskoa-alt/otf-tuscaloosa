@@ -260,6 +260,9 @@ export default function ClientJourneyPanel() {
   // Run editing
   const [editingRun, setEditingRun] = useState<ClientRun | null>(null);
   const [editRunReason, setEditRunReason] = useState('');
+  // Referrer name captured when editing a run's lead source to a friend
+  // variant. Persisted onto the linked booking (intros_run has no such column).
+  const [editingRunReferrer, setEditingRunReferrer] = useState<string | null>(null);
   
   // Mark as Purchased dialog
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
