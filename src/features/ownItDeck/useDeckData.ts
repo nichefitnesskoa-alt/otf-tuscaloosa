@@ -359,7 +359,7 @@ export function useDeckData(): DeckData {
           category: o.category,
           entry: e,
           submitted: !!e?.submitted_at,
-          priorCommitment: priorCommitments[o.id] ?? null,
+          priorEntry: priorEntriesByOwner[o.id] ?? null,
           openActions,
         };
       })
@@ -367,7 +367,7 @@ export function useDeckData(): DeckData {
         if (a.submitted !== b.submitted) return a.submitted ? -1 : 1;
         return a.display_name.localeCompare(b.display_name);
       });
-  }, [owners, entries, priorCommitments, actionsByOwner]);
+  }, [owners, entries, priorEntriesByOwner, actionsByOwner]);
 
   const openActions = useMemo(() =>
     allActions
