@@ -92,6 +92,12 @@ function ProtectedRoute({ children, requireAdmin, blockCoach }: { children: Reac
   return <AppLayout>{children}</AppLayout>;
 }
 
+function ProtectedFullscreenRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
 function AppRoutes() {
   const { isAuthenticated, user } = useAuth();
   // Coaches default to Coach View; everyone else lands on the studio WIG.
@@ -256,7 +262,7 @@ function AppRoutes() {
         }
       />
       <Route path="/the-table" element={<ProtectedRoute><TheTable /></ProtectedRoute>} />
-      <Route path="/the-table/deck" element={<ProtectedRoute><OwnItDeckPage /></ProtectedRoute>} />
+      <Route path="/the-table/deck" element={<ProtectedFullscreenRoute><OwnItDeckPage /></ProtectedFullscreenRoute>} />
       <Route path="/the-table/history" element={<ProtectedRoute><TheTableHistory /></ProtectedRoute>} />
       <Route path="/the-table/:meetingId" element={<ProtectedRoute><TheTable /></ProtectedRoute>} />
       <Route path="/outreach-lists" element={<ProtectedRoute><OutreachLists /></ProtectedRoute>} />
