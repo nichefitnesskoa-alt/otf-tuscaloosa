@@ -16,6 +16,7 @@ import {
   cadenceStreakWeeks,
   isSelfEvalEveryWeekThisMonth,
 } from '@/lib/scorecard/trends';
+import { isScorecardScored } from '@/lib/scorecard/levels';
 
 export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName: string; allowPicker?: boolean; coaches?: string[] }) {
   const [selected, setSelected] = useState(coachName);
