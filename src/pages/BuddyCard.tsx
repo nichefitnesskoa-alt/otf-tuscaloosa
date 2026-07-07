@@ -247,6 +247,8 @@ export default function BuddyCard() {
           <p className="text-[11px] uppercase tracking-[0.15em] text-[#FDF7EA]/50 text-center leading-relaxed">
             We'll text them from our studio number.
             <br />
+            Please let your friend know you recommended them to reach out.
+            <br />
             Only send friends who'd want to hear from us.
           </p>
 
