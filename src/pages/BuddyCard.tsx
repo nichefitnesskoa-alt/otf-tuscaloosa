@@ -4,10 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, CheckCircle, Users } from 'lucide-react';
-import otfLogo from '@/assets/otf-logo.jpg';
+import otfLogoAsset from '@/assets/otf-logo-orange.png.asset.json';
 import { z } from 'zod';
 
-const OTF_ORANGE = '#FF6900';
+const OTF_ORANGE = '#FF6F0D';
+const OTF_BONE = '#FDF7EA';
+const OTF_DARK = '#0A0A0A';
+const OTF_GRAY = '#D7D7D7';
+const BRAND_FONT = "'PP Right Grotesk', 'Arial Black', 'Helvetica Neue', Arial, sans-serif";
 
 const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 const digits = (s: string) => s.replace(/\D/g, '');
