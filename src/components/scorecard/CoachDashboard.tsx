@@ -63,7 +63,7 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
 
   const trendData = useMemo(() => {
     const byWeek: Record<string, { total: number; count: number; sortKey: string }> = {};
-    trend.filter(s => !!s.submitted_at).forEach(s => {
+    trend.filter(s => isScorecardScored(s)).forEach(s => {
       const d = parseLocalDate(s.class_date)!;
       const wk = format(d, 'MMM d');
       const sortKey = format(d, 'yyyy-MM-dd');
