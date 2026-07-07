@@ -1,13 +1,15 @@
 /**
  * OwnItDeckPage — fullscreen live slide deck for the Own It meeting.
- * Keyboard: ←/→ to navigate, F to enter fullscreen, Esc to exit.
+ * Keyboard: ←/→ navigate, F fullscreen, D open drill, Esc exit.
  * Slide index in URL as ?slide=N (1-based).
+ * Slide count is dynamic: 8 metric slides + N per-owner slides.
  */
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { X, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import { ScaledSlide } from './ScaledSlide';
 import { useDeckData } from './useDeckData';
+import { DrillProvider } from './DrillOverlay';
 import { Slide01NetGain } from './slides/Slide01NetGain';
 import { FunnelSlide } from './slides/FunnelSlide';
 import { Slide04Soml } from './slides/Slide04Soml';
@@ -15,7 +17,7 @@ import { Slide05WigLeads } from './slides/Slide05WigLeads';
 import { Slide06CoachClose } from './slides/Slide06CoachClose';
 import { Slide07CoachStats } from './slides/Slide07CoachStats';
 import { Slide08ActionItems } from './slides/Slide08ActionItems';
-import { Slide09OwnerCommitments } from './slides/Slide09OwnerCommitments';
+import { SlideOwner } from './slides/SlideOwner';
 
 export default function OwnItDeckPage() {
   const nav = useNavigate();
@@ -23,20 +25,19 @@ export default function OwnItDeckPage() {
   const data = useDeckData();
 
   const slides = useMemo(() => {
-    const T = 9;
-    return [
-      (k: number) => <Slide01NetGain data={data} slideNum={k} total={T} />,
-      (k: number) => (
+    const metric = [
+      (k: number, T: number) => <Slide01NetGain data={data} slideNum={k} total={T} />,
+      (k: number, T: number) => (
         <FunnelSlide
           kicker="Monthly — SGL"
           title="Self-Generated Lead Funnel"
           slideNum={k}
           total={T}
           funnel={data.sglFunnel}
-          subtitle="Staff or member-sourced leads this month (excludes online self-book)."
+          subtitle="Staff or member-sourced bookings this month (excludes online self-book)."
         />
       ),
-      (k: number) => (
+      (k: number, T: number) => (
         <FunnelSlide
           kicker="Monthly — Non-SGL"
           title="Non-SGL Lead Funnel"
@@ -46,18 +47,21 @@ export default function OwnItDeckPage() {
           subtitle="Passive web-form self-bookings this month."
         />
       ),
-      (k: number) => <Slide04Soml data={data} slideNum={k} total={T} />,
-      (k: number) => <Slide05WigLeads data={data} slideNum={k} total={T} />,
-      (k: number) => <Slide06CoachClose data={data} slideNum={k} total={T} />,
-      (k: number) => <Slide07CoachStats data={data} slideNum={k} total={T} />,
-      (k: number) => <Slide08ActionItems data={data} slideNum={k} total={T} />,
-      (k: number) => <Slide09OwnerCommitments data={data} slideNum={k} total={T} />,
+      (k: number, T: number) => <Slide04Soml data={data} slideNum={k} total={T} />,
+      (k: number, T: number) => <Slide05WigLeads data={data} slideNum={k} total={T} />,
+      (k: number, T: number) => <Slide06CoachClose data={data} slideNum={k} total={T} />,
+      (k: number, T: number) => <Slide07CoachStats data={data} slideNum={k} total={T} />,
+      (k: number, T: number) => <Slide08ActionItems data={data} slideNum={k} total={T} />,
     ];
+    const ownerSlides = data.ownersFull.map(o =>
+      (k: number, T: number) => <SlideOwner key={o.id} owner={o} slideNum={k} total={T} />
+    );
+    return [...metric, ...ownerSlides];
   }, [data]);
 
   const total = slides.length;
   const rawIdx = parseInt(sp.get('slide') || '1', 10);
-  const idx = Math.min(Math.max(1, isNaN(rawIdx) ? 1 : rawIdx), total);
+  const idx = Math.min(Math.max(1, isNaN(rawIdx) ? 1 : rawIdx), Math.max(1, total));
 
   const go = useCallback((n: number) => {
     const next = Math.min(Math.max(1, n), total);
@@ -66,6 +70,8 @@ export default function OwnItDeckPage() {
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(idx + 1); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); go(idx - 1); }
       else if (e.key === 'Escape') { nav('/the-table'); }
@@ -78,18 +84,17 @@ export default function OwnItDeckPage() {
     return () => window.removeEventListener('keydown', h);
   }, [idx, go, nav]);
 
-  useEffect(() => {
-    document.title = `${idx}/${total} — Own It Deck`;
-  }, [idx, total]);
+  useEffect(() => { document.title = `${idx}/${total} — Own It Deck`; }, [idx, total]);
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 50 }}>
-      <ScaledSlide>{slides[idx - 1](idx)}</ScaledSlide>
+      <ScaledSlide>
+        <DrillProvider>
+          {slides[idx - 1]?.(idx, total)}
+        </DrillProvider>
+      </ScaledSlide>
 
-      {/* Controls overlay */}
-      <div style={{
-        position: 'absolute', top: 16, right: 16, display: 'flex', gap: 8,
-      }}>
+      <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 8 }}>
         <button
           onClick={() => document.documentElement.requestFullscreen().catch(() => {})}
           className="p-2 rounded-md bg-black/60 hover:bg-black/80 text-white border border-white/20"
