@@ -37,7 +37,7 @@ export function FunnelSlide({
         <tbody>
           {funnel.rows.map(r => (
             <tr key={r.id} style={{ borderTop: '1px solid #D7D7D720' }}>
-              <td style={dtd}>{[r.first_name, r.last_name].filter(Boolean).join(' ') || '—'}</td>
+              <td style={dtd}>{r.member_name || '—'}</td>
               <td style={dtd}>{r.class_date || '—'}</td>
               <td style={dtd}>{r.coach_name || '—'}</td>
               <td style={dtd}>{r.lead_source || '—'}</td>

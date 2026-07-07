@@ -6,9 +6,11 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { fromZonedTime } from 'date-fns-tz';
 import { supabase } from '@/integrations/supabase/client';
 import { isSglLeadSource } from '@/lib/metrics/sglClassification';
 import { isSaleCanon, getRunSaleDate, isPostDatedSale } from '@/lib/sales-detection';
+import { didIntroActuallyRun } from '@/lib/canon/introRules';
 import { loadMonthlyTargets, type MonthlyTargets } from '@/lib/wig/targets';
 import {
   useCurrentMeeting, useActiveOwners, useOwnerEntries, useActionItems, nextMondayCT,
@@ -41,6 +43,33 @@ export interface FunnelStats {
   rows: any[]; // underlying intros_booked rows (for drilldown)
 }
 
+interface DeckBookingRow {
+  id: string;
+  member_name: string | null;
+  lead_source: string | null;
+  booking_status_canon: string | null;
+  class_date: string | null;
+  created_at: string;
+  coach_name: string | null;
+  originating_booking_id: string | null;
+  deleted_at: string | null;
+  ignore_from_metrics: boolean | null;
+  intro_owner: string | null;
+}
+
+interface DeckRunRow {
+  id: string;
+  result_canon: string | null;
+  result: string | null;
+  buy_date: string | null;
+  linked_intro_booked_id: string | null;
+  coach_name: string | null;
+  ignore_from_metrics: boolean | null;
+  member_name: string | null;
+  run_date: string | null;
+  created_at: string;
+}
+
 export interface CoachRow {
   name: string;
   runs: number;
@@ -62,6 +91,13 @@ export interface LeadRow {
   name: string;
   source: string | null;
   created_at: string;
+}
+
+function monthIsoBoundsCT(startYMD: string, endYMD: string) {
+  return {
+    startIso: fromZonedTime(`${startYMD}T00:00:00`, 'America/Chicago').toISOString(),
+    endIso: fromZonedTime(`${endYMD}T23:59:59`, 'America/Chicago').toISOString(),
+  };
 }
 
 export interface OwnerFull {
@@ -126,6 +162,7 @@ export interface DeckData {
 
 export function useDeckData(): DeckData {
   const { monthKey, startYMD, endYMD, day, lastDay, todayYMD } = useMemo(() => currentMonthCST(), []);
+  const { startIso, endIso } = useMemo(() => monthIsoBoundsCT(startYMD, endYMD), [startYMD, endYMD]);
   const currentMonday = nextMondayCT();
 
   const { data: meeting } = useCurrentMeeting({ weekDate: currentMonday });
@@ -192,11 +229,14 @@ export function useDeckData(): DeckData {
     queryFn: async () => {
       const { data } = await supabase
         .from('leads')
-        .select('id,name,source,created_at')
-        .gte('created_at', `${startYMD}T00:00:00`)
-        .lte('created_at', `${endYMD}T23:59:59`);
+        .select('id,first_name,last_name,source,created_at')
+        .gte('created_at', startIso)
+        .lte('created_at', endIso);
       return ((data as any[]) || []).map(r => ({
-        id: r.id, name: r.name, source: r.source, created_at: r.created_at,
+        id: r.id,
+        name: `${r.first_name || ''} ${r.last_name || ''}`.trim() || 'Unknown',
+        source: r.source,
+        created_at: r.created_at,
       })) as LeadRow[];
     },
   });
@@ -207,11 +247,27 @@ export function useDeckData(): DeckData {
     queryFn: async () => {
       const { data } = await supabase
         .from('intros_booked')
-        .select('id,lead_source,booking_status_canon,class_date,created_at,coach_name,originating_booking_id,deleted_at,first_name,last_name,intro_owner')
-        .gte('created_at', `${startYMD}T00:00:00`)
-        .lte('created_at', `${endYMD}T23:59:59`)
+        .select('id,member_name,lead_source,booking_status_canon,class_date,created_at,coach_name,originating_booking_id,deleted_at,ignore_from_metrics,intro_owner')
+        .gte('created_at', startIso)
+        .lte('created_at', endIso)
         .is('deleted_at', null);
-      return (data as any[]) || [];
+      return ((data as any[]) || []) as DeckBookingRow[];
+    },
+  });
+
+  // Class-date scoped bookings power showed/coach stats. This is separate from
+  // created_at-scoped bookedRows so coach slides still show July runs whose
+  // booking was created in late June.
+  const { data: classMonthBookings = [] } = useQuery({
+    queryKey: ['deck-class-month-bookings', monthKey],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('intros_booked')
+        .select('id,member_name,lead_source,booking_status_canon,class_date,created_at,coach_name,originating_booking_id,deleted_at,ignore_from_metrics,intro_owner')
+        .gte('class_date', startYMD)
+        .lte('class_date', endYMD)
+        .is('deleted_at', null);
+      return ((data as any[]) || []) as DeckBookingRow[];
     },
   });
 
@@ -220,8 +276,8 @@ export function useDeckData(): DeckData {
     queryFn: async () => {
       const { data } = await supabase
         .from('intros_run')
-        .select('id,result_canon,buy_date,linked_intro_booked_id,coach_name,ignore_from_metrics,member_name,run_date,created_at');
-      return (data as any[]) || [];
+        .select('id,result_canon,result,buy_date,linked_intro_booked_id,coach_name,ignore_from_metrics,member_name,run_date,created_at');
+      return ((data as any[]) || []) as DeckRunRow[];
     },
   });
 
@@ -235,9 +291,11 @@ export function useDeckData(): DeckData {
 
   function buildFunnel(rows: any[]): FunnelStats {
     const bookedIds = new Set(rows.map(r => r.id));
-    const showed = rows.filter(r =>
-      r.booking_status_canon === 'SHOWED' ||
-      (r.booking_status_canon === 'ACTIVE' && r.class_date && r.class_date <= endYMD)
+    const showed = runRows.filter(r =>
+      r.linked_intro_booked_id && bookedIds.has(r.linked_intro_booked_id) &&
+      !r.ignore_from_metrics &&
+      r.run_date && r.run_date >= startYMD && r.run_date <= endYMD &&
+      didIntroActuallyRun(r)
     ).length;
     const sold = monthSales.filter(s => s.linked_intro_booked_id && bookedIds.has(s.linked_intro_booked_id)).length;
     const bySourceMap = new Map<string, number>();
@@ -270,14 +328,19 @@ export function useDeckData(): DeckData {
 
   // Coach close
   const coachClose = useMemo(() => {
-    const firstBookings = bookedRows.filter(b => !b.originating_booking_id);
+    const firstBookings = classMonthBookings.filter(b => !b.originating_booking_id && !b.ignore_from_metrics);
     const firstIds = new Set(firstBookings.map(b => b.id));
     const runsThisMonth = runRows.filter(r =>
-      r.linked_intro_booked_id && firstIds.has(r.linked_intro_booked_id) && !r.ignore_from_metrics,
+      r.linked_intro_booked_id && firstIds.has(r.linked_intro_booked_id) &&
+      !r.ignore_from_metrics &&
+      r.run_date && r.run_date >= startYMD && r.run_date <= endYMD &&
+      didIntroActuallyRun(r),
     );
+    const classMonthIds = new Set(classMonthBookings.map(b => b.id));
     const secondRunsThisMonth = runRows.filter(r =>
-      r.linked_intro_booked_id && !firstIds.has(r.linked_intro_booked_id) && !r.ignore_from_metrics
-        && bookedRows.some(b => b.id === r.linked_intro_booked_id),
+      r.linked_intro_booked_id && !firstIds.has(r.linked_intro_booked_id) && !r.ignore_from_metrics &&
+        r.run_date && r.run_date >= startYMD && r.run_date <= endYMD && didIntroActuallyRun(r) &&
+        classMonthIds.has(r.linked_intro_booked_id),
     );
     const byCoach = new Map<string, { runs: number; sales: number; firstRuns: number; secondRuns: number }>();
     for (const r of runsThisMonth) {
@@ -305,7 +368,7 @@ export function useDeckData(): DeckData {
     const totalSales = rows.reduce((s, r) => s + r.sales, 0);
     const overallPct = totalRuns > 0 ? Math.round((totalSales / totalRuns) * 100) : null;
     return { overallPct, goalPct: targets.coachClose, overallRuns: totalRuns, overallSales: totalSales, rows };
-  }, [bookedRows, runRows, monthSales, targets.coachClose]);
+  }, [classMonthBookings, runRows, monthSales, targets.coachClose, startYMD, endYMD]);
 
   // Prior meeting entries (fallback for owners who didn't submit this week)
   const { data: priorEntriesByOwner = {} } = useQuery({
