@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useScorecards, type FvScorecard } from '@/hooks/useScorecards';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { cn, parseLocalDate } from '@/lib/utils';
+import { isScorecardScored } from '@/lib/scorecard/levels';
 import { format, startOfWeek, addWeeks, addDays } from 'date-fns';
 
 const WEEK_COUNT = 6;
