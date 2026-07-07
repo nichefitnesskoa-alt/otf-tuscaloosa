@@ -254,7 +254,7 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
 
     // Coverage: separate "has formal" vs "self only" vs "unscored" for ran intros.
     const allCardsByTimer = new Map<string, FvScorecard[]>();
-    cards.filter(c => c.submitted_at && c.first_timer_id).forEach(c => {
+    cards.filter(c => isScorecardScored(c) && c.first_timer_id).forEach(c => {
       const arr = allCardsByTimer.get(c.first_timer_id!) || [];
       arr.push(c);
       allCardsByTimer.set(c.first_timer_id!, arr);
