@@ -334,7 +334,7 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
     const alreadyClosedIds = new Set(closedCards.map(c => c.first_timer_id).filter(Boolean) as string[]);
     const extraByTimer = new Map<string, FvScorecard[]>();
     extraClosedScorecards.forEach(c => {
-      if (!c.first_timer_id || !c.submitted_at) return;
+      if (!c.first_timer_id || !isScorecardScored(c)) return;
       const arr = extraByTimer.get(c.first_timer_id) || [];
       arr.push(c);
       extraByTimer.set(c.first_timer_id, arr);
