@@ -235,7 +235,19 @@ export function NetGainScoreboard({ className }: { className?: string }) {
         </div>
 
 
-        {/* Bottom strip: end-of-month goal line */}
+        {/* Monthly goal strip — always visible so admin can set/edit */}
+        <div className={cn(
+          'px-4 sm:px-5 py-2 text-xs sm:text-sm font-semibold border-t flex flex-wrap items-center gap-x-3 gap-y-1',
+          positive && 'border-white/20 bg-black/10 text-white/90',
+          negative && 'border-white/20 bg-black/10 text-white/90',
+          !positive && !negative && 'border-border bg-muted/30 text-muted-foreground',
+        )}>
+          <NetGainGoalChip
+            currentValue={value}
+            tone={positive || negative ? 'light' : 'dark'}
+          />
+        </div>
+
         {(scheduledTerminationsLeft > 0 || goalToBreakEven > 0 || negative) && (
           <div className={cn(
             'px-4 sm:px-5 py-2 text-xs sm:text-sm font-semibold border-t flex flex-wrap items-center gap-x-3 gap-y-1',
