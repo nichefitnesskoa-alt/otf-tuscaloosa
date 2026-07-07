@@ -51,7 +51,7 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
   const unscoredCount = unscoredForCoach.length;
   const scoredCount = Math.max(ranThisMonth - unscoredCount, 0);
 
-  const submitted = scorecards.filter(s => !!s.submitted_at);
+  const submitted = scorecards.filter(s => isScorecardScored(s));
   const selfCount = submitted.filter(s => s.eval_type === 'self_eval').length;
   const formalCount = submitted.filter(s => s.eval_type === 'formal_eval').length;
   const avgScore = submitted.length ? (submitted.reduce((s, c) => s + c.total_score, 0) / submitted.length).toFixed(1) : '—';
