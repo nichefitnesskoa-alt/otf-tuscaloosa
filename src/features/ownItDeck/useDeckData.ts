@@ -72,7 +72,7 @@ export interface OwnerFull {
   category: string | null;
   entry: OwnerEntry | null;
   submitted: boolean;
-  priorCommitment: string | null;   // fallback commitment from prior meeting
+  priorEntry: OwnerEntry | null;    // full prior meeting entry (fallback for owners who didn't submit)
   openActions: Array<{ id: string; description: string; due_date: string; status: string }>;
 }
 
