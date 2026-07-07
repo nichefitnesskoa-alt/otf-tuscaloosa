@@ -76,7 +76,7 @@ export default function Wig() {
   // Monthly targets — single source of truth from src/lib/wig/targets.ts.
   // Nothing on this page carries a hardcoded target fallback.
   const [targets, setTargets] = useState<MonthlyTargets>({
-    saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null,
+    saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null, netGain: null,
   });
   const [editingStudioTarget, setEditingStudioTarget] = useState(false);
   const [editingCloseTarget, setEditingCloseTarget] = useState(false);

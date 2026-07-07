@@ -95,7 +95,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   ), [dateRange]);
 
   const [targets, setTargets] = useState<MonthlyTargets>({
-    saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null,
+    saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null, netGain: null,
   });
 
   const [perSaOverrides, setPerSaOverrides] = useState<Record<string, number>>({});

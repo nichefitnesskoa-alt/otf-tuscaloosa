@@ -33,6 +33,7 @@ import CoachDetail from "./pages/CoachDetail";
 import SaDetail from "./pages/SaDetail";
 import TheTable from "./pages/TheTable";
 import TheTableHistory from "./pages/TheTableHistory";
+import OwnItDeckPage from "./features/ownItDeck/OwnItDeckPage";
 import Apply from "./pages/Apply";
 import OutreachLists from "./pages/OutreachLists";
 import OutreachListDetail from "./pages/OutreachListDetail";
@@ -255,6 +256,7 @@ function AppRoutes() {
         }
       />
       <Route path="/the-table" element={<ProtectedRoute><TheTable /></ProtectedRoute>} />
+      <Route path="/the-table/deck" element={<ProtectedRoute><OwnItDeckPage /></ProtectedRoute>} />
       <Route path="/the-table/history" element={<ProtectedRoute><TheTableHistory /></ProtectedRoute>} />
       <Route path="/the-table/:meetingId" element={<ProtectedRoute><TheTable /></ProtectedRoute>} />
       <Route path="/outreach-lists" element={<ProtectedRoute><OutreachLists /></ProtectedRoute>} />

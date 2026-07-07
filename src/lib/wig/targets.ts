@@ -25,6 +25,7 @@ export const TARGET_KEYS = {
   saSales: 'sa_sales_target',
   coachClose: 'coach_close_rate_target',
   studioLeads: 'studio_leads_target',
+  netGain: 'net_gain_target',
 } as const;
 
 export type TargetKind = keyof typeof TARGET_KEYS;
@@ -35,6 +36,7 @@ export interface MonthlyTargets {
   saSales: number | null;
   coachClose: number | null;
   studioLeads: number | null;
+  netGain: number | null;
 }
 
 function parseIntOrNull(v: unknown): number | null {
@@ -55,6 +57,7 @@ export async function loadMonthlyTargets(yyyymm: string): Promise<MonthlyTargets
     monthKey('saSales', yyyymm),
     monthKey('coachClose', yyyymm),
     monthKey('studioLeads', yyyymm),
+    monthKey('netGain', yyyymm),
     // legacy fallbacks for studio leads only
     `wig_lead_target:${yyyymm}`,
     'wig_lead_target',
@@ -76,6 +79,7 @@ export async function loadMonthlyTargets(yyyymm: string): Promise<MonthlyTargets
     saSales: parseIntOrNull(map.get(monthKey('saSales', yyyymm))),
     coachClose: parseIntOrNull(map.get(monthKey('coachClose', yyyymm))),
     studioLeads: studio,
+    netGain: parseIntOrNull(map.get(monthKey('netGain', yyyymm))),
   };
 }
 
