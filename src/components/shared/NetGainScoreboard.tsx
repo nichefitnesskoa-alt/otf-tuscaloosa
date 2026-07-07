@@ -236,61 +236,49 @@ export function NetGainScoreboard({ className }: { className?: string }) {
         </div>
 
 
-        {/* Monthly goal strip — always visible so admin can set/edit */}
+        {/* Unified goal + churn strip — always white lettering */}
         <div className={cn(
-          'px-4 sm:px-5 py-2 text-xs sm:text-sm font-semibold border-t flex flex-wrap items-center gap-x-3 gap-y-1',
-          positive && 'border-white/20 bg-black/10 text-white/90',
-          negative && 'border-white/20 bg-black/10 text-white/90',
-          !positive && !negative && 'border-border bg-muted/30 text-muted-foreground',
+          'px-4 sm:px-5 py-2 text-xs sm:text-sm font-semibold border-t flex flex-wrap items-center gap-x-3 gap-y-1 text-white',
+          (positive || negative) ? 'border-white/20 bg-black/10' : 'border-white/20 bg-black/40',
         )}>
-          <NetGainGoalChip
-            currentValue={value}
-            tone={positive || negative ? 'light' : 'dark'}
-          />
+          <NetGainGoalChip currentValue={value} tone="light" />
+          {nextChurnDate && (
+            <button
+              type="button"
+              onClick={() => setUpcomingOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 -my-1 border border-white/30 bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-colors"
+              aria-label="View upcoming churns"
+            >
+              <CalendarClock className="w-3.5 h-3.5" />
+              <span>
+                Next churn: <span className="font-black">{nextChurnLabel}</span>
+                {' · '}
+                <span className="tabular-nums font-black">{nextChurnCount}</span> member{nextChurnCount === 1 ? '' : 's'}
+              </span>
+              <span className="opacity-80 underline underline-offset-2 ml-1">View all</span>
+            </button>
+          )}
+          {scheduledTerminationsLeft > 0 && (
+            <span className="text-white">
+              <span className="tabular-nums font-black">{scheduledTerminationsLeft}</span> scheduled termination{scheduledTerminationsLeft === 1 ? '' : 's'} left this month.
+            </span>
+          )}
+          {goalToBreakEven > 0 ? (
+            <span className="text-white">
+              Need <span className="tabular-nums font-black">+{goalToBreakEven}</span> membership sale{goalToBreakEven === 1 ? '' : 's'} by {eomLabel} to finish positive.
+            </span>
+          ) : value >= 0 && scheduledTerminationsLeft > 0 ? (
+            <span className="text-white">On pace to end {eomLabel} positive.</span>
+          ) : null}
+          {goalNeededToHitGoal != null && goalNeededToHitGoal > 0 && (
+            <span className="text-white">
+              Need <span className="tabular-nums font-black">+{goalNeededToHitGoal}</span> more sale{goalNeededToHitGoal === 1 ? '' : 's'} by {eomLabel} to hit goal of <span className="tabular-nums font-black">+{monthlyGoal}</span>.
+            </span>
+          )}
+          {goalNeededToHitGoal != null && goalNeededToHitGoal <= 0 && monthlyGoal != null && (
+            <span className="text-white">Goal of <span className="tabular-nums font-black">+{monthlyGoal}</span> hit — keep stacking.</span>
+          )}
         </div>
-
-        {(scheduledTerminationsLeft > 0 || goalToBreakEven > 0 || negative) && (
-          <div className={cn(
-            'px-4 sm:px-5 py-2 text-xs sm:text-sm font-semibold border-t flex flex-wrap items-center gap-x-3 gap-y-1',
-            positive && 'border-white/20 bg-black/10 text-white/90',
-            negative && 'border-white/20 bg-black/10 text-white/90',
-            !positive && !negative && 'border-border bg-muted/30 text-muted-foreground',
-          )}>
-            {nextChurnDate && (
-              <button
-                type="button"
-                onClick={() => setUpcomingOpen(true)}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-md px-2 py-1 -my-1 border cursor-pointer transition-colors',
-                  (positive || negative)
-                    ? 'border-white/30 bg-white/10 hover:bg-white/20 text-white'
-                    : 'border-border bg-background hover:bg-muted text-foreground',
-                )}
-                aria-label="View upcoming churns"
-              >
-                <CalendarClock className="w-3.5 h-3.5" />
-                <span>
-                  Next churn: <span className="font-black">{nextChurnLabel}</span>
-                  {' · '}
-                  <span className="tabular-nums font-black">{nextChurnCount}</span> member{nextChurnCount === 1 ? '' : 's'}
-                </span>
-                <span className="opacity-70 underline underline-offset-2 ml-1">View all</span>
-              </button>
-            )}
-            {scheduledTerminationsLeft > 0 && (
-              <span>
-                <span className="tabular-nums font-black">{scheduledTerminationsLeft}</span> scheduled termination{scheduledTerminationsLeft === 1 ? '' : 's'} left this month.
-              </span>
-            )}
-            {goalToBreakEven > 0 ? (
-              <span>
-                Need <span className="tabular-nums font-black">+{goalToBreakEven}</span> membership sale{goalToBreakEven === 1 ? '' : 's'} by {eomLabel} to finish positive.
-              </span>
-            ) : value >= 0 && scheduledTerminationsLeft > 0 ? (
-              <span>On pace to end {eomLabel} positive.</span>
-            ) : null}
-          </div>
-        )}
       </Card>
 
       <EditDialog
