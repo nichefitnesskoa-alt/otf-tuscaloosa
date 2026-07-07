@@ -148,6 +148,20 @@ export function NetGainScoreboard({ className }: { className?: string }) {
     : 0;
   const nextChurnLabel = nextChurnDate ? format(parseISO(nextChurnDate), 'EEE, MMM d') : '';
 
+  // Monthly Net Gain goal (canonical loader)
+  const [monthlyGoal, setMonthlyGoal] = useState<number | null>(null);
+  useEffect(() => {
+    const monthKey = todayCST().slice(0, 7);
+    const run = () => loadMonthlyTargets(monthKey).then(t => setMonthlyGoal(t.netGain));
+    run();
+    window.addEventListener(EVT, run);
+    return () => window.removeEventListener(EVT, run);
+  }, []);
+  // Sales still needed to hit the monthly goal, accounting for pending churns.
+  const goalNeededToHitGoal = monthlyGoal != null
+    ? Math.max(0, (monthlyGoal + scheduledTerminationsLeft) - value)
+    : null;
+
   return (
     <>
       <Card
