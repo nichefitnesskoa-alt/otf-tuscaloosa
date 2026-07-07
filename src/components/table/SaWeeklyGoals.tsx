@@ -57,7 +57,7 @@ export function SaWeeklyGoals({ weekStart }: Props) {
   const sales = useSaSales(monthStartYMD, monthEndYMD);
 
   const [targets, setTargets] = useState<MonthlyTargets>({
-    saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null,
+    saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null, netGain: null,
   });
   const [vision, setVision] = useState(DEFAULT_VISION);
   const [editingVision, setEditingVision] = useState(false);
