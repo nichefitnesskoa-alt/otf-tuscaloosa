@@ -10,7 +10,7 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Flag, Plus, ChevronLeft, ChevronRight, ChevronDown, Settings, History, Trophy, Check, X, Pencil } from 'lucide-react';
+import { Flag, Plus, ChevronLeft, ChevronRight, ChevronDown, Settings, History, Trophy, Check, X, Pencil, Presentation } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { parseLocalDate } from '@/lib/dateUtils';
 import {
@@ -165,6 +165,13 @@ export default function TheTable() {
         </div>
         <div className="flex gap-2 items-center flex-wrap justify-end">
           {meeting && <ExportTeamMeetingButton meetingId={meeting.id} meetingDate={meeting.meeting_date} />}
+          <Button
+            size="sm"
+            onClick={() => navigate('/the-table/deck')}
+            className="bg-brand hover:bg-brand-hover text-white"
+          >
+            <Presentation className="w-4 h-4 mr-1" /> Present Deck
+          </Button>
           <Button variant="outline" size="sm" onClick={() => navigate('/the-table/history')}>
             <History className="w-4 h-4 mr-1" /> Past Meetings
           </Button>
