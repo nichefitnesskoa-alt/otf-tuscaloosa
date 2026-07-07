@@ -1,60 +1,62 @@
-## Goal
-Every lead-source edit surface, anywhere in the app, must (a) offer the "referring member name" field the moment a referral/"(Friend)" source is picked, and (b) trigger the same SOML/referral attribution as if that source had been set at booking time — even when the edit happens days later. Right now this only works in three places (BookIntroDialog, EditBookingDialog, PersonJourneyCard) and the DB trigger only fires when `lead_source`/`referred_by_member_name` actually change on `intros_booked`.
+# Monthly Net Gain Goal + Own It Slide Deck
 
-## Reach map — lead-source edit surfaces
-Surfaces that let a user change `lead_source` on an existing booking (need the referrer field + referral write-through):
+## Part 1 — Editable Monthly Net Gain Goal
 
-1. `src/features/pipeline/components/PipelineSpreadsheet.tsx` (line ~743) — inline Select, writes `lead_source` directly via `supabase.from('intros_booked').update(...)`. No referrer prompt.
-2. `src/components/admin/ClientJourneyPanel.tsx` (line ~2272) — "Edit Booking" dialog. No referrer prompt.
-3. `src/components/admin/ClientJourneyPanel.tsx` (line ~2392) — "Edit Run" dialog. Writes `lead_source` on `intros_run`, plus a paired `intros_booked` update on save. No referrer prompt.
-4. `src/components/RescheduleClientDialog.tsx` — carries `lead_source` into a new booking. No referrer prompt for friend sources.
-5. `src/components/admin/EditSaleDialog.tsx` — edits `lead_source` on `sales_outside_intro` and on linked `intros_booked`. No referrer prompt.
-6. `src/features/pipeline/pipelineActions.ts` `updateBookingFieldsFromPipeline` — helper already accepts `referredByMemberName`; callers from Pipeline drilldowns need to pass it.
-7. Any other drilldown that shows lead source (WIG SomlSection, Recaps, ShiftRecap, UnresolvedIntros, dashboard sheets) — currently read-only for lead source; leave as-is unless they expose an edit control.
+**New table:** `monthly_net_gain_goals`
+- `id uuid pk`, `month_key text unique` (format `YYYY-MM`, America/Chicago), `goal integer not null`, `created_by text`, `created_at`, `updated_at`
+- RLS: authenticated read; write gated to Koa (admin identity) via app-layer check + policy allowing authenticated writes (matches existing patterns like `net_gain_state`).
+- Grants: `SELECT, INSERT, UPDATE` to `authenticated`, `ALL` to `service_role`.
 
-## Fix strategy
+**New hook:** `src/hooks/useMonthlyNetGainGoal.ts`
+- `useMonthlyNetGainGoal(monthKey?)` — returns `{ goal, monthKey }` for current CT month by default.
+- `useSetMonthlyNetGainGoal()` — upsert mutation, invalidates `['monthly-net-gain-goal', monthKey]`.
 
-### 1. Single shared control: `<LeadSourceWithReferrerField />`
-Create `src/components/shared/LeadSourceWithReferrerField.tsx`:
-- Props: `value`, `referredByMemberName`, `onChange({ lead_source, referred_by_member_name })`, `required`, `layout` (`stacked` | `inline`).
-- Renders the canonical lead-source Select (imported from the existing options list, so *all* "(Friend)" variants are present — fixes the earlier "not all friend sources listed" concern in these surfaces).
-- When `isReferralLikeSource(value)` is true, renders a required text input for the referring member's name.
-- Clears the referrer when the user switches back to a non-referral source.
-- Exports a `validateLeadSourceReferrer(value, referrer)` helper that every save handler calls before submit.
+**UI surfaces (single canonical component):**
+- New `src/components/wig/NetGainGoalEditor.tsx` — displays "Goal: {n}" with `InlineEditField` (Koa only, read-only for everyone else via `isKoa(user)`).
+- Mount on WIG Net Gain tile (existing net gain display) and reuse inside the Own It slide.
 
-Replace the inline Selects + ad-hoc friend logic in:
-- PipelineSpreadsheet inline editor (row 743) — swap to a small Popover that renders this control so the change + referrer commit together.
-- ClientJourneyPanel edit-booking dialog (2272) and edit-run dialog (2392).
-- RescheduleClientDialog.
-- EditSaleDialog (only when editing the linked booking's lead source).
-- EditBookingDialog, PersonJourneyCard, BookIntroDialog, SelfSourcedLeadForm — migrate to the shared control so future changes stay in one file.
+## Part 2 — Own It Live Slide Deck
 
-### 2. Save-path write-through
-Every save handler for the surfaces above must persist BOTH `lead_source` and `referred_by_member_name` in a single `update` (or clear the referrer when the new source isn't referral-like). Route them through `updateBookingFieldsFromPipeline` (or a new `updateBookingLeadSource` helper for non-pipeline surfaces) so a single function owns the referral write.
+**Entry point:** New button in `src/pages/TheTable.tsx` (Own It tab) header — "Present Deck" — opens fullscreen React slide viewer. Live data, keyboard nav (←/→/Esc), 1920×1080 scaled to viewport per slides-app skill.
 
-### 3. Make edits behave "as if true from the start" — DB layer
-The `soml_create_pending_referral` trigger was already made UPDATE-aware last turn, but only for `intros_booked`. Extend coverage:
+**New files:**
+- `src/features/ownItDeck/OwnItDeckPage.tsx` — fullscreen container, scaling, keyboard nav, slide index in URL (`?slide=N`).
+- `src/features/ownItDeck/ScaledSlide.tsx` — 1920×1080 canvas wrapper.
+- `src/features/ownItDeck/useDeckData.ts` — single hook that fans out to all data hooks (net gain, SGL/non-SGL funnels, SOML, WIG leads, coach close %, individual coach stats, action items, owner commitments) for current CT month + current meeting.
+- `src/features/ownItDeck/slides/` — one component per slide (9 slides).
+- Route: `/the-table/deck` (protected, admin/coach).
 
-a. **Edits on `intros_run.lead_source`** — when a run row's lead source is changed to a referral/friend variant, propagate the change onto its `linked_intro_booked_id` booking (source of truth), which fires the existing trigger. Add a `trg_intros_run_propagate_referral_to_booking` BEFORE UPDATE trigger that, when `lead_source` or `referred_by_member_name` changes on a run, syncs those two fields onto the linked booking (only when the booking's values are stale or empty). This gives us one funnel — the booking trigger handles pending-referral creation.
+**Slide order (fixed per user):**
+1. `Slide01_NetGainVsGoal` — big number: current `net_gain_state.value` vs monthly goal, delta, pace line.
+2. `Slide02_SglFunnel` — MTD leads → booked → showed → sold, filtered by `isSglLeadSource`. Uses `useDashboardMetrics` / existing SGL selectors.
+3. `Slide03_NonSglFunnel` — same funnel, filtered by `NON_SGL_SOURCES`.
+4. `Slide04_SomlStats` — pulls `useSomlData` + `soml_sa_goals` to show per-SA on-track/behind.
+5. `Slide05_WigLeadsStats` — WIG lead-source performance from `useLeadMeasures` / lead-source drilldown, on-track flags.
+6. `Slide06_CoachCloseRate` — overall coach close % (first-intro Total Journey) vs studio goal from `studio_settings`.
+7. `Slide07_IndividualCoachStats` — per-coach internal (5 lead measures from `fv_scorecards` + close %) and OTF corporate benchmarks; one row per active coach.
+8. `Slide08_ActionItemsOpen` — `useActionItems` filtered to open/in_progress across all meetings, grouped by owner.
+9. `Slide09_OwnerCommitments` — every active non-architect owner from `useActiveOwners` × current meeting `useOwnerEntries`: submitted commitment text OR "Not submitted" chip; visually flags gaps.
 
-b. **Retro-fix already-linked runs**: convert the linked booking's row to `soml_pending_referrals` immediately when a resolved run exists (i.e., the intro already ran or already has a sale). The existing `soml_resolve_pending_referral` trigger will then advance it to `realized`/`not_converted` on the next run touch. Add a one-shot: after inserting the pending row from the booking trigger, if a linked run already has a sale/no-interest result, call the resolve function inline so the state jumps straight to the correct terminal state without waiting for another edit.
+**Period basis:** Current calendar month in America/Chicago for all monthly metrics; current meeting for action items + owner commitments.
 
-c. **Backfill data migration**: run the same UPDATE-touch backfill we did before, but now include (i) bookings whose lead source was edited to a friend variant since last backfill, and (ii) bookings whose linked run carries a referral source that the booking doesn't. Idempotent because of `v_existing` guard.
+**Design:** Dark OTF theme, PP Right Grotesk, semantic slide type classes (`.slide-title`, `.slide-body`, etc.) per slides-app skill. OTF Orange for accents, big stat callouts (72-120pt), one metric focus per slide. Header shows "OWN IT — Week of {Mon DD}" and slide N/9.
 
-d. Keep `enforce_member_referral_has_referrer` trigger — it already blocks bad edits system-wide.
+**Data source reuse (no new business logic):**
+- Net gain: existing `net_gain_state` + new goal table.
+- SGL/non-SGL: `isSglLeadSource` + existing dashboard hooks.
+- SOML: `useSomlData`, `soml_sa_goals`.
+- WIG leads: existing WIG hooks.
+- Coach close %: existing coach performance selectors (Total Journey).
+- Individual coach stats: `useFvTrendData` + close %.
+- Action items: `useActionItems`.
+- Owner commitments: `useActiveOwners` + `useOwnerEntries` for current meeting.
 
-### 4. Coherence proof (must produce before closing)
-- Pick a booking currently with a non-referral source, edit it via PipelineSpreadsheet to "Online Intro Offer (Friend)" + referrer "TestMember" → verify `soml_pending_referrals` row appears with correct `credited_sa` and `referring_member`.
-- Repeat via ClientJourneyPanel edit-booking dialog and edit-run dialog.
-- Pick a booking whose linked run already has `result_canon='SALE'`, flip source to a friend variant → verify pending row is created AND resolved to `realized` in the same transaction chain.
-- Query `soml_pending_referrals` counts before/after to confirm no duplicates on repeat edits.
-- Cross-page: WIG SomlSection referral count = raw `soml_pending_referrals` count for the period.
+## Files Touched / Created
+- **New DB migration:** `monthly_net_gain_goals` table + grants + RLS.
+- **New:** `src/hooks/useMonthlyNetGainGoal.ts`, `src/components/wig/NetGainGoalEditor.tsx`, `src/features/ownItDeck/*` (page, ScaledSlide, useDeckData, 9 slide components, index).
+- **Edited:** `src/pages/TheTable.tsx` (Present Deck button), `src/App.tsx` (new route), WIG net gain surface (mount goal editor).
 
-## Technical touch list
-- New: `src/components/shared/LeadSourceWithReferrerField.tsx`
-- New: `src/lib/leads/updateBookingLeadSource.ts` (thin wrapper reused by non-pipeline surfaces)
-- Edited: PipelineSpreadsheet.tsx, ClientJourneyPanel.tsx (2 dialogs), RescheduleClientDialog.tsx, EditSaleDialog.tsx, EditBookingDialog.tsx, PersonJourneyCard.tsx, BookIntroDialog.tsx, SelfSourcedLeadForm.tsx, pipelineActions.ts
-- Migration: extend `soml_create_pending_referral` for inline resolve; add `trg_intros_run_propagate_referral_to_booking`; run backfill UPDATE over `intros_booked` where source is referral-like and no pending row exists; also touch bookings whose linked run's source disagrees.
-
-## Out of scope (confirm)
-- Adding inline lead-source editing to surfaces that don't currently expose it (read-only drilldowns like UnresolvedIntros, Recaps line items). The user said "any editable field should be editable on the spot" — I'm reading that as "every place that already lets me edit lead source should also let me set the referrer," not "add new edit controls to every read-only card." If you want me to also add inline lead-source editing to those read-only surfaces, say so and I'll expand scope.
+## Out of Scope
+- Downloadable .pptx file (user chose live in-app only).
+- Editing goal from anywhere but WIG + deck slide.
+- Broadcast/presenter view.
