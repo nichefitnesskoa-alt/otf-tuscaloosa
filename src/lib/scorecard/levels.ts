@@ -81,3 +81,17 @@ export const LEVEL_COPY: Record<1 | 2 | 3, { headline: string; body: string; col
     color: 'hsl(20 90% 47%)',  // OTF orange
   },
 };
+
+/**
+ * Canonical "did this scorecard get filled out?" check.
+ * A scorecard counts as SCORED when it has been submitted OR when the coach
+ * has entered a real total (draft with actual scores). This keeps WIG "Scored"
+ * counts, coach dashboards, drilldowns, and averages all agreeing that a
+ * saved-with-scores card is real — not silently dropped just because Submit
+ * was never tapped.
+ */
+export function isScorecardScored(sc: { submitted_at?: string | null; total_score?: number | null } | null | undefined): boolean {
+  if (!sc) return false;
+  if (sc.submitted_at) return true;
+  return (sc.total_score ?? 0) > 0;
+}
