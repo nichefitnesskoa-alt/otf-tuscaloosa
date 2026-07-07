@@ -72,7 +72,7 @@ export interface OwnerFull {
   category: string | null;
   entry: OwnerEntry | null;
   submitted: boolean;
-  priorCommitment: string | null;   // fallback commitment from prior meeting
+  priorEntry: OwnerEntry | null;    // full prior meeting entry (fallback for owners who didn't submit)
   openActions: Array<{ id: string; description: string; due_date: string; status: string }>;
 }
 
@@ -307,24 +307,24 @@ export function useDeckData(): DeckData {
     return { overallPct, goalPct: targets.coachClose, overallRuns: totalRuns, overallSales: totalSales, rows };
   }, [bookedRows, runRows, monthSales, targets.coachClose]);
 
-  // Prior meeting commitments (for owners not submitted this week)
-  const { data: priorCommitments = {} } = useQuery({
-    queryKey: ['deck-prior-commitments', meeting?.id],
+  // Prior meeting entries (fallback for owners who didn't submit this week)
+  const { data: priorEntriesByOwner = {} } = useQuery({
+    queryKey: ['deck-prior-entries', meeting?.id],
     queryFn: async () => {
-      if (!meeting?.id) return {} as Record<string, string>;
+      if (!meeting?.id) return {} as Record<string, OwnerEntry>;
       const { data: prior } = await supabase.from('table_meetings')
         .select('id,meeting_date')
         .lt('meeting_date', meeting.meeting_date)
         .order('meeting_date', { ascending: false })
         .limit(1);
       const priorId = (prior as any[])?.[0]?.id;
-      if (!priorId) return {} as Record<string, string>;
+      if (!priorId) return {} as Record<string, OwnerEntry>;
       const { data: priorEntries } = await supabase.from('table_owner_entries')
-        .select('owner_id,commitment')
+        .select('*')
         .eq('meeting_id', priorId);
-      const out: Record<string, string> = {};
-      for (const e of ((priorEntries as any[]) || [])) {
-        if (e.commitment) out[e.owner_id] = e.commitment;
+      const out: Record<string, OwnerEntry> = {};
+      for (const e of (((priorEntries as any[]) || []) as OwnerEntry[])) {
+        out[e.owner_id] = e;
       }
       return out;
     },
@@ -359,7 +359,7 @@ export function useDeckData(): DeckData {
           category: o.category,
           entry: e,
           submitted: !!e?.submitted_at,
-          priorCommitment: priorCommitments[o.id] ?? null,
+          priorEntry: priorEntriesByOwner[o.id] ?? null,
           openActions,
         };
       })
@@ -367,7 +367,7 @@ export function useDeckData(): DeckData {
         if (a.submitted !== b.submitted) return a.submitted ? -1 : 1;
         return a.display_name.localeCompare(b.display_name);
       });
-  }, [owners, entries, priorCommitments, actionsByOwner]);
+  }, [owners, entries, priorEntriesByOwner, actionsByOwner]);
 
   const openActions = useMemo(() =>
     allActions
