@@ -29,7 +29,10 @@ export function pickPrimaryScorecards(cards: FvScorecard[], mode: EvalPrimary): 
   const byTimer = new Map<string, FvScorecard>();
   const orphan: FvScorecard[] = [];
   for (const c of cards) {
-    if (!c.submitted_at) continue;
+    // Include drafts with a real score (submitted OR total_score > 0) —
+    // matches isScorecardScored so WIG "Scored" count and "Avg score" agree.
+    const scored = !!c.submitted_at || (c.total_score ?? 0) > 0;
+    if (!scored) continue;
     if (!c.first_timer_id) { orphan.push(c); continue; }
     const existing = byTimer.get(c.first_timer_id);
     if (!existing) { byTimer.set(c.first_timer_id, c); continue; }
@@ -39,8 +42,13 @@ export function pickPrimaryScorecards(cards: FvScorecard[], mode: EvalPrimary): 
     if (existing.eval_type === otherType && c.eval_type === wantType) {
       byTimer.set(c.first_timer_id, c); continue;
     }
-    // Same type — prefer most recently submitted.
-    if ((c.submitted_at || '') > (existing.submitted_at || '')) byTimer.set(c.first_timer_id, c);
+    // Same type — prefer most recently submitted, then highest score for drafts.
+    const cKey = c.submitted_at || '';
+    const eKey = existing.submitted_at || '';
+    if (cKey > eKey) { byTimer.set(c.first_timer_id, c); continue; }
+    if (cKey === eKey && (c.total_score ?? 0) > (existing.total_score ?? 0)) {
+      byTimer.set(c.first_timer_id, c);
+    }
   }
   return [...byTimer.values(), ...orphan];
 }
