@@ -3,11 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, CheckCircle, Users } from 'lucide-react';
-import otfLogo from '@/assets/otf-logo.jpg';
+import { Loader2, CheckCircle } from 'lucide-react';
+import otfLogoAsset from '@/assets/otf-logo-orange.png.asset.json';
 import { z } from 'zod';
 
-const OTF_ORANGE = '#FF6900';
+const OTF_ORANGE = '#FF6F0D';
+const OTF_BONE = '#FDF7EA';
+const OTF_DARK = '#0A0A0A';
+const BRAND_FONT = "'PP Right Grotesk', 'Arial Black', 'Helvetica Neue', Arial, sans-serif";
 
 const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 const digits = (s: string) => s.replace(/\D/g, '');
@@ -21,6 +24,14 @@ const schema = z.object({
   friendPhone: z.string().trim().refine(v => digits(v).length === 10, 'Enter a 10-digit phone'),
   friendEmail: z.string().trim().email('Enter a valid email').max(255),
 });
+
+const inputCls =
+  'mt-2 h-12 rounded-none border-0 border-b bg-transparent px-0 text-[15px] tracking-[-0.01em] ' +
+  'text-[#FDF7EA] placeholder:text-[#FDF7EA]/30 focus-visible:ring-0 focus-visible:ring-offset-0 ' +
+  'focus-visible:border-[#FF6F0D] transition-colors';
+const inputStyle = { borderBottomColor: 'rgba(253,247,234,0.25)' } as React.CSSProperties;
+const labelCls = 'text-[11px] uppercase tracking-[0.18em] text-[#FDF7EA]/70 font-medium';
+const sectionLabelCls = 'text-[10px] uppercase tracking-[0.28em] text-[#FF6F0D] font-bold';
 
 export default function BuddyCard() {
   const [memberName, setMemberName] = useState('');
@@ -91,16 +102,19 @@ export default function BuddyCard() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] text-[#FDF7EA] flex items-center justify-center p-6">
-        <div className="max-w-md w-full text-center space-y-5">
-          <CheckCircle className="w-16 h-16 mx-auto" style={{ color: OTF_ORANGE }} />
-          <h1 className="text-3xl font-bold">You're the best.</h1>
-          <p className="text-lg text-[#D7D7D7]">
-            We'll reach out to {friendFirst}. When they sign up for a membership,
+      <div
+        className="min-h-screen flex items-center justify-center p-6"
+        style={{ backgroundColor: OTF_DARK, color: OTF_BONE, fontFamily: BRAND_FONT, letterSpacing: '-0.02em' }}
+      >
+        <div className="max-w-md w-full text-center space-y-6">
+          <CheckCircle className="w-16 h-16 mx-auto" style={{ color: OTF_ORANGE }} strokeWidth={1.5} />
+          <h1 className="text-5xl font-bold leading-[0.95]">You're the best.</h1>
+          <p className="text-lg text-[#FDF7EA]/80 leading-snug">
+            We'll reach out to {friendFirst}. When they sign up,
             you get <span style={{ color: OTF_ORANGE }} className="font-bold">$50 off</span> your next month.
           </p>
-          <p className="text-sm text-[#D7D7D7]/70">
-            Want to send us another? Refresh to submit again.
+          <p className="text-xs uppercase tracking-[0.2em] text-[#FDF7EA]/50">
+            Refresh to send another
           </p>
         </div>
       </div>
@@ -108,83 +122,100 @@ export default function BuddyCard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-[#FDF7EA] p-6">
-      <div className="max-w-md mx-auto space-y-6">
-        <div className="flex flex-col items-center gap-3 pt-6">
-          <img src={otfLogo} alt="Orangetheory Tuscaloosa" className="w-20 h-20 rounded-lg object-cover" />
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5" style={{ color: OTF_ORANGE }} />
-            <span className="text-sm uppercase tracking-widest" style={{ color: OTF_ORANGE }}>
-              Bring a Buddy
-            </span>
-          </div>
-          <h1 className="text-3xl font-bold text-center leading-tight">
-            Give us a friend.<br />Get $50 off.
+    <div
+      className="min-h-screen"
+      style={{ backgroundColor: OTF_DARK, color: OTF_BONE, fontFamily: BRAND_FONT, letterSpacing: '-0.02em' }}
+    >
+      <div className="max-w-md mx-auto px-6 pt-10 pb-16">
+        {/* Header */}
+        <div className="flex flex-col items-center text-center space-y-5">
+          <img
+            src={otfLogoAsset.url}
+            alt="Orangetheory Fitness Tuscaloosa"
+            className="h-12 w-auto object-contain"
+          />
+          <div className={sectionLabelCls}>Bring a Buddy</div>
+          <h1 className="text-[44px] leading-[0.92] font-bold">
+            Give us a friend.
+            <br />
+            <span style={{ color: OTF_ORANGE }}>Get $50 off.</span>
           </h1>
-          <p className="text-sm text-[#D7D7D7] text-center">
+          <p className="text-[15px] text-[#FDF7EA]/75 leading-snug max-w-sm">
             Drop their name and we'll reach out. When they sign up for a membership,
-            your next month is $50 off. Simple.
+            your next month is $50 off.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 pt-2">
-          <div className="space-y-4 rounded-lg border border-[#D7D7D7]/20 p-4">
-            <p className="text-xs uppercase tracking-wider text-[#D7D7D7]/80">About you</p>
+        <form onSubmit={handleSubmit} className="mt-10 space-y-10">
+          {/* About you */}
+          <section className="space-y-5">
+            <div className="flex items-center gap-3">
+              <span className={sectionLabelCls}>01 · About You</span>
+              <div className="h-px flex-1" style={{ backgroundColor: 'rgba(253,247,234,0.15)' }} />
+            </div>
 
             <div>
-              <Label htmlFor="memberName" className="text-[#FDF7EA]">Your full name</Label>
+              <Label htmlFor="memberName" className={labelCls}>Your full name</Label>
               <Input
                 id="memberName"
                 value={memberName}
                 onChange={e => setMemberName(e.target.value)}
                 placeholder="Jane Smith"
-                className="mt-1 bg-[#0A0A0A] border-[#D7D7D7]/30 text-[#FDF7EA] h-12"
+                className={inputCls}
+                style={inputStyle}
                 autoComplete="name"
               />
-              {errors.memberName && <p className="text-xs text-red-400 mt-1">{errors.memberName}</p>}
+              {errors.memberName && <p className="text-xs text-red-400 mt-2">{errors.memberName}</p>}
             </div>
 
             <div>
-              <Label htmlFor="memberContact" className="text-[#FDF7EA]">Your phone or email</Label>
+              <Label htmlFor="memberContact" className={labelCls}>Your phone or email</Label>
               <Input
                 id="memberContact"
                 value={memberContact}
                 onChange={e => setMemberContact(e.target.value)}
-                placeholder="So we know who to credit the $50 to"
-                className="mt-1 bg-[#0A0A0A] border-[#D7D7D7]/30 text-[#FDF7EA] h-12"
+                placeholder="So we know who to credit"
+                className={inputCls}
+                style={inputStyle}
               />
-              {errors.memberContact && <p className="text-xs text-red-400 mt-1">{errors.memberContact}</p>}
+              {errors.memberContact && <p className="text-xs text-red-400 mt-2">{errors.memberContact}</p>}
             </div>
-          </div>
+          </section>
 
-          <div className="space-y-4 rounded-lg border border-[#D7D7D7]/20 p-4">
-            <p className="text-xs uppercase tracking-wider text-[#D7D7D7]/80">Your friend</p>
+          {/* Your friend */}
+          <section className="space-y-5">
+            <div className="flex items-center gap-3">
+              <span className={sectionLabelCls}>02 · Your Friend</span>
+              <div className="h-px flex-1" style={{ backgroundColor: 'rgba(253,247,234,0.15)' }} />
+            </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="friendFirst" className="text-[#FDF7EA]">First name</Label>
+                <Label htmlFor="friendFirst" className={labelCls}>First name</Label>
                 <Input
                   id="friendFirst"
                   value={friendFirst}
                   onChange={e => setFriendFirst(e.target.value)}
-                  className="mt-1 bg-[#0A0A0A] border-[#D7D7D7]/30 text-[#FDF7EA] h-12"
+                  className={inputCls}
+                  style={inputStyle}
                 />
-                {errors.friendFirst && <p className="text-xs text-red-400 mt-1">{errors.friendFirst}</p>}
+                {errors.friendFirst && <p className="text-xs text-red-400 mt-2">{errors.friendFirst}</p>}
               </div>
               <div>
-                <Label htmlFor="friendLast" className="text-[#FDF7EA]">Last name</Label>
+                <Label htmlFor="friendLast" className={labelCls}>Last name</Label>
                 <Input
                   id="friendLast"
                   value={friendLast}
                   onChange={e => setFriendLast(e.target.value)}
-                  className="mt-1 bg-[#0A0A0A] border-[#D7D7D7]/30 text-[#FDF7EA] h-12"
+                  className={inputCls}
+                  style={inputStyle}
                 />
-                {errors.friendLast && <p className="text-xs text-red-400 mt-1">{errors.friendLast}</p>}
+                {errors.friendLast && <p className="text-xs text-red-400 mt-2">{errors.friendLast}</p>}
               </div>
             </div>
 
             <div>
-              <Label htmlFor="friendPhone" className="text-[#FDF7EA]">Their phone</Label>
+              <Label htmlFor="friendPhone" className={labelCls}>Their phone</Label>
               <Input
                 id="friendPhone"
                 type="tel"
@@ -192,28 +223,31 @@ export default function BuddyCard() {
                 value={friendPhone}
                 onChange={e => setFriendPhone(e.target.value)}
                 placeholder="(205) 555-1234"
-                className="mt-1 bg-[#0A0A0A] border-[#D7D7D7]/30 text-[#FDF7EA] h-12"
+                className={inputCls}
+                style={inputStyle}
               />
-              {errors.friendPhone && <p className="text-xs text-red-400 mt-1">{errors.friendPhone}</p>}
+              {errors.friendPhone && <p className="text-xs text-red-400 mt-2">{errors.friendPhone}</p>}
             </div>
 
             <div>
-              <Label htmlFor="friendEmail" className="text-[#FDF7EA]">Their email</Label>
+              <Label htmlFor="friendEmail" className={labelCls}>Their email</Label>
               <Input
                 id="friendEmail"
                 type="email"
                 inputMode="email"
                 value={friendEmail}
                 onChange={e => setFriendEmail(e.target.value)}
-                className="mt-1 bg-[#0A0A0A] border-[#D7D7D7]/30 text-[#FDF7EA] h-12"
+                className={inputCls}
+                style={inputStyle}
               />
-              {errors.friendEmail && <p className="text-xs text-red-400 mt-1">{errors.friendEmail}</p>}
+              {errors.friendEmail && <p className="text-xs text-red-400 mt-2">{errors.friendEmail}</p>}
             </div>
-          </div>
+          </section>
 
-          <p className="text-xs text-[#D7D7D7]/70 text-center">
-            Heads up: we'll text them from our studio number. Only submit friends who'd actually
-            want the message.
+          <p className="text-[11px] uppercase tracking-[0.15em] text-[#FDF7EA]/50 text-center leading-relaxed">
+            We'll text them from our studio number.
+            <br />
+            Only send friends who'd want to hear from us.
           </p>
 
           {errors.submit && (
@@ -223,8 +257,8 @@ export default function BuddyCard() {
           <Button
             type="submit"
             disabled={submitting}
-            className="w-full h-14 text-base font-bold text-black hover:opacity-90"
-            style={{ backgroundColor: OTF_ORANGE }}
+            className="w-full h-14 text-base font-bold tracking-[-0.01em] rounded-none hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: OTF_ORANGE, color: OTF_DARK, fontFamily: BRAND_FONT }}
           >
             {submitting ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending&hellip;</>
