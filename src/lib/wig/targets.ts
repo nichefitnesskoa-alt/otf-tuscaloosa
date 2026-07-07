@@ -57,6 +57,7 @@ export async function loadMonthlyTargets(yyyymm: string): Promise<MonthlyTargets
     monthKey('saSales', yyyymm),
     monthKey('coachClose', yyyymm),
     monthKey('studioLeads', yyyymm),
+    monthKey('netGain', yyyymm),
     // legacy fallbacks for studio leads only
     `wig_lead_target:${yyyymm}`,
     'wig_lead_target',
@@ -78,6 +79,7 @@ export async function loadMonthlyTargets(yyyymm: string): Promise<MonthlyTargets
     saSales: parseIntOrNull(map.get(monthKey('saSales', yyyymm))),
     coachClose: parseIntOrNull(map.get(monthKey('coachClose', yyyymm))),
     studioLeads: studio,
+    netGain: parseIntOrNull(map.get(monthKey('netGain', yyyymm))),
   };
 }
 
