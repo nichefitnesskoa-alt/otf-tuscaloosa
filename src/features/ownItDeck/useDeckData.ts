@@ -6,6 +6,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { fromZonedTime } from 'date-fns-tz';
 import { supabase } from '@/integrations/supabase/client';
 import { isSglLeadSource } from '@/lib/metrics/sglClassification';
 import { isSaleCanon, getRunSaleDate, isPostDatedSale } from '@/lib/sales-detection';
@@ -94,10 +95,8 @@ export interface LeadRow {
 
 function monthIsoBoundsCT(startYMD: string, endYMD: string) {
   return {
-    // Current studio is Central Time. These explicit offsets avoid the prior
-    // bare `YYYY-MM-DDT...` bounds that the database treated inconsistently.
-    startIso: new Date(`${startYMD}T00:00:00-06:00`).toISOString(),
-    endIso: new Date(`${endYMD}T23:59:59-05:00`).toISOString(),
+    startIso: fromZonedTime(`${startYMD}T00:00:00`, 'America/Chicago').toISOString(),
+    endIso: fromZonedTime(`${endYMD}T23:59:59`, 'America/Chicago').toISOString(),
   };
 }
 
