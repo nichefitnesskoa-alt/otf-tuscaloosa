@@ -90,7 +90,7 @@ export function CoachScorecardGrid({
     for (const c of activeCoaches) m.set(c, new Map());
     const wantType = evalType === 'self' ? 'self_eval' : evalType === 'formal' ? 'formal_eval' : null;
     for (const sc of scorecards as FvScorecard[]) {
-      if (!sc.submitted_at) continue;
+      if (!isScorecardScored(sc)) continue;
       if (wantType && sc.eval_type !== wantType) continue;
       const coach = sc.evaluatee_name;
       if (!m.has(coach)) continue; // skip inactive / non-coach evaluatees
