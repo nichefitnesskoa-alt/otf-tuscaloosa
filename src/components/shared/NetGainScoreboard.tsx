@@ -32,6 +32,7 @@ import { useEffectiveAdmin } from '@/hooks/useViewAsAdmin';
 import { format, endOfMonth, parseISO } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { NetGainGoalChip } from '@/components/wig/NetGainGoalChip';
+import { loadMonthlyTargets } from '@/lib/wig/targets';
 
 const EVT = 'otf:netGainChanged';
 function notifyChanged() { window.dispatchEvent(new Event(EVT)); }
