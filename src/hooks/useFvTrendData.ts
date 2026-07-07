@@ -21,6 +21,7 @@ import {
 import type { DateRange } from '@/lib/pay-period';
 import { resolveClosedFirstIntroIds } from '@/lib/intros/close-detection';
 import { NON_RAN_RESULT_CANONS } from '@/lib/canon/introRules';
+import { isScorecardScored } from '@/lib/scorecard/levels';
 
 interface RanFirstIntro {
   bookingId: string;
