@@ -315,18 +315,26 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
         else { notSum += primaryCard.total_score; notN++; notClosedCards.push(primaryCard); }
       }
 
-      // Per-coach formal/self averages
-      all.forEach(c => {
-        if (c.eval_type === 'formal_eval') {
-          const cur = formalByCoach.get(r.coach) || { sum: 0, n: 0 };
-          cur.sum += c.total_score; cur.n++;
-          formalByCoach.set(r.coach, cur);
-        } else if (c.eval_type === 'self_eval') {
-          const cur = selfByCoach.get(r.coach) || { sum: 0, n: 0 };
-          cur.sum += c.total_score; cur.n++;
-          selfByCoach.set(r.coach, cur);
-        }
-      });
+      // Per-coach formal/self averages — one card per first-timer (the primary),
+      // so duplicate drafts on the same booking don't drag the average down.
+      // 2nd-intro scorecards are already excluded because `ran` here is 1st intros
+      // and `all` is keyed by the 1st intro's booking id (first_timer_id).
+      const primaryFormal = all
+        .filter(c => c.eval_type === 'formal_eval' && ((c.total_score ?? 0) > 0 || !!c.submitted_at))
+        .sort((a, b) => (b.submitted_at || '').localeCompare(a.submitted_at || '') || (b.total_score - a.total_score))[0];
+      const primarySelf = all
+        .filter(c => c.eval_type === 'self_eval' && ((c.total_score ?? 0) > 0 || !!c.submitted_at))
+        .sort((a, b) => (b.submitted_at || '').localeCompare(a.submitted_at || '') || (b.total_score - a.total_score))[0];
+      if (primaryFormal) {
+        const cur = formalByCoach.get(r.coach) || { sum: 0, n: 0 };
+        cur.sum += primaryFormal.total_score; cur.n++;
+        formalByCoach.set(r.coach, cur);
+      }
+      if (primarySelf) {
+        const cur = selfByCoach.get(r.coach) || { sum: 0, n: 0 };
+        cur.sum += primarySelf.total_score; cur.n++;
+        selfByCoach.set(r.coach, cur);
+      }
     });
 
     // Buy-date back-fill: include scored 1st intros whose chain closed in range
