@@ -21,6 +21,7 @@ import {
 import type { DateRange } from '@/lib/pay-period';
 import { resolveClosedFirstIntroIds } from '@/lib/intros/close-detection';
 import { NON_RAN_RESULT_CANONS } from '@/lib/canon/introRules';
+import { isScorecardScored } from '@/lib/scorecard/levels';
 
 interface RanFirstIntro {
   bookingId: string;
@@ -253,7 +254,7 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
 
     // Coverage: separate "has formal" vs "self only" vs "unscored" for ran intros.
     const allCardsByTimer = new Map<string, FvScorecard[]>();
-    cards.filter(c => c.submitted_at && c.first_timer_id).forEach(c => {
+    cards.filter(c => isScorecardScored(c) && c.first_timer_id).forEach(c => {
       const arr = allCardsByTimer.get(c.first_timer_id!) || [];
       arr.push(c);
       allCardsByTimer.set(c.first_timer_id!, arr);
@@ -333,7 +334,7 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
     const alreadyClosedIds = new Set(closedCards.map(c => c.first_timer_id).filter(Boolean) as string[]);
     const extraByTimer = new Map<string, FvScorecard[]>();
     extraClosedScorecards.forEach(c => {
-      if (!c.first_timer_id || !c.submitted_at) return;
+      if (!c.first_timer_id || !isScorecardScored(c)) return;
       const arr = extraByTimer.get(c.first_timer_id) || [];
       arr.push(c);
       extraByTimer.set(c.first_timer_id, arr);

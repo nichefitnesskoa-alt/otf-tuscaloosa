@@ -16,6 +16,7 @@ import {
   cadenceStreakWeeks,
   isSelfEvalEveryWeekThisMonth,
 } from '@/lib/scorecard/trends';
+import { isScorecardScored } from '@/lib/scorecard/levels';
 
 export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName: string; allowPicker?: boolean; coaches?: string[] }) {
   const [selected, setSelected] = useState(coachName);
@@ -50,7 +51,7 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
   const unscoredCount = unscoredForCoach.length;
   const scoredCount = Math.max(ranThisMonth - unscoredCount, 0);
 
-  const submitted = scorecards.filter(s => !!s.submitted_at);
+  const submitted = scorecards.filter(s => isScorecardScored(s));
   const selfCount = submitted.filter(s => s.eval_type === 'self_eval').length;
   const formalCount = submitted.filter(s => s.eval_type === 'formal_eval').length;
   const avgScore = submitted.length ? (submitted.reduce((s, c) => s + c.total_score, 0) / submitted.length).toFixed(1) : '—';
@@ -62,7 +63,7 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
 
   const trendData = useMemo(() => {
     const byWeek: Record<string, { total: number; count: number; sortKey: string }> = {};
-    trend.filter(s => !!s.submitted_at).forEach(s => {
+    trend.filter(s => isScorecardScored(s)).forEach(s => {
       const d = parseLocalDate(s.class_date)!;
       const wk = format(d, 'MMM d');
       const sortKey = format(d, 'yyyy-MM-dd');
