@@ -25,6 +25,7 @@ export const TARGET_KEYS = {
   saSales: 'sa_sales_target',
   coachClose: 'coach_close_rate_target',
   studioLeads: 'studio_leads_target',
+  netGain: 'net_gain_target',
 } as const;
 
 export type TargetKind = keyof typeof TARGET_KEYS;
@@ -35,6 +36,7 @@ export interface MonthlyTargets {
   saSales: number | null;
   coachClose: number | null;
   studioLeads: number | null;
+  netGain: number | null;
 }
 
 function parseIntOrNull(v: unknown): number | null {
