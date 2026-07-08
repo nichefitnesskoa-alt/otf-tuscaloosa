@@ -53,7 +53,9 @@ export interface SomlDetailItem {
   date: string | null; // ISO date
   source: 'auto' | 'manual' | 'legacy';
   tier?: 'Premier' | 'Elite' | null;
+  referring_member?: string | null;
 }
+
 
 
 export interface SomlData {
