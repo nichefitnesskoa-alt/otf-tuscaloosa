@@ -19,6 +19,9 @@ export const SOURCE_CODE_MAP: Record<string, number> = {
   'Instagram DMs (Friend)': 12,
   'VIP Class (Friend)': 13,
   'Lead Management (Friend)': 14,
+  'Online Intro Offer (Friend)': 15,
+  'Walk-in': 16,
+  'Walk-in (Friend)': 17,
 };
 
 export function codeForSource(source: string): number {
