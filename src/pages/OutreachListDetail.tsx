@@ -335,7 +335,7 @@ export default function OutreachListDetail() {
   const [referralsBump, setReferralsBump] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    const norm = (s: string | null | undefined) => (s || '').trim().toLowerCase();
+    const norm = (s: string | null | undefined) => outreachNameKey(s);
     (async () => {
       const [manualRes, pendingRes] = await Promise.all([
         (supabase as any).from('soml_manual_referrals').select('referring_member_name'),
@@ -355,7 +355,7 @@ export default function OutreachListDetail() {
     return () => { cancelled = true; };
   }, [referralsBump]);
   const referralCountFor = (name: string): number => {
-    return referralsByReferrer.get((name || '').trim().toLowerCase()) || 0;
+    return referralsByReferrer.get(outreachNameKey(name)) || 0;
   };
 
 
