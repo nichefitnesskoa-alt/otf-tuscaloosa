@@ -729,6 +729,75 @@ export default function OutreachListDetail() {
                 {activeFilterCount > 0 && <span className="ml-1 text-muted-foreground">({activeFilterCount})</span>}
               </Button>
             )}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="outline" className="h-8 text-xs">
+                  <ColumnsIcon className="w-3.5 h-3.5 mr-1" />
+                  Columns
+                  {colPrefs.hidden.length > 0 && (
+                    <span className="ml-1 text-muted-foreground">({allDataCols.length - colPrefs.hidden.filter(h => allDataCols.includes(h)).length}/{allDataCols.length})</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-2" align="start">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Show & reorder columns</div>
+                  {(colPrefs.hidden.length > 0 || colPrefs.order.length > 0) && (
+                    <button onClick={resetColPrefs} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground underline">
+                      <RotateCcw className="w-2.5 h-2.5" /> Reset
+                    </button>
+                  )}
+                </div>
+                {allDataCols.length === 0 && (
+                  <div className="text-[11px] text-muted-foreground px-1 py-2">No data columns in this list yet.</div>
+                )}
+                <div className="max-h-72 overflow-y-auto">
+                  {(() => {
+                    const set = new Set(allDataCols);
+                    const full: ColKey[] = [];
+                    for (const x of colPrefs.order) if (set.has(x)) full.push(x);
+                    for (const x of allDataCols) if (!full.includes(x)) full.push(x);
+                    return full.map((c, i) => {
+                      const hidden = colPrefs.hidden.includes(c);
+                      return (
+                        <div key={`cp-${c}`} className="flex items-center gap-1 px-1 py-1 rounded hover:bg-accent">
+                          <button
+                            onClick={() => moveCol(c, -1)}
+                            disabled={i === 0}
+                            className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                            title="Move up"
+                          >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => moveCol(c, 1)}
+                            disabled={i === full.length - 1}
+                            className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                            title="Move down"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                          <span className={cn('flex-1 text-xs truncate', hidden && 'text-muted-foreground line-through')} title={colLabel(c)}>
+                            {colLabel(c)}
+                          </span>
+                          <button
+                            onClick={() => toggleColHidden(c)}
+                            className={cn(
+                              'inline-flex items-center justify-center h-6 w-6 rounded cursor-pointer',
+                              hidden ? 'text-muted-foreground hover:text-foreground' : 'text-primary hover:bg-primary/10',
+                            )}
+                            title={hidden ? 'Show column' : 'Hide column'}
+                          >
+                            {hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+                <p className="mt-2 text-[10px] text-muted-foreground px-1">Layout is saved per list on this device.</p>
+              </PopoverContent>
+            </Popover>
             <span className="text-[10px] text-muted-foreground">Click a column header to sort. Click the filter icon to pick values.</span>
           </div>
 
