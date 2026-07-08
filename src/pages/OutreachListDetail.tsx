@@ -46,7 +46,7 @@ const BUILTIN_COL_TYPES: Record<string, ColType> = {
 
 /** Detect column type. Meta columns get numeric/bool auto-detection from sample values. */
 function colType(col: ColKey, sample?: (r: OutreachRow) => any): ColType {
-  const bi = BUILTIN_colType(col);
+  const bi = BUILTIN_COL_TYPES[col];
   if (bi) return bi;
   return 'text';
 }
