@@ -2190,6 +2190,7 @@ export type Database = {
           second_intro_reason: string | null
           sheets_row_number: number | null
           shift_recap_id: string | null
+          updated_at: string
           vip_converted: boolean
           vip_session_id: string | null
         }
@@ -2236,6 +2237,7 @@ export type Database = {
           second_intro_reason?: string | null
           sheets_row_number?: number | null
           shift_recap_id?: string | null
+          updated_at?: string
           vip_converted?: boolean
           vip_session_id?: string | null
         }
@@ -2282,6 +2284,7 @@ export type Database = {
           second_intro_reason?: string | null
           sheets_row_number?: number | null
           shift_recap_id?: string | null
+          updated_at?: string
           vip_converted?: boolean
           vip_session_id?: string | null
         }
