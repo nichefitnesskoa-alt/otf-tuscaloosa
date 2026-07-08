@@ -46,7 +46,7 @@ const BUILTIN_COL_TYPES: Record<string, ColType> = {
 
 /** Detect column type. Meta columns get numeric/bool auto-detection from sample values. */
 function colType(col: ColKey, sample?: (r: OutreachRow) => any): ColType {
-  const bi = BUILTIN_COL_TYPES[col];
+  const bi = BUILTIN_colType(col);
   if (bi) return bi;
   return 'text';
 }
@@ -181,7 +181,7 @@ function ColHeader({
   onSort: (c: ColKey) => void;
   onFilter: (c: ColKey, v: string[] | BoolFilter | undefined) => void;
 }) {
-  const type = COL_TYPES[col];
+  const type = colType(col);
   const active = sort?.key === col;
   const current = filters[col];
   const boolVal = type === 'bool' ? (current as BoolFilter | undefined) : undefined;
@@ -480,7 +480,7 @@ export default function OutreachListDetail() {
 
     // Per-column filters
     for (const [k, raw] of Object.entries(filters) as [ColKey, string[] | BoolFilter][]) {
-      const type = COL_TYPES[k];
+      const type = colType(k);
       if (type === 'bool') {
         const want = raw === 'yes';
         out = out.filter(r => rowBoolValue(r, k) === want);
