@@ -5,7 +5,7 @@
  * Not Interested, log Save/Upgrade/Refer, or delete a row (admin).
  * Churning members flagged inline (red row + ⚠).
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
