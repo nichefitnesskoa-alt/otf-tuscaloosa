@@ -418,6 +418,7 @@ export default function OutreachListDetail() {
     let out = q
       ? rows.filter(r =>
           r.client_name.toLowerCase().includes(q) ||
+          formatOutreachName(r.client_name).toLowerCase().includes(q) ||
           (r.phone || '').toLowerCase().includes(q) ||
           (r.item || '').toLowerCase().includes(q) ||
           (r.email || '').toLowerCase().includes(q))
