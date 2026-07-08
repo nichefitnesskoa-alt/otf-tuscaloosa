@@ -638,7 +638,15 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           scopeBadge="WIG drilldown"
         />
       )}
-      <SourcedLeadsDialog open={sourcedLeadsOpen} onOpenChange={setSourcedLeadsOpen} initialRange={dateRange} />
+      <SourcedLeadsDialog
+        open={sourcedLeadsOpen}
+        onOpenChange={setSourcedLeadsOpen}
+        initialRange={dateRange}
+        saRowsOverride={sourcedLeads.rows}
+        loadingOverride={sourcedLeads.loading}
+        rangeStartOverride={rangeStart}
+        rangeEndOverride={rangeEnd}
+      />
       <SelfSourcedLeadDialog open={addLeadOpen} onOpenChange={setAddLeadOpen} onLeadAdded={() => sourcedLeads.refetch()} />
     </>
   );
