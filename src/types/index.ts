@@ -28,9 +28,12 @@ export const LEAD_SOURCES = [
   'Member Referral',
   'Member Referral (5 class pack)',
   'My Personal Friend I Invited',
+  'Online Intro Offer (Friend)',
   'Online Intro Offer (self-booked)',
   'VIP Class',
   'VIP Class (Friend)',
+  'Walk-in',
+  'Walk-in (Friend)',
 ] as const;
 
 export type LeadSource = typeof LEAD_SOURCES[number];
