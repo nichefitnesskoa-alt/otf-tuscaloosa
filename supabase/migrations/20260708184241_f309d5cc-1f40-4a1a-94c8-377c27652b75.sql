@@ -1,0 +1,2 @@
+ALTER TABLE public.soml_manual_referrals ADD COLUMN IF NOT EXISTS referring_member_name text;
+CREATE INDEX IF NOT EXISTS idx_soml_manual_referrals_referring_member ON public.soml_manual_referrals (lower(referring_member_name));
