@@ -111,6 +111,7 @@ export function NameAutocomplete({
 
   const badgeColor = (source: Suggestion['source']) => {
     switch (source) {
+      case 'Outreach': return 'bg-orange-500/10 text-orange-700 border-orange-200';
       case 'Member': return 'bg-primary/10 text-primary border-primary/20';
       case 'Lead': return 'bg-blue-500/10 text-blue-700 border-blue-200';
       case 'IG Lead': return 'bg-purple-500/10 text-purple-700 border-purple-200';
