@@ -203,12 +203,13 @@ export function SelfSourcedLeadForm({ onSaved, allowBookIntro = true }: Props) {
           />
         </div>
         <div>
-          <Label className="text-xs">Email</Label>
+          <Label className="text-xs">Email *</Label>
           <Input
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             className="h-10"
+            placeholder="name@example.com"
           />
         </div>
         <div>
