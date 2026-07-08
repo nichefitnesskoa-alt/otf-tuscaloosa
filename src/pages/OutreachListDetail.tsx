@@ -647,9 +647,18 @@ export default function OutreachListDetail() {
                   <ColHeader col="in_person" label="In-Per" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   <ColHeader col="not_interested" label="Not Int" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   {metaKeys.map(k => (
-                    <th key={`h-${k}`} className="text-left px-2 py-2 min-w-[120px] whitespace-nowrap font-semibold" title={k}>
-                      {k}
-                    </th>
+                    <ColHeader
+                      key={`h-${k}`}
+                      col={`meta:${k}`}
+                      label={k}
+                      align="left"
+                      className="min-w-[120px] whitespace-nowrap"
+                      sort={sort}
+                      filters={filters}
+                      options={filterOptions[`meta:${k}`] || emptyOpts}
+                      onSort={cycleSort}
+                      onFilter={setFilter}
+                    />
                   ))}
                   <th className="text-right px-2 py-2 w-[240px]">Actions</th>
                 </tr>
