@@ -11,7 +11,7 @@ import { formatPhoneDisplay } from '@/lib/parsing/phone';
 import { PhoneLink } from '@/components/shared/PhoneLink';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { LEAD_SOURCES, CLASS_TIMES, CLASS_TIME_LABELS } from '@/types';
+import { CLASS_TIMES, CLASS_TIME_LABELS } from '@/types';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
