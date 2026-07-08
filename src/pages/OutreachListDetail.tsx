@@ -327,6 +327,37 @@ export default function OutreachListDetail() {
   const [sort, setSort] = useState<SortState>(null);
   const [filters, setFilters] = useState<FilterState>({});
 
+  // Map: normalized referring-member name → count of referrals they've logged
+  // (manual + pending auto). Used to badge rows on this outreach list so an
+  // SA can see at a glance that Ethan already referred someone.
+  const [referralsByReferrer, setReferralsByReferrer] = useState<Map<string, number>>(new Map());
+  const [referralsBump, setReferralsBump] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const norm = (s: string | null | undefined) => (s || '').trim().toLowerCase();
+    (async () => {
+      const [manualRes, pendingRes] = await Promise.all([
+        (supabase as any).from('soml_manual_referrals').select('referring_member_name'),
+        (supabase as any).from('soml_pending_referrals').select('referring_member'),
+      ]);
+      if (cancelled) return;
+      const map = new Map<string, number>();
+      const bump = (name: string | null | undefined) => {
+        const k = norm(name);
+        if (!k) return;
+        map.set(k, (map.get(k) || 0) + 1);
+      };
+      ((manualRes.data as any[]) || []).forEach(r => bump(r.referring_member_name));
+      ((pendingRes.data as any[]) || []).forEach(r => bump(r.referring_member));
+      setReferralsByReferrer(map);
+    })();
+    return () => { cancelled = true; };
+  }, [referralsBump]);
+  const referralCountFor = (name: string): number => {
+    return referralsByReferrer.get((name || '').trim().toLowerCase()) || 0;
+  };
+
+
   const setFilter = (col: ColKey, val: string[] | BoolFilter | undefined) => {
     setFilters(f => {
       const next = { ...f };
