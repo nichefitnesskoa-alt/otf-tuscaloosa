@@ -614,7 +614,14 @@ export default function OutreachListDetail() {
                         {saveAttempts.length > 0 && (
                           <span className="ml-1 text-[9px] text-muted-foreground">({saveAttempts.length} save{saveAttempts.length !== 1 ? 's' : ''})</span>
                         )}
+                        {referralCountFor(r.client_name) > 0 && (
+                          <span className="ml-1.5 inline-flex items-center rounded bg-primary/15 text-primary text-[9px] font-semibold px-1.5 py-0.5 align-middle" title="This member has referred someone in SOML">
+                            <Sparkles className="w-2.5 h-2.5 mr-0.5" />
+                            Referred {referralCountFor(r.client_name)}
+                          </span>
+                        )}
                       </td>
+
                       <td className="px-2 py-1 align-middle text-muted-foreground truncate max-w-[280px]" title={r.item || ''}>
                         {r.item || '—'}
                       </td>
