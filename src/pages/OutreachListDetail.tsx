@@ -707,10 +707,17 @@ export default function OutreachListDetail() {
                 )}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         {r.is_churning && <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" />}
                         <span className="font-semibold truncate">{r.client_name}</span>
+                        {referralCountFor(r.client_name) > 0 && (
+                          <span className="inline-flex items-center rounded bg-primary/15 text-primary text-[9px] font-semibold px-1.5 py-0.5">
+                            <Sparkles className="w-2.5 h-2.5 mr-0.5" />
+                            Referred {referralCountFor(r.client_name)}
+                          </span>
+                        )}
                       </div>
+
                       <div className="text-[11px] text-muted-foreground truncate">
                         {r.item || '—'} · <span className="font-mono">{fmtAmount(r.amount)}</span>
                       </div>
