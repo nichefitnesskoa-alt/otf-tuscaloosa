@@ -25,7 +25,7 @@ export const isPlanning2ndCanon = (rc?: string | null): boolean => {
 
 export type RunResultLabel =
   | 'SALE' | 'Pending Sale' | 'Booked 2nd' | 'Follow-Up' | 'Planning to Buy'
-  | 'Showed Up - Not Interested' | '5 Class Pack' | 'No Show' | 'VIP Intro'
+  | 'Showed Up - Not Interested' | '3 Class Pack' | 'No Show' | 'VIP Intro'
   | 'Unresolved' | '—';
 
 export function labelForRun(r?: { result_canon?: string | null; result?: string | null; buy_date?: string | null } | null): RunResultLabel {
@@ -39,7 +39,7 @@ export function labelForRun(r?: { result_canon?: string | null; result?: string 
   if (isPlanning2ndCanon(rc)) return 'Booked 2nd';
   if (rc === 'PLANNING_TO_BUY') return 'Planning to Buy';
   if (rc === 'NOT_INTERESTED') return 'Showed Up - Not Interested';
-  if (rc === 'ON_5_CLASS_PACK') return '5 Class Pack';
+  if (rc === 'ON_5_CLASS_PACK') return '3 Class Pack';
   if (rc === 'VIP_CLASS_INTRO') return 'VIP Intro';
   if (rc === 'UNRESOLVED') return 'Unresolved';
   if (isFollowUpCanon(rc)) return 'Follow-Up';

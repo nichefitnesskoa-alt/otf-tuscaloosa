@@ -74,7 +74,7 @@ export interface SomlData {
   refetch: () => Promise<void>;
 }
 
-const MEMBER_REFERRAL_SOURCES = ['Member Referral', 'Member Referral (5 class pack)'];
+const MEMBER_REFERRAL_SOURCES = ['Member Referral', 'Member Referral (3 class pack)'];
 
 function norm(s: string | null | undefined): string {
   return (s || '').trim().toLowerCase();

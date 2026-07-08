@@ -33,7 +33,7 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
   const wasFollowUp = currentResult === "Didn't Buy" || currentResult === 'Follow-up needed';
   const wasNoShow = currentResult === 'No-show';
   const wasPlanning2nd = currentResult === 'Planning to Book 2nd Intro';
-  const wasOn5ClassPack = currentResult === 'On 5 Class Pack';
+  const wasOn5ClassPack = currentResult === 'On 3 Class Pack';
 
   const initialOutcome = wasPurchased ? 'purchased' : wasFollowUp ? 'follow_up' : wasNoShow ? 'no_show' : wasPlanning2nd ? 'planning_2nd' : wasOn5ClassPack ? 'on_5_class_pack' : '';
   const [outcome, setOutcome] = useState(initialOutcome);
@@ -63,7 +63,7 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
       } else if (outcome === 'planning_2nd') {
         newResult = 'Planning to Book 2nd Intro';
       } else if (outcome === 'on_5_class_pack') {
-        newResult = 'On 5 Class Pack';
+        newResult = 'On 3 Class Pack';
       }
 
       const result = await applyIntroOutcomeUpdate({
@@ -99,7 +99,7 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
         <Button variant={outcome === 'follow_up' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px]" onClick={() => setOutcome('follow_up')}>Follow-up</Button>
         <Button variant={outcome === 'no_show' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px]" onClick={() => setOutcome('no_show')}>No Show</Button>
         <Button variant={outcome === 'planning_2nd' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px] bg-purple-600/10 border-purple-300 dark:border-purple-700" onClick={() => setOutcome('planning_2nd')}>Plan 2nd</Button>
-        <Button variant={outcome === 'on_5_class_pack' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px] bg-emerald-600/10 border-emerald-300 dark:border-emerald-700" onClick={() => setOutcome('on_5_class_pack')}>5 Class Pack</Button>
+        <Button variant={outcome === 'on_5_class_pack' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px] bg-emerald-600/10 border-emerald-300 dark:border-emerald-700" onClick={() => setOutcome('on_5_class_pack')}>3 Class Pack</Button>
       </div>
       {outcome === 'purchased' && (
         <Select value={membershipType} onValueChange={setMembershipType}>

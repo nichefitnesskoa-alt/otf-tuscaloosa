@@ -283,7 +283,7 @@ function AddCelebrationButton({
           last_name: parts.slice(1).join(' ') || '',
           phone: isEmail ? '' : friendContact.trim(),
           email: isEmail ? friendContact.trim() : null,
-          source: 'Member Referral (5 class pack)',
+          source: 'Member Referral (3 class pack)',
           stage: 'new',
           duplicate_notes: `Referred via milestone — ${name.trim()}`,
         } as any)
@@ -327,7 +327,7 @@ function AddCelebrationButton({
             <Switch id="cel-celebrated" checked={celebrated} onCheckedChange={setCelebrated} />
           </div>
           <div className="flex items-center justify-between">
-            <Label htmlFor="cel-pack" className="text-sm">5-class pack gifted</Label>
+            <Label htmlFor="cel-pack" className="text-sm">3-class pack gifted</Label>
             <Switch id="cel-pack" checked={pack} onCheckedChange={setPack} />
           </div>
           {pack && (
