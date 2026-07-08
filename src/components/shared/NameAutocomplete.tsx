@@ -4,10 +4,11 @@ import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { formatOutreachName } from '@/lib/outreachNames';
 
 interface Suggestion {
   name: string;
-  source: 'Member' | 'Lead' | 'IG Lead';
+  source: 'Outreach' | 'Member' | 'Lead' | 'IG Lead';
 }
 
 interface NameAutocompleteProps {
@@ -44,7 +45,12 @@ export function NameAutocomplete({
     setLoading(true);
     const pattern = `%${term}%`;
 
-    const [membersRes, leadsRes, igRes] = await Promise.all([
+    const [outreachRes, membersRes, leadsRes, igRes] = await Promise.all([
+      (supabase as any)
+        .from('outreach_list_rows')
+        .select('client_name')
+        .ilike('client_name', pattern)
+        .limit(30),
       supabase
         .from('intros_booked')
         .select('member_name')
@@ -73,6 +79,8 @@ export function NameAutocomplete({
       results.push({ name: name.trim(), source });
     };
 
+    // Outreach first — it's the most trusted source for logging SOML actions.
+    (outreachRes.data as any[] || []).forEach(r => addUnique(formatOutreachName(r.client_name), 'Outreach'));
     membersRes.data?.forEach((r: any) => addUnique(r.member_name, 'Member'));
     leadsRes.data?.forEach((r: any) => addUnique(`${r.first_name} ${r.last_name}`.trim(), 'Lead'));
     igRes.data?.forEach((r: any) => addUnique(`${r.first_name}${r.last_name ? ' ' + r.last_name : ''}`.trim(), 'IG Lead'));
@@ -103,6 +111,7 @@ export function NameAutocomplete({
 
   const badgeColor = (source: Suggestion['source']) => {
     switch (source) {
+      case 'Outreach': return 'bg-orange-500/10 text-orange-700 border-orange-200';
       case 'Member': return 'bg-primary/10 text-primary border-primary/20';
       case 'Lead': return 'bg-blue-500/10 text-blue-700 border-blue-200';
       case 'IG Lead': return 'bg-purple-500/10 text-purple-700 border-purple-200';

@@ -1,47 +1,40 @@
-## What's broken
+## Goal
+Make member-name entry in the SOML Log dialogs (Upgrade shown, plus the sibling Referral/Save inputs) pull from the outreach lists as a searchable dropdown, and display outreach names as "First Last" instead of "Last, First".
 
-The inline lead-source dropdown on the MyDay intro card (the "· Online Intro Offer (self-booked) ·" pill in the card header) writes only the `lead_source` column to the database. When you switch to a "(Friend)" source like `Instagram DMs (Friend)`, the DB trigger `enforce_member_referral_has_referrer` rejects the update because no referring member is attached → the toast shows "Save failed" and the value snaps back.
+## Changes
 
-This affects every "(Friend)" and referral source (`Member Referral`, `My Personal Friend I Invited`, all the `... (Friend)` variants — including the three new ones we just added).
+### 1. Shared name helper — `src/lib/outreachNames.ts` (new)
+- `formatOutreachName(raw)`: if value contains a comma, split on first comma, trim, return `"First Last"`. Otherwise return as-is. Handles suffixes like "Henderson Jr., C Dewayne" → "C Dewayne Henderson Jr.".
+- Used everywhere outreach `client_name` is displayed.
 
-Every other surface that edits lead source (Pipeline spreadsheet inline editor, Edit Booking dialog, Reschedule dialog, Person Journey drilldown) already uses the shared `LeadSourceWithReferrerField` and doesn't hit this bug — the header pill on the intro card is the only place still writing `lead_source` in isolation.
+### 2. Outreach list display — first name first
+- `src/pages/OutreachListDetail.tsx`, `src/pages/OutreachLists.tsx`, and any row-list surface: render `formatOutreachName(row.client_name)` instead of raw `client_name`.
+- Underlying DB value stays `"Last, First"` (that's how the CSV imports arrive and how sort order works). Display-only swap. Search inputs on those pages will match against both raw and formatted forms.
 
-Separately, the Person Journey drilldown's referring-member field is a plain `<Input>` (screenshot 2 — "Andre" typed by hand) instead of the shared `NameAutocomplete` that pulls from prior members / leads / IG leads.
+### 3. New hook — `src/hooks/useOutreachNames.ts`
+- Selects `client_name` from `outreach_list_rows` across all lists (dedup, case-insensitive), returns array of `{ raw, display }` where `display = formatOutreachName(raw)`.
+- React Query, cached ~5 min, invalidated on outreach mutations.
 
-## Fix
+### 4. `src/features/soml/LogSomlDialog.tsx`
+Replace the plain text `<Input>` for member name in all three sub-forms (Upgrade, Save/Manual, Referral — both "referring member" and "new lead" fields) with a Combobox:
+- Type-ahead search over `useOutreachNames()` results (display form).
+- Selecting an option fills the input with the display value ("First Last").
+- Free typing is still allowed for names not in any outreach list.
+- Small helper text under the field: *"We'll try to match a name from your outreach lists first — you can also type one in."*
+- On submit, save the display-form name (First Last) into `member_name` / `referring_member_name` so it matches how it now shows in the outreach UI. This keeps drilldown labels consistent.
 
-**1. Fix the inline header on the intro card (`src/components/shared/IntroCard.tsx`)**
+### 5. Coherence
+- Duplicate-prevention unique index on `soml_upgrades(lower(btrim(member_name)))` and `soml_manual_referrals(lower(btrim(member_name)))` already exists — swapping the stored format from "Last, First" to "First Last" doesn't break it (still one canonical form going forward). Existing rows are unaffected; new inserts use the new form.
+- Outreach referral badge lookup on `OutreachListDetail` currently matches by `member_name` / `referring_member_name` against outreach `client_name`. That match will be updated to compare using `formatOutreachName(...)` on both sides so old ("Last, First") and new ("First Last") rows both count.
 
-Replace the `InlineSelect` used for `lead_source` with a new inline component that behaves like the pipeline inline editor:
-
-- Click the pill → opens a small popover anchored to the pill.
-- Popover renders the shared `LeadSourceWithReferrerField` (compact size). This gives us the full canonical `LEAD_SOURCES` list AND — when the chosen source is referral-like — the `NameAutocomplete` referrer field.
-- Save button (orange check) and Cancel (X), matching the pipeline inline editor pattern the user is used to.
-- On save:
-  - Validate with `validateLeadSourceReferrer`; block save + inline error if referrer missing.
-  - Single Supabase update writes `lead_source` AND `referred_by_member_name` (normalized via `resolveReferrerForWrite`, so switching away from a friend source clears the stale referrer) in one call, plus `last_edited_at` / `last_edited_by`.
-  - Optimistic local update; on error, roll back and toast.
-  - After save, still invoke the existing `handleLeadSourceChanged` hook so the VIP auto-detect flow keeps working when the new source is a VIP source.
-- Keep the coach inline dropdown, time picker, date picker, and phone editor exactly as they are — those work today.
-
-**2. Person Journey drilldown referrer field (`src/components/person/PersonJourneyCard.tsx` around line 548)**
-
-Replace the plain `<Input>` for "Referring member's full name" with `NameAutocomplete` so it suggests prior members / leads / IG leads (which is what the user wants: "anytime there's a member's full name, pull previous people in the pipeline"). No behavior change other than the input type — it still writes through the same `commitEdit` path.
-
-**3. Audit — every referring-member input in the app**
-
-`NameAutocomplete` is already used by `LeadSourceWithReferrerField`, so Pipeline inline, Edit Booking dialog, Reschedule dialog, MyDay Edit Booking, Self-Sourced Lead form, and the new inline header (after fix #1) all get autocomplete for free. Only the Person Journey drilldown (fix #2) is the outlier — no other plain-Input referrer surfaces exist.
-
-## Coherence proof I'll produce before reporting done
-
-- Change Sierra Roberts' `lead_source` from `Online Intro Offer (self-booked)` → `Instagram DMs (Friend)` with referrer `Andre Roberts` via the MyDay inline header. Verify with `read_query` that `intros_booked` row `fdd9416d-a490-4976-9dc3-5ddc83366c87` has `lead_source = 'Instagram DMs (Friend)'` AND `referred_by_member_name = 'Andre Roberts'`.
-- Then change it back to `Online Intro Offer (self-booked)` inline and verify `referred_by_member_name` is now `null` (stale referrer cleared).
-- Type "and" into the drilldown referrer field on the same booking and verify the autocomplete popover shows prior members from `intros_booked` (e.g. "Andre Roberts", "Andrea …").
-- Cross-page numbers: WIG SOML pending-referral count for Andre Roberts +1 after step 1, back to baseline after step 2. SGL leaderboard credit unchanged (Grace F still owns the booking's `intro_owner`).
+## Out of scope
+- Not touching the CSV import format or renaming stored `client_name` in the DB.
+- No changes to the upgrade tier ("Premier"/"Elite") buttons.
 
 ## Files touched
-
-- `src/components/shared/IntroCard.tsx` — swap header lead-source `InlineSelect` for popover editor using `LeadSourceWithReferrerField`.
-- `src/components/person/PersonJourneyCard.tsx` — swap referrer `<Input>` for `<NameAutocomplete>`.
-
-No DB migration, no changes to metric logic, no other consumers touched.
+- `src/lib/outreachNames.ts` (new)
+- `src/hooks/useOutreachNames.ts` (new)
+- `src/features/soml/LogSomlDialog.tsx`
+- `src/features/wig/soml/SomlSection.tsx` (referral-badge match uses formatter)
+- `src/pages/OutreachListDetail.tsx`
+- `src/pages/OutreachLists.tsx`

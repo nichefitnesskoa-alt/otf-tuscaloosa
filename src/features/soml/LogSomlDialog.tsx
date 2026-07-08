@@ -15,7 +15,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -98,6 +97,9 @@ export function LogSomlDialog({ open, onClose, kind, defaultMemberName, onSaved 
               <div>
                 <Label className="text-xs">Member name *</Label>
                 <NameAutocomplete value={memberName} onChange={setMemberName} placeholder="Who upgraded?" />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  We'll pull matches from your outreach lists first — you can also type a name in.
+                </p>
               </div>
               <div>
                 <Label className="text-xs">Upgraded to *</Label>
@@ -122,10 +124,13 @@ export function LogSomlDialog({ open, onClose, kind, defaultMemberName, onSaved 
               <div>
                 <Label className="text-xs">Referring member *</Label>
                 <NameAutocomplete value={referringMember} onChange={setReferringMember} placeholder="Existing member doing the referring" />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  We'll pull matches from your outreach lists first — you can also type a name in.
+                </p>
               </div>
               <div>
                 <Label className="text-xs">Who did they refer? *</Label>
-                <Input value={memberName} onChange={e => setMemberName(e.target.value)} placeholder="New person's full name" />
+                <NameAutocomplete value={memberName} onChange={setMemberName} placeholder="New person's full name" />
               </div>
             </>
           )}

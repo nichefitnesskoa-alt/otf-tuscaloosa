@@ -27,6 +27,7 @@ import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 import { useOutreachListDetail, OutreachRow, OutreachAction } from '@/features/outreach/useOutreach';
 import { LogSomlDialog } from '@/features/soml/LogSomlDialog';
 import { cn } from '@/lib/utils';
+import { formatOutreachName, outreachNameKey } from '@/lib/outreachNames';
 
 type ColKey = 'name' | 'item' | 'amount' | 'phone' | 'last_30d' | 'latest' | 'churns' | 'texted' | 'in_person' | 'not_interested';
 type SortState = { key: ColKey; dir: 'asc' | 'desc' } | null;
@@ -60,7 +61,7 @@ function fmtAmount(n: number | null) {
 /** Raw value + display label for a row's cell in a given (non-bool) column. */
 function rowColStringValue(r: OutreachRow, col: ColKey): { value: string; label: string } {
   switch (col) {
-    case 'name': return { value: r.client_name, label: r.client_name };
+    case 'name': return { value: r.client_name, label: formatOutreachName(r.client_name) };
     case 'item': return { value: r.item || '', label: r.item || '(blank)' };
     case 'phone': return { value: r.phone || '', label: r.phone || '(blank)' };
     case 'amount': {
@@ -129,7 +130,7 @@ function SaveAttemptDialog({
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Log save attempt · {row?.client_name}</DialogTitle>
+          <DialogTitle>Log save attempt · {formatOutreachName(row?.client_name)}</DialogTitle>
         </DialogHeader>
         <div className="space-y-2">
           <Textarea placeholder="What did you say? Any commitment or objection?"
@@ -334,7 +335,7 @@ export default function OutreachListDetail() {
   const [referralsBump, setReferralsBump] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    const norm = (s: string | null | undefined) => (s || '').trim().toLowerCase();
+    const norm = (s: string | null | undefined) => outreachNameKey(s);
     (async () => {
       const [manualRes, pendingRes] = await Promise.all([
         (supabase as any).from('soml_manual_referrals').select('referring_member_name'),
@@ -354,7 +355,7 @@ export default function OutreachListDetail() {
     return () => { cancelled = true; };
   }, [referralsBump]);
   const referralCountFor = (name: string): number => {
-    return referralsByReferrer.get((name || '').trim().toLowerCase()) || 0;
+    return referralsByReferrer.get(outreachNameKey(name)) || 0;
   };
 
 
@@ -417,6 +418,7 @@ export default function OutreachListDetail() {
     let out = q
       ? rows.filter(r =>
           r.client_name.toLowerCase().includes(q) ||
+          formatOutreachName(r.client_name).toLowerCase().includes(q) ||
           (r.phone || '').toLowerCase().includes(q) ||
           (r.item || '').toLowerCase().includes(q) ||
           (r.email || '').toLowerCase().includes(q))
@@ -440,7 +442,7 @@ export default function OutreachListDetail() {
       const dir = sort.dir === 'asc' ? 1 : -1;
       const cmp = (a: OutreachRow, b: OutreachRow) => {
         switch (sort.key) {
-          case 'name': return a.client_name.localeCompare(b.client_name) * dir;
+          case 'name': return formatOutreachName(a.client_name).localeCompare(formatOutreachName(b.client_name)) * dir;
           case 'item': return (a.item || '').localeCompare(b.item || '') * dir;
           case 'phone': return (a.phone || '').localeCompare(b.phone || '') * dir;
           case 'amount': return ((Number(a.amount) || 0) - (Number(b.amount) || 0)) * dir;
@@ -465,7 +467,7 @@ export default function OutreachListDetail() {
       out.sort((a, b) => {
         if (a.is_churning !== b.is_churning) return a.is_churning ? -1 : 1;
         if (a.is_churning && b.is_churning) return (a.churn_date || '9999').localeCompare(b.churn_date || '9999');
-        return a.client_name.localeCompare(b.client_name);
+        return formatOutreachName(a.client_name).localeCompare(formatOutreachName(b.client_name));
       });
     }
     return out;
@@ -496,7 +498,7 @@ export default function OutreachListDetail() {
       await (supabase as any).from('outreach_row_actions').delete().eq('row_id', rowToDelete.id);
       const { error } = await (supabase as any).from('outreach_list_rows').delete().eq('id', rowToDelete.id);
       if (error) throw error;
-      toast.success(`Removed ${rowToDelete.client_name}`);
+      toast.success(`Removed ${formatOutreachName(rowToDelete.client_name)}`);
       setRowToDelete(null);
     } catch (e: any) {
       toast.error(`Delete failed: ${e.message}`);
@@ -610,7 +612,7 @@ export default function OutreachListDetail() {
                         {r.is_churning && <AlertTriangle className="w-3.5 h-3.5 text-destructive" />}
                       </td>
                       <td className="px-2 py-1 align-middle font-semibold whitespace-nowrap">
-                        {r.client_name}
+                        {formatOutreachName(r.client_name)}
                         {saveAttempts.length > 0 && (
                           <span className="ml-1 text-[9px] text-muted-foreground">({saveAttempts.length} save{saveAttempts.length !== 1 ? 's' : ''})</span>
                         )}
@@ -664,11 +666,11 @@ export default function OutreachListDetail() {
                           </Button>
                         )}
                         <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]"
-                          onClick={() => setSomlDialog({ kind: 'upgrade', name: r.client_name })}>
+                          onClick={() => setSomlDialog({ kind: 'upgrade', name: formatOutreachName(r.client_name) })}>
                           <Plus className="w-3 h-3 mr-0.5" /> Upgrade
                         </Button>
                         <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]"
-                          onClick={() => setSomlDialog({ kind: 'referral', name: r.client_name })}>
+                          onClick={() => setSomlDialog({ kind: 'referral', name: formatOutreachName(r.client_name) })}>
                           <Sparkles className="w-3 h-3 mr-0.5" /> Refer
                         </Button>
                         {isAdmin && (
@@ -709,7 +711,7 @@ export default function OutreachListDetail() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {r.is_churning && <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" />}
-                        <span className="font-semibold truncate">{r.client_name}</span>
+                        <span className="font-semibold truncate">{formatOutreachName(r.client_name)}</span>
                         {referralCountFor(r.client_name) > 0 && (
                           <span className="inline-flex items-center rounded bg-primary/15 text-primary text-[9px] font-semibold px-1.5 py-0.5">
                             <Sparkles className="w-2.5 h-2.5 mr-0.5" />
@@ -744,11 +746,11 @@ export default function OutreachListDetail() {
                       </Button>
                     )}
                     <Button size="sm" variant="outline" className="h-7 text-[10px]"
-                      onClick={() => setSomlDialog({ kind: 'upgrade', name: r.client_name })}>
+                      onClick={() => setSomlDialog({ kind: 'upgrade', name: formatOutreachName(r.client_name) })}>
                       Upgrade
                     </Button>
                     <Button size="sm" variant="outline" className="h-7 text-[10px]"
-                      onClick={() => setSomlDialog({ kind: 'referral', name: r.client_name })}>
+                      onClick={() => setSomlDialog({ kind: 'referral', name: formatOutreachName(r.client_name) })}>
                       Refer
                     </Button>
                     {isAdmin && (
@@ -787,7 +789,7 @@ export default function OutreachListDetail() {
       <AlertDialog open={!!rowToDelete} onOpenChange={o => !o && setRowToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove {rowToDelete?.client_name}?</AlertDialogTitle>
+            <AlertDialogTitle>Remove {formatOutreachName(rowToDelete?.client_name)}?</AlertDialogTitle>
             <AlertDialogDescription>
               Removes this person from the list and clears their Texted / In Person / Not Interested / Save Attempt history for this list. Upgrades and referrals already logged are kept.
             </AlertDialogDescription>
