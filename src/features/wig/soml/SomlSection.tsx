@@ -799,10 +799,14 @@ function SomlDrilldownDialog({ open, onClose, metric, saFilter, referrals, upgra
                     )}
                   </div>
                   <div className="text-muted-foreground">
+                    {r.referring_member && (
+                      <>Referred by <span className="text-foreground font-medium">{r.referring_member}</span> · </>
+                    )}
                     Credit: <span className="text-foreground font-medium">{r.sa}</span>
                     {r.source === 'manual' && <span className="ml-1 italic">· logged manually</span>}
                     {r.source === 'legacy' && <span className="ml-1 italic">· legacy</span>}
                   </div>
+
                 </div>
 
                 <div className="text-right shrink-0 text-muted-foreground">
