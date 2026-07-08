@@ -4,10 +4,11 @@ import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { formatOutreachName } from '@/lib/outreachNames';
 
 interface Suggestion {
   name: string;
-  source: 'Member' | 'Lead' | 'IG Lead';
+  source: 'Outreach' | 'Member' | 'Lead' | 'IG Lead';
 }
 
 interface NameAutocompleteProps {
