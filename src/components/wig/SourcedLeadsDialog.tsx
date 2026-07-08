@@ -44,6 +44,13 @@ interface Props {
   /** Date range currently selected on the WIG page — the dialog opens to
    *  this exact range so its total matches the WIG tile by default. */
   initialRange?: DateRange;
+  /** Optional: reuse the parent's already-loaded useSaLeads result so the
+   *  dialog can NEVER disagree with the WIG banner/tile that opened it.
+   *  When provided, the dialog skips its own fetch for the parent's range. */
+  saRowsOverride?: import('@/hooks/useSaLeads').SaLeadsRow[];
+  loadingOverride?: boolean;
+  rangeStartOverride?: string;
+  rangeEndOverride?: string;
 }
 
 type View = 'grouped' | 'flat';
