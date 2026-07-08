@@ -52,7 +52,9 @@ export interface SomlDetailItem {
   member_name: string;
   date: string | null; // ISO date
   source: 'auto' | 'manual' | 'legacy';
+  tier?: 'Premier' | 'Elite' | null;
 }
+
 
 export interface SomlData {
   config: SomlConfig | null;
