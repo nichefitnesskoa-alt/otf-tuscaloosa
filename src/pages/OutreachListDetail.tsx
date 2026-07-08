@@ -18,7 +18,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { AlertTriangle, ArrowLeft, ArrowUp, ArrowDown, ArrowUpDown, Check, Filter, Plus, Sparkles, ShieldAlert, Search, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowUp, ArrowDown, ArrowUpDown, Check, ChevronDown, ChevronUp, Columns as ColumnsIcon, Eye, EyeOff, Filter, Plus, RotateCcw, Sparkles, ShieldAlert, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -442,6 +442,84 @@ export default function OutreachListDetail() {
     return order.filter(k => (has as any)[k]);
   }, [rows]);
 
+  // Per-list column preferences: hide + reorder. Persisted in localStorage
+  // so each list can have its own layout. Only applies to data columns
+  // (built-in + metadata); the Name column and Actions column are pinned.
+  const prefsKey = `outreach-cols:${id || 'unknown'}`;
+  const [colPrefs, setColPrefs] = useState<{ hidden: string[]; order: string[] }>({ hidden: [], order: [] });
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(prefsKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setColPrefs({
+          hidden: Array.isArray(parsed?.hidden) ? parsed.hidden : [],
+          order: Array.isArray(parsed?.order) ? parsed.order : [],
+        });
+      } else {
+        setColPrefs({ hidden: [], order: [] });
+      }
+    } catch { setColPrefs({ hidden: [], order: [] }); }
+  }, [prefsKey]);
+  const savePrefs = (next: { hidden: string[]; order: string[] }) => {
+    setColPrefs(next);
+    try { localStorage.setItem(prefsKey, JSON.stringify(next)); } catch {}
+  };
+
+  // All data columns available for this list (built-in ones with any value,
+  // plus every metadata key), in default order: built-ins first, then meta
+  // in first-seen order.
+  const allDataCols: ColKey[] = useMemo(
+    () => [...builtinKeys, ...metaKeys.map(k => `meta:${k}`)],
+    [builtinKeys, metaKeys],
+  );
+
+  // Apply user's order preference, then drop hidden ones. Any column not in
+  // saved order appears at the end (so newly-imported columns show up).
+  const visibleDataCols: ColKey[] = useMemo(() => {
+    const set = new Set(allDataCols);
+    const ordered: ColKey[] = [];
+    for (const c of colPrefs.order) if (set.has(c)) ordered.push(c);
+    for (const c of allDataCols) if (!ordered.includes(c)) ordered.push(c);
+    const hidden = new Set(colPrefs.hidden);
+    return ordered.filter(c => !hidden.has(c));
+  }, [allDataCols, colPrefs]);
+
+  const colLabel = (c: ColKey): string => {
+    if (c.startsWith('meta:')) return c.slice(5);
+    if (c === 'item') return 'Item';
+    if (c === 'amount') return 'Amount';
+    if (c === 'phone') return 'Phone';
+    if (c === 'last_30d') return 'Last 30d';
+    if (c === 'latest') return 'Latest';
+    return c;
+  };
+  const colAlign = (c: ColKey): 'left' | 'right' | 'center' =>
+    (c === 'amount' || c === 'last_30d') ? 'right' : 'left';
+
+  const toggleColHidden = (c: ColKey) => {
+    const hidden = colPrefs.hidden.includes(c)
+      ? colPrefs.hidden.filter(x => x !== c)
+      : [...colPrefs.hidden, c];
+    savePrefs({ ...colPrefs, hidden });
+  };
+  const moveCol = (c: ColKey, dir: -1 | 1) => {
+    // Work off the full ordered list (visible + hidden) so users can reorder
+    // even hidden columns.
+    const set = new Set(allDataCols);
+    const full: ColKey[] = [];
+    for (const x of colPrefs.order) if (set.has(x)) full.push(x);
+    for (const x of allDataCols) if (!full.includes(x)) full.push(x);
+    const idx = full.indexOf(c);
+    const target = idx + dir;
+    if (idx < 0 || target < 0 || target >= full.length) return;
+    [full[idx], full[target]] = [full[target], full[idx]];
+    savePrefs({ ...colPrefs, order: full });
+  };
+  const resetColPrefs = () => savePrefs({ hidden: [], order: [] });
+
+
+
   // Distinct filter options per non-bool column, computed from all rows.
   const filterOptions = useMemo(() => {
     const cols: ColKey[] = ['name', 'item', 'amount', 'phone', 'last_30d', 'latest', ...metaKeys.map(k => `meta:${k}`)];
@@ -651,6 +729,75 @@ export default function OutreachListDetail() {
                 {activeFilterCount > 0 && <span className="ml-1 text-muted-foreground">({activeFilterCount})</span>}
               </Button>
             )}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="outline" className="h-8 text-xs">
+                  <ColumnsIcon className="w-3.5 h-3.5 mr-1" />
+                  Columns
+                  {colPrefs.hidden.length > 0 && (
+                    <span className="ml-1 text-muted-foreground">({allDataCols.length - colPrefs.hidden.filter(h => allDataCols.includes(h)).length}/{allDataCols.length})</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-2" align="start">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Show & reorder columns</div>
+                  {(colPrefs.hidden.length > 0 || colPrefs.order.length > 0) && (
+                    <button onClick={resetColPrefs} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground underline">
+                      <RotateCcw className="w-2.5 h-2.5" /> Reset
+                    </button>
+                  )}
+                </div>
+                {allDataCols.length === 0 && (
+                  <div className="text-[11px] text-muted-foreground px-1 py-2">No data columns in this list yet.</div>
+                )}
+                <div className="max-h-72 overflow-y-auto">
+                  {(() => {
+                    const set = new Set(allDataCols);
+                    const full: ColKey[] = [];
+                    for (const x of colPrefs.order) if (set.has(x)) full.push(x);
+                    for (const x of allDataCols) if (!full.includes(x)) full.push(x);
+                    return full.map((c, i) => {
+                      const hidden = colPrefs.hidden.includes(c);
+                      return (
+                        <div key={`cp-${c}`} className="flex items-center gap-1 px-1 py-1 rounded hover:bg-accent">
+                          <button
+                            onClick={() => moveCol(c, -1)}
+                            disabled={i === 0}
+                            className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                            title="Move up"
+                          >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => moveCol(c, 1)}
+                            disabled={i === full.length - 1}
+                            className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                            title="Move down"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                          <span className={cn('flex-1 text-xs truncate', hidden && 'text-muted-foreground line-through')} title={colLabel(c)}>
+                            {colLabel(c)}
+                          </span>
+                          <button
+                            onClick={() => toggleColHidden(c)}
+                            className={cn(
+                              'inline-flex items-center justify-center h-6 w-6 rounded cursor-pointer',
+                              hidden ? 'text-muted-foreground hover:text-foreground' : 'text-primary hover:bg-primary/10',
+                            )}
+                            title={hidden ? 'Show column' : 'Hide column'}
+                          >
+                            {hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+                <p className="mt-2 text-[10px] text-muted-foreground px-1">Layout is saved per list on this device.</p>
+              </PopoverContent>
+            </Popover>
             <span className="text-[10px] text-muted-foreground">Click a column header to sort. Click the filter icon to pick values.</span>
           </div>
 
@@ -664,42 +811,23 @@ export default function OutreachListDetail() {
                   <ColHeader col="texted" label="Text" align="center" className="w-[65px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   <ColHeader col="in_person" label="In-Per" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   <ColHeader col="not_interested" label="Not Int" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
-                  {metaKeys.map(k => (
+                  {visibleDataCols.map(c => (
                     <ColHeader
-                      key={`h-${k}`}
-                      col={`meta:${k}`}
-                      label={k}
-                      align="left"
-                      className="min-w-[120px] whitespace-nowrap"
+                      key={`h-${c}`}
+                      col={c}
+                      label={colLabel(c)}
+                      align={colAlign(c)}
+                      className={cn(
+                        'whitespace-nowrap',
+                        c.startsWith('meta:') ? 'min-w-[120px]' : 'min-w-[100px]',
+                      )}
                       sort={sort}
                       filters={filters}
-                      options={filterOptions[`meta:${k}`] || emptyOpts}
+                      options={filterOptions[c] || emptyOpts}
                       onSort={cycleSort}
                       onFilter={setFilter}
                     />
                   ))}
-                  {builtinKeys.map(k => {
-                    const label = k === 'item' ? 'Item'
-                      : k === 'amount' ? 'Amount'
-                      : k === 'phone' ? 'Phone'
-                      : k === 'last_30d' ? 'Last 30d'
-                      : 'Latest';
-                    const align: 'left' | 'right' | 'center' = (k === 'amount' || k === 'last_30d') ? 'right' : 'left';
-                    return (
-                      <ColHeader
-                        key={`bh-${k}`}
-                        col={k}
-                        label={label}
-                        align={align}
-                        className="min-w-[100px] whitespace-nowrap"
-                        sort={sort}
-                        filters={filters}
-                        options={filterOptions[k] || emptyOpts}
-                        onSort={cycleSort}
-                        onFilter={setFilter}
-                      />
-                    );
-                  })}
                   <th className="text-right px-2 py-2 w-[240px]">Actions</th>
                 </tr>
               </thead>
@@ -751,26 +879,20 @@ export default function OutreachListDetail() {
                           tone="destructive"
                           onClick={() => toggle(r, 'not_interested', notInterested)} />
                       </td>
-                      {metaKeys.map(k => {
-                        const md = (r as any).metadata as Record<string, any> | null;
-                        const v = md ? md[k] : undefined;
-                        const label = fmtMeta(v);
-                        return (
-                          <td key={`c-${r.id}-${k}`} className="px-2 py-1 align-middle text-muted-foreground truncate max-w-[220px]" title={label}>
-                            {label}
-                          </td>
-                        );
-                      })}
-                      {builtinKeys.map(k => {
+                      {visibleDataCols.map(c => {
                         let content: React.ReactNode = '—';
-                        let align = 'text-left';
-                        if (k === 'item') content = r.item || '—';
-                        else if (k === 'amount') { content = r.amount == null ? '—' : fmtAmount(r.amount); align = 'text-right'; }
-                        else if (k === 'phone') content = r.phone || '—';
-                        else if (k === 'last_30d') { content = r.last_30d_count == null ? '—' : r.last_30d_count; align = 'text-right'; }
-                        else if (k === 'latest') content = r.latest_workout_date ? fmtDay(r.latest_workout_date) : '—';
+                        let alignCls = 'text-left';
+                        if (c.startsWith('meta:')) {
+                          const k = c.slice(5);
+                          const md = (r as any).metadata as Record<string, any> | null;
+                          content = fmtMeta(md ? md[k] : undefined);
+                        } else if (c === 'item') content = r.item || '—';
+                        else if (c === 'amount') { content = r.amount == null ? '—' : fmtAmount(r.amount); alignCls = 'text-right'; }
+                        else if (c === 'phone') content = r.phone || '—';
+                        else if (c === 'last_30d') { content = r.last_30d_count == null ? '—' : r.last_30d_count; alignCls = 'text-right'; }
+                        else if (c === 'latest') content = r.latest_workout_date ? fmtDay(r.latest_workout_date) : '—';
                         return (
-                          <td key={`bc-${r.id}-${k}`} className={cn('px-2 py-1 align-middle text-muted-foreground truncate max-w-[220px]', align)} title={String(content)}>
+                          <td key={`c-${r.id}-${c}`} className={cn('px-2 py-1 align-middle text-muted-foreground truncate max-w-[220px]', alignCls)} title={String(content)}>
                             {content}
                           </td>
                         );
@@ -802,7 +924,7 @@ export default function OutreachListDetail() {
                   );
                 })}
                 {filteredSorted.length === 0 && (
-                  <tr><td colSpan={6 + metaKeys.length + builtinKeys.length} className="text-center py-6 text-muted-foreground">
+                  <tr><td colSpan={6 + visibleDataCols.length} className="text-center py-6 text-muted-foreground">
                     {rows.length === 0 ? 'No people in this list.' : 'No matches for your search.'}
                   </td></tr>
                 )}
