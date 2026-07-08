@@ -655,27 +655,6 @@ export default function OutreachListDetail() {
                         )}
                       </td>
 
-                      <td className="px-2 py-1 align-middle text-muted-foreground truncate max-w-[280px]" title={r.item || ''}>
-                        {r.item || '—'}
-                      </td>
-                      <td className="px-2 py-1 align-middle text-right font-mono tabular-nums">
-                        {fmtAmount(r.amount)}
-                      </td>
-                      <td className="px-2 py-1 align-middle text-muted-foreground whitespace-nowrap">
-                        {r.phone || '—'}
-                      </td>
-                      <td className="px-2 py-1 align-middle text-right tabular-nums">
-                        {r.last_30d_count ?? '—'}
-                      </td>
-                      <td className="px-2 py-1 align-middle text-muted-foreground whitespace-nowrap">
-                        {fmtDay(r.latest_workout_date)}
-                      </td>
-                      <td className={cn(
-                        'px-2 py-1 align-middle whitespace-nowrap',
-                        r.is_churning ? 'text-destructive font-semibold' : 'text-muted-foreground',
-                      )}>
-                        {r.is_churning ? fmtDay(r.churn_date) : '—'}
-                      </td>
                       <td className="px-2 py-1 align-middle text-center">
                         <CheckPill label="Texted" active={!!texted} attribution={texted}
                           onClick={() => toggle(r, 'texted', texted)} />
