@@ -202,15 +202,17 @@ function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
   const { user } = useAuth();
   const [memberName, setMemberName] = useState('');
   const [notes, setNotes] = useState('');
+  const [tier, setTier] = useState<'Premier' | 'Elite' | ''>('');
   const [saving, setSaving] = useState(false);
-  const reset = () => { setMemberName(''); setNotes(''); };
+  const reset = () => { setMemberName(''); setNotes(''); setTier(''); };
   const submit = async () => {
     if (!memberName.trim()) { toast.error('Member name is required'); return; }
+    if (kind === 'upgrade' && !tier) { toast.error('Pick what they upgraded to'); return; }
     if (!user?.name) { toast.error('Login required'); return; }
     setSaving(true);
     const table = kind === 'upgrade' ? 'soml_upgrades' : 'soml_manual_referrals';
     const payload: any = kind === 'upgrade'
-      ? { member_name: memberName.trim(), upgraded_by: user.name, notes: notes.trim() || null, created_by: user.name }
+      ? { member_name: memberName.trim(), upgraded_by: user.name, upgraded_to_tier: tier, notes: notes.trim() || null, created_by: user.name }
       : { member_name: memberName.trim(), referred_by: user.name, notes: notes.trim() || null, created_by: user.name };
     const { error } = await (supabase as any).from(table).insert(payload);
     setSaving(false);
@@ -232,6 +234,25 @@ function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
             <Label className="text-xs">Member name *</Label>
             <NameAutocomplete value={memberName} onChange={setMemberName} placeholder="Who upgraded/referred?" />
           </div>
+          {kind === 'upgrade' && (
+            <div>
+              <Label className="text-xs">Upgraded to *</Label>
+              <div className="flex gap-2 mt-1">
+                {(['Premier', 'Elite'] as const).map(t => (
+                  <Button
+                    key={t}
+                    type="button"
+                    size="sm"
+                    variant={tier === t ? 'default' : 'outline'}
+                    className="flex-1"
+                    onClick={() => setTier(t)}
+                  >
+                    {t}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
           <div>
             <Label className="text-xs">Notes (optional)</Label>
             <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
@@ -249,6 +270,7 @@ function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
     </Dialog>
   );
 }
+
 interface SaOverrideDialogProps {
   open: boolean; onClose: () => void;
   sa: string; metric: MetricKey;
