@@ -27,6 +27,7 @@ import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 import { useOutreachListDetail, OutreachRow, OutreachAction } from '@/features/outreach/useOutreach';
 import { LogSomlDialog } from '@/features/soml/LogSomlDialog';
 import { cn } from '@/lib/utils';
+import { formatOutreachName, outreachNameKey } from '@/lib/outreachNames';
 
 type ColKey = 'name' | 'item' | 'amount' | 'phone' | 'last_30d' | 'latest' | 'churns' | 'texted' | 'in_person' | 'not_interested';
 type SortState = { key: ColKey; dir: 'asc' | 'desc' } | null;
