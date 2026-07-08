@@ -746,11 +746,11 @@ export default function OutreachListDetail() {
                       </Button>
                     )}
                     <Button size="sm" variant="outline" className="h-7 text-[10px]"
-                      onClick={() => setSomlDialog({ kind: 'upgrade', name: r.client_name })}>
+                      onClick={() => setSomlDialog({ kind: 'upgrade', name: formatOutreachName(r.client_name) })}>
                       Upgrade
                     </Button>
                     <Button size="sm" variant="outline" className="h-7 text-[10px]"
-                      onClick={() => setSomlDialog({ kind: 'referral', name: r.client_name })}>
+                      onClick={() => setSomlDialog({ kind: 'referral', name: formatOutreachName(r.client_name) })}>
                       Refer
                     </Button>
                     {isAdmin && (
