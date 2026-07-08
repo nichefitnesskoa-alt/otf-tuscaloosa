@@ -261,6 +261,37 @@ export function useSomlData(): SomlData {
         source_id: p.id,
       });
     }
+
+    // Also: self-sourced referral leads logged by an SA in the window. These
+    // are people credited to the SA who found them (sourced_by_sa) — they
+    // count as Referral Leads immediately, and only roll up to Referrals-that-
+    // closed when a matching sale lands (handled by the auto pipeline).
+    const { data: selfSourcedRefLeads } = await supabase
+      .from('leads')
+      .select('id, first_name, last_name, sourced_by_sa, referred_by_member_name, created_at')
+      .not('referred_by_member_name', 'is', null)
+      .not('sourced_by_sa', 'is', null)
+      .gte('created_at', `${start}T00:00:00-06:00`)
+      .lte('created_at', `${end}T23:59:59-05:00`);
+    for (const l of ((selfSourcedRefLeads as any[]) || [])) {
+      const sa = (l.sourced_by_sa as string | null)?.trim();
+      if (!sa) continue;
+      const memberName = `${l.first_name || ''} ${l.last_name || ''}`.trim();
+      // Dedup against pending-ledger rows already counted for this SA/member.
+      const already = Array.from(referralLeadsMap.values()).some(
+        r => r.sa === sa && norm(r.member_name) === norm(memberName),
+      );
+      if (already) continue;
+      referralLeadsMap.set(`lead:${l.id}`, {
+        sa,
+        member_name: memberName,
+        date: (l.created_at as string)?.slice(0, 10) || null,
+        source: 'manual',
+        referring_member: (l.referred_by_member_name as string | null) ?? null,
+        source_table: null,
+        source_id: l.id as string,
+      });
+    }
     const referralLeadsItems: SomlDetailItem[] = Array.from(referralLeadsMap.values());
 
 

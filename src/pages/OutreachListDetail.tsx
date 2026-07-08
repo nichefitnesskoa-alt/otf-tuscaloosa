@@ -29,20 +29,27 @@ import { LogSomlDialog } from '@/features/soml/LogSomlDialog';
 import { cn } from '@/lib/utils';
 import { formatOutreachName, outreachNameKey } from '@/lib/outreachNames';
 
-type ColKey = 'name' | 'item' | 'amount' | 'phone' | 'last_30d' | 'latest' | 'churns' | 'texted' | 'in_person' | 'not_interested';
+type ColKey = string; // built-ins ('name','texted', etc.) or 'meta:<header>'
 type SortState = { key: ColKey; dir: 'asc' | 'desc' } | null;
 type ColType = 'text' | 'number' | 'date' | 'bool';
 type BoolFilter = 'yes' | 'no';
 // For non-bool: array of selected raw string values (empty/absent = no filter).
 // For bool: 'yes' | 'no' (absent = any).
-type FilterState = Partial<Record<ColKey, string[] | BoolFilter>>;
+type FilterState = Record<string, string[] | BoolFilter | undefined>;
 type FilterOption = { value: string; label: string };
 
-const COL_TYPES: Record<ColKey, ColType> = {
+const BUILTIN_COL_TYPES: Record<string, ColType> = {
   name: 'text', item: 'text', amount: 'number', phone: 'text',
   last_30d: 'number', latest: 'date', churns: 'bool',
   texted: 'bool', in_person: 'bool', not_interested: 'bool',
 };
+
+/** Detect column type. Meta columns get numeric/bool auto-detection from sample values. */
+function colType(col: ColKey, sample?: (r: OutreachRow) => any): ColType {
+  const bi = BUILTIN_COL_TYPES[col];
+  if (bi) return bi;
+  return 'text';
+}
 
 
 function fmtWhen(iso: string) {
@@ -58,8 +65,22 @@ function fmtAmount(n: number | null) {
   return `$${Number(n).toFixed(2)}`;
 }
 
+function fmtMetaValue(v: any): string {
+  if (v == null || v === '') return '';
+  if (typeof v === 'number') return String(v);
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+  return String(v);
+}
+
 /** Raw value + display label for a row's cell in a given (non-bool) column. */
 function rowColStringValue(r: OutreachRow, col: ColKey): { value: string; label: string } {
+  if (col.startsWith('meta:')) {
+    const k = col.slice(5);
+    const md = (r as any).metadata as Record<string, any> | null;
+    const v = md ? md[k] : undefined;
+    const label = fmtMetaValue(v);
+    return { value: label, label: label || '(blank)' };
+  }
   switch (col) {
     case 'name': return { value: r.client_name, label: formatOutreachName(r.client_name) };
     case 'item': return { value: r.item || '', label: r.item || '(blank)' };
@@ -79,6 +100,7 @@ function rowColStringValue(r: OutreachRow, col: ColKey): { value: string; label:
     default: return { value: '', label: '' };
   }
 }
+
 
 function CheckPill({
   active, attribution, onClick, label, tone = 'primary',
@@ -159,7 +181,7 @@ function ColHeader({
   onSort: (c: ColKey) => void;
   onFilter: (c: ColKey, v: string[] | BoolFilter | undefined) => void;
 }) {
-  const type = COL_TYPES[col];
+  const type = colType(col);
   const active = sort?.key === col;
   const current = filters[col];
   const boolVal = type === 'bool' ? (current as BoolFilter | undefined) : undefined;
@@ -385,10 +407,27 @@ export default function OutreachListDetail() {
     return false;
   };
 
+  // Dynamic extra columns from row metadata (any un-mapped columns from the
+  // uploaded Excel file are preserved on `metadata` — surface them here so
+  // nothing from the source spreadsheet is hidden).
+  const metaKeys = useMemo(() => {
+    const seen = new Set<string>();
+    for (const r of rows) {
+      const md = (r as any).metadata as Record<string, any> | null;
+      if (!md) continue;
+      for (const k of Object.keys(md)) {
+        const v = md[k];
+        if (v == null || v === '') continue;
+        seen.add(k);
+      }
+    }
+    return Array.from(seen);
+  }, [rows]);
+
   // Distinct filter options per non-bool column, computed from all rows.
   const filterOptions = useMemo(() => {
-    const cols: ColKey[] = ['name', 'item', 'amount', 'phone', 'last_30d', 'latest'];
-    const map: Partial<Record<ColKey, FilterOption[]>> = {};
+    const cols: ColKey[] = ['name', 'item', 'amount', 'phone', 'last_30d', 'latest', ...metaKeys.map(k => `meta:${k}`)];
+    const map: Record<string, FilterOption[]> = {};
     for (const col of cols) {
       const seen = new Map<string, string>(); // value -> label
       for (const r of rows) {
@@ -411,24 +450,8 @@ export default function OutreachListDetail() {
       map[col] = arr;
     }
     return map;
-  }, [rows]);
+  }, [rows, metaKeys]);
 
-  // Dynamic extra columns from row metadata (any un-mapped columns from the
-  // uploaded Excel file are preserved on `metadata` — surface them here so
-  // nothing from the source spreadsheet is hidden).
-  const metaKeys = useMemo(() => {
-    const seen = new Set<string>();
-    for (const r of rows) {
-      const md = (r as any).metadata as Record<string, any> | null;
-      if (!md) continue;
-      for (const k of Object.keys(md)) {
-        const v = md[k];
-        if (v == null || v === '') continue;
-        seen.add(k);
-      }
-    }
-    return Array.from(seen);
-  }, [rows]);
 
   const fmtMeta = (v: any): string => {
     if (v == null || v === '') return '—';
@@ -458,7 +481,7 @@ export default function OutreachListDetail() {
 
     // Per-column filters
     for (const [k, raw] of Object.entries(filters) as [ColKey, string[] | BoolFilter][]) {
-      const type = COL_TYPES[k];
+      const type = colType(k);
       if (type === 'bool') {
         const want = raw === 'yes';
         out = out.filter(r => rowBoolValue(r, k) === want);
@@ -473,7 +496,17 @@ export default function OutreachListDetail() {
     if (sort) {
       const dir = sort.dir === 'asc' ? 1 : -1;
       const cmp = (a: OutreachRow, b: OutreachRow) => {
-        switch (sort.key) {
+        const k = sort.key;
+        if (k.startsWith('meta:')) {
+          const av = rowColStringValue(a, k).value;
+          const bv = rowColStringValue(b, k).value;
+          const an = Number(av), bn = Number(bv);
+          if (av !== '' && bv !== '' && !isNaN(an) && !isNaN(bn)) return (an - bn) * dir;
+          if (av === '' && bv !== '') return 1;
+          if (bv === '' && av !== '') return -1;
+          return av.localeCompare(bv) * dir;
+        }
+        switch (k) {
           case 'name': return formatOutreachName(a.client_name).localeCompare(formatOutreachName(b.client_name)) * dir;
           case 'item': return (a.item || '').localeCompare(b.item || '') * dir;
           case 'phone': return (a.phone || '').localeCompare(b.phone || '') * dir;
@@ -487,11 +520,12 @@ export default function OutreachListDetail() {
           case 'texted':
           case 'in_person':
           case 'not_interested': {
-            const av = rowBoolValue(a, sort.key) ? 1 : 0;
-            const bv = rowBoolValue(b, sort.key) ? 1 : 0;
+            const av = rowBoolValue(a, k) ? 1 : 0;
+            const bv = rowBoolValue(b, k) ? 1 : 0;
             return (bv - av) * dir;
           }
         }
+        return 0;
       };
       out.sort(cmp);
     } else {
@@ -613,9 +647,18 @@ export default function OutreachListDetail() {
                   <ColHeader col="in_person" label="In-Per" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   <ColHeader col="not_interested" label="Not Int" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   {metaKeys.map(k => (
-                    <th key={`h-${k}`} className="text-left px-2 py-2 min-w-[120px] whitespace-nowrap font-semibold" title={k}>
-                      {k}
-                    </th>
+                    <ColHeader
+                      key={`h-${k}`}
+                      col={`meta:${k}`}
+                      label={k}
+                      align="left"
+                      className="min-w-[120px] whitespace-nowrap"
+                      sort={sort}
+                      filters={filters}
+                      options={filterOptions[`meta:${k}`] || emptyOpts}
+                      onSort={cycleSort}
+                      onFilter={setFilter}
+                    />
                   ))}
                   <th className="text-right px-2 py-2 w-[240px]">Actions</th>
                 </tr>
