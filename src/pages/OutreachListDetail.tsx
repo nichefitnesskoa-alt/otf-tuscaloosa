@@ -678,6 +678,28 @@ export default function OutreachListDetail() {
                       onFilter={setFilter}
                     />
                   ))}
+                  {builtinKeys.map(k => {
+                    const label = k === 'item' ? 'Item'
+                      : k === 'amount' ? 'Amount'
+                      : k === 'phone' ? 'Phone'
+                      : k === 'last_30d' ? 'Last 30d'
+                      : 'Latest';
+                    const align: 'left' | 'right' | 'center' = (k === 'amount' || k === 'last_30d') ? 'right' : 'left';
+                    return (
+                      <ColHeader
+                        key={`bh-${k}`}
+                        col={k}
+                        label={label}
+                        align={align}
+                        className="min-w-[100px] whitespace-nowrap"
+                        sort={sort}
+                        filters={filters}
+                        options={filterOptions[k] || emptyOpts}
+                        onSort={cycleSort}
+                        onFilter={setFilter}
+                      />
+                    );
+                  })}
                   <th className="text-right px-2 py-2 w-[240px]">Actions</th>
                 </tr>
               </thead>
