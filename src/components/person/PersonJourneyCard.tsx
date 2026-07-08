@@ -28,6 +28,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, ExternalLink, Phone, Mail, AlertTriangle, Edit, Check, X, Award } from 'lucide-react';
@@ -545,9 +546,9 @@ function IntroNode({ booking, allBookings, runs, scorecard, isSecondIntro, chain
                   <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     Referring member's full name *
                   </Label>
-                  <Input
+                  <NameAutocomplete
                     value={referrerDraft}
-                    onChange={(e) => setReferrerDraft(e.target.value)}
+                    onChange={(v) => setReferrerDraft(v)}
                     placeholder="Who referred them?"
                     className="h-7 text-xs"
                   />

@@ -11,16 +11,21 @@ import { formatPhoneDisplay } from '@/lib/parsing/phone';
 import { PhoneLink } from '@/components/shared/PhoneLink';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { LEAD_SOURCES, CLASS_TIMES, CLASS_TIME_LABELS } from '@/types';
+import { CLASS_TIMES, CLASS_TIME_LABELS } from '@/types';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { CalendarIcon, Sparkles } from 'lucide-react';
+import { CalendarIcon, Sparkles, Loader2 } from 'lucide-react';
 import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
 import { detectVipSessionForBooking } from '@/lib/vip/detectVipSessionForBooking';
+import {
+  LeadSourceWithReferrerField,
+  validateLeadSourceReferrer,
+  resolveReferrerForWrite,
+} from '@/components/shared/LeadSourceWithReferrerField';
 
 const isVipSource = (s: string | null | undefined) =>
   !!s && (s === 'VIP Class' || s === 'VIP Class (Friend)' || s.toLowerCase().startsWith('vip class'));
@@ -144,6 +149,82 @@ function InlineSelect({ value, field, bookingId, editedBy, onSaved, options, pla
         {options.map(o => <SelectItem key={o} value={o} className="text-xs">{o}</SelectItem>)}
       </SelectContent>
     </Select>
+  );
+}
+
+/* ── inline lead-source editor (writes lead_source + referred_by_member_name atomically) ── */
+function InlineLeadSource({
+  value, referredBy, bookingId, editedBy, onSaved, onAfterSave,
+}: {
+  value: string;
+  referredBy: string | null;
+  bookingId: string;
+  editedBy: string;
+  onSaved: () => void;
+  onAfterSave?: (newVal: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [source, setSource] = useState(value);
+  const [referrer, setReferrer] = useState<string | null>(referredBy);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { setSource(value); }, [value]);
+  useEffect(() => { setReferrer(referredBy); }, [referredBy]);
+
+  const commit = async () => {
+    const err = validateLeadSourceReferrer(source, referrer);
+    if (err) { toast.error(err); return; }
+    setSaving(true);
+    const normalizedReferrer = resolveReferrerForWrite(source, referrer);
+    const { error } = await supabase.from('intros_booked').update({
+      lead_source: source,
+      referred_by_member_name: normalizedReferrer,
+      last_edited_at: new Date().toISOString(),
+      last_edited_by: editedBy,
+    } as any).eq('id', bookingId);
+    setSaving(false);
+    if (error) {
+      toast.error(error.message || 'Save failed');
+      return;
+    }
+    toast.success('Saved');
+    setOpen(false);
+    onSaved();
+    onAfterSave?.(source);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="hover:underline cursor-pointer rounded px-0.5 -mx-0.5 hover:bg-card/10 transition-colors truncate max-w-[180px] text-[11px]"
+          style={{ color: 'inherit' }}
+        >
+          {value || 'Source'}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-3" align="start">
+        <LeadSourceWithReferrerField
+          value={source}
+          referredByMemberName={referrer}
+          onChange={({ lead_source, referred_by_member_name }) => {
+            setSource(lead_source);
+            setReferrer(referred_by_member_name);
+          }}
+          size="compact"
+          label="Lead source"
+        />
+        <div className="flex justify-end gap-1.5 mt-3">
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setOpen(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button size="sm" className="h-7 text-xs" onClick={commit} disabled={saving || !source}>
+            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -405,8 +486,14 @@ export default function IntroCard({
               <InlineSelect value={coachName || ''} field="coach_name" bookingId={bookingId!} editedBy={editedBy!} onSaved={refresh}
                 options={COACHES} placeholder="Coach" />
               <span className="opacity-50">·</span>
-              <InlineSelect value={leadSource || ''} field="lead_source" bookingId={bookingId!} editedBy={editedBy!} onSaved={refresh}
-                options={LEAD_SOURCES} placeholder="Source" onAfterSave={handleLeadSourceChanged} />
+              <InlineLeadSource
+                value={leadSource || ''}
+                referredBy={referredBy || null}
+                bookingId={bookingId!}
+                editedBy={editedBy!}
+                onSaved={refresh}
+                onAfterSave={handleLeadSourceChanged}
+              />
               {showVipAffordance && (
                 <Popover open={vipPickerOpen} onOpenChange={setVipPickerOpen}>
                   <PopoverTrigger asChild>
