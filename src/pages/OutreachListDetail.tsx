@@ -413,15 +413,47 @@ export default function OutreachListDetail() {
     return map;
   }, [rows]);
 
+  // Dynamic extra columns from row metadata (any un-mapped columns from the
+  // uploaded Excel file are preserved on `metadata` — surface them here so
+  // nothing from the source spreadsheet is hidden).
+  const metaKeys = useMemo(() => {
+    const seen = new Set<string>();
+    for (const r of rows) {
+      const md = (r as any).metadata as Record<string, any> | null;
+      if (!md) continue;
+      for (const k of Object.keys(md)) {
+        const v = md[k];
+        if (v == null || v === '') continue;
+        seen.add(k);
+      }
+    }
+    return Array.from(seen);
+  }, [rows]);
+
+  const fmtMeta = (v: any): string => {
+    if (v == null || v === '') return '—';
+    if (typeof v === 'number') return String(v);
+    if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+    return String(v);
+  };
+
   const filteredSorted = useMemo(() => {
     const q = search.trim().toLowerCase();
     let out = q
-      ? rows.filter(r =>
-          r.client_name.toLowerCase().includes(q) ||
-          formatOutreachName(r.client_name).toLowerCase().includes(q) ||
-          (r.phone || '').toLowerCase().includes(q) ||
-          (r.item || '').toLowerCase().includes(q) ||
-          (r.email || '').toLowerCase().includes(q))
+      ? rows.filter(r => {
+          if (r.client_name.toLowerCase().includes(q)) return true;
+          if (formatOutreachName(r.client_name).toLowerCase().includes(q)) return true;
+          if ((r.phone || '').toLowerCase().includes(q)) return true;
+          if ((r.item || '').toLowerCase().includes(q)) return true;
+          if ((r.email || '').toLowerCase().includes(q)) return true;
+          const md = (r as any).metadata as Record<string, any> | null;
+          if (md) {
+            for (const k of Object.keys(md)) {
+              if (String(md[k] ?? '').toLowerCase().includes(q)) return true;
+            }
+          }
+          return false;
+        })
       : [...rows];
 
     // Per-column filters
