@@ -761,6 +761,20 @@ export default function OutreachListDetail() {
                           </td>
                         );
                       })}
+                      {builtinKeys.map(k => {
+                        let content: React.ReactNode = '—';
+                        let align = 'text-left';
+                        if (k === 'item') content = r.item || '—';
+                        else if (k === 'amount') { content = r.amount == null ? '—' : fmtAmount(r.amount); align = 'text-right'; }
+                        else if (k === 'phone') content = r.phone || '—';
+                        else if (k === 'last_30d') { content = r.last_30d_count == null ? '—' : r.last_30d_count; align = 'text-right'; }
+                        else if (k === 'latest') content = r.latest_workout_date ? fmtDay(r.latest_workout_date) : '—';
+                        return (
+                          <td key={`bc-${r.id}-${k}`} className={cn('px-2 py-1 align-middle text-muted-foreground truncate max-w-[220px]', align)} title={String(content)}>
+                            {content}
+                          </td>
+                        );
+                      })}
                       <td className="px-2 py-1 align-middle text-right whitespace-nowrap">
                         {r.is_churning && (
                           <Button size="sm" variant="destructive" className="h-6 px-2 text-[10px] mr-1"
