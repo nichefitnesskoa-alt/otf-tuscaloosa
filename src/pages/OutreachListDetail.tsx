@@ -442,6 +442,84 @@ export default function OutreachListDetail() {
     return order.filter(k => (has as any)[k]);
   }, [rows]);
 
+  // Per-list column preferences: hide + reorder. Persisted in localStorage
+  // so each list can have its own layout. Only applies to data columns
+  // (built-in + metadata); the Name column and Actions column are pinned.
+  const prefsKey = `outreach-cols:${id || 'unknown'}`;
+  const [colPrefs, setColPrefs] = useState<{ hidden: string[]; order: string[] }>({ hidden: [], order: [] });
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(prefsKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setColPrefs({
+          hidden: Array.isArray(parsed?.hidden) ? parsed.hidden : [],
+          order: Array.isArray(parsed?.order) ? parsed.order : [],
+        });
+      } else {
+        setColPrefs({ hidden: [], order: [] });
+      }
+    } catch { setColPrefs({ hidden: [], order: [] }); }
+  }, [prefsKey]);
+  const savePrefs = (next: { hidden: string[]; order: string[] }) => {
+    setColPrefs(next);
+    try { localStorage.setItem(prefsKey, JSON.stringify(next)); } catch {}
+  };
+
+  // All data columns available for this list (built-in ones with any value,
+  // plus every metadata key), in default order: built-ins first, then meta
+  // in first-seen order.
+  const allDataCols: ColKey[] = useMemo(
+    () => [...builtinKeys, ...metaKeys.map(k => `meta:${k}`)],
+    [builtinKeys, metaKeys],
+  );
+
+  // Apply user's order preference, then drop hidden ones. Any column not in
+  // saved order appears at the end (so newly-imported columns show up).
+  const visibleDataCols: ColKey[] = useMemo(() => {
+    const set = new Set(allDataCols);
+    const ordered: ColKey[] = [];
+    for (const c of colPrefs.order) if (set.has(c)) ordered.push(c);
+    for (const c of allDataCols) if (!ordered.includes(c)) ordered.push(c);
+    const hidden = new Set(colPrefs.hidden);
+    return ordered.filter(c => !hidden.has(c));
+  }, [allDataCols, colPrefs]);
+
+  const colLabel = (c: ColKey): string => {
+    if (c.startsWith('meta:')) return c.slice(5);
+    if (c === 'item') return 'Item';
+    if (c === 'amount') return 'Amount';
+    if (c === 'phone') return 'Phone';
+    if (c === 'last_30d') return 'Last 30d';
+    if (c === 'latest') return 'Latest';
+    return c;
+  };
+  const colAlign = (c: ColKey): 'left' | 'right' | 'center' =>
+    (c === 'amount' || c === 'last_30d') ? 'right' : 'left';
+
+  const toggleColHidden = (c: ColKey) => {
+    const hidden = colPrefs.hidden.includes(c)
+      ? colPrefs.hidden.filter(x => x !== c)
+      : [...colPrefs.hidden, c];
+    savePrefs({ ...colPrefs, hidden });
+  };
+  const moveCol = (c: ColKey, dir: -1 | 1) => {
+    // Work off the full ordered list (visible + hidden) so users can reorder
+    // even hidden columns.
+    const set = new Set(allDataCols);
+    const full: ColKey[] = [];
+    for (const x of colPrefs.order) if (set.has(x)) full.push(x);
+    for (const x of allDataCols) if (!full.includes(x)) full.push(x);
+    const idx = full.indexOf(c);
+    const target = idx + dir;
+    if (idx < 0 || target < 0 || target >= full.length) return;
+    [full[idx], full[target]] = [full[target], full[idx]];
+    savePrefs({ ...colPrefs, order: full });
+  };
+  const resetColPrefs = () => savePrefs({ hidden: [], order: [] });
+
+
+
   // Distinct filter options per non-bool column, computed from all rows.
   const filterOptions = useMemo(() => {
     const cols: ColKey[] = ['name', 'item', 'amount', 'phone', 'last_30d', 'latest', ...metaKeys.map(k => `meta:${k}`)];
