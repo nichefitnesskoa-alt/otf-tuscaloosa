@@ -201,19 +201,31 @@ interface LogDialogProps {
 function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
   const { user } = useAuth();
   const [memberName, setMemberName] = useState('');
+  const [referringMember, setReferringMember] = useState('');
   const [notes, setNotes] = useState('');
   const [tier, setTier] = useState<'Premier' | 'Elite' | ''>('');
   const [saving, setSaving] = useState(false);
-  const reset = () => { setMemberName(''); setNotes(''); setTier(''); };
+  const reset = () => { setMemberName(''); setReferringMember(''); setNotes(''); setTier(''); };
   const submit = async () => {
-    if (!memberName.trim()) { toast.error('Member name is required'); return; }
-    if (kind === 'upgrade' && !tier) { toast.error('Pick what they upgraded to'); return; }
+    if (kind === 'upgrade') {
+      if (!memberName.trim()) { toast.error('Member name is required'); return; }
+      if (!tier) { toast.error('Pick what they upgraded to'); return; }
+    } else {
+      if (!referringMember.trim()) { toast.error('Who is doing the referring?'); return; }
+      if (!memberName.trim()) { toast.error('Who did they refer?'); return; }
+    }
     if (!user?.name) { toast.error('Login required'); return; }
     setSaving(true);
     const table = kind === 'upgrade' ? 'soml_upgrades' : 'soml_manual_referrals';
     const payload: any = kind === 'upgrade'
       ? { member_name: memberName.trim(), upgraded_by: user.name, upgraded_to_tier: tier, notes: notes.trim() || null, created_by: user.name }
-      : { member_name: memberName.trim(), referred_by: user.name, notes: notes.trim() || null, created_by: user.name };
+      : {
+          member_name: memberName.trim(),
+          referring_member_name: referringMember.trim(),
+          referred_by: user.name,
+          notes: notes.trim() || null,
+          created_by: user.name,
+        };
     const { error } = await (supabase as any).from(table).insert(payload);
     setSaving(false);
     if (error) { toast.error(`Save failed: ${error.message}`); return; }
@@ -230,28 +242,41 @@ function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
           <DialogTitle>{kind === 'upgrade' ? 'Log an upgrade' : 'Log a referral (manual)'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div>
-            <Label className="text-xs">Member name *</Label>
-            <NameAutocomplete value={memberName} onChange={setMemberName} placeholder="Who upgraded/referred?" />
-          </div>
-          {kind === 'upgrade' && (
-            <div>
-              <Label className="text-xs">Upgraded to *</Label>
-              <div className="flex gap-2 mt-1">
-                {(['Premier', 'Elite'] as const).map(t => (
-                  <Button
-                    key={t}
-                    type="button"
-                    size="sm"
-                    variant={tier === t ? 'default' : 'outline'}
-                    className="flex-1"
-                    onClick={() => setTier(t)}
-                  >
-                    {t}
-                  </Button>
-                ))}
+          {kind === 'upgrade' ? (
+            <>
+              <div>
+                <Label className="text-xs">Member name *</Label>
+                <NameAutocomplete value={memberName} onChange={setMemberName} placeholder="Who upgraded?" />
               </div>
-            </div>
+              <div>
+                <Label className="text-xs">Upgraded to *</Label>
+                <div className="flex gap-2 mt-1">
+                  {(['Premier', 'Elite'] as const).map(t => (
+                    <Button
+                      key={t}
+                      type="button"
+                      size="sm"
+                      variant={tier === t ? 'default' : 'outline'}
+                      className="flex-1"
+                      onClick={() => setTier(t)}
+                    >
+                      {t}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <Label className="text-xs">Referring member *</Label>
+                <NameAutocomplete value={referringMember} onChange={setReferringMember} placeholder="Existing member doing the referring" />
+              </div>
+              <div>
+                <Label className="text-xs">Who did they refer? *</Label>
+                <Input value={memberName} onChange={e => setMemberName(e.target.value)} placeholder="New person's full name" />
+              </div>
+            </>
           )}
           <div>
             <Label className="text-xs">Notes (optional)</Label>
@@ -270,6 +295,7 @@ function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
     </Dialog>
   );
 }
+
 
 interface SaOverrideDialogProps {
   open: boolean; onClose: () => void;
