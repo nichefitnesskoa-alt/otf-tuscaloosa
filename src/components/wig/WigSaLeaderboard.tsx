@@ -438,6 +438,40 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         </div>
       )}
 
+      {/* ===== OrangeBook import reminder ===== */}
+      {(() => {
+        let needsImport = 0;
+        for (const r of sourcedLeads.rows) {
+          if (!activeSet.has(r.sa) || r.sa === 'Koa') continue;
+          for (const p of r.people) {
+            const isVipRegistrant = p.id.startsWith('vip-');
+            const inMindbody = !!p.booked || !!p.mindbody_imported_at || isVipRegistrant;
+            if (!inMindbody) needsImport += 1;
+          }
+        }
+        if (needsImport === 0) return null;
+        return (
+          <button
+            type="button"
+            onClick={() => setSourcedLeadsOpen(true)}
+            className="w-full flex items-center justify-between gap-3 rounded-lg border-2 border-primary bg-primary/10 hover:bg-primary/15 px-4 py-3 text-left transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <AlertCircle className="w-5 h-5 text-primary shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-primary">
+                  {needsImport} sourced {needsImport === 1 ? 'lead' : 'leads'} still {needsImport === 1 ? 'needs' : 'need'} to be imported into OrangeBook
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Tap to review and check them off. This banner clears once the list is empty.
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-semibold text-primary shrink-0">Open list →</span>
+          </button>
+        );
+      })()}
+
       {/* ===== SA Leaderboard ===== */}
       <Card>
         <CardHeader className="pb-2">
