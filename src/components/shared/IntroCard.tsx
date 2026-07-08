@@ -486,8 +486,14 @@ export default function IntroCard({
               <InlineSelect value={coachName || ''} field="coach_name" bookingId={bookingId!} editedBy={editedBy!} onSaved={refresh}
                 options={COACHES} placeholder="Coach" />
               <span className="opacity-50">·</span>
-              <InlineSelect value={leadSource || ''} field="lead_source" bookingId={bookingId!} editedBy={editedBy!} onSaved={refresh}
-                options={LEAD_SOURCES} placeholder="Source" onAfterSave={handleLeadSourceChanged} />
+              <InlineLeadSource
+                value={leadSource || ''}
+                referredBy={referredBy || null}
+                bookingId={bookingId!}
+                editedBy={editedBy!}
+                onSaved={refresh}
+                onAfterSave={handleLeadSourceChanged}
+              />
               {showVipAffordance && (
                 <Popover open={vipPickerOpen} onOpenChange={setVipPickerOpen}>
                   <PopoverTrigger asChild>
