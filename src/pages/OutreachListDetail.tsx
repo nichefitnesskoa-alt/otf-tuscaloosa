@@ -775,7 +775,9 @@ export default function OutreachListDetail() {
         onClose={() => setSomlDialog(null)}
         kind={somlDialog?.kind || 'upgrade'}
         defaultMemberName={somlDialog?.name}
+        onSaved={() => setReferralsBump(n => n + 1)}
       />
+
       <SaveAttemptDialog
         open={!!saveDialog}
         onClose={() => setSaveDialog(null)}
