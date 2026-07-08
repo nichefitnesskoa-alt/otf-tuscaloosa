@@ -789,7 +789,7 @@ export default function OutreachListDetail() {
       <AlertDialog open={!!rowToDelete} onOpenChange={o => !o && setRowToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove {rowToDelete?.client_name}?</AlertDialogTitle>
+            <AlertDialogTitle>Remove {formatOutreachName(rowToDelete?.client_name)}?</AlertDialogTitle>
             <AlertDialogDescription>
               Removes this person from the list and clears their Texted / In Person / Not Interested / Save Attempt history for this list. Upgrades and referrals already logged are kept.
             </AlertDialogDescription>
