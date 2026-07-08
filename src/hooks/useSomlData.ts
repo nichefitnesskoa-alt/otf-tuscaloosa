@@ -223,16 +223,29 @@ export function useSomlData(): SomlData {
       });
     }
 
-    // Referral Leads: any pending-referral row whose booking's class_date
-    // (fallback: created_at date) is inside the SOML window, regardless of state.
-    const referralLeadsItems: SomlDetailItem[] = enrichedPending
-      .map(p => ({
+    // Referral Leads: any pending-referral row that either
+    //   (a) has a booking class_date (fallback: created_at) inside the SOML window, OR
+    //   (b) realized inside the SOML window (regardless of original booking date).
+    // Dedupe by pending row id so a row that satisfies both only counts once.
+    // This ensures a referral like Brent Rogers — booked before the window but
+    // realized to Zoe inside the window — still shows as one of Zoe's referral leads.
+    const referralLeadsMap = new Map<string, SomlDetailItem>();
+    for (const p of enrichedPending) {
+      if (!p.credited_sa) continue;
+      const bookingDate = p.class_date || (p.created_at ? p.created_at.slice(0, 10) : null);
+      const bookingInWindow = !!bookingDate && bookingDate >= start && bookingDate <= end;
+      const realizedInWindow = p.state === 'realized' && !!p.realized_at
+        && p.realized_at >= start && p.realized_at <= end;
+      if (!bookingInWindow && !realizedInWindow) continue;
+      referralLeadsMap.set(p.id, {
         sa: p.credited_sa,
         member_name: p.member_name || '',
-        date: p.class_date || (p.created_at ? p.created_at.slice(0, 10) : null),
-      }))
-      .filter(x => !!x.date && x.date! >= start && x.date! <= end && !!x.sa)
-      .map(x => ({ ...x, source: 'auto' as const }));
+        date: bookingDate || p.realized_at || null,
+        source: 'auto',
+      });
+    }
+    const referralLeadsItems: SomlDetailItem[] = Array.from(referralLeadsMap.values());
+
 
     // 6. Aggregate per-SA
     const byName = new Map<string, SomlSaRow>();
