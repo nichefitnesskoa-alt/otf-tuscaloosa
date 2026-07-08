@@ -424,6 +424,24 @@ export default function OutreachListDetail() {
     return Array.from(seen);
   }, [rows]);
 
+  // Built-in columns (item, amount, phone, last_30d, latest) only appear if
+  // at least one row in the list actually has a value. Older lists imported
+  // before we made columns fully dynamic keep their pricing / product info
+  // this way; newer imports where everything lives in metadata simply hide
+  // these columns.
+  const builtinKeys = useMemo(() => {
+    const has = { item: false, amount: false, phone: false, last_30d: false, latest: false };
+    for (const r of rows) {
+      if (!has.item && r.item) has.item = true;
+      if (!has.amount && r.amount != null) has.amount = true;
+      if (!has.phone && r.phone) has.phone = true;
+      if (!has.last_30d && r.last_30d_count != null) has.last_30d = true;
+      if (!has.latest && r.latest_workout_date) has.latest = true;
+    }
+    const order: ColKey[] = ['item', 'amount', 'phone', 'last_30d', 'latest'];
+    return order.filter(k => (has as any)[k]);
+  }, [rows]);
+
   // Distinct filter options per non-bool column, computed from all rows.
   const filterOptions = useMemo(() => {
     const cols: ColKey[] = ['name', 'item', 'amount', 'phone', 'last_30d', 'latest', ...metaKeys.map(k => `meta:${k}`)];
