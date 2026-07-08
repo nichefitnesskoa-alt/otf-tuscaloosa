@@ -228,7 +228,16 @@ function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
         };
     const { error } = await (supabase as any).from(table).insert(payload);
     setSaving(false);
-    if (error) { toast.error(`Save failed: ${error.message}`); return; }
+    if (error) {
+      if ((error as any).code === '23505') {
+        toast.error(kind === 'upgrade'
+          ? `${memberName.trim()} is already logged as an upgrade this SOML.`
+          : `${memberName.trim()} is already logged as a referral this SOML.`);
+      } else {
+        toast.error(`Save failed: ${error.message}`);
+      }
+      return;
+    }
     toast.success(kind === 'upgrade' ? 'Upgrade logged' : 'Referral logged');
     reset();
     onSaved();
@@ -771,6 +780,31 @@ function SomlDrilldownDialog({ open, onClose, metric, saFilter, referrals, upgra
                   : metric === 'referralLeads' ? 'Booked'
                   : 'Bought';
 
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const remove = async (r: SomlDetailItem) => {
+    if (!r.source_table || !r.source_id) return;
+    const label = r.member_name || 'this entry';
+    if (!confirm(`Remove ${label} from this list?`)) return;
+    setRemovingId(r.source_id);
+    let error: any = null;
+    if (r.source_table === 'soml_pending_referrals') {
+      // Auto-generated from a booking — soft-dismiss so metrics update immediately.
+      const res = await (supabase as any)
+        .from('soml_pending_referrals')
+        .update({ state: 'not_converted', resolved_outcome: 'Removed from list' })
+        .eq('id', r.source_id);
+      error = res.error;
+    } else {
+      const res = await (supabase as any).from(r.source_table).delete().eq('id', r.source_id);
+      error = res.error;
+    }
+    setRemovingId(null);
+    if (error) { toast.error(`Could not remove: ${error.message}`); return; }
+    toast.success(`Removed ${label}`);
+    notifySomlChanged();
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
@@ -788,7 +822,7 @@ function SomlDrilldownDialog({ open, onClose, metric, saFilter, referrals, upgra
         ) : (
           <div className="divide-y">
             {filtered.map((r, i) => (
-              <div key={`${r.member_name}-${r.date}-${i}`} className="py-2 flex items-start justify-between gap-3 text-xs">
+              <div key={`${r.source_id || r.member_name}-${r.date}-${i}`} className="py-2 flex items-start justify-between gap-3 text-xs">
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-foreground truncate">
                     {r.member_name || 'Unnamed member'}
@@ -809,8 +843,22 @@ function SomlDrilldownDialog({ open, onClose, metric, saFilter, referrals, upgra
 
                 </div>
 
-                <div className="text-right shrink-0 text-muted-foreground">
-                  {r.date ? `${dateLabel} ${format(new Date(r.date + 'T12:00:00'), 'MMM d')}` : '—'}
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="text-right text-muted-foreground">
+                    {r.date ? `${dateLabel} ${format(new Date(r.date + 'T12:00:00'), 'MMM d')}` : '—'}
+                  </div>
+                  {r.source_table && r.source_id && (
+                    <button
+                      type="button"
+                      onClick={() => remove(r)}
+                      disabled={removingId === r.source_id}
+                      className="text-muted-foreground hover:text-destructive disabled:opacity-40"
+                      aria-label={`Remove ${r.member_name || 'entry'}`}
+                      title="Remove from list"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
