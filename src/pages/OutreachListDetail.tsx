@@ -612,7 +612,7 @@ export default function OutreachListDetail() {
                         {r.is_churning && <AlertTriangle className="w-3.5 h-3.5 text-destructive" />}
                       </td>
                       <td className="px-2 py-1 align-middle font-semibold whitespace-nowrap">
-                        {r.client_name}
+                        {formatOutreachName(r.client_name)}
                         {saveAttempts.length > 0 && (
                           <span className="ml-1 text-[9px] text-muted-foreground">({saveAttempts.length} save{saveAttempts.length !== 1 ? 's' : ''})</span>
                         )}
