@@ -496,7 +496,17 @@ export default function OutreachListDetail() {
     if (sort) {
       const dir = sort.dir === 'asc' ? 1 : -1;
       const cmp = (a: OutreachRow, b: OutreachRow) => {
-        switch (sort.key) {
+        const k = sort.key;
+        if (k.startsWith('meta:')) {
+          const av = rowColStringValue(a, k).value;
+          const bv = rowColStringValue(b, k).value;
+          const an = Number(av), bn = Number(bv);
+          if (av !== '' && bv !== '' && !isNaN(an) && !isNaN(bn)) return (an - bn) * dir;
+          if (av === '' && bv !== '') return 1;
+          if (bv === '' && av !== '') return -1;
+          return av.localeCompare(bv) * dir;
+        }
+        switch (k) {
           case 'name': return formatOutreachName(a.client_name).localeCompare(formatOutreachName(b.client_name)) * dir;
           case 'item': return (a.item || '').localeCompare(b.item || '') * dir;
           case 'phone': return (a.phone || '').localeCompare(b.phone || '') * dir;
@@ -510,11 +520,12 @@ export default function OutreachListDetail() {
           case 'texted':
           case 'in_person':
           case 'not_interested': {
-            const av = rowBoolValue(a, sort.key) ? 1 : 0;
-            const bv = rowBoolValue(b, sort.key) ? 1 : 0;
+            const av = rowBoolValue(a, k) ? 1 : 0;
+            const bv = rowBoolValue(b, k) ? 1 : 0;
             return (bv - av) * dir;
           }
         }
+        return 0;
       };
       out.sort(cmp);
     } else {
