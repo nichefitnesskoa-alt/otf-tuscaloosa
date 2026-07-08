@@ -452,22 +452,6 @@ export default function OutreachListDetail() {
     return map;
   }, [rows, metaKeys]);
 
-  // Dynamic extra columns from row metadata (any un-mapped columns from the
-  // uploaded Excel file are preserved on `metadata` — surface them here so
-  // nothing from the source spreadsheet is hidden).
-  const metaKeys = useMemo(() => {
-    const seen = new Set<string>();
-    for (const r of rows) {
-      const md = (r as any).metadata as Record<string, any> | null;
-      if (!md) continue;
-      for (const k of Object.keys(md)) {
-        const v = md[k];
-        if (v == null || v === '') continue;
-        seen.add(k);
-      }
-    }
-    return Array.from(seen);
-  }, [rows]);
 
   const fmtMeta = (v: any): string => {
     if (v == null || v === '') return '—';
