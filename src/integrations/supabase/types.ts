@@ -3711,6 +3711,7 @@ export type Database = {
           notes: string | null
           referred_at: string
           referred_by: string
+          referring_member_name: string | null
         }
         Insert: {
           created_at?: string
@@ -3720,6 +3721,7 @@ export type Database = {
           notes?: string | null
           referred_at?: string
           referred_by: string
+          referring_member_name?: string | null
         }
         Update: {
           created_at?: string
@@ -3729,6 +3731,7 @@ export type Database = {
           notes?: string | null
           referred_at?: string
           referred_by?: string
+          referring_member_name?: string | null
         }
         Relationships: []
       }

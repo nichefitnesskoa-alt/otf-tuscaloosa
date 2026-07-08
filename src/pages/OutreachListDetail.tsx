@@ -5,7 +5,7 @@
  * Not Interested, log Save/Upgrade/Refer, or delete a row (admin).
  * Churning members flagged inline (red row + ⚠).
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -327,6 +327,37 @@ export default function OutreachListDetail() {
   const [sort, setSort] = useState<SortState>(null);
   const [filters, setFilters] = useState<FilterState>({});
 
+  // Map: normalized referring-member name → count of referrals they've logged
+  // (manual + pending auto). Used to badge rows on this outreach list so an
+  // SA can see at a glance that Ethan already referred someone.
+  const [referralsByReferrer, setReferralsByReferrer] = useState<Map<string, number>>(new Map());
+  const [referralsBump, setReferralsBump] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const norm = (s: string | null | undefined) => (s || '').trim().toLowerCase();
+    (async () => {
+      const [manualRes, pendingRes] = await Promise.all([
+        (supabase as any).from('soml_manual_referrals').select('referring_member_name'),
+        (supabase as any).from('soml_pending_referrals').select('referring_member'),
+      ]);
+      if (cancelled) return;
+      const map = new Map<string, number>();
+      const bump = (name: string | null | undefined) => {
+        const k = norm(name);
+        if (!k) return;
+        map.set(k, (map.get(k) || 0) + 1);
+      };
+      ((manualRes.data as any[]) || []).forEach(r => bump(r.referring_member_name));
+      ((pendingRes.data as any[]) || []).forEach(r => bump(r.referring_member));
+      setReferralsByReferrer(map);
+    })();
+    return () => { cancelled = true; };
+  }, [referralsBump]);
+  const referralCountFor = (name: string): number => {
+    return referralsByReferrer.get((name || '').trim().toLowerCase()) || 0;
+  };
+
+
   const setFilter = (col: ColKey, val: string[] | BoolFilter | undefined) => {
     setFilters(f => {
       const next = { ...f };
@@ -583,7 +614,14 @@ export default function OutreachListDetail() {
                         {saveAttempts.length > 0 && (
                           <span className="ml-1 text-[9px] text-muted-foreground">({saveAttempts.length} save{saveAttempts.length !== 1 ? 's' : ''})</span>
                         )}
+                        {referralCountFor(r.client_name) > 0 && (
+                          <span className="ml-1.5 inline-flex items-center rounded bg-primary/15 text-primary text-[9px] font-semibold px-1.5 py-0.5 align-middle" title="This member has referred someone in SOML">
+                            <Sparkles className="w-2.5 h-2.5 mr-0.5" />
+                            Referred {referralCountFor(r.client_name)}
+                          </span>
+                        )}
                       </td>
+
                       <td className="px-2 py-1 align-middle text-muted-foreground truncate max-w-[280px]" title={r.item || ''}>
                         {r.item || '—'}
                       </td>
@@ -669,10 +707,17 @@ export default function OutreachListDetail() {
                 )}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         {r.is_churning && <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" />}
                         <span className="font-semibold truncate">{r.client_name}</span>
+                        {referralCountFor(r.client_name) > 0 && (
+                          <span className="inline-flex items-center rounded bg-primary/15 text-primary text-[9px] font-semibold px-1.5 py-0.5">
+                            <Sparkles className="w-2.5 h-2.5 mr-0.5" />
+                            Referred {referralCountFor(r.client_name)}
+                          </span>
+                        )}
                       </div>
+
                       <div className="text-[11px] text-muted-foreground truncate">
                         {r.item || '—'} · <span className="font-mono">{fmtAmount(r.amount)}</span>
                       </div>
@@ -730,7 +775,9 @@ export default function OutreachListDetail() {
         onClose={() => setSomlDialog(null)}
         kind={somlDialog?.kind || 'upgrade'}
         defaultMemberName={somlDialog?.name}
+        onSaved={() => setReferralsBump(n => n + 1)}
       />
+
       <SaveAttemptDialog
         open={!!saveDialog}
         onClose={() => setSaveDialog(null)}
