@@ -467,7 +467,7 @@ export default function OutreachListDetail() {
       out.sort((a, b) => {
         if (a.is_churning !== b.is_churning) return a.is_churning ? -1 : 1;
         if (a.is_churning && b.is_churning) return (a.churn_date || '9999').localeCompare(b.churn_date || '9999');
-        return a.client_name.localeCompare(b.client_name);
+        return formatOutreachName(a.client_name).localeCompare(formatOutreachName(b.client_name));
       });
     }
     return out;
