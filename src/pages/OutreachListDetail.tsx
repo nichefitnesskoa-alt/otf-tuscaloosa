@@ -442,7 +442,7 @@ export default function OutreachListDetail() {
       const dir = sort.dir === 'asc' ? 1 : -1;
       const cmp = (a: OutreachRow, b: OutreachRow) => {
         switch (sort.key) {
-          case 'name': return a.client_name.localeCompare(b.client_name) * dir;
+          case 'name': return formatOutreachName(a.client_name).localeCompare(formatOutreachName(b.client_name)) * dir;
           case 'item': return (a.item || '').localeCompare(b.item || '') * dir;
           case 'phone': return (a.phone || '').localeCompare(b.phone || '') * dir;
           case 'amount': return ((Number(a.amount) || 0) - (Number(b.amount) || 0)) * dir;
