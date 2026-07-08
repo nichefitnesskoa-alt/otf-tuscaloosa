@@ -130,7 +130,7 @@ function SaveAttemptDialog({
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Log save attempt · {row?.client_name}</DialogTitle>
+          <DialogTitle>Log save attempt · {formatOutreachName(row?.client_name)}</DialogTitle>
         </DialogHeader>
         <div className="space-y-2">
           <Textarea placeholder="What did you say? Any commitment or objection?"
