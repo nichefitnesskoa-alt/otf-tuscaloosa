@@ -135,7 +135,7 @@ export function useSomlData(): SomlData {
 
     const realizedItems: SomlDetailItem[] = enrichedPending
       .filter(p => p.state === 'realized' && !!p.realized_at && p.realized_at >= start && p.realized_at <= end)
-      .map(p => ({ sa: p.credited_sa, member_name: p.member_name || '', date: p.realized_at, source: 'auto' }));
+      .map(p => ({ sa: p.credited_sa, member_name: p.member_name || '', date: p.realized_at, source: 'auto', source_table: 'soml_pending_referrals', source_id: p.id }));
 
     // Legacy fallback — realized referral sales not in the pending ledger.
     const ledgerReferralMemberSet = new Set(realizedItems.map(r => norm(r.member_name)));
