@@ -171,7 +171,7 @@ export function useSomlData(): SomlData {
     // 3. Manual referrals — dedup against auto by member_name
     const { data: manualRefs } = await supabase
       .from('soml_manual_referrals' as any)
-      .select('member_name, referred_by, referred_at, referring_member_name')
+      .select('id, member_name, referred_by, referred_at, referring_member_name')
       .gte('referred_at', `${start}T00:00:00-06:00`)
       .lte('referred_at', `${end}T23:59:59-05:00`);
     const manualReferralItems: SomlDetailItem[] = ((manualRefs as any[]) || [])
@@ -182,6 +182,8 @@ export function useSomlData(): SomlData {
         date: (m.referred_at as string)?.slice(0, 10) || null,
         source: 'manual' as const,
         referring_member: (m.referring_member_name as string | null) ?? null,
+        source_table: 'soml_manual_referrals' as const,
+        source_id: m.id as string,
       }));
 
     const allReferralItems: SomlDetailItem[] = [...realizedItems, ...manualReferralItems];
@@ -190,7 +192,7 @@ export function useSomlData(): SomlData {
     // 4. Upgrades
     const { data: upgrades } = await supabase
       .from('soml_upgrades' as any)
-      .select('member_name, upgraded_by, upgraded_at, upgraded_to_tier')
+      .select('id, member_name, upgraded_by, upgraded_at, upgraded_to_tier')
       .gte('upgraded_at', `${start}T00:00:00-06:00`)
       .lte('upgraded_at', `${end}T23:59:59-05:00`);
     const upgradeItems: SomlDetailItem[] = ((upgrades as any[]) || []).map(u => ({
@@ -199,6 +201,8 @@ export function useSomlData(): SomlData {
       date: (u.upgraded_at as string)?.slice(0, 10) || null,
       source: 'manual' as const,
       tier: (u.upgraded_to_tier as 'Premier' | 'Elite' | null) ?? null,
+      source_table: 'soml_upgrades' as const,
+      source_id: u.id as string,
     }));
 
 
