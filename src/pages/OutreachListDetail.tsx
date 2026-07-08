@@ -498,7 +498,7 @@ export default function OutreachListDetail() {
       await (supabase as any).from('outreach_row_actions').delete().eq('row_id', rowToDelete.id);
       const { error } = await (supabase as any).from('outreach_list_rows').delete().eq('id', rowToDelete.id);
       if (error) throw error;
-      toast.success(`Removed ${rowToDelete.client_name}`);
+      toast.success(`Removed ${formatOutreachName(rowToDelete.client_name)}`);
       setRowToDelete(null);
     } catch (e: any) {
       toast.error(`Delete failed: ${e.message}`);
