@@ -54,6 +54,9 @@ export interface SomlDetailItem {
   source: 'auto' | 'manual' | 'legacy';
   tier?: 'Premier' | 'Elite' | null;
   referring_member?: string | null;
+  // Removable rows carry the source row identity so the drilldown can delete/dismiss.
+  source_table?: 'soml_upgrades' | 'soml_manual_referrals' | 'soml_pending_referrals' | null;
+  source_id?: string | null;
 }
 
 
