@@ -34,22 +34,25 @@ export function LogSomlDialog({ open, onClose, kind, defaultMemberName, onSaved 
   const { user } = useAuth();
   const [memberName, setMemberName] = useState(defaultMemberName || '');
   const [notes, setNotes] = useState('');
+  const [tier, setTier] = useState<'Premier' | 'Elite' | ''>('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
       setMemberName(defaultMemberName || '');
       setNotes('');
+      setTier('');
     }
   }, [open, defaultMemberName]);
 
   const submit = async () => {
     if (!memberName.trim()) { toast.error('Member name is required'); return; }
+    if (kind === 'upgrade' && !tier) { toast.error('Pick what they upgraded to'); return; }
     if (!user?.name) { toast.error('Login required'); return; }
     setSaving(true);
     const table = kind === 'upgrade' ? 'soml_upgrades' : 'soml_manual_referrals';
     const payload: any = kind === 'upgrade'
-      ? { member_name: memberName.trim(), upgraded_by: user.name, notes: notes.trim() || null, created_by: user.name }
+      ? { member_name: memberName.trim(), upgraded_by: user.name, upgraded_to_tier: tier, notes: notes.trim() || null, created_by: user.name }
       : { member_name: memberName.trim(), referred_by: user.name, notes: notes.trim() || null, created_by: user.name };
     const { error } = await (supabase as any).from(table).insert(payload);
     setSaving(false);
@@ -59,6 +62,7 @@ export function LogSomlDialog({ open, onClose, kind, defaultMemberName, onSaved 
     onSaved?.();
     onClose();
   };
+
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
