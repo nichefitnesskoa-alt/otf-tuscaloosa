@@ -205,16 +205,20 @@ export default function OutreachListImport() {
         if (listErr) throw listErr;
         const listId = (listRow as any).id;
 
-        const mappedCols = new Set(Object.values(p.mapping).filter(Boolean) as string[]);
+        const clientNameCol = p.mapping.client_name;
         const rows = p.data.map(r => {
           const client_name = String(r[p.mapping.client_name!] ?? '').trim();
           if (!client_name) return null;
           // Skip section-header-ish rows where name is literally "Client" or repeats headers
           if (/^client$|^name$|^full name$/i.test(client_name)) return null;
+          // Preserve EVERY column from the uploaded Excel in metadata so the detail
+          // view can render the sheet exactly as imported — nothing is dropped
+          // because it happened to be mapped to a pre-coded field.
           const metadata: Record<string, any> = {};
           for (const h of p.headers) {
             if (/^__EMPTY/i.test(h) || /^Column \d+$/.test(h)) continue;
-            if (!mappedCols.has(h) && r[h] !== '' && r[h] != null) metadata[h] = r[h];
+            if (h === clientNameCol) continue; // name is already the row identifier
+            if (r[h] !== '' && r[h] != null) metadata[h] = r[h];
           }
           const is_churning_val = p.mapping.is_churning ? coerceBool(r[p.mapping.is_churning]) : null;
           return {

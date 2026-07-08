@@ -609,12 +609,6 @@ export default function OutreachListDetail() {
                 <tr>
                   <th className="text-left px-2 py-2 w-8"></th>
                   <ColHeader col="name" label="Name" align="left" className="min-w-[160px]" sort={sort} filters={filters} options={filterOptions.name || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="item" label="Item" align="left" className="min-w-[200px]" sort={sort} filters={filters} options={filterOptions.item || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="amount" label="Amount" align="right" className="w-[90px]" sort={sort} filters={filters} options={filterOptions.amount || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="phone" label="Phone" align="left" className="w-[130px]" sort={sort} filters={filters} options={filterOptions.phone || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="last_30d" label="30d" align="right" className="w-[80px]" sort={sort} filters={filters} options={filterOptions.last_30d || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="latest" label="Latest" align="left" className="w-[90px]" sort={sort} filters={filters} options={filterOptions.latest || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="churns" label="Churns" align="left" className="w-[100px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   <ColHeader col="texted" label="Text" align="center" className="w-[65px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   <ColHeader col="in_person" label="In-Per" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   <ColHeader col="not_interested" label="Not Int" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
@@ -661,27 +655,6 @@ export default function OutreachListDetail() {
                         )}
                       </td>
 
-                      <td className="px-2 py-1 align-middle text-muted-foreground truncate max-w-[280px]" title={r.item || ''}>
-                        {r.item || '—'}
-                      </td>
-                      <td className="px-2 py-1 align-middle text-right font-mono tabular-nums">
-                        {fmtAmount(r.amount)}
-                      </td>
-                      <td className="px-2 py-1 align-middle text-muted-foreground whitespace-nowrap">
-                        {r.phone || '—'}
-                      </td>
-                      <td className="px-2 py-1 align-middle text-right tabular-nums">
-                        {r.last_30d_count ?? '—'}
-                      </td>
-                      <td className="px-2 py-1 align-middle text-muted-foreground whitespace-nowrap">
-                        {fmtDay(r.latest_workout_date)}
-                      </td>
-                      <td className={cn(
-                        'px-2 py-1 align-middle whitespace-nowrap',
-                        r.is_churning ? 'text-destructive font-semibold' : 'text-muted-foreground',
-                      )}>
-                        {r.is_churning ? fmtDay(r.churn_date) : '—'}
-                      </td>
                       <td className="px-2 py-1 align-middle text-center">
                         <CheckPill label="Texted" active={!!texted} attribution={texted}
                           onClick={() => toggle(r, 'texted', texted)} />
@@ -732,7 +705,7 @@ export default function OutreachListDetail() {
                   );
                 })}
                 {filteredSorted.length === 0 && (
-                  <tr><td colSpan={12 + metaKeys.length} className="text-center py-6 text-muted-foreground">
+                  <tr><td colSpan={6 + metaKeys.length} className="text-center py-6 text-muted-foreground">
                     {rows.length === 0 ? 'No people in this list.' : 'No matches for your search.'}
                   </td></tr>
                 )}
@@ -767,12 +740,19 @@ export default function OutreachListDetail() {
                         )}
                       </div>
 
-                      <div className="text-[11px] text-muted-foreground truncate">
-                        {r.item || '—'} · <span className="font-mono">{fmtAmount(r.amount)}</span>
-                      </div>
-                      {r.is_churning && (
-                        <div className="text-[10px] text-destructive font-semibold">
-                          Churns {fmtDay(r.churn_date)}
+                      {metaKeys.length > 0 && (
+                        <div className="text-[11px] text-muted-foreground space-y-0.5 mt-1">
+                          {metaKeys.map(k => {
+                            const md = (r as any).metadata as Record<string, any> | null;
+                            const v = md ? md[k] : undefined;
+                            if (v == null || v === '') return null;
+                            return (
+                              <div key={`m-${r.id}-${k}`} className="truncate">
+                                <span className="uppercase tracking-wide text-[9px] font-semibold text-muted-foreground/70 mr-1">{k}:</span>
+                                {fmtMeta(v)}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
