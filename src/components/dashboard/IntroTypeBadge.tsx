@@ -9,12 +9,15 @@ const SOURCE_COLORS: Record<string, string> = {
   'Instagram DMs (Friend)': NEUTRAL_SOURCE,
   'Member Referral': NEUTRAL_SOURCE,
   'Online Intro Offer (self-booked)': NEUTRAL_SOURCE,
+  'Online Intro Offer (Friend)': NEUTRAL_SOURCE,
   'VIP Class': NEUTRAL_SOURCE,
   'Lead Management': NEUTRAL_SOURCE,
   'Lead Management (Friend)': NEUTRAL_SOURCE,
   'My Personal Friend I Invited': NEUTRAL_SOURCE,
   'Business Partnership Referral': NEUTRAL_SOURCE,
   'Event': NEUTRAL_SOURCE,
+  'Walk-in': NEUTRAL_SOURCE,
+  'Walk-in (Friend)': NEUTRAL_SOURCE,
 };
 
 const SHORT_SOURCE: Record<string, string> = {
@@ -22,13 +25,15 @@ const SHORT_SOURCE: Record<string, string> = {
   'Instagram DMs (Friend)': 'IG Friend',
   'Member Referral': 'Referral',
   'Online Intro Offer (self-booked)': 'Web Lead',
+  'Online Intro Offer (Friend)': 'Web Friend',
   'VIP Class': 'VIP',
   'Lead Management': 'Lead Mgmt',
   'Lead Management (Friend)': 'Lead Friend',
   'My Personal Friend I Invited': 'Personal',
   'Business Partnership Referral': 'Biz Partner',
   'Event': 'Event',
-  
+  'Walk-in': 'Walk-in',
+  'Walk-in (Friend)': 'Walk-in Friend',
 };
 
 interface IntroTypeBadgeProps {
