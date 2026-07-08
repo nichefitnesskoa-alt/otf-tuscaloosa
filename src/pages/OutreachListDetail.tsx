@@ -424,6 +424,24 @@ export default function OutreachListDetail() {
     return Array.from(seen);
   }, [rows]);
 
+  // Built-in columns (item, amount, phone, last_30d, latest) only appear if
+  // at least one row in the list actually has a value. Older lists imported
+  // before we made columns fully dynamic keep their pricing / product info
+  // this way; newer imports where everything lives in metadata simply hide
+  // these columns.
+  const builtinKeys = useMemo(() => {
+    const has = { item: false, amount: false, phone: false, last_30d: false, latest: false };
+    for (const r of rows) {
+      if (!has.item && r.item) has.item = true;
+      if (!has.amount && r.amount != null) has.amount = true;
+      if (!has.phone && r.phone) has.phone = true;
+      if (!has.last_30d && r.last_30d_count != null) has.last_30d = true;
+      if (!has.latest && r.latest_workout_date) has.latest = true;
+    }
+    const order: ColKey[] = ['item', 'amount', 'phone', 'last_30d', 'latest'];
+    return order.filter(k => (has as any)[k]);
+  }, [rows]);
+
   // Distinct filter options per non-bool column, computed from all rows.
   const filterOptions = useMemo(() => {
     const cols: ColKey[] = ['name', 'item', 'amount', 'phone', 'last_30d', 'latest', ...metaKeys.map(k => `meta:${k}`)];
@@ -660,6 +678,28 @@ export default function OutreachListDetail() {
                       onFilter={setFilter}
                     />
                   ))}
+                  {builtinKeys.map(k => {
+                    const label = k === 'item' ? 'Item'
+                      : k === 'amount' ? 'Amount'
+                      : k === 'phone' ? 'Phone'
+                      : k === 'last_30d' ? 'Last 30d'
+                      : 'Latest';
+                    const align: 'left' | 'right' | 'center' = (k === 'amount' || k === 'last_30d') ? 'right' : 'left';
+                    return (
+                      <ColHeader
+                        key={`bh-${k}`}
+                        col={k}
+                        label={label}
+                        align={align}
+                        className="min-w-[100px] whitespace-nowrap"
+                        sort={sort}
+                        filters={filters}
+                        options={filterOptions[k] || emptyOpts}
+                        onSort={cycleSort}
+                        onFilter={setFilter}
+                      />
+                    );
+                  })}
                   <th className="text-right px-2 py-2 w-[240px]">Actions</th>
                 </tr>
               </thead>
@@ -721,6 +761,20 @@ export default function OutreachListDetail() {
                           </td>
                         );
                       })}
+                      {builtinKeys.map(k => {
+                        let content: React.ReactNode = '—';
+                        let align = 'text-left';
+                        if (k === 'item') content = r.item || '—';
+                        else if (k === 'amount') { content = r.amount == null ? '—' : fmtAmount(r.amount); align = 'text-right'; }
+                        else if (k === 'phone') content = r.phone || '—';
+                        else if (k === 'last_30d') { content = r.last_30d_count == null ? '—' : r.last_30d_count; align = 'text-right'; }
+                        else if (k === 'latest') content = r.latest_workout_date ? fmtDay(r.latest_workout_date) : '—';
+                        return (
+                          <td key={`bc-${r.id}-${k}`} className={cn('px-2 py-1 align-middle text-muted-foreground truncate max-w-[220px]', align)} title={String(content)}>
+                            {content}
+                          </td>
+                        );
+                      })}
                       <td className="px-2 py-1 align-middle text-right whitespace-nowrap">
                         {r.is_churning && (
                           <Button size="sm" variant="destructive" className="h-6 px-2 text-[10px] mr-1"
@@ -748,7 +802,7 @@ export default function OutreachListDetail() {
                   );
                 })}
                 {filteredSorted.length === 0 && (
-                  <tr><td colSpan={6 + metaKeys.length} className="text-center py-6 text-muted-foreground">
+                  <tr><td colSpan={6 + metaKeys.length + builtinKeys.length} className="text-center py-6 text-muted-foreground">
                     {rows.length === 0 ? 'No people in this list.' : 'No matches for your search.'}
                   </td></tr>
                 )}
