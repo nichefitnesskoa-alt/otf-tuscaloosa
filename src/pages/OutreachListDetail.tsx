@@ -61,7 +61,7 @@ function fmtAmount(n: number | null) {
 /** Raw value + display label for a row's cell in a given (non-bool) column. */
 function rowColStringValue(r: OutreachRow, col: ColKey): { value: string; label: string } {
   switch (col) {
-    case 'name': return { value: r.client_name, label: r.client_name };
+    case 'name': return { value: r.client_name, label: formatOutreachName(r.client_name) };
     case 'item': return { value: r.item || '', label: r.item || '(blank)' };
     case 'phone': return { value: r.phone || '', label: r.phone || '(blank)' };
     case 'amount': {
