@@ -168,36 +168,15 @@ export function ReferralAskActions({ dateRange }: Props) {
                           <Copy className="w-3.5 h-3.5 mr-1" />
                           {phoneDisplay ? `Copy ${phoneDisplay}` : 'No phone'}
                         </Button>
-                        {r.followupPending ? (
-                          <Button
-                            size="sm"
-                            className="min-h-[44px] text-xs"
-                            onClick={() => markAsked(r.bookingId, 'Referral asked after the fact from MyDay')}
-                            disabled={saving}
-                          >
-                            <Check className="w-3.5 h-3.5 mr-1" /> Done — asked them
-                          </Button>
-                        ) : (
-                          <>
-                            <Button
-                              size="sm"
-                              className="min-h-[44px] text-xs"
-                              onClick={() => markAsked(r.bookingId, 'POS referral ask logged on MyDay')}
-                              disabled={saving}
-                            >
-                              <Check className="w-3.5 h-3.5 mr-1" /> Asked at POS
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="min-h-[44px] text-xs cursor-pointer"
-                              onClick={() => markFollowupPending(r.bookingId, 'Referral ask deferred from MyDay')}
-                              disabled={saving}
-                            >
-                              <Clock className="w-3.5 h-3.5 mr-1" /> Reach out after
-                            </Button>
-                          </>
-                        )}
+                        <Button
+                          size="sm"
+                          className="min-h-[44px] text-xs"
+                          onClick={() => markAsked(r.bookingId, 'Referral ask logged from MyDay')}
+                          disabled={saving}
+                        >
+                          <Check className="w-3.5 h-3.5 mr-1" /> Did we ask them?
+                        </Button>
+
                       </div>
                     )}
                   </div>
