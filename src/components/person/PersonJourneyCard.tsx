@@ -546,9 +546,9 @@ function IntroNode({ booking, allBookings, runs, scorecard, isSecondIntro, chain
                   <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     Referring member's full name *
                   </Label>
-                  <Input
+                  <NameAutocomplete
                     value={referrerDraft}
-                    onChange={(e) => setReferrerDraft(e.target.value)}
+                    onChange={(v) => setReferrerDraft(v)}
                     placeholder="Who referred them?"
                     className="h-7 text-xs"
                   />
