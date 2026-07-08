@@ -75,6 +75,26 @@ export function LogSomlDialog({ open, onClose, kind, defaultMemberName, onSaved 
             <Label className="text-xs">Member name *</Label>
             <NameAutocomplete value={memberName} onChange={setMemberName} placeholder="Who upgraded/referred?" />
           </div>
+          {kind === 'upgrade' && (
+            <div>
+              <Label className="text-xs">Upgraded to *</Label>
+              <div className="flex gap-2 mt-1">
+                {(['Premier', 'Elite'] as const).map(t => (
+                  <Button
+                    key={t}
+                    type="button"
+                    size="sm"
+                    variant={tier === t ? 'default' : 'outline'}
+                    className="flex-1"
+                    onClick={() => setTier(t)}
+                  >
+                    {t}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <Label className="text-xs">Notes (optional)</Label>
             <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
