@@ -44,6 +44,13 @@ interface Props {
   /** Date range currently selected on the WIG page — the dialog opens to
    *  this exact range so its total matches the WIG tile by default. */
   initialRange?: DateRange;
+  /** Optional: reuse the parent's already-loaded useSaLeads result so the
+   *  dialog can NEVER disagree with the WIG banner/tile that opened it.
+   *  When provided, the dialog skips its own fetch for the parent's range. */
+  saRowsOverride?: import('@/hooks/useSaLeads').SaLeadsRow[];
+  loadingOverride?: boolean;
+  rangeStartOverride?: string;
+  rangeEndOverride?: string;
 }
 
 type View = 'grouped' | 'flat';
@@ -110,7 +117,15 @@ function detectPreset(r: DateRange | undefined): DatePreset {
   return 'custom';
 }
 
-export function SourcedLeadsDialog({ open, onOpenChange, initialRange }: Props) {
+export function SourcedLeadsDialog({
+  open,
+  onOpenChange,
+  initialRange,
+  saRowsOverride,
+  loadingOverride,
+  rangeStartOverride,
+  rangeEndOverride,
+}: Props) {
   const [preset, setPreset] = useState<DatePreset>(() => detectPreset(initialRange));
   const [customRange, setCustomRange] = useState<DateRange | undefined>(initialRange);
   const [view, setView] = useState<View>('grouped');
@@ -130,14 +145,30 @@ export function SourcedLeadsDialog({ open, onOpenChange, initialRange }: Props) 
     return r ?? customRange ?? getCurrentPayPeriod();
   }, [preset, customRange]);
 
-  const rangeStart = preset === 'all_time'
+  const localRangeStart = preset === 'all_time'
     ? '2020-01-01'
     : format(dateRange.start, 'yyyy-MM-dd');
-  const rangeEnd = preset === 'all_time'
+  const localRangeEnd = preset === 'all_time'
     ? format(new Date(), 'yyyy-MM-dd')
     : format(dateRange.end, 'yyyy-MM-dd');
 
-  const { rows: saRows, loading } = useSaLeads(rangeStart, rangeEnd);
+  // If the user hasn't changed the date range inside the dialog, reuse the
+  // exact rows the WIG page already loaded — this guarantees the dialog's
+  // count matches the WIG banner. When they pick a different range, fall
+  // back to a dialog-local fetch.
+  const useParentData =
+    !!saRowsOverride &&
+    !!rangeStartOverride &&
+    !!rangeEndOverride &&
+    localRangeStart === rangeStartOverride &&
+    localRangeEnd === rangeEndOverride;
+
+  const rangeStart = useParentData ? rangeStartOverride! : localRangeStart;
+  const rangeEnd = useParentData ? rangeEndOverride! : localRangeEnd;
+
+  const localHook = useSaLeads(rangeStart, rangeEnd);
+  const saRows = useParentData ? saRowsOverride! : localHook.rows;
+  const loading = useParentData ? !!loadingOverride : localHook.loading;
 
   // Match the WIG SA Leaderboard scope: only active SAs, and exclude Koa
   // (Admin, not on the SA leaderboard). Same filter as WigSaLeaderboard,
