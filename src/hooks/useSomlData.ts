@@ -257,6 +257,8 @@ export function useSomlData(): SomlData {
         member_name: p.member_name || '',
         date: bookingDate || p.realized_at || null,
         source: 'auto',
+        source_table: 'soml_pending_referrals',
+        source_id: p.id,
       });
     }
     const referralLeadsItems: SomlDetailItem[] = Array.from(referralLeadsMap.values());
