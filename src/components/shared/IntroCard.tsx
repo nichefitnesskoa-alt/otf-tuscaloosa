@@ -152,6 +152,82 @@ function InlineSelect({ value, field, bookingId, editedBy, onSaved, options, pla
   );
 }
 
+/* ── inline lead-source editor (writes lead_source + referred_by_member_name atomically) ── */
+function InlineLeadSource({
+  value, referredBy, bookingId, editedBy, onSaved, onAfterSave,
+}: {
+  value: string;
+  referredBy: string | null;
+  bookingId: string;
+  editedBy: string;
+  onSaved: () => void;
+  onAfterSave?: (newVal: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [source, setSource] = useState(value);
+  const [referrer, setReferrer] = useState<string | null>(referredBy);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { setSource(value); }, [value]);
+  useEffect(() => { setReferrer(referredBy); }, [referredBy]);
+
+  const commit = async () => {
+    const err = validateLeadSourceReferrer(source, referrer);
+    if (err) { toast.error(err); return; }
+    setSaving(true);
+    const normalizedReferrer = resolveReferrerForWrite(source, referrer);
+    const { error } = await supabase.from('intros_booked').update({
+      lead_source: source,
+      referred_by_member_name: normalizedReferrer,
+      last_edited_at: new Date().toISOString(),
+      last_edited_by: editedBy,
+    } as any).eq('id', bookingId);
+    setSaving(false);
+    if (error) {
+      toast.error(error.message || 'Save failed');
+      return;
+    }
+    toast.success('Saved');
+    setOpen(false);
+    onSaved();
+    onAfterSave?.(source);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="hover:underline cursor-pointer rounded px-0.5 -mx-0.5 hover:bg-card/10 transition-colors truncate max-w-[180px] text-[11px]"
+          style={{ color: 'inherit' }}
+        >
+          {value || 'Source'}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-3" align="start">
+        <LeadSourceWithReferrerField
+          value={source}
+          referredByMemberName={referrer}
+          onChange={({ lead_source, referred_by_member_name }) => {
+            setSource(lead_source);
+            setReferrer(referred_by_member_name);
+          }}
+          size="compact"
+          label="Lead source"
+        />
+        <div className="flex justify-end gap-1.5 mt-3">
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setOpen(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button size="sm" className="h-7 text-xs" onClick={commit} disabled={saving || !source}>
+            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /* ── inline time picker ── */
 function InlineTimePicker({ value, bookingId, editedBy, onSaved }: {
   value: string | null; bookingId: string; editedBy: string; onSaved: () => void;
