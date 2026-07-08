@@ -609,12 +609,6 @@ export default function OutreachListDetail() {
                 <tr>
                   <th className="text-left px-2 py-2 w-8"></th>
                   <ColHeader col="name" label="Name" align="left" className="min-w-[160px]" sort={sort} filters={filters} options={filterOptions.name || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="item" label="Item" align="left" className="min-w-[200px]" sort={sort} filters={filters} options={filterOptions.item || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="amount" label="Amount" align="right" className="w-[90px]" sort={sort} filters={filters} options={filterOptions.amount || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="phone" label="Phone" align="left" className="w-[130px]" sort={sort} filters={filters} options={filterOptions.phone || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="last_30d" label="30d" align="right" className="w-[80px]" sort={sort} filters={filters} options={filterOptions.last_30d || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="latest" label="Latest" align="left" className="w-[90px]" sort={sort} filters={filters} options={filterOptions.latest || emptyOpts} onSort={cycleSort} onFilter={setFilter} />
-                  <ColHeader col="churns" label="Churns" align="left" className="w-[100px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   <ColHeader col="texted" label="Text" align="center" className="w-[65px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   <ColHeader col="in_person" label="In-Per" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   <ColHeader col="not_interested" label="Not Int" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
