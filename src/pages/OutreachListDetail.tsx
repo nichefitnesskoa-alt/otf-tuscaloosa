@@ -407,10 +407,27 @@ export default function OutreachListDetail() {
     return false;
   };
 
+  // Dynamic extra columns from row metadata (any un-mapped columns from the
+  // uploaded Excel file are preserved on `metadata` — surface them here so
+  // nothing from the source spreadsheet is hidden).
+  const metaKeys = useMemo(() => {
+    const seen = new Set<string>();
+    for (const r of rows) {
+      const md = (r as any).metadata as Record<string, any> | null;
+      if (!md) continue;
+      for (const k of Object.keys(md)) {
+        const v = md[k];
+        if (v == null || v === '') continue;
+        seen.add(k);
+      }
+    }
+    return Array.from(seen);
+  }, [rows]);
+
   // Distinct filter options per non-bool column, computed from all rows.
   const filterOptions = useMemo(() => {
-    const cols: ColKey[] = ['name', 'item', 'amount', 'phone', 'last_30d', 'latest'];
-    const map: Partial<Record<ColKey, FilterOption[]>> = {};
+    const cols: ColKey[] = ['name', 'item', 'amount', 'phone', 'last_30d', 'latest', ...metaKeys.map(k => `meta:${k}`)];
+    const map: Record<string, FilterOption[]> = {};
     for (const col of cols) {
       const seen = new Map<string, string>(); // value -> label
       for (const r of rows) {
@@ -433,7 +450,7 @@ export default function OutreachListDetail() {
       map[col] = arr;
     }
     return map;
-  }, [rows]);
+  }, [rows, metaKeys]);
 
   // Dynamic extra columns from row metadata (any un-mapped columns from the
   // uploaded Excel file are preserved on `metadata` — surface them here so
