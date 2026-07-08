@@ -810,26 +810,20 @@ export default function OutreachListDetail() {
                           tone="destructive"
                           onClick={() => toggle(r, 'not_interested', notInterested)} />
                       </td>
-                      {metaKeys.map(k => {
-                        const md = (r as any).metadata as Record<string, any> | null;
-                        const v = md ? md[k] : undefined;
-                        const label = fmtMeta(v);
-                        return (
-                          <td key={`c-${r.id}-${k}`} className="px-2 py-1 align-middle text-muted-foreground truncate max-w-[220px]" title={label}>
-                            {label}
-                          </td>
-                        );
-                      })}
-                      {builtinKeys.map(k => {
+                      {visibleDataCols.map(c => {
                         let content: React.ReactNode = '—';
-                        let align = 'text-left';
-                        if (k === 'item') content = r.item || '—';
-                        else if (k === 'amount') { content = r.amount == null ? '—' : fmtAmount(r.amount); align = 'text-right'; }
-                        else if (k === 'phone') content = r.phone || '—';
-                        else if (k === 'last_30d') { content = r.last_30d_count == null ? '—' : r.last_30d_count; align = 'text-right'; }
-                        else if (k === 'latest') content = r.latest_workout_date ? fmtDay(r.latest_workout_date) : '—';
+                        let alignCls = 'text-left';
+                        if (c.startsWith('meta:')) {
+                          const k = c.slice(5);
+                          const md = (r as any).metadata as Record<string, any> | null;
+                          content = fmtMeta(md ? md[k] : undefined);
+                        } else if (c === 'item') content = r.item || '—';
+                        else if (c === 'amount') { content = r.amount == null ? '—' : fmtAmount(r.amount); alignCls = 'text-right'; }
+                        else if (c === 'phone') content = r.phone || '—';
+                        else if (c === 'last_30d') { content = r.last_30d_count == null ? '—' : r.last_30d_count; alignCls = 'text-right'; }
+                        else if (c === 'latest') content = r.latest_workout_date ? fmtDay(r.latest_workout_date) : '—';
                         return (
-                          <td key={`bc-${r.id}-${k}`} className={cn('px-2 py-1 align-middle text-muted-foreground truncate max-w-[220px]', align)} title={String(content)}>
+                          <td key={`c-${r.id}-${c}`} className={cn('px-2 py-1 align-middle text-muted-foreground truncate max-w-[220px]', alignCls)} title={String(content)}>
                             {content}
                           </td>
                         );
