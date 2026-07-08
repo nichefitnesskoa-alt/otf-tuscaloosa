@@ -742,42 +742,23 @@ export default function OutreachListDetail() {
                   <ColHeader col="texted" label="Text" align="center" className="w-[65px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   <ColHeader col="in_person" label="In-Per" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   <ColHeader col="not_interested" label="Not Int" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
-                  {metaKeys.map(k => (
+                  {visibleDataCols.map(c => (
                     <ColHeader
-                      key={`h-${k}`}
-                      col={`meta:${k}`}
-                      label={k}
-                      align="left"
-                      className="min-w-[120px] whitespace-nowrap"
+                      key={`h-${c}`}
+                      col={c}
+                      label={colLabel(c)}
+                      align={colAlign(c)}
+                      className={cn(
+                        'whitespace-nowrap',
+                        c.startsWith('meta:') ? 'min-w-[120px]' : 'min-w-[100px]',
+                      )}
                       sort={sort}
                       filters={filters}
-                      options={filterOptions[`meta:${k}`] || emptyOpts}
+                      options={filterOptions[c] || emptyOpts}
                       onSort={cycleSort}
                       onFilter={setFilter}
                     />
                   ))}
-                  {builtinKeys.map(k => {
-                    const label = k === 'item' ? 'Item'
-                      : k === 'amount' ? 'Amount'
-                      : k === 'phone' ? 'Phone'
-                      : k === 'last_30d' ? 'Last 30d'
-                      : 'Latest';
-                    const align: 'left' | 'right' | 'center' = (k === 'amount' || k === 'last_30d') ? 'right' : 'left';
-                    return (
-                      <ColHeader
-                        key={`bh-${k}`}
-                        col={k}
-                        label={label}
-                        align={align}
-                        className="min-w-[100px] whitespace-nowrap"
-                        sort={sort}
-                        filters={filters}
-                        options={filterOptions[k] || emptyOpts}
-                        onSort={cycleSort}
-                        onFilter={setFilter}
-                      />
-                    );
-                  })}
                   <th className="text-right px-2 py-2 w-[240px]">Actions</th>
                 </tr>
               </thead>
