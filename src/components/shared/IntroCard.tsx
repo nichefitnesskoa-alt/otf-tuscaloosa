@@ -18,9 +18,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { CalendarIcon, Sparkles } from 'lucide-react';
+import { CalendarIcon, Sparkles, Loader2 } from 'lucide-react';
 import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
 import { detectVipSessionForBooking } from '@/lib/vip/detectVipSessionForBooking';
+import {
+  LeadSourceWithReferrerField,
+  validateLeadSourceReferrer,
+  resolveReferrerForWrite,
+} from '@/components/shared/LeadSourceWithReferrerField';
 
 const isVipSource = (s: string | null | undefined) =>
   !!s && (s === 'VIP Class' || s === 'VIP Class (Friend)' || s.toLowerCase().startsWith('vip class'));
