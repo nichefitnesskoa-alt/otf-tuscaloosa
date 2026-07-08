@@ -766,6 +766,11 @@ function SomlDrilldownDialog({ open, onClose, metric, saFilter, referrals, upgra
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-foreground truncate">
                     {r.member_name || 'Unnamed member'}
+                    {r.tier && (
+                      <span className="ml-2 inline-flex items-center rounded bg-primary/15 text-primary text-[10px] font-semibold px-1.5 py-0.5 align-middle">
+                        → {r.tier}
+                      </span>
+                    )}
                   </div>
                   <div className="text-muted-foreground">
                     Credit: <span className="text-foreground font-medium">{r.sa}</span>
@@ -773,6 +778,7 @@ function SomlDrilldownDialog({ open, onClose, metric, saFilter, referrals, upgra
                     {r.source === 'legacy' && <span className="ml-1 italic">· legacy</span>}
                   </div>
                 </div>
+
                 <div className="text-right shrink-0 text-muted-foreground">
                   {r.date ? `${dateLabel} ${format(new Date(r.date + 'T12:00:00'), 'MMM d')}` : '—'}
                 </div>
