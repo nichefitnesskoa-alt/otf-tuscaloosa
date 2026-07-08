@@ -740,12 +740,19 @@ export default function OutreachListDetail() {
                         )}
                       </div>
 
-                      <div className="text-[11px] text-muted-foreground truncate">
-                        {r.item || '—'} · <span className="font-mono">{fmtAmount(r.amount)}</span>
-                      </div>
-                      {r.is_churning && (
-                        <div className="text-[10px] text-destructive font-semibold">
-                          Churns {fmtDay(r.churn_date)}
+                      {metaKeys.length > 0 && (
+                        <div className="text-[11px] text-muted-foreground space-y-0.5 mt-1">
+                          {metaKeys.map(k => {
+                            const md = (r as any).metadata as Record<string, any> | null;
+                            const v = md ? md[k] : undefined;
+                            if (v == null || v === '') return null;
+                            return (
+                              <div key={`m-${r.id}-${k}`} className="truncate">
+                                <span className="uppercase tracking-wide text-[9px] font-semibold text-muted-foreground/70 mr-1">{k}:</span>
+                                {fmtMeta(v)}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
