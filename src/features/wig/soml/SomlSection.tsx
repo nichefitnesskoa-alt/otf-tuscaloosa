@@ -228,7 +228,16 @@ function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
         };
     const { error } = await (supabase as any).from(table).insert(payload);
     setSaving(false);
-    if (error) { toast.error(`Save failed: ${error.message}`); return; }
+    if (error) {
+      if ((error as any).code === '23505') {
+        toast.error(kind === 'upgrade'
+          ? `${memberName.trim()} is already logged as an upgrade this SOML.`
+          : `${memberName.trim()} is already logged as a referral this SOML.`);
+      } else {
+        toast.error(`Save failed: ${error.message}`);
+      }
+      return;
+    }
     toast.success(kind === 'upgrade' ? 'Upgrade logged' : 'Referral logged');
     reset();
     onSaved();
