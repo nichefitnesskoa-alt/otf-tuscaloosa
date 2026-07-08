@@ -76,6 +76,14 @@ export function SelfSourcedLeadForm({ onSaved, allowBookIntro = true }: Props) {
       toast.error('First name, last name, and phone are required');
       return;
     }
+    if (!email.trim()) {
+      toast.error('Email is required');
+      return;
+    }
+    if (!isEmail(email.trim())) {
+      toast.error('Enter a valid email');
+      return;
+    }
     if (!isSelfSourcedLeadSource(source)) {
       toast.error('That source counts as inbound — log it through the normal booking flow.');
       return;
@@ -100,7 +108,7 @@ export function SelfSourcedLeadForm({ onSaved, allowBookIntro = true }: Props) {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           phone: phone.trim(),
-          email: email.trim() || null,
+          email: email.trim(),
           source,
           stage: 'new',
           sourced_by_sa: user.name,
@@ -119,6 +127,23 @@ export function SelfSourcedLeadForm({ onSaved, allowBookIntro = true }: Props) {
           ? `Logged as self-sourced by ${user.name}. Referred by ${referrerName.trim()} (${referrerContact.trim()}).`
           : `Logged as self-sourced by ${user.name}`,
       });
+
+      // If this lead is a referral, credit the sourcing SA on the SOML
+      // scoreboard immediately (before/without an intro being booked).
+      if (needsReferrer) {
+        const memberName = `${firstName.trim()} ${lastName.trim()}`;
+        const { error: somlErr } = await (supabase as any)
+          .from('soml_manual_referrals')
+          .insert({
+            member_name: memberName,
+            referring_member_name: referrerName.trim(),
+            referred_by: user.name,
+            notes: `Auto-logged from self-sourced lead (${source})`,
+            created_by: user.name,
+          });
+        if (somlErr) console.warn('SOML manual referral auto-log failed (non-blocking):', somlErr);
+        window.dispatchEvent(new CustomEvent('soml-data-changed'));
+      }
 
       toast.success(alsoBook ? 'Lead saved — book the intro' : 'Lead logged');
       notifyDataChanged(['leads', 'sa-leads']);
