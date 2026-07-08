@@ -45,7 +45,12 @@ export function NameAutocomplete({
     setLoading(true);
     const pattern = `%${term}%`;
 
-    const [membersRes, leadsRes, igRes] = await Promise.all([
+    const [outreachRes, membersRes, leadsRes, igRes] = await Promise.all([
+      (supabase as any)
+        .from('outreach_list_rows')
+        .select('client_name')
+        .ilike('client_name', pattern)
+        .limit(30),
       supabase
         .from('intros_booked')
         .select('member_name')
@@ -74,6 +79,8 @@ export function NameAutocomplete({
       results.push({ name: name.trim(), source });
     };
 
+    // Outreach first — it's the most trusted source for logging SOML actions.
+    (outreachRes.data as any[] || []).forEach(r => addUnique(formatOutreachName(r.client_name), 'Outreach'));
     membersRes.data?.forEach((r: any) => addUnique(r.member_name, 'Member'));
     leadsRes.data?.forEach((r: any) => addUnique(`${r.first_name} ${r.last_name}`.trim(), 'Lead'));
     igRes.data?.forEach((r: any) => addUnique(`${r.first_name}${r.last_name ? ' ' + r.last_name : ''}`.trim(), 'IG Lead'));
