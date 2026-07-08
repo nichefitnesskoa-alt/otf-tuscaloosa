@@ -3836,6 +3836,7 @@ export type Database = {
           notes: string | null
           upgraded_at: string
           upgraded_by: string
+          upgraded_to_tier: string | null
         }
         Insert: {
           created_at?: string
@@ -3845,6 +3846,7 @@ export type Database = {
           notes?: string | null
           upgraded_at?: string
           upgraded_by: string
+          upgraded_to_tier?: string | null
         }
         Update: {
           created_at?: string
@@ -3854,6 +3856,7 @@ export type Database = {
           notes?: string | null
           upgraded_at?: string
           upgraded_by?: string
+          upgraded_to_tier?: string | null
         }
         Relationships: []
       }

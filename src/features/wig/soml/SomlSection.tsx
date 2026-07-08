@@ -202,15 +202,17 @@ function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
   const { user } = useAuth();
   const [memberName, setMemberName] = useState('');
   const [notes, setNotes] = useState('');
+  const [tier, setTier] = useState<'Premier' | 'Elite' | ''>('');
   const [saving, setSaving] = useState(false);
-  const reset = () => { setMemberName(''); setNotes(''); };
+  const reset = () => { setMemberName(''); setNotes(''); setTier(''); };
   const submit = async () => {
     if (!memberName.trim()) { toast.error('Member name is required'); return; }
+    if (kind === 'upgrade' && !tier) { toast.error('Pick what they upgraded to'); return; }
     if (!user?.name) { toast.error('Login required'); return; }
     setSaving(true);
     const table = kind === 'upgrade' ? 'soml_upgrades' : 'soml_manual_referrals';
     const payload: any = kind === 'upgrade'
-      ? { member_name: memberName.trim(), upgraded_by: user.name, notes: notes.trim() || null, created_by: user.name }
+      ? { member_name: memberName.trim(), upgraded_by: user.name, upgraded_to_tier: tier, notes: notes.trim() || null, created_by: user.name }
       : { member_name: memberName.trim(), referred_by: user.name, notes: notes.trim() || null, created_by: user.name };
     const { error } = await (supabase as any).from(table).insert(payload);
     setSaving(false);
@@ -232,6 +234,25 @@ function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
             <Label className="text-xs">Member name *</Label>
             <NameAutocomplete value={memberName} onChange={setMemberName} placeholder="Who upgraded/referred?" />
           </div>
+          {kind === 'upgrade' && (
+            <div>
+              <Label className="text-xs">Upgraded to *</Label>
+              <div className="flex gap-2 mt-1">
+                {(['Premier', 'Elite'] as const).map(t => (
+                  <Button
+                    key={t}
+                    type="button"
+                    size="sm"
+                    variant={tier === t ? 'default' : 'outline'}
+                    className="flex-1"
+                    onClick={() => setTier(t)}
+                  >
+                    {t}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
           <div>
             <Label className="text-xs">Notes (optional)</Label>
             <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
@@ -249,6 +270,7 @@ function LogDialog({ open, onClose, kind, onSaved }: LogDialogProps) {
     </Dialog>
   );
 }
+
 interface SaOverrideDialogProps {
   open: boolean; onClose: () => void;
   sa: string; metric: MetricKey;
@@ -744,6 +766,11 @@ function SomlDrilldownDialog({ open, onClose, metric, saFilter, referrals, upgra
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-foreground truncate">
                     {r.member_name || 'Unnamed member'}
+                    {r.tier && (
+                      <span className="ml-2 inline-flex items-center rounded bg-primary/15 text-primary text-[10px] font-semibold px-1.5 py-0.5 align-middle">
+                        → {r.tier}
+                      </span>
+                    )}
                   </div>
                   <div className="text-muted-foreground">
                     Credit: <span className="text-foreground font-medium">{r.sa}</span>
@@ -751,6 +778,7 @@ function SomlDrilldownDialog({ open, onClose, metric, saFilter, referrals, upgra
                     {r.source === 'legacy' && <span className="ml-1 italic">· legacy</span>}
                   </div>
                 </div>
+
                 <div className="text-right shrink-0 text-muted-foreground">
                   {r.date ? `${dateLabel} ${format(new Date(r.date + 'T12:00:00'), 'MMM d')}` : '—'}
                 </div>

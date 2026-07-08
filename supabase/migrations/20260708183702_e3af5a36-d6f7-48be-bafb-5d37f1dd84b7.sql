@@ -1,0 +1,1 @@
+ALTER TABLE public.soml_upgrades ADD COLUMN IF NOT EXISTS upgraded_to_tier text CHECK (upgraded_to_tier IN ('Premier','Elite'));

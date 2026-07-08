@@ -52,7 +52,9 @@ export interface SomlDetailItem {
   member_name: string;
   date: string | null; // ISO date
   source: 'auto' | 'manual' | 'legacy';
+  tier?: 'Premier' | 'Elite' | null;
 }
+
 
 export interface SomlData {
   config: SomlConfig | null;
@@ -181,7 +183,7 @@ export function useSomlData(): SomlData {
     // 4. Upgrades
     const { data: upgrades } = await supabase
       .from('soml_upgrades' as any)
-      .select('member_name, upgraded_by, upgraded_at')
+      .select('member_name, upgraded_by, upgraded_at, upgraded_to_tier')
       .gte('upgraded_at', `${start}T00:00:00-06:00`)
       .lte('upgraded_at', `${end}T23:59:59-05:00`);
     const upgradeItems: SomlDetailItem[] = ((upgrades as any[]) || []).map(u => ({
@@ -189,7 +191,9 @@ export function useSomlData(): SomlData {
       member_name: u.member_name as string,
       date: (u.upgraded_at as string)?.slice(0, 10) || null,
       source: 'manual' as const,
+      tier: (u.upgraded_to_tier as 'Premier' | 'Elite' | null) ?? null,
     }));
+
 
     // 5. Sales — all qualifying sales in window (attributed to intro_owner)
     const saleCanons = Array.from(SALE_CANONS);
