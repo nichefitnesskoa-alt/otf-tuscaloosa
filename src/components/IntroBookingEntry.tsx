@@ -268,7 +268,7 @@ export default function IntroBookingEntry({
       toast.error('Lead source is required');
       return;
     }
-    if ((booking.leadSource === 'Member Referral' || booking.leadSource === 'Member Referral (5 class pack)')
+    if ((booking.leadSource === 'Member Referral' || booking.leadSource === 'Member Referral (3 class pack)')
         && !booking.referredByMemberName?.trim()) {
       toast.error('Referring member name is required for Member Referral bookings');
       return;
@@ -398,7 +398,7 @@ export default function IntroBookingEntry({
         )}
 
         {/* Referred By - REQUIRED for any Member Referral source */}
-        {(booking.leadSource === 'Member Referral' || booking.leadSource === 'Member Referral (5 class pack)') && (
+        {(booking.leadSource === 'Member Referral' || booking.leadSource === 'Member Referral (3 class pack)') && (
           <div>
             <Label className="text-xs">Referred By (Member Name) *</Label>
             <NameAutocomplete

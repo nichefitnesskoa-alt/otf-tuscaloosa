@@ -43,7 +43,7 @@ export function isSelfSourcedLeadSource(source: string | null | undefined): bool
  *  the soml_create_pending_referral trigger. */
 const REFERRAL_LIKE_EXPLICIT = new Set<string>([
   'Member Referral',
-  'Member Referral (5 class pack)',
+  'Member Referral (3 class pack)',
   'Business Partnership Referral',
   'My Personal Friend I Invited',
 ]);

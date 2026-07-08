@@ -413,15 +413,47 @@ export default function OutreachListDetail() {
     return map;
   }, [rows]);
 
+  // Dynamic extra columns from row metadata (any un-mapped columns from the
+  // uploaded Excel file are preserved on `metadata` — surface them here so
+  // nothing from the source spreadsheet is hidden).
+  const metaKeys = useMemo(() => {
+    const seen = new Set<string>();
+    for (const r of rows) {
+      const md = (r as any).metadata as Record<string, any> | null;
+      if (!md) continue;
+      for (const k of Object.keys(md)) {
+        const v = md[k];
+        if (v == null || v === '') continue;
+        seen.add(k);
+      }
+    }
+    return Array.from(seen);
+  }, [rows]);
+
+  const fmtMeta = (v: any): string => {
+    if (v == null || v === '') return '—';
+    if (typeof v === 'number') return String(v);
+    if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+    return String(v);
+  };
+
   const filteredSorted = useMemo(() => {
     const q = search.trim().toLowerCase();
     let out = q
-      ? rows.filter(r =>
-          r.client_name.toLowerCase().includes(q) ||
-          formatOutreachName(r.client_name).toLowerCase().includes(q) ||
-          (r.phone || '').toLowerCase().includes(q) ||
-          (r.item || '').toLowerCase().includes(q) ||
-          (r.email || '').toLowerCase().includes(q))
+      ? rows.filter(r => {
+          if (r.client_name.toLowerCase().includes(q)) return true;
+          if (formatOutreachName(r.client_name).toLowerCase().includes(q)) return true;
+          if ((r.phone || '').toLowerCase().includes(q)) return true;
+          if ((r.item || '').toLowerCase().includes(q)) return true;
+          if ((r.email || '').toLowerCase().includes(q)) return true;
+          const md = (r as any).metadata as Record<string, any> | null;
+          if (md) {
+            for (const k of Object.keys(md)) {
+              if (String(md[k] ?? '').toLowerCase().includes(q)) return true;
+            }
+          }
+          return false;
+        })
       : [...rows];
 
     // Per-column filters
@@ -586,6 +618,11 @@ export default function OutreachListDetail() {
                   <ColHeader col="texted" label="Text" align="center" className="w-[65px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   <ColHeader col="in_person" label="In-Per" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
                   <ColHeader col="not_interested" label="Not Int" align="center" className="w-[70px]" sort={sort} filters={filters} options={emptyOpts} onSort={cycleSort} onFilter={setFilter} />
+                  {metaKeys.map(k => (
+                    <th key={`h-${k}`} className="text-left px-2 py-2 min-w-[120px] whitespace-nowrap font-semibold" title={k}>
+                      {k}
+                    </th>
+                  ))}
                   <th className="text-right px-2 py-2 w-[240px]">Actions</th>
                 </tr>
               </thead>
@@ -658,6 +695,16 @@ export default function OutreachListDetail() {
                           tone="destructive"
                           onClick={() => toggle(r, 'not_interested', notInterested)} />
                       </td>
+                      {metaKeys.map(k => {
+                        const md = (r as any).metadata as Record<string, any> | null;
+                        const v = md ? md[k] : undefined;
+                        const label = fmtMeta(v);
+                        return (
+                          <td key={`c-${r.id}-${k}`} className="px-2 py-1 align-middle text-muted-foreground truncate max-w-[220px]" title={label}>
+                            {label}
+                          </td>
+                        );
+                      })}
                       <td className="px-2 py-1 align-middle text-right whitespace-nowrap">
                         {r.is_churning && (
                           <Button size="sm" variant="destructive" className="h-6 px-2 text-[10px] mr-1"
@@ -685,7 +732,7 @@ export default function OutreachListDetail() {
                   );
                 })}
                 {filteredSorted.length === 0 && (
-                  <tr><td colSpan={12} className="text-center py-6 text-muted-foreground">
+                  <tr><td colSpan={12 + metaKeys.length} className="text-center py-6 text-muted-foreground">
                     {rows.length === 0 ? 'No people in this list.' : 'No matches for your search.'}
                   </td></tr>
                 )}

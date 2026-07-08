@@ -44,7 +44,7 @@ const NON_SALE_OUTCOMES = [
   { value: 'Booked 2nd intro', label: '🔄 Booked 2nd intro' },
   { value: 'Planning to Book 2nd Intro', label: '🟣 Planning to Book 2nd Intro' },
   { value: 'Planning to buy', label: '🛒 Planning to buy' },
-  { value: 'On 5 Class Pack', label: '🎁 On 5 Class Pack' },
+  { value: 'On 3 Class Pack', label: '🎁 On 3 Class Pack' },
   { value: 'Not interested', label: '🚫 Showed up - not interested' },
   { value: 'VIP Class Intro', label: '🎟️ VIP Class Intro (not expected to buy)' },
 ];
@@ -190,7 +190,7 @@ export function OutcomeDrawer({
   const isPlanningToReschedule = outcome === 'Planning to Reschedule';
   const isPlanningToBook2ndIntro = outcome === 'Planning to Book 2nd Intro';
   const isPlanningToBuy = outcome === 'Planning to buy';
-  const isOn5ClassPack = outcome === 'On 5 Class Pack';
+  const isOn5ClassPack = outcome === 'On 3 Class Pack';
   const isFollowUpNeeded = outcome === 'Follow-up needed';
   const isBookedSecondIntroNeedsReason = outcome === 'Booked 2nd intro';
   const isNoShow = outcome === 'No-show';
@@ -407,7 +407,7 @@ export function OutcomeDrawer({
       }
       return;
     }
-    // On 5 Class Pack: log outcome, clear pending follow-ups, done
+    // On 3 Class Pack: log outcome, clear pending follow-ups, done
     if (isOn5ClassPack) {
       setSaving(true);
       try {
@@ -415,19 +415,19 @@ export function OutcomeDrawer({
           bookingId,
           memberName,
           classDate,
-          newResult: 'On 5 Class Pack',
+          newResult: 'On 3 Class Pack',
           previousResult: currentResult || null,
           leadSource: leadSource || '',
           objection: null,
           coachName: coachName || undefined,
           editedBy,
           sourceComponent: 'MyDay-OutcomeDrawer',
-          editReason: notes || 'On 5 Class Pack',
+          editReason: notes || 'On 3 Class Pack',
           runId: existingRunId || undefined,
         });
         if (!result.success) throw new Error(result.error);
 
-        toast.success(`${memberName} — On 5 Class Pack`);
+        toast.success(`${memberName} — On 3 Class Pack`);
         onSaved();
       } catch (err: any) {
         toast.error(err?.message || 'Failed to save');

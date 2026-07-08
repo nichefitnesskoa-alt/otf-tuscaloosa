@@ -9,7 +9,7 @@ export const SOURCE_CODE_MAP: Record<string, number> = {
   'Instagram DMs': 2,
   'Event': 3,
   'Member Referral': 4,
-  'Member Referral (5 class pack)': 5,
+  'Member Referral (3 class pack)': 5,
   'Business Partnership Referral': 6,
   'My Personal Friend I Invited': 7,
   'VIP Class': 8,

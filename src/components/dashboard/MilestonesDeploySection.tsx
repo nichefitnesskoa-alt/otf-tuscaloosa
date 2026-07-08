@@ -156,7 +156,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
           friendShowedUp = true;
         }
 
-        // Detection 2: Check leads with source 'Member Referral (5 class pack)'
+        // Detection 2: Check leads with source 'Member Referral (3 class pack)'
         if (!friendShowedUp) {
           const nameParts = friendName.split(/\s+/);
           const firstName = nameParts[0] || '';
@@ -165,7 +165,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
               .from('leads')
               .select('booked_intro_id')
               .ilike('first_name', firstName)
-              .eq('source', 'Member Referral (5 class pack)')
+              .eq('source', 'Member Referral (3 class pack)')
               .not('booked_intro_id', 'is', null)
               .limit(5);
             if (leads && leads.length > 0) {
@@ -271,7 +271,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
         last_name: lastName,
         phone: isEmailContact ? '' : friendContact.trim(),
         email: isEmailContact ? friendContact.trim() : null,
-        source: 'Member Referral (5 class pack)',
+        source: 'Member Referral (3 class pack)',
         stage: 'new',
         duplicate_notes: `Referred via milestone pack — ${editItem?.member_name || ''} celebrated on ${format(new Date(), 'MMM d, yyyy')}`,
       } as any)
@@ -492,7 +492,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
                   </div>
                   <div className="flex items-center gap-3">
                     <Switch checked={celPack} onCheckedChange={setCelPack} />
-                    <Label className="text-xs">5-class pack gifted?</Label>
+                    <Label className="text-xs">3-class pack gifted?</Label>
                   </div>
                   {celPack && (
                     <>
@@ -548,7 +548,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
               </div>
               <div className="flex items-center gap-3">
                 <Switch checked={editPack} onCheckedChange={setEditPack} />
-                <Label className="text-xs">5-class pack gifted?</Label>
+                <Label className="text-xs">3-class pack gifted?</Label>
               </div>
               {editPack && (
                 <>

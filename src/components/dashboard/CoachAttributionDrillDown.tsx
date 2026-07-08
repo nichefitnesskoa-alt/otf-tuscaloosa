@@ -41,7 +41,7 @@ const RESULT_TONE: Record<string, string> = {
   'Booked 2nd': 'bg-primary/10 text-primary border-primary/30',
   'Planning to Buy': 'bg-primary/10 text-primary border-primary/30',
   'Not Interested': 'bg-destructive/10 text-destructive border-destructive/30',
-  '5 Class Pack': 'bg-primary/10 text-primary border-primary/30',
+  '3 Class Pack': 'bg-primary/10 text-primary border-primary/30',
   'VIP Intro': 'bg-muted text-muted-foreground border-border italic',
   'Unresolved': 'bg-muted text-muted-foreground border-border',
   '—': 'bg-muted text-muted-foreground border-border',
