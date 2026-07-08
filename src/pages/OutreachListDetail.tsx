@@ -802,7 +802,7 @@ export default function OutreachListDetail() {
                   );
                 })}
                 {filteredSorted.length === 0 && (
-                  <tr><td colSpan={6 + metaKeys.length} className="text-center py-6 text-muted-foreground">
+                  <tr><td colSpan={6 + metaKeys.length + builtinKeys.length} className="text-center py-6 text-muted-foreground">
                     {rows.length === 0 ? 'No people in this list.' : 'No matches for your search.'}
                   </td></tr>
                 )}
