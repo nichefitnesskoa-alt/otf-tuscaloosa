@@ -695,6 +695,16 @@ export default function OutreachListDetail() {
                           tone="destructive"
                           onClick={() => toggle(r, 'not_interested', notInterested)} />
                       </td>
+                      {metaKeys.map(k => {
+                        const md = (r as any).metadata as Record<string, any> | null;
+                        const v = md ? md[k] : undefined;
+                        const label = fmtMeta(v);
+                        return (
+                          <td key={`c-${r.id}-${k}`} className="px-2 py-1 align-middle text-muted-foreground truncate max-w-[220px]" title={label}>
+                            {label}
+                          </td>
+                        );
+                      })}
                       <td className="px-2 py-1 align-middle text-right whitespace-nowrap">
                         {r.is_churning && (
                           <Button size="sm" variant="destructive" className="h-6 px-2 text-[10px] mr-1"
