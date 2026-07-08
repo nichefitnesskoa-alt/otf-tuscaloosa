@@ -29,20 +29,27 @@ import { LogSomlDialog } from '@/features/soml/LogSomlDialog';
 import { cn } from '@/lib/utils';
 import { formatOutreachName, outreachNameKey } from '@/lib/outreachNames';
 
-type ColKey = 'name' | 'item' | 'amount' | 'phone' | 'last_30d' | 'latest' | 'churns' | 'texted' | 'in_person' | 'not_interested';
+type ColKey = string; // built-ins ('name','texted', etc.) or 'meta:<header>'
 type SortState = { key: ColKey; dir: 'asc' | 'desc' } | null;
 type ColType = 'text' | 'number' | 'date' | 'bool';
 type BoolFilter = 'yes' | 'no';
 // For non-bool: array of selected raw string values (empty/absent = no filter).
 // For bool: 'yes' | 'no' (absent = any).
-type FilterState = Partial<Record<ColKey, string[] | BoolFilter>>;
+type FilterState = Record<string, string[] | BoolFilter | undefined>;
 type FilterOption = { value: string; label: string };
 
-const COL_TYPES: Record<ColKey, ColType> = {
+const BUILTIN_COL_TYPES: Record<string, ColType> = {
   name: 'text', item: 'text', amount: 'number', phone: 'text',
   last_30d: 'number', latest: 'date', churns: 'bool',
   texted: 'bool', in_person: 'bool', not_interested: 'bool',
 };
+
+/** Detect column type. Meta columns get numeric/bool auto-detection from sample values. */
+function colType(col: ColKey, sample?: (r: OutreachRow) => any): ColType {
+  const bi = BUILTIN_COL_TYPES[col];
+  if (bi) return bi;
+  return 'text';
+}
 
 
 function fmtWhen(iso: string) {
@@ -58,8 +65,22 @@ function fmtAmount(n: number | null) {
   return `$${Number(n).toFixed(2)}`;
 }
 
+function fmtMetaValue(v: any): string {
+  if (v == null || v === '') return '';
+  if (typeof v === 'number') return String(v);
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+  return String(v);
+}
+
 /** Raw value + display label for a row's cell in a given (non-bool) column. */
 function rowColStringValue(r: OutreachRow, col: ColKey): { value: string; label: string } {
+  if (col.startsWith('meta:')) {
+    const k = col.slice(5);
+    const md = (r as any).metadata as Record<string, any> | null;
+    const v = md ? md[k] : undefined;
+    const label = fmtMetaValue(v);
+    return { value: label, label: label || '(blank)' };
+  }
   switch (col) {
     case 'name': return { value: r.client_name, label: formatOutreachName(r.client_name) };
     case 'item': return { value: r.item || '', label: r.item || '(blank)' };
@@ -79,6 +100,7 @@ function rowColStringValue(r: OutreachRow, col: ColKey): { value: string; label:
     default: return { value: '', label: '' };
   }
 }
+
 
 function CheckPill({
   active, attribution, onClick, label, tone = 'primary',
