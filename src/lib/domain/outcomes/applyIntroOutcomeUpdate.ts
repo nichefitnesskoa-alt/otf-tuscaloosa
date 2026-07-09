@@ -470,20 +470,35 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       const draft = params.secondIntroBookingDraft;
       const classDate = draft.class_start_at.split('T')[0] || draft.class_start_at;
 
-      // Fetch phone/email from original booking to inherit onto the 2nd intro
+      // Fetch fields from original booking that must inherit onto the 2nd intro.
+      // Referral/friend fields are REQUIRED — `enforce_member_referral_has_referrer`
+      // rejects the insert when lead_source is a *(Friend) / Member Referral source
+      // without a referred_by_member_name. Missing them here caused silent failures.
       let origPhone: string | null = null;
       let origPhoneE164: string | null = null;
       let origEmail: string | null = null;
+      let origLeadSource: string | null = null;
+      let origReferredBy: string | null = null;
+      let origPairedBookingId: string | null = null;
+      let origIsBuddyCardReferral: boolean = false;
+      let origIntroOwner: string | null = null;
+      let origBookedBy: string | null = null;
       if (params.bookingId) {
         const { data: origBk } = await supabase
           .from('intros_booked')
-          .select('phone, phone_e164, email')
+          .select('phone, phone_e164, email, lead_source, referred_by_member_name, paired_booking_id, is_buddy_card_referral, intro_owner, booked_by')
           .eq('id', params.bookingId)
           .maybeSingle();
         if (origBk) {
           origPhone = origBk.phone;
           origPhoneE164 = origBk.phone_e164;
           origEmail = origBk.email;
+          origLeadSource = origBk.lead_source;
+          origReferredBy = origBk.referred_by_member_name;
+          origPairedBookingId = origBk.paired_booking_id;
+          origIsBuddyCardReferral = !!origBk.is_buddy_card_referral;
+          origIntroOwner = origBk.intro_owner;
+          origBookedBy = origBk.booked_by;
         }
       }
 
@@ -492,7 +507,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       const hour = parseInt(timeStr.split(':')[0], 10);
       const shift = hour < 11 ? 'AM Shift' : hour < 16 ? 'Mid Shift' : 'PM Shift';
 
-      const { data: newBooking } = await supabase
+      const { data: newBooking, error: insertErr } = await supabase
         .from('intros_booked')
         .insert({
           member_name: params.memberName,
@@ -500,7 +515,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
           class_start_at: draft.class_start_at,
           coach_name: draft.coach_name,
           intro_time: timeStr,
-          lead_source: params.leadSource || '',
+          lead_source: params.leadSource || origLeadSource || '',
           sa_working_shift: shift,
           originating_booking_id: params.bookingId,
           rebooked_from_booking_id: params.bookingId,
@@ -511,24 +526,38 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
           phone: origPhone,
           phone_e164: origPhoneE164,
           email: origEmail,
+          // Inherit attribution + referral context so triggers don't reject the row
+          intro_owner: origIntroOwner,
+          intro_owner_locked: !!origIntroOwner,
+          booked_by: origBookedBy,
+          referred_by_member_name: origReferredBy,
+          paired_booking_id: origPairedBookingId,
+          is_buddy_card_referral: origIsBuddyCardReferral,
         })
         .select('id')
         .single();
 
-      if (newBooking) {
-        // Auto-complete any "Planning 2nd Intro" follow-ups for this member
-        await autoComplete2ndIntroFollowups(params.memberName);
-
+      if (insertErr || !newBooking) {
+        console.error('2nd intro booking insert failed:', insertErr);
         return {
-          success: true,
+          success: false,
+          error: `Could not create 2nd intro booking: ${insertErr?.message || 'unknown error'}`,
           runId: existingRun?.id || params.runId,
-          didIncrementAmc,
-          didGenerateFollowups,
-          newBookingId: newBooking.id,
-          newBookingStartAt: draft.class_start_at,
-          newBookingCoachName: draft.coach_name,
         };
       }
+
+      // Auto-complete any "Planning 2nd Intro" follow-ups for this member
+      await autoComplete2ndIntroFollowups(params.memberName);
+
+      return {
+        success: true,
+        runId: existingRun?.id || params.runId,
+        didIncrementAmc,
+        didGenerateFollowups,
+        newBookingId: newBooking.id,
+        newBookingStartAt: draft.class_start_at,
+        newBookingCoachName: draft.coach_name,
+      };
     }
 
     // Trigger audit refresh after outcome change
