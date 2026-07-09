@@ -92,7 +92,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     const isNowNotInterested = params.newResult === 'Not interested' || params.newResult === 'VIP Class Intro';
     const isNowPlanning2nd = params.newResult === 'Planning to Book 2nd Intro';
     const isNowPlanningToBuy = params.newResult === 'Planning to buy';
-    const isNowOn5ClassPack = params.newResult === 'On 5 Class Pack';
+    const isNowOn5ClassPack = params.newResult === 'On 5 Class Pack' || params.newResult === 'On 3 Class Pack';
     const isNowPlanningReschedule = params.newResult === 'Planning to Reschedule';
     const isNowUnresolved = params.newResult === 'Unresolved' || params.newResult === '';
 
