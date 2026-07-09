@@ -100,7 +100,7 @@ function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
         if (isContact) consider(row.lead_id, row.created_at);
       }
       for (const row of (sendLogRes.data as any[]) || []) {
-        consider(row.lead_id, row.created_at);
+        consider(row.lead_id, row.sent_at);
       }
       const times: number[] = [];
       for (const lead of contactedLeads) {
