@@ -80,9 +80,9 @@ function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
         .order('created_at', { ascending: true }),
       supabase
         .from('script_send_log')
-        .select('lead_id, created_at')
+        .select('lead_id, sent_at')
         .in('lead_id', contactedIds)
-        .order('created_at', { ascending: true }),
+        .order('sent_at', { ascending: true }),
     ]).then(([activitiesRes, sendLogRes]) => {
       const firstContactMap = new Map<string, string>();
       const consider = (leadId: string | null | undefined, ts: string | null | undefined) => {
@@ -100,7 +100,7 @@ function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
         if (isContact) consider(row.lead_id, row.created_at);
       }
       for (const row of (sendLogRes.data as any[]) || []) {
-        consider(row.lead_id, row.created_at);
+        consider(row.lead_id, row.sent_at);
       }
       const times: number[] = [];
       for (const lead of contactedLeads) {
