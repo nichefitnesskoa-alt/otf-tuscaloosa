@@ -121,19 +121,30 @@ export function LeadSourceWithReferrerField({
       {referral && (
         <div className="space-y-1">
           <Label className={compact ? 'text-[10px] uppercase tracking-wide text-muted-foreground' : 'text-sm'}>
-            Referring member's full name *
+            {value === 'Business Partnership Referral'
+              ? 'Business partner *'
+              : "Referring member's full name *"}
           </Label>
-          <NameAutocomplete
-            value={referrer}
-            onChange={(v) =>
-              onChange({ lead_source: value, referred_by_member_name: v || null })
-            }
-            placeholder="Who referred them? (required)"
-            className={cn(
-              compact ? 'h-7 text-xs' : 'h-11',
-              missing && 'ring-1 ring-destructive/40',
-            )}
-          />
+          {value === 'Business Partnership Referral' ? (
+            <BusinessPartnerCombobox
+              value={referrer}
+              onChange={(v) =>
+                onChange({ lead_source: value, referred_by_member_name: v || null })
+              }
+            />
+          ) : (
+            <NameAutocomplete
+              value={referrer}
+              onChange={(v) =>
+                onChange({ lead_source: value, referred_by_member_name: v || null })
+              }
+              placeholder="Who referred them? (required)"
+              className={cn(
+                compact ? 'h-7 text-xs' : 'h-11',
+                missing && 'ring-1 ring-destructive/40',
+              )}
+            />
+          )}
           {missing && (
             <p className="text-[11px] text-destructive">
               Required for referral / friend lead sources.
