@@ -268,6 +268,8 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
           return {
             ...d,
             lead_source: bookingData?.lead_source || null,
+            referred_by_member_name: bookingData?.referred_by_member_name || null,
+            event_id: bookingData?.event_id || null,
             phone: personPhone,
           };
         });
