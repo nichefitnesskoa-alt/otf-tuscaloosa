@@ -726,10 +726,11 @@ export type Database = {
       }
       events: {
         Row: {
+          activity_type: string
           cost_cents: number | null
           created_at: string
           created_by: string | null
-          event_date: string
+          event_date: string | null
           id: string
           is_active: boolean
           name: string
@@ -737,10 +738,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          activity_type?: string
           cost_cents?: number | null
           created_at?: string
           created_by?: string | null
-          event_date: string
+          event_date?: string | null
           id?: string
           is_active?: boolean
           name: string
@@ -748,10 +750,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          activity_type?: string
           cost_cents?: number | null
           created_at?: string
           created_by?: string | null
-          event_date?: string
+          event_date?: string | null
           id?: string
           is_active?: boolean
           name?: string
