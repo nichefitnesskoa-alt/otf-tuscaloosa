@@ -158,7 +158,7 @@ export function ClientProfileSheet({ open, onOpenChange, memberName, memberKey, 
                   <div className="text-muted-foreground flex flex-wrap gap-x-3">
                     {b.coach_name && <span>Coach: {b.coach_name}</span>}
                     {b.booked_by && <span>By: {capitalizeName(b.booked_by)}</span>}
-                    <span>{b.lead_source}</span>
+                    <span>{formatLeadSourceDetail({ lead_source: b.lead_source, referred_by_member_name: b.referred_by_member_name, event_id: b.event_id }, eventLookup).combined}</span>
                   </div>
                 </div>
               ))}
