@@ -21,7 +21,9 @@ import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { notifyDataChanged } from '@/lib/data/invalidation';
 import { isSelfSourcedLeadSource, isReferralLikeSource } from '@/lib/sa/leadsBooked';
 import { LEAD_SOURCES } from '@/types';
+import { BusinessPartnerCombobox } from '@/components/leads/BusinessPartnerCombobox';
 import type { Tables } from '@/integrations/supabase/types';
+
 
 /** Extra sources allowed on the log-a-lead form that aren't in the canonical
  *  intro-booking LEAD_SOURCES list. Kept for backwards compatibility with how
@@ -60,6 +62,8 @@ export function SelfSourcedLeadForm({ onSaved, allowBookIntro = true }: Props) {
   const [bookOpen, setBookOpen] = useState(false);
 
   const needsReferrer = useMemo(() => isReferralLikeSource(source), [source]);
+  const isBusinessPartner = source === 'Business Partnership Referral';
+
 
   const reset = () => {
     setFirstName(''); setLastName(''); setPhone(''); setEmail('');
@@ -229,30 +233,51 @@ export function SelfSourcedLeadForm({ onSaved, allowBookIntro = true }: Props) {
 
         {needsReferrer && (
           <div className="space-y-2 rounded-md border border-primary/30 bg-primary/5 p-3">
-            <p className="text-xs font-semibold">This person was referred — who sent them?</p>
+            <p className="text-xs font-semibold">
+              {isBusinessPartner
+                ? 'Which business sent them?'
+                : 'This person was referred — who sent them?'}
+            </p>
             <div>
-              <Label className="text-xs">Referring member's full name *</Label>
-              <Input
-                value={referrerName}
-                onChange={e => setReferrerName(autoCapitalizeName(e.target.value))}
-                placeholder="Jane Smith"
-                className="h-10"
-              />
+              <Label className="text-xs">
+                {isBusinessPartner ? 'Business partner *' : "Referring member's full name *"}
+              </Label>
+              {isBusinessPartner ? (
+                <BusinessPartnerCombobox
+                  value={referrerName}
+                  onChange={setReferrerName}
+                  onContactResolved={(c) => { if (c && !referrerContact.trim()) setReferrerContact(c); }}
+                />
+              ) : (
+                <Input
+                  value={referrerName}
+                  onChange={e => setReferrerName(autoCapitalizeName(e.target.value))}
+                  placeholder="Jane Smith"
+                  className="h-10"
+                />
+              )}
             </div>
             <div>
-              <Label className="text-xs">Referring member's phone or email *</Label>
+              <Label className="text-xs">
+                {isBusinessPartner
+                  ? "Business contact phone or email *"
+                  : "Referring member's phone or email *"}
+              </Label>
               <Input
                 value={referrerContact}
                 onChange={e => setReferrerContact(e.target.value)}
-                placeholder="(205) 555-1234 or jane@email.com"
+                placeholder={isBusinessPartner ? 'Owner/manager contact' : '(205) 555-1234 or jane@email.com'}
                 className="h-10"
               />
               <p className="text-[10px] text-muted-foreground mt-1">
-                So we know who to credit when the referral converts.
+                {isBusinessPartner
+                  ? 'So we know who to thank at the business when they convert.'
+                  : 'So we know who to credit when the referral converts.'}
               </p>
             </div>
           </div>
         )}
+
 
         <div className="flex flex-col sm:flex-row gap-2 pt-1">
           <Button

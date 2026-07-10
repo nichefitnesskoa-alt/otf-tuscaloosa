@@ -158,6 +158,42 @@ export type Database = {
         }
         Relationships: []
       }
+      business_partners: {
+        Row: {
+          contact_info: string | null
+          contact_name: string | null
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_info?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_info?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       campaign_sends: {
         Row: {
           campaign_id: string
