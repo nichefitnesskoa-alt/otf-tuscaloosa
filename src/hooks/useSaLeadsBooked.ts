@@ -45,12 +45,38 @@ export function useSaLeadsBooked(rangeStart: string, rangeEnd: string): UseSaLea
 
     const { data: bookings } = await supabase
       .from('intros_booked')
-      .select('id, lead_source, booked_by, vip_session_id, created_at, deleted_at, ignore_from_metrics, member_name')
+      .select('id, lead_source, booked_by, vip_session_id, created_at, deleted_at, ignore_from_metrics, member_name, originating_booking_id')
       .gte('created_at', startIso)
       .lte('created_at', endIso)
       .is('deleted_at', null);
 
-    const bookingList = (bookings as LeadBookedBookingInput[] | null) || [];
+    const rawBookings = ((bookings as any[]) || []) as (LeadBookedBookingInput & { originating_booking_id: string | null })[];
+
+    // Inherit booked_by from a soft-deleted parent when a rebook lost the
+    // attribution — keeps the sourcing SA credited across delete+rebook.
+    const parentIds = Array.from(new Set(
+      rawBookings.map(b => b.originating_booking_id).filter((x): x is string => !!x),
+    ));
+    const parentMap = new Map<string, { deleted_at: string | null; booked_by: string | null }>();
+    if (parentIds.length) {
+      const { data: parents } = await supabase
+        .from('intros_booked')
+        .select('id, deleted_at, booked_by')
+        .in('id', parentIds);
+      ((parents as any[]) || []).forEach(p =>
+        parentMap.set(p.id, { deleted_at: p.deleted_at ?? null, booked_by: p.booked_by ?? null }),
+      );
+    }
+
+    const bookingList: LeadBookedBookingInput[] = rawBookings.map(b => {
+      if (b.booked_by && b.booked_by.trim()) return b;
+      const parent = b.originating_booking_id ? parentMap.get(b.originating_booking_id) : null;
+      if (parent?.deleted_at && parent.booked_by) {
+        return { ...b, booked_by: parent.booked_by };
+      }
+      return b;
+    });
+
     const sessionIds = Array.from(
       new Set(bookingList.map(b => b.vip_session_id).filter((x): x is string => !!x)),
     );
