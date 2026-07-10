@@ -150,7 +150,7 @@ export function useFollowUpData() {
 
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_time, coach_name, lead_source, phone, email, booking_status_canon, originating_booking_id, deleted_at, reschedule_contact_date, booking_type_canon, is_vip, followup_dismissed_at')
+        .select('id, member_name, class_date, intro_time, coach_name, lead_source, phone, email, booking_status_canon, originating_booking_id, deleted_at, reschedule_contact_date, booking_type_canon, is_vip, followup_dismissed_at, referred_by_member_name, event_id')
         .gte('class_date', cutoff)
         .is('deleted_at', null)
         .is('followup_dismissed_at' as any, null)
