@@ -25,7 +25,7 @@ import { format, parseISO, isToday, isTomorrow } from 'date-fns';
 import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType } from '@/components/shared/FormHelpers';
 import { EventPicker } from '@/components/events/EventPicker';
 import { BusinessPartnerCombobox } from '@/components/leads/BusinessPartnerCombobox';
-import { isBusinessPartnershipReferralSource, isReferralLikeSource } from '@/lib/sa/leadsBooked';
+import { isBusinessPartnershipReferralSource, isReferralLikeSource, isEventOrOutreachSource } from '@/lib/sa/leadsBooked';
 
 export interface IntroBookingData {
   id: string;
