@@ -279,15 +279,18 @@ export default function MyDayPage() {
     };
   }, []);
 
-  // Listen for tab switch events from ShiftChecklist follow-up deep link
+  // Legacy deep link — MyDay tabs moved to Outreach page. Forward the request.
   useEffect(() => {
     const onSwitchTab = (e: Event) => {
       const tab = (e as CustomEvent).detail?.tab;
-      if (tab) setActiveTab(tab);
+      if (tab && (tab === 'leads' || tab === 'followups' || tab === 'scripts')) {
+        window.location.href = `/outreach-lists?tab=${tab}`;
+      }
     };
     window.addEventListener('myday:switch-tab', onSwitchTab);
     return () => window.removeEventListener('myday:switch-tab', onSwitchTab);
   }, []);
+
 
   useEffect(() => {
     fetchMetrics();
