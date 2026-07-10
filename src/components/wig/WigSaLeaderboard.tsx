@@ -318,7 +318,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         rightTone: (p.booked ? 'success' : 'primary') as 'success' | 'primary',
         onClick: p.booking_id ? () => setJourneyBookingId(p.booking_id!) : undefined,
         onRemove: isAdmin ? () => removeSelfSourcedRow(p.id).then(() => sourcedLeads.refetch()) : undefined,
-        removeConfirm: `Remove ${p.name} from ${r.sa}'s self-sourced count?\n\nThis won't delete the booking or the lead — it just excludes it from this metric.`,
+        removeConfirm: `Remove ${p.name} from ${r.sa}'s self-generated count?\n\nThis won't delete the booking or the lead — it just excludes it from this metric.`,
         onReassign: isAdmin && !p.id.startsWith('vip-')
           ? (newSa: string) => reassignSelfSourcedRow(p.id, newSa).then(() => sourcedLeads.refetch())
           : undefined,
@@ -346,7 +346,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   }, [drill, booked.rows, sourcedLeads.rows, sales.rows, isAdmin, reassignChoices]);
 
   const drillTitle = drill
-    ? `${drill.sa ?? 'Studio'} · ${drill.bucket === 'sales' ? 'Sales' : drill.bucket === 'sourced' ? 'Self-sourced leads' : 'Booked intros'}`
+    ? `${drill.sa ?? 'Studio'} · ${drill.bucket === 'sales' ? 'Sales' : drill.bucket === 'sourced' ? 'Self generated leads' : 'Booked intros'}`
     : '';
 
   // ── HERO: team self-generated leads vs team SGL target ──
@@ -511,7 +511,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
             <AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
             <div className="text-foreground">
               <span className="font-semibold">All leads go in OrangeBook, not Mindbody.</span>{' '}
-              Add every self-sourced lead here, then check it off in <span className="font-medium">Sourced Leads</span> once it's entered in OrangeBook.
+              Add every self-generated lead here, then check it off in <span className="font-medium">Sourced Leads</span> once it's entered in OrangeBook.
             </div>
           </div>
         </CardHeader>

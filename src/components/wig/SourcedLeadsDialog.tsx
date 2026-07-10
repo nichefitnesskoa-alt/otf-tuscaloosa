@@ -269,7 +269,7 @@ export function SourcedLeadsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Self-Sourced Leads</DialogTitle>
+          <DialogTitle>Self Generated Leads</DialogTitle>
         </DialogHeader>
 
         {/* Controls */}
@@ -323,7 +323,7 @@ export function SourcedLeadsDialog({
                 ? `need${rows.length === 1 ? 's' : ''} OrangeBook import`
                 : status === 'in_mindbody'
                 ? `already in OrangeBook`
-                : `self-sourced record${rows.length === 1 ? '' : 's'} in this range`}
+                : `self-generated record${rows.length === 1 ? '' : 's'} in this range`}
             </span>
           </div>
           <div className="inline-flex rounded-md border border-border overflow-hidden">
