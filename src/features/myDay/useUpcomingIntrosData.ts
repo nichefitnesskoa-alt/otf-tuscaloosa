@@ -254,6 +254,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           preppedAt: (b as any).prepped_at || null,
           preppedBy: (b as any).prepped_by || null,
           referredBy: (b as any).referred_by_member_name || null,
+          eventId: (b as any).event_id || null,
           // Pre-fetched Q data
           qFitnessGoal: qFullMap.get(b.id)?.q1_fitness_goal ?? null,
           qFitnessLevel: qFullMap.get(b.id)?.q2_fitness_level ?? null,
