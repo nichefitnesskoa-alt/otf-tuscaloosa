@@ -120,7 +120,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
         ] = await Promise.all([
           // 1. Lead source + phone from intros_booked
           bookingIds.length > 0
-            ? supabase.from('intros_booked').select('id, lead_source, phone, member_name').in('id', bookingIds)
+            ? supabase.from('intros_booked').select('id, lead_source, phone, member_name, referred_by_member_name, event_id').in('id', bookingIds)
             : Promise.resolve({ data: [] }),
           // 2. 6-day cooling guardrail
           supabase.from('follow_up_queue').select('person_name')
