@@ -102,6 +102,8 @@ export default function FollowUpNeededTab({ items, coolingItems, coolingCount, i
             introTime={item.introTime}
             coachName={item.coachName}
             leadSource={item.leadSource}
+            referredBy={item.referredBy}
+            eventId={item.eventId}
             phone={item.phone}
             borderColor={isStateB ? 'hsl(var(--status-warning))' : isNoOutcome ? 'hsl(var(--status-neutral))' : 'hsl(var(--status-danger))'}
             editable
@@ -206,6 +208,8 @@ export default function FollowUpNeededTab({ items, coolingItems, coolingCount, i
             introTime={item.introTime}
             coachName={item.coachName}
             leadSource={item.leadSource}
+            referredBy={item.referredBy}
+            eventId={item.eventId}
             phone={item.phone}
             borderColor="hsl(var(--status-neutral))"
             topBanner={<ContactedBanner lastContactAt={item.lastContactAt} contactNextDate={item.contactNextDate} />}
