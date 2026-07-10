@@ -25,6 +25,8 @@ import { Users, Search, X } from 'lucide-react';
 import { generateUniqueSlug } from '@/lib/utils';
 import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
 import { EventPicker } from '@/components/events/EventPicker';
+import { BusinessPartnerCombobox } from '@/components/leads/BusinessPartnerCombobox';
+import { isBusinessPartnershipReferralSource, isReferralLikeSource } from '@/lib/sa/leadsBooked';
 
 interface BookIntroSheetProps {
   open: boolean;
@@ -37,14 +39,6 @@ interface BookIntroSheetProps {
   prefillVipSessionId?: string;
   prefillCoach?: string;
 }
-
-const REFERRAL_SOURCES = new Set([
-  'Member Referral',
-  'Lead Management (Friend)',
-  'Instagram DMs (Friend)',
-  'My Personal Friend I Invited',
-  'VIP Class (Friend)',
-]);
 
 interface SearchResult {
   id: string;
@@ -88,6 +82,8 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
   const [selectedBooking, setSelectedBooking] = useState<SearchResult | null>(null);
   const [searching, setSearching] = useState(false);
 
+  const needsReferrer = isReferralLikeSource(leadSource);
+  const isBusinessPartner = isBusinessPartnershipReferralSource(leadSource);
   const showFriendPrompt = !!leadSource && !rescheduleMode;
 
   const reset = () => {
@@ -212,6 +208,10 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
     if (!classTime) { toast.error('Class time is required'); return; }
     if (!coach) { toast.error('Coach is required'); return; }
     if (!leadSource) { toast.error('Lead source is required'); return; }
+    if (needsReferrer && !referredBy.trim()) {
+      toast.error(isBusinessPartner ? 'Pick the business partner' : 'Who referred them?');
+      return;
+    }
     if (leadSource === 'VIP Class' && !vipSessionId) { toast.error('Please select which VIP class'); return; }
     if (leadSource === 'Event' && !eventId) { toast.error('Pick or create the event this came from'); return; }
 
@@ -260,7 +260,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
         booking_status_canon: 'ACTIVE',
         questionnaire_status_canon: 'not_sent',
         is_vip: false,
-        referred_by_member_name: REFERRAL_SOURCES.has(leadSource) ? (referredBy.trim() || null) : null,
+        referred_by_member_name: needsReferrer ? (referredBy.trim() || null) : null,
         vip_session_id: resolvedVipSessionId,
         event_id: leadSource === 'Event' ? eventId : null,
         rebooked_from_booking_id: rebookedFromId,
@@ -285,7 +285,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
       }
 
       // Insert referral record if referred by someone (non-reschedule only)
-      if (inserted?.id && !rebookedFromId && REFERRAL_SOURCES.has(leadSource) && referredBy.trim()) {
+      if (inserted?.id && !rebookedFromId && needsReferrer && referredBy.trim()) {
         await supabase.from('referrals').insert({
           referrer_name: referredBy.trim(),
           referred_name: memberName,
@@ -518,12 +518,14 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
           {leadSource === 'Event' && (
             <EventPicker value={eventId} onValueChange={setEventId} required />
           )}
-          {REFERRAL_SOURCES.has(leadSource) && (
+          {needsReferrer && (
             <div className="space-y-1.5">
               <Label htmlFor="book-referred-by">
-                {leadSource === 'My Personal Friend I Invited' ? 'Which staff member invited them?' : 'Who referred them?'}
+                {isBusinessPartner ? 'Business partner *' : leadSource === 'My Personal Friend I Invited' ? 'Which staff member invited them?' : 'Who referred them?'}
               </Label>
-              {leadSource === 'My Personal Friend I Invited' ? (
+              {isBusinessPartner ? (
+                <BusinessPartnerCombobox value={referredBy} onChange={setReferredBy} />
+              ) : leadSource === 'My Personal Friend I Invited' ? (
                 <Select value={referredBy} onValueChange={setReferredBy}>
                   <SelectTrigger id="book-referred-by"><SelectValue placeholder="Select staff member..." /></SelectTrigger>
                   <SelectContent>

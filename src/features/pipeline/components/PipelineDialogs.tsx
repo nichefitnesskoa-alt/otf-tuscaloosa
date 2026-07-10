@@ -32,6 +32,7 @@ import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
 import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 import { EventPicker } from '@/components/events/EventPicker';
+import { LeadSourceWithReferrerField, validateLeadSourceReferrer, resolveReferrerForWrite } from '@/components/shared/LeadSourceWithReferrerField';
 import { getLocalDateString } from '../helpers';
 import { capitalizeName } from '@/lib/utils';
 import { updateOutcomeFromPipeline, updateBookingFieldsFromPipeline, syncIntroOwnerToBooking, setIntroOwnerForJourney, assertNoOutcomeOwnedFields } from '../pipelineActions';
@@ -86,7 +87,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // Create booking state
-  const [newBooking, setNewBooking] = useState({ member_name: '', class_date: getLocalDateString(), intro_time: '', coach_name: '', sa_working_shift: '', lead_source: '', fitness_goal: '' });
+  const [newBooking, setNewBooking] = useState({ member_name: '', class_date: getLocalDateString(), intro_time: '', coach_name: '', sa_working_shift: '', lead_source: '', referred_by_member_name: null as string | null, fitness_goal: '' });
   const [newBookingPhone, setNewBookingPhone] = useState('');
   const [newBookingVipSessionId, setNewBookingVipSessionId] = useState('');
   const [newBookingEventId, setNewBookingEventId] = useState<string | null>(null);
@@ -146,13 +147,12 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                   <SelectContent><SelectItem value="Self-booked">Self-booked</SelectItem>{SALES_ASSOCIATES.map(sa => <SelectItem key={sa} value={sa}>{sa}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label className="text-xs">Lead Source</Label>
-                <Select value={editBooking.lead_source || ''} onValueChange={v => setEditBooking({ ...editBooking, lead_source: v })}>
-                  <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
-                  <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                </Select>
-                <FriendRuleNotice leadSource={editBooking.lead_source} bookedByName={editBooking.booked_by || editBooking.sa_working_shift} />
-              </div>
+              <LeadSourceWithReferrerField
+                value={editBooking.lead_source || ''}
+                referredByMemberName={(editBooking as any).referred_by_member_name ?? null}
+                onChange={({ lead_source, referred_by_member_name }) => setEditBooking({ ...editBooking, lead_source, referred_by_member_name } as any)}
+                label="Lead Source"
+              />
               <div><Label className="text-xs">Coach</Label>
                 <Select value={editBooking.coach_name || ''} onValueChange={v => setEditBooking({ ...editBooking, coach_name: v === '__TBD__' ? 'TBD' : v })}>
                   <SelectTrigger><SelectValue placeholder="Select coach..." /></SelectTrigger>
@@ -182,6 +182,8 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
             <Button variant="outline" onClick={() => { setEditBooking(null); onClose(); }}>Cancel</Button>
             <Button disabled={isSaving} onClick={() => withSave(async () => {
               if (!editBooking) return;
+              const referrerErr = validateLeadSourceReferrer(editBooking.lead_source, (editBooking as any).referred_by_member_name);
+              if (referrerErr) { toast.error(referrerErr); return; }
               await updateBookingFieldsFromPipeline({
                 bookingId: editBooking.id,
                 memberName: editBooking.member_name,
@@ -193,6 +195,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 saWorkingShift: editBooking.sa_working_shift,
                 bookingStatus: editBooking.booking_status || 'Active',
                 fitnessGoal: editBooking.fitness_goal,
+                referredByMemberName: resolveReferrerForWrite(editBooking.lead_source, (editBooking as any).referred_by_member_name),
                 editedBy: userName,
                 editReason: editBookingReason || 'Pipeline edit',
               });
@@ -770,13 +773,12 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                     <SelectContent>{SALES_ASSOCIATES.map(sa => <SelectItem key={sa} value={sa}>{sa}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div><Label className="text-xs">Lead Source</Label>
-                  <Select value={newBooking.lead_source} onValueChange={v => setNewBooking({ ...newBooking, lead_source: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
-                    <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                  </Select>
-                  <FriendRuleNotice leadSource={newBooking.lead_source} bookedByName={newBooking.sa_working_shift} />
-                </div>
+                <LeadSourceWithReferrerField
+                  value={newBooking.lead_source}
+                  referredByMemberName={newBooking.referred_by_member_name}
+                  onChange={({ lead_source, referred_by_member_name }) => setNewBooking({ ...newBooking, lead_source, referred_by_member_name })}
+                  label="Lead Source"
+                />
                 {newBooking.lead_source.toLowerCase().includes('vip class') && (
                   <VipSessionPicker value={newBookingVipSessionId} onValueChange={setNewBookingVipSessionId} required={newBooking.lead_source === 'VIP Class'} showWarning={newBooking.lead_source === 'VIP Class'} />
                 )}
@@ -801,6 +803,8 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
               if (newBooking.lead_source === 'Event' && !newBookingEventId) { toast.error('Pick or create the event this came from'); return; }
               const bookedBy = isSelfBooked ? 'Self-booked' : newBooking.sa_working_shift;
               const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || 'Instagram DMs');
+              const referrerErr = validateLeadSourceReferrer(leadSource, newBooking.referred_by_member_name);
+              if (referrerErr) { toast.error(referrerErr); return; }
 
               // Determine intro_owner: from selected journey or from run context
               const introOwner = selectedJourney?.latestIntroOwner || fromRun?.intro_owner || fromRun?.ran_by || null;
@@ -817,6 +821,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 sa_working_shift: bookedBy,
                 booked_by: bookedBy,
                 lead_source: leadSource,
+                referred_by_member_name: resolveReferrerForWrite(leadSource, newBooking.referred_by_member_name),
                 fitness_goal: newBooking.fitness_goal || null,
                 booking_status: 'Active',
                 booking_status_canon: 'ACTIVE',
@@ -854,7 +859,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
 
               const label = rebookedFromId ? `${newBooking.member_name} rescheduled` : secondIntroOriginatingId ? '2nd intro booked' : 'Booking created';
               toast.success(label);
-              setNewBooking({ member_name: '', class_date: getLocalDateString(), intro_time: '', coach_name: '', sa_working_shift: '', lead_source: '', fitness_goal: '' });
+              setNewBooking({ member_name: '', class_date: getLocalDateString(), intro_time: '', coach_name: '', sa_working_shift: '', lead_source: '', referred_by_member_name: null, fitness_goal: '' });
               setNewBookingPhone('');
               setNewBookingEventId(null);
               setSelectedJourney(null);
