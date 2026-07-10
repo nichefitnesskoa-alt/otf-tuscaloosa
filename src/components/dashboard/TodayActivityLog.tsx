@@ -18,6 +18,8 @@ interface TodayBooking {
   intro_time: string | null;
   coach_name: string;
   lead_source: string;
+  referred_by_member_name: string | null;
+  event_id: string | null;
   created_at: string;
 }
 
