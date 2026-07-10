@@ -27,6 +27,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { ClassTimeSelect } from '@/components/shared/FormHelpers';
+import { formatLeadSourceDetail } from '@/lib/leadSource/formatLeadSourceDetail';
+import { useEventLookup } from '@/hooks/useEventLookup';
 
 
 interface FollowUpItem {
