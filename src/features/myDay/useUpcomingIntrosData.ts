@@ -389,6 +389,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
             originatingBookingId: null,
             isSecondIntro: false,
             referredBy: null,
+            eventId: null,
             prepped: false,
             preppedAt: null,
             preppedBy: null,
