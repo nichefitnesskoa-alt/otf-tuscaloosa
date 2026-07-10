@@ -149,8 +149,8 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
         ]);
 
         // Build lookup maps
-        const bookingDataMap = new Map<string, { lead_source: string | null; phone: string | null }>(
-          ((leadSourceRes as any).data || []).map((b: any) => [b.id, { lead_source: b.lead_source, phone: b.phone }])
+        const bookingDataMap = new Map<string, { lead_source: string | null; phone: string | null; referred_by_member_name: string | null; event_id: string | null }>(
+          ((leadSourceRes as any).data || []).map((b: any) => [b.id, { lead_source: b.lead_source, phone: b.phone, referred_by_member_name: b.referred_by_member_name || null, event_id: b.event_id || null }])
         );
 
         const recentlySentNames = new Set(
