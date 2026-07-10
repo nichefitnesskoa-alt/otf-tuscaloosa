@@ -4913,9 +4913,17 @@ export type Database = {
         Returns: undefined
       }
       reconcile_questionnaire_statuses: { Args: never; Returns: Json }
+      soml_booking_qualifies_as_referral: {
+        Args: { _booking_id: string }
+        Returns: boolean
+      }
       soml_chain_root_booking_id: {
         Args: { _booking_id: string }
         Returns: string
+      }
+      soml_create_pending_referral_for_booking: {
+        Args: { _booking_id: string }
+        Returns: undefined
       }
       to_intro_time_canonical: { Args: { p: string }; Returns: string }
     }
