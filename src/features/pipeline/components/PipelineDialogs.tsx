@@ -651,7 +651,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
         class_date: fromRun.run_date || getLocalDateString(),
         intro_time: fromRun.class_time || '',
         coach_name: '', sa_working_shift: '',
-        lead_source: fromRun.lead_source || '', fitness_goal: '',
+        lead_source: fromRun.lead_source || '', referred_by_member_name: null, fitness_goal: '',
       }), 0);
     }
     if (type === 'book_2nd_intro' && journey && newBooking.member_name !== journey.memberName) {
@@ -661,7 +661,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
           member_name: journey.memberName,
           class_date: getLocalDateString(), intro_time: '',
           coach_name: first.coach_name || '', sa_working_shift: '',
-          lead_source: first.lead_source || '', fitness_goal: first.fitness_goal || '',
+          lead_source: first.lead_source || '', referred_by_member_name: null, fitness_goal: first.fitness_goal || '',
         }), 0);
       }
     }
@@ -699,7 +699,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
       : null;
 
     return (
-      <Dialog open onOpenChange={() => { setNewBooking({ member_name: '', class_date: getLocalDateString(), intro_time: '', coach_name: '', sa_working_shift: '', lead_source: '', fitness_goal: '' }); setNewBookingPhone(''); setSelectedJourney(null); onClose(); }}>
+      <Dialog open onOpenChange={() => { setNewBooking({ member_name: '', class_date: getLocalDateString(), intro_time: '', coach_name: '', sa_working_shift: '', lead_source: '', referred_by_member_name: null, fitness_goal: '' }); setNewBookingPhone(''); setSelectedJourney(null); onClose(); }}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{secondIntroOriginatingId ? 'Book 2nd Intro' : fromRun ? 'Create Matching Booking' : selectedJourney ? 'Reschedule / Rebook' : 'Create New Booking'}</DialogTitle>
