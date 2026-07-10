@@ -1,60 +1,65 @@
-## Goal
+# Buddy cards + Move tabs to Outreach + Unified Portal reminder
 
-On the MyDay **Planning to Buy** urgent banner, replace/augment the current buttons with a **"We texted them"** action that:
+## Where buddy card entries show up today
 
-1. Logs the text and hides the person from the banner.
-2. Brings them back to the banner **2 days later** if no outcome has been logged.
-3. After the SA taps "We texted them" a **second time**, if 2 more days pass with no response/outcome, the system **auto-marks the intro Not Interested**.
+Buddy Card sign-ups (leads with `is_buddy_card = true`) currently appear in:
 
-## Behavior spec
+- **My Day → Leads tab** (`NewLeadsAlert.tsx`) — badged as "Buddy Card" with the referring member's name.
+- **Pipeline** — normal lead row, buddy fields visible in detail.
+- **SOML** — buddy card referrals feed `soml_pending_referrals` with the $50 credit owed to the referring member (via `soml_create_pending_referral` trigger).
+- After booking: **My Day → Intros** with the buddy badge from `useJourneyCard` / `MyDayIntroCard`.
+- Public entry point: `/buddy` (`BuddyCard.tsx`) — where friends fill it out.
 
-- **First tap ("We texted them"):**
-  - Insert a `followup_touches` row (channel=`sms`, note "Texted about planning-to-buy date").
-  - Mark the current `follow_up_queue` row: `status='sent'`, `sent_at=now()`, `sent_by=user`.
-  - Insert a **new** `follow_up_queue` row for the same booking: `person_type='planning_to_buy'`, `touch_number = prev + 1`, `scheduled_date = today + 2 days`, `status='pending'`, `closed_reason='awaiting_response_1'`. Banner re-surfaces automatically 2 days later (existing `scheduled_date <= today` query).
+After this change, buddy card leads will surface on **Outreach → New Leads** (same component, moved).
 
-- **Second tap (when the re-surfaced row shows, touch_number ≥ 2):**
-  - Same touch + mark-sent behavior.
-  - Insert next queue row: `scheduled_date = today + 2 days`, `closed_reason='awaiting_response_final'`.
+---
 
-- **Auto Not Interested check (runs on banner mount):**
-  - For any `follow_up_queue` row where `person_type='planning_to_buy'`, `status='pending'`, `scheduled_date <= today`, and `closed_reason='awaiting_response_final'`:
-    - Confirm no new `followup_touches` or `intros_run` outcome for that booking since the row's `created_at`.
-    - Call the canonical outcome pipeline `applyIntroOutcomeUpdate` to set the intro's `result_canon='NOT_INTERESTED'` (with `notes: 'Auto: no response after 2 follow-up texts'`, `performed_by: 'System (planning-to-buy auto-close)'`).
-    - Update the queue row: `status='converted'`, `not_interested_at=now()`, `not_interested_by='System'`, `closed_reason='auto_not_interested'`.
-  - Because `applyIntroOutcomeUpdate` writes `intros_run.result_canon='NOT_INTERESTED'`, the existing `soml_resolve_pending_referral` trigger also flips any pending SOML referral to `not_converted` — coherent across WIG/SOML/Follow-Up.
+## Change 1 — Move New Leads, Follow-Up, and Scripts to the Outreach page
 
-- **Anything that logs an actual outcome (Log button, buy_date update, purchase, not-interested from another surface) already closes the follow-up chain** because `useFollowUpData` / SOML triggers respect `result_canon`, and the banner's `isTerminal` check filters those bookings out. No extra work needed.
+**My Day (`MyDayPage.tsx`)** — remove the `leads`, `followups`, and `scripts` tabs and their content. Keep only the Intros tab (plus the sections below it: Class Milestones, Milestones & Deploy, Referral Asks). Simplifies My Day to "what's happening today in the studio."
 
-## UI changes (banner only)
+**Outreach (`OutreachLists.tsx` → renamed layout to `OutreachPage`)** — becomes a tabbed hub:
 
-`src/features/myDay/PlanningToBuyUrgent.tsx`
-- Replace the current "Text" (SMS) + "Log" buttons with three side-by-side buttons matching existing sizing / OTF-orange primary rules:
-  - **Text** (unchanged `sms:` link, still opens SMS — separate from logging, per user).
-  - **We texted them** (primary orange, calls the new handler above; shows `Saved` inline 2s).
-  - **Log outcome** (secondary, existing dispatch to `myday:open-outcome`).
-- Add a small subtitle line on rows that are on their second attempt: "2nd try — auto marks Not Interested in 2 days if no response" (destructive text, `text-[10px]`).
-- Realtime channel already listens to `follow_up_queue` + `intros_run`, so re-surfacing after 2 days and disappearance on outcome are automatic.
+1. **Lists** (existing outreach lists content — unchanged)
+2. **New Leads** — renders `<MyDayNewLeadsTab />` + `<NewLeadsAlert />` (buddy cards land here) with a big bold reminder banner (see Change 2)
+3. **Follow-Up** — renders `<FollowUpList />` with the same reminder banner
+4. **Scripts** — renders `<MyDayScriptsTab />`
 
-## Data / logic touch points
+Tab badges (new-leads count, follow-ups-due count) move with the tabs. Same underlying hooks — no data plumbing changes, just a location change. React Query keys unchanged so nothing else breaks.
 
-- **No schema changes.** Uses existing `follow_up_queue` columns (`touch_number`, `closed_reason`, `status`, `not_interested_at`, `not_interested_by`, `scheduled_date`).
-- **Canonical helper reused:** `applyIntroOutcomeUpdate` from `src/lib/domain/outcomes` — do NOT reimplement the not-interested write inline.
-- **No changes** to Follow-Up page logic — planning_to_buy already flows through `useFollowUpData` and will keep working; the auto-close simply writes the canonical outcome, which every downstream reader already respects.
+**Nav** — `BottomNav` "Outreach" item already exists and is gated by `nav.outreach_lists`. Confirm SA + Coach both see it (currently: yes for SA, need to verify Coach — will grant if missing so Follow-Up stays reachable for coaches).
 
-## Cross-page reach check (must all agree after this ships)
+---
 
-- **MyDay banner** — person disappears on first tap, reappears at day+2, auto-closes at day+4.
-- **Follow-Up page (`useFollowUpData`)** — planning_to_buy row disappears once queue row hits `status='converted'` or intro gets `NOT_INTERESTED`.
-- **SOML pending referrals** — trigger `soml_resolve_pending_referral` flips to `not_converted` when the auto-close writes `NOT_INTERESTED`.
-- **WIG / commission** — unchanged; not-interested is not a sale.
+## Change 2 — "Marked off in Unified Portal" reminder banner
+
+Persistent, always-visible banner at the top of both **New Leads** and **Follow-Up** tabs. Not a per-action prompt — a constant reminder as you asked.
+
+Copy (bold + big, orange-accent left border on dark card):
+
+> **Also mark this lead off in Unified Portal → Lead Management.**  
+> Every text you send here needs to be recorded there too. Otherwise the studio double-contacts and it looks unprofessional.
+
+No new DB fields, no logging, no dismissal — it stays put every session. One shared component `<UnifiedPortalReminder />` used in both tabs so copy stays in sync.
+
+---
 
 ## Files touched
 
-- `src/features/myDay/PlanningToBuyUrgent.tsx` — button set, handlers, auto-close-on-mount effect.
-- (Optional, only if the auto-close helper grows) new `src/features/myDay/planningToBuyAutoClose.ts` for the auto-close routine so the component stays lean.
+- `src/features/myDay/MyDayPage.tsx` — strip 3 tabs + their imports/state (`newLeadsCount`, `followUpsDueCount`, script send counter stays for FAB).
+- `src/pages/OutreachLists.tsx` — wrap in tabs; existing content becomes the "Lists" tab.
+- `src/features/outreach/UnifiedPortalReminder.tsx` — NEW shared banner component.
+- `src/features/outreach/OutreachNewLeadsTab.tsx` — NEW thin wrapper (banner + `MyDayNewLeadsTab` + `NewLeadsAlert`).
+- `src/features/outreach/OutreachFollowUpTab.tsx` — NEW thin wrapper (banner + `FollowUpList`).
+- `src/features/outreach/OutreachScriptsTab.tsx` — NEW thin wrapper (re-exports `MyDayScriptsTab`).
+- `src/lib/auth/roles.ts` — verify `nav.outreach_lists` visible for Coach role; adjust if not.
 
-## Not doing
+## Coherence checks before done
 
-- No new DB tables, no new cron, no scheduled edge function — auto-close runs on any MyDay mount / realtime tick, which is sufficient for a studio-hours app.
-- No changes to the Follow-Up page UI or to `useFollowUpData` cadence.
+- New Leads count badge shows same number on Outreach that it used to show on My Day (query key `sa-new-leads` unchanged).
+- Follow-Up list on Outreach = Follow-Up list previously on My Day (same `FollowUpList` component, same `useFollowUpData` hook).
+- Buddy card lead created via `/buddy` appears on Outreach → New Leads with buddy badge (previously appeared on My Day → Leads).
+- SA and Coach both see Outreach tab in `BottomNav`; Admin sees everything.
+- No orphaned imports in `MyDayPage.tsx` after tab removal.  
+  
+I want buddy cards to have an admin dropdown where I can pull excel sheets on it as well
