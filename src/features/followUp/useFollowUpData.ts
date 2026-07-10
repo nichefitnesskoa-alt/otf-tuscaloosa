@@ -267,6 +267,8 @@ export function useFollowUpData() {
           introTime: r.class_time || booking?.intro_time || null,
           coachName: r.coach_name || booking?.coach_name || null,
           leadSource: r.lead_source || booking?.lead_source || null,
+          referredBy: (booking as any)?.referred_by_member_name || null,
+          eventId: (booking as any)?.event_id || null,
           phone: booking?.phone || null,
           email: booking?.email || null,
           result: r.result,
