@@ -15,7 +15,8 @@ const SOURCE_COLORS: Record<string, string> = {
   'Lead Management (Friend)': NEUTRAL_SOURCE,
   'My Personal Friend I Invited': NEUTRAL_SOURCE,
   'Business Partnership Referral': NEUTRAL_SOURCE,
-  'Event': NEUTRAL_SOURCE,
+  'Event / Self Generated Lead': NEUTRAL_SOURCE,
+  'Event / Self Generated Lead (Friend)': NEUTRAL_SOURCE,
   'Walk-in': NEUTRAL_SOURCE,
   'Walk-in (Friend)': NEUTRAL_SOURCE,
 };
