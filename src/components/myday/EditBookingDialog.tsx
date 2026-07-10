@@ -17,7 +17,7 @@ import { EventPicker } from '@/components/events/EventPicker';
 import { format } from 'date-fns';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { LEAD_SOURCES } from '@/types';
-import { isReferralLikeSource } from '@/lib/sa/leadsBooked';
+import { isReferralLikeSource, isEventOrOutreachSource } from '@/lib/sa/leadsBooked';
 import { LeadSourceWithReferrerField, validateLeadSourceReferrer, resolveReferrerForWrite } from '@/components/shared/LeadSourceWithReferrerField';
 
 const sb = supabase as any;
@@ -111,12 +111,12 @@ export function EditBookingDialog({
         lead_source: source,
         intro_owner: owner || null,
         booked_by: booker || null,
-        event_id: source === 'Event' ? eventId : null,
+        event_id: isEventOrOutreachSource(source) ? eventId : null,
         referred_by_member_name: resolveReferrerForWrite(source, referredBy),
         last_edited_at: new Date().toISOString(),
         last_edited_by: editedBy,
       };
-      if (source === 'Event' && !eventId) {
+      if (isEventOrOutreachSource(source) && !eventId) {
         toast.error('Pick or create the event this came from');
         setSaving(false);
         return;
@@ -222,7 +222,7 @@ export function EditBookingDialog({
               <VipSessionPicker value={vipSessionId} onValueChange={v => { setVipSessionId(v); setShowVipPicker(false); }} required showWarning={source === 'VIP Class'} />
             )}
 
-            {source === 'Event' && (
+            {isEventOrOutreachSource(source) && (
               <EventPicker value={eventId} onValueChange={setEventId} required />
             )}
 

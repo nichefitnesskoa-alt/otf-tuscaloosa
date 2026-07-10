@@ -4,6 +4,7 @@
  * Booking field edits flow through pipelineActions → updateBookingFieldsFromPipeline.
  */
 import { useState } from 'react';
+import { isEventOrOutreachSource } from '@/lib/sa/leadsBooked';
 import { notifyDataChanged } from '@/lib/data/invalidation';
 import { format } from 'date-fns';
 import { formatPhoneAsYouType } from '@/components/shared/FormHelpers';
@@ -782,7 +783,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 {newBooking.lead_source.toLowerCase().includes('vip class') && (
                   <VipSessionPicker value={newBookingVipSessionId} onValueChange={setNewBookingVipSessionId} required={newBooking.lead_source === 'VIP Class'} showWarning={newBooking.lead_source === 'VIP Class'} />
                 )}
-                {newBooking.lead_source === 'Event' && (
+                {isEventOrOutreachSource(newBooking.lead_source) && (
                   <EventPicker value={newBookingEventId} onValueChange={setNewBookingEventId} required />
                 )}
               </>
@@ -800,7 +801,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
               if (!newBooking.member_name) { toast.error('Name required'); return; }
               if (!isSelfBooked && !newBooking.sa_working_shift) { toast.error('Booked By required'); return; }
               if (newBooking.lead_source === 'VIP Class' && !newBookingVipSessionId) { toast.error('Please select which VIP class'); return; }
-              if (newBooking.lead_source === 'Event' && !newBookingEventId) { toast.error('Pick or create the event this came from'); return; }
+              if (isEventOrOutreachSource(newBooking.lead_source) && !newBookingEventId) { toast.error('Pick or create the event this came from'); return; }
               const bookedBy = isSelfBooked ? 'Self-booked' : newBooking.sa_working_shift;
               const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || 'Instagram DMs');
               const referrerErr = validateLeadSourceReferrer(leadSource, newBooking.referred_by_member_name);
@@ -829,7 +830,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 intro_owner_locked: !!introOwner,
                 originating_booking_id: secondIntroOriginatingId || null,
                 vip_session_id: leadSource === 'VIP Class' ? newBookingVipSessionId : null,
-                event_id: leadSource === 'Event' ? newBookingEventId : null,
+                event_id: isEventOrOutreachSource(leadSource) ? newBookingEventId : null,
                 phone: newBookingPhone.trim() || null,
                 rebooked_from_booking_id: rebookedFromId,
                 rebook_reason: rebookedFromId ? 'Rescheduled from pipeline' : null,

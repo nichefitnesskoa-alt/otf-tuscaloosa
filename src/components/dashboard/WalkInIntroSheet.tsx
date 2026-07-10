@@ -18,7 +18,7 @@ import { ClassTimeSelect, formatPhoneAsYouType, autoCapitalizeName } from '@/com
 import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 import { EventPicker } from '@/components/events/EventPicker';
 import { BusinessPartnerCombobox } from '@/components/leads/BusinessPartnerCombobox';
-import { isBusinessPartnershipReferralSource, isReferralLikeSource } from '@/lib/sa/leadsBooked';
+import { isBusinessPartnershipReferralSource, isReferralLikeSource, isEventOrOutreachSource } from '@/lib/sa/leadsBooked';
 
 interface WalkInIntroSheetProps {
   open: boolean;
@@ -84,7 +84,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
 
   const handleLeadSourceChange = (val: string) => {
     setLeadSource(val);
-    if (val !== 'Event') setEventId(null);
+    if (!isEventOrOutreachSource(val)) setEventId(null);
     setFriendAnswer(null);
     setFriendFirstName(''); setFriendLastName(''); setFriendPhone('');
     setReferredBy('');
@@ -101,7 +101,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
       toast.error(isBusinessPartner ? 'Pick the business partner' : 'Who referred them?');
       return;
     }
-    if (leadSource === 'Event' && !eventId) { toast.error('Pick or create the event this came from'); return; }
+    if (isEventOrOutreachSource(leadSource) && !eventId) { toast.error('Pick or create the event this came from'); return; }
 
     setSaving(true);
     try {
@@ -128,7 +128,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
         questionnaire_status_canon: 'not_sent',
         is_vip: false,
         referred_by_member_name: needsReferrer ? (referredBy.trim() || null) : null,
-        event_id: leadSource === 'Event' ? eventId : null,
+        event_id: isEventOrOutreachSource(leadSource) ? eventId : null,
       }).select('id').single();
 
       if (error) {
@@ -180,7 +180,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
           is_vip: false,
           paired_booking_id: inserted.id,
           originating_booking_id: inserted.id,
-          event_id: leadSource === 'Event' ? eventId : null,
+          event_id: isEventOrOutreachSource(leadSource) ? eventId : null,
         }).select('id').single();
 
         if (friendBooking?.id) {
@@ -279,7 +279,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
             <FriendRuleNotice leadSource={leadSource} bookedByName={user?.name} />
           </div>
 
-          {leadSource === 'Event' && (
+          {isEventOrOutreachSource(leadSource) && (
             <EventPicker value={eventId} onValueChange={setEventId} required />
           )}
 
