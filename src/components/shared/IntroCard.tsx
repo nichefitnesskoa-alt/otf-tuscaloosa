@@ -342,7 +342,7 @@ function InlineDatePicker({ value, bookingId, editedBy, onSaved }: {
 
 export default function IntroCard({
   memberName, classDate, introTime, coachName, leadSource, phone, email,
-  vipSessionId, vipClassName, referredBy,
+  vipSessionId, vipClassName, referredBy, eventId,
   bookingId, editable = false, editedBy = '', onFieldSaved,
   badges, outcomeBadge, timingInfo, actionButtons, secondaryActions,
   lastContactSummary, topBanner, outcomeBanner, children, className, id, style,
@@ -351,6 +351,12 @@ export default function IntroCard({
   const canEdit = editable && bookingId && editedBy;
   const refresh = () => onFieldSaved?.();
   const { coaches: COACHES } = useActiveStaff();
+  const eventLookup = useEventLookup();
+  const sourceDetail = formatLeadSourceDetail(
+    { lead_source: leadSource, referred_by_member_name: referredBy, event_id: eventId },
+    eventLookup,
+  );
+  const eventEntry = eventId ? eventLookup.get(eventId) : undefined;
 
   // VIP picker state — opens after lead source becomes VIP, or via affordance
   const [vipPickerOpen, setVipPickerOpen] = useState(false);
