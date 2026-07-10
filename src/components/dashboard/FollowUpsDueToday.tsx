@@ -631,11 +631,20 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
 
           {/* Row 2: Badges */}
           <div className="flex items-center gap-1.5 flex-wrap mt-1">
-            {item.lead_source && (
-              <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border whitespace-nowrap', getLeadSourceBadgeColor(item.lead_source))}>
-                {item.lead_source}
-              </Badge>
-            )}
+            {item.lead_source && (() => {
+              const sd = formatLeadSourceDetail(
+                { lead_source: item.lead_source, referred_by_member_name: item.referred_by_member_name, event_id: item.event_id },
+                eventLookup,
+              );
+              return (
+                <Badge
+                  className={cn('text-[10px] px-1.5 py-0 h-4 border whitespace-nowrap', getLeadSourceBadgeColor(item.lead_source))}
+                  title={sd.combined}
+                >
+                  {sd.combined}
+                </Badge>
+              );
+            })()}
             {item.is_legacy && (
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">Legacy</Badge>
             )}
