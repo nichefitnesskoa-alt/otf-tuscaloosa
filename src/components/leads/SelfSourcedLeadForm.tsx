@@ -21,7 +21,9 @@ import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { notifyDataChanged } from '@/lib/data/invalidation';
 import { isSelfSourcedLeadSource, isReferralLikeSource } from '@/lib/sa/leadsBooked';
 import { LEAD_SOURCES } from '@/types';
+import { BusinessPartnerCombobox } from '@/components/leads/BusinessPartnerCombobox';
 import type { Tables } from '@/integrations/supabase/types';
+
 
 /** Extra sources allowed on the log-a-lead form that aren't in the canonical
  *  intro-booking LEAD_SOURCES list. Kept for backwards compatibility with how
