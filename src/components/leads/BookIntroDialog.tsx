@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isEventOrOutreachSource } from '@/lib/sa/leadsBooked';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,7 +51,7 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
       toast.error('Friend\'s first name and phone are required');
       return;
     }
-    if (lead.source === 'Event' && !eventId) {
+    if (isEventOrOutreachSource(lead.source) && !eventId) {
       toast.error('Pick or create the event this came from');
       return;
     }
@@ -69,7 +70,7 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
           booked_by: user?.name || 'Unknown',
           phone: lead.phone || null,
           email: lead.email || null,
-          event_id: lead.source === 'Event' ? eventId : null,
+          event_id: isEventOrOutreachSource(lead.source) ? eventId : null,
           referred_by_member_name: (lead as any).referred_by_member_name || null,
         } as any)
         .select('id')
@@ -151,7 +152,7 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
             referred_by_member_name: `${lead.first_name} ${lead.last_name}`,
             phone: friendPhone.trim() || null,
             email: friendEmail.trim() || null,
-            event_id: lead.source === 'Event' ? eventId : null,
+            event_id: isEventOrOutreachSource(lead.source) ? eventId : null,
           } as any)
           .select('id')
           .single();
@@ -219,7 +220,7 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
             <ClassTimeSelect value={classTime} onValueChange={setClassTime} />
           </div>
 
-          {lead.source === 'Event' && (
+          {isEventOrOutreachSource(lead.source) && (
             <EventPicker value={eventId} onValueChange={setEventId} required />
           )}
 

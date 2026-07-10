@@ -28,7 +28,7 @@ import type { Tables } from '@/integrations/supabase/types';
 /** Extra sources allowed on the log-a-lead form that aren't in the canonical
  *  intro-booking LEAD_SOURCES list. Kept for backwards compatibility with how
  *  SAs described self-sourced leads before the canon list existed. */
-const FORM_ONLY_EXTRA_SOURCES = ['Walk-in', 'Event', 'Cold Lead Re-engagement', 'Manual Entry'] as const;
+const FORM_ONLY_EXTRA_SOURCES = ['Walk-in', 'Cold Lead Re-engagement', 'Manual Entry'] as const;
 
 const CANON_SOURCES = LEAD_SOURCES.filter(isSelfSourcedLeadSource);
 const REFERRAL_SOURCES = CANON_SOURCES.filter(isReferralLikeSource);

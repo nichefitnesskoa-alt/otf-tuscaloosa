@@ -8,6 +8,7 @@
  *   and a copy-link button.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { isEventOrOutreachSource } from '@/lib/sa/leadsBooked';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,7 +49,7 @@ export function IntroSchedulerLinkCard({ saName }: Props) {
 
   useEffect(() => {
     if (!sa) { setUrl(''); return; }
-    if (source === 'Event' && !eventId) { setUrl(''); return; }
+    if (isEventOrOutreachSource(source) && !eventId) { setUrl(''); return; }
     let cancelled = false;
     setLoadingCode(true);
     (async () => {
@@ -56,7 +57,7 @@ export function IntroSchedulerLinkCard({ saName }: Props) {
         const code = await ensureIntroLinkCode({
           saName: sa,
           source,
-          eventId: source === 'Event' ? eventId : null,
+          eventId: isEventOrOutreachSource(source) ? eventId : null,
         });
         if (!cancelled) setUrl(buildShortIntroUrl(PUBLIC_BOOKING_BASE, code));
       } catch (e) {
@@ -91,13 +92,13 @@ export function IntroSchedulerLinkCard({ saName }: Props) {
 
       <div className="space-y-2">
         <Label>Lead source</Label>
-        <Select value={source} onValueChange={v => { setSource(v); if (v !== 'Event') setEventId(null); }}>
+        <Select value={source} onValueChange={v => { setSource(v); if (!isEventOrOutreachSource(v)) setEventId(null); }}>
           <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
           <SelectContent>
             {sources.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
-        {source === 'Event' && (
+        {isEventOrOutreachSource(source) && (
           <EventPicker value={eventId} onValueChange={setEventId} required dense />
         )}
       </div>

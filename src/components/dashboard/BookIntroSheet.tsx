@@ -26,7 +26,7 @@ import { generateUniqueSlug } from '@/lib/utils';
 import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
 import { EventPicker } from '@/components/events/EventPicker';
 import { BusinessPartnerCombobox } from '@/components/leads/BusinessPartnerCombobox';
-import { isBusinessPartnershipReferralSource, isReferralLikeSource } from '@/lib/sa/leadsBooked';
+import { isBusinessPartnershipReferralSource, isReferralLikeSource, isEventOrOutreachSource } from '@/lib/sa/leadsBooked';
 
 interface BookIntroSheetProps {
   open: boolean;
@@ -213,7 +213,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
       return;
     }
     if (leadSource === 'VIP Class' && !vipSessionId) { toast.error('Please select which VIP class'); return; }
-    if (leadSource === 'Event' && !eventId) { toast.error('Pick or create the event this came from'); return; }
+    if (isEventOrOutreachSource(leadSource) && !eventId) { toast.error('Pick or create the event this came from'); return; }
 
     setSaving(true);
     try {
@@ -262,7 +262,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
         is_vip: false,
         referred_by_member_name: needsReferrer ? (referredBy.trim() || null) : null,
         vip_session_id: resolvedVipSessionId,
-        event_id: leadSource === 'Event' ? eventId : null,
+        event_id: isEventOrOutreachSource(leadSource) ? eventId : null,
         rebooked_from_booking_id: rebookedFromId,
         originating_booking_id: selectedBooking ? (selectedBooking.originating_booking_id || selectedBooking.id) : null,
         rebook_reason: rebookedFromId ? 'Rescheduled from My Day' : null,
@@ -325,7 +325,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
           is_vip: false,
           paired_booking_id: inserted.id,
           referred_by_member_name: memberName,
-          event_id: leadSource === 'Event' ? eventId : null,
+          event_id: isEventOrOutreachSource(leadSource) ? eventId : null,
         }).select('id').single();
 
         if (friendBooking?.id) {
@@ -515,7 +515,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
           {leadSource.toLowerCase().includes('vip class') && (
             <VipSessionPicker value={vipSessionId} onValueChange={setVipSessionId} required={leadSource === 'VIP Class'} showWarning={leadSource === 'VIP Class'} />
           )}
-          {leadSource === 'Event' && (
+          {isEventOrOutreachSource(leadSource) && (
             <EventPicker value={eventId} onValueChange={setEventId} required />
           )}
           {needsReferrer && (

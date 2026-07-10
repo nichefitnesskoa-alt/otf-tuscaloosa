@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { isEventOrOutreachSource } from '@/lib/sa/leadsBooked';
 import { isAmcEligibleSale } from '@/lib/amc-auto';
 import { ShiftRecapAutoBuild } from '@/components/dashboard/ShiftRecapAutoBuild';
 import { useAuth } from '@/context/AuthContext';
@@ -306,7 +307,7 @@ export default function ShiftRecap() {
         referred_by_member_name: booking.referredByMemberName || null,
         phone: booking.phone?.trim() || null,
         email: booking.email?.trim() || null,
-        event_id: booking.leadSource === 'Event' ? (booking.eventId || null) : null,
+        event_id: isEventOrOutreachSource(booking.leadSource) ? (booking.eventId || null) : null,
       } as any).select().single();
 
       if (bookingInsertError) throw bookingInsertError;
@@ -539,7 +540,7 @@ export default function ShiftRecap() {
             referred_by_member_name: booking.referredByMemberName || null,
             phone: booking.phone?.trim() || null,
             email: booking.email?.trim() || null,
-            event_id: booking.leadSource === 'Event' ? (booking.eventId || null) : null,
+            event_id: isEventOrOutreachSource(booking.leadSource) ? (booking.eventId || null) : null,
           } as any).select().single();
 
           if (bookingInsertError) throw bookingInsertError;

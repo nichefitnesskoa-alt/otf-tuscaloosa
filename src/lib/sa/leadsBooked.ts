@@ -54,6 +54,19 @@ export function isBusinessPartnershipReferralSource(source: string | null | unde
   return source === BUSINESS_PARTNERSHIP_REFERRAL_SOURCE;
 }
 
+/**
+ * Event / Self Generated Lead sources — both the base source and the "(Friend)"
+ * variant. Any lead source that starts with this label uses the Outreach
+ * Activity picker (dated event OR general outreach with no date).
+ */
+export const EVENT_OUTREACH_SOURCE = 'Event / Self Generated Lead';
+export const EVENT_OUTREACH_FRIEND_SOURCE = 'Event / Self Generated Lead (Friend)';
+
+export function isEventOrOutreachSource(source: string | null | undefined): boolean {
+  if (!source) return false;
+  return source === EVENT_OUTREACH_SOURCE || source === EVENT_OUTREACH_FRIEND_SOURCE;
+}
+
 export function isReferralLikeSource(source: string | null | undefined): boolean {
   if (!source) return false;
   if (REFERRAL_LIKE_EXPLICIT.has(source)) return true;

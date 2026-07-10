@@ -56,7 +56,7 @@ export function buildShortIntroUrl(base: string, code: string): string {
 export function friendSourceFor(source: string): string {
   if (source.endsWith('(Friend)')) return source;
   if (source === 'Intro Scheduler Link') return 'Intro Scheduler Link (Friend)';
-  if (source === 'Event') return 'Event';
+  if (source === 'Event / Self Generated Lead') return 'Event / Self Generated Lead (Friend)';
   return `${source} (Friend)`;
 }
 
