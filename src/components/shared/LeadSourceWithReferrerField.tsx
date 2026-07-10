@@ -24,7 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 import { BusinessPartnerCombobox } from '@/components/leads/BusinessPartnerCombobox';
 import { LEAD_SOURCES } from '@/types';
-import { isReferralLikeSource } from '@/lib/sa/leadsBooked';
+import { isBusinessPartnershipReferralSource, isReferralLikeSource } from '@/lib/sa/leadsBooked';
 import { cn } from '@/lib/utils';
 
 export interface LeadSourceWithReferrerValue {
@@ -89,6 +89,7 @@ export function LeadSourceWithReferrerField({
   const referral = isReferralLikeSource(value);
   const referrer = referredByMemberName ?? '';
   const missing = referral && !referrer.trim();
+  const businessPartner = isBusinessPartnershipReferralSource(value);
 
   return (
     <div className={cn('space-y-1.5', className)}>
@@ -121,13 +122,15 @@ export function LeadSourceWithReferrerField({
       {referral && (
         <div className="space-y-1">
           <Label className={compact ? 'text-[10px] uppercase tracking-wide text-muted-foreground' : 'text-sm'}>
-            {value === 'Business Partnership Referral'
+            {businessPartner
               ? 'Business partner *'
               : "Referring member's full name *"}
           </Label>
-          {value === 'Business Partnership Referral' ? (
+          {businessPartner ? (
             <BusinessPartnerCombobox
               value={referrer}
+              disabled={disabled}
+              className={compact ? 'h-7 text-xs' : 'h-11'}
               onChange={(v) =>
                 onChange({ lead_source: value, referred_by_member_name: v || null })
               }

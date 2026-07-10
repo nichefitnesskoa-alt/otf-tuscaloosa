@@ -24,6 +24,8 @@ import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { format, parseISO, isToday, isTomorrow } from 'date-fns';
 import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType } from '@/components/shared/FormHelpers';
 import { EventPicker } from '@/components/events/EventPicker';
+import { BusinessPartnerCombobox } from '@/components/leads/BusinessPartnerCombobox';
+import { isBusinessPartnershipReferralSource, isReferralLikeSource } from '@/lib/sa/leadsBooked';
 
 export interface IntroBookingData {
   id: string;
@@ -268,9 +270,8 @@ export default function IntroBookingEntry({
       toast.error('Lead source is required');
       return;
     }
-    if ((booking.leadSource === 'Member Referral' || booking.leadSource === 'Member Referral (3 class pack)')
-        && !booking.referredByMemberName?.trim()) {
-      toast.error('Referring member name is required for Member Referral bookings');
+    if (isReferralLikeSource(booking.leadSource) && !booking.referredByMemberName?.trim()) {
+      toast.error(isBusinessPartnershipReferralSource(booking.leadSource) ? 'Pick the business partner' : 'Referring member name is required for referral bookings');
       return;
     }
 
@@ -397,18 +398,28 @@ export default function IntroBookingEntry({
           />
         )}
 
-        {/* Referred By - REQUIRED for any Member Referral source */}
-        {(booking.leadSource === 'Member Referral' || booking.leadSource === 'Member Referral (3 class pack)') && (
+        {/* Referred By - REQUIRED for referral / friend sources */}
+        {isReferralLikeSource(booking.leadSource) && (
           <div>
-            <Label className="text-xs">Referred By (Member Name) *</Label>
-            <NameAutocomplete
-              value={booking.referredByMemberName || ''}
-              onChange={(v) => onUpdate(index, { referredByMemberName: v })}
-              placeholder="Who referred them? (required)"
-              className={`mt-1 ${!booking.referredByMemberName?.trim() ? 'ring-1 ring-destructive/40' : ''}`}
-            />
+            <Label className="text-xs">
+              {isBusinessPartnershipReferralSource(booking.leadSource) ? 'Business partner *' : 'Referred By (Member Name) *'}
+            </Label>
+            {isBusinessPartnershipReferralSource(booking.leadSource) ? (
+              <BusinessPartnerCombobox
+                value={booking.referredByMemberName || ''}
+                onChange={(v) => onUpdate(index, { referredByMemberName: v })}
+                className="mt-1"
+              />
+            ) : (
+              <NameAutocomplete
+                value={booking.referredByMemberName || ''}
+                onChange={(v) => onUpdate(index, { referredByMemberName: v })}
+                placeholder="Who referred them? (required)"
+                className={`mt-1 ${!booking.referredByMemberName?.trim() ? 'ring-1 ring-destructive/40' : ''}`}
+              />
+            )}
             {!booking.referredByMemberName?.trim() && (
-              <p className="text-[10px] text-destructive mt-1">Required when lead source is Member Referral.</p>
+              <p className="text-[10px] text-destructive mt-1">Required for referral / friend lead sources.</p>
             )}
           </div>
         )}

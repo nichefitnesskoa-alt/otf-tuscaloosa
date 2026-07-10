@@ -17,6 +17,8 @@ import { generateUniqueSlug } from '@/lib/utils';
 import { ClassTimeSelect, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
 import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 import { EventPicker } from '@/components/events/EventPicker';
+import { BusinessPartnerCombobox } from '@/components/leads/BusinessPartnerCombobox';
+import { isBusinessPartnershipReferralSource, isReferralLikeSource } from '@/lib/sa/leadsBooked';
 
 interface WalkInIntroSheetProps {
   open: boolean;
@@ -44,12 +46,6 @@ function getDefaultClassTime(): string {
   return `${hh}:${mm}`;
 }
 
-function isReferralSource(source: string): boolean {
-  if (!source) return false;
-  const lower = source.toLowerCase();
-  return lower.includes('referral') || lower.includes('friend') || lower.includes('invited');
-}
-
 export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroSheetProps) {
   const { user } = useAuth();
   const { coaches: COACHES } = useActiveStaff();
@@ -69,7 +65,9 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
   const [friendPhone, setFriendPhone] = useState('');
   const [referredBy, setReferredBy] = useState('');
 
-  const showFriendPrompt = isReferralSource(leadSource);
+  const needsReferrer = isReferralLikeSource(leadSource);
+  const isBusinessPartner = isBusinessPartnershipReferralSource(leadSource);
+  const showFriendPrompt = !!leadSource;
 
   const reset = () => {
     setFirstName(''); setLastName(''); setPhone('');
@@ -99,6 +97,10 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
     if (!classTime) { toast.error('Class time is required'); return; }
     if (!coach) { toast.error('Coach is required'); return; }
     if (!leadSource) { toast.error('Lead source is required'); return; }
+    if (needsReferrer && !referredBy.trim()) {
+      toast.error(isBusinessPartner ? 'Pick the business partner' : 'Who referred them?');
+      return;
+    }
     if (leadSource === 'Event' && !eventId) { toast.error('Pick or create the event this came from'); return; }
 
     setSaving(true);
@@ -125,7 +127,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
         booking_status_canon: 'ACTIVE',
         questionnaire_status_canon: 'not_sent',
         is_vip: false,
-        referred_by_member_name: leadSource === 'Member Referral' ? (referredBy.trim() || null) : null,
+        referred_by_member_name: needsReferrer ? (referredBy.trim() || null) : null,
         event_id: leadSource === 'Event' ? eventId : null,
       }).select('id').single();
 
@@ -140,7 +142,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
         autoComplete2ndIntroFollowups(memberName).catch(() => {});
       }
 
-      if (inserted?.id && leadSource === 'Member Referral' && referredBy.trim()) {
+      if (inserted?.id && needsReferrer && referredBy.trim()) {
         await supabase.from('referrals').insert({
           referrer_name: referredBy.trim(),
           referred_name: memberName,
@@ -282,10 +284,14 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
           )}
 
           {/* ── Who Referred Them? ── */}
-          {leadSource === 'Member Referral' && (
+          {needsReferrer && (
             <div className="space-y-1.5">
-              <Label htmlFor="walk-in-referred-by">Who referred them?</Label>
-              <NameAutocomplete id="walk-in-referred-by" value={referredBy} onChange={v => setReferredBy(autoCapitalizeName(v))} placeholder="Referring member's name" />
+              <Label htmlFor="walk-in-referred-by">{isBusinessPartner ? 'Business partner *' : 'Who referred them?'}</Label>
+              {isBusinessPartner ? (
+                <BusinessPartnerCombobox value={referredBy} onChange={setReferredBy} />
+              ) : (
+                <NameAutocomplete id="walk-in-referred-by" value={referredBy} onChange={v => setReferredBy(autoCapitalizeName(v))} placeholder="Referring member's name" />
+              )}
             </div>
           )}
 

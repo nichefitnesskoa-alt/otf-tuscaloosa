@@ -47,6 +47,13 @@ const REFERRAL_LIKE_EXPLICIT = new Set<string>([
   'Business Partnership Referral',
   'My Personal Friend I Invited',
 ]);
+
+export const BUSINESS_PARTNERSHIP_REFERRAL_SOURCE = 'Business Partnership Referral';
+
+export function isBusinessPartnershipReferralSource(source: string | null | undefined): boolean {
+  return source === BUSINESS_PARTNERSHIP_REFERRAL_SOURCE;
+}
+
 export function isReferralLikeSource(source: string | null | undefined): boolean {
   if (!source) return false;
   if (REFERRAL_LIKE_EXPLICIT.has(source)) return true;
