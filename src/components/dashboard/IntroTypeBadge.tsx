@@ -32,7 +32,8 @@ const SHORT_SOURCE: Record<string, string> = {
   'Lead Management (Friend)': 'Lead Friend',
   'My Personal Friend I Invited': 'Personal',
   'Business Partnership Referral': 'Biz Partner',
-  'Event': 'Event',
+  'Event / Self Generated Lead': 'Event/SGL',
+  'Event / Self Generated Lead (Friend)': 'Event/SGL Friend',
   'Walk-in': 'Walk-in',
   'Walk-in (Friend)': 'Walk-in Friend',
 };
