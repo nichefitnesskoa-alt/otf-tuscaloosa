@@ -60,6 +60,8 @@ interface ClientProfileSheetProps {
 export function ClientProfileSheet({ open, onOpenChange, memberName, memberKey, bookings, runs }: ClientProfileSheetProps) {
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(null);
   const [loading, setLoading] = useState(false);
+  const eventLookup = useEventLookup();
+
 
   useEffect(() => {
     if (!open || bookings.length === 0) return;
