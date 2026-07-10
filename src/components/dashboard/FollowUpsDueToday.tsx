@@ -63,6 +63,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
   const { user } = useAuth();
   const { data: templates = [] } = useScriptTemplates();
   const { coaches: COACHES } = useActiveStaff();
+  const eventLookup = useEventLookup();
   const [items, setItems] = useState<FollowUpItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [scriptItem, setScriptItem] = useState<FollowUpItem | null>(null);
