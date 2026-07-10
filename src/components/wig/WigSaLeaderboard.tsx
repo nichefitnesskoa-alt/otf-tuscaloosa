@@ -511,7 +511,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
             <AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
             <div className="text-foreground">
               <span className="font-semibold">All leads go in OrangeBook, not Mindbody.</span>{' '}
-              Add every self-sourced lead here, then check it off in <span className="font-medium">Sourced Leads</span> once it's entered in OrangeBook.
+              Add every self-generated lead here, then check it off in <span className="font-medium">Sourced Leads</span> once it's entered in OrangeBook.
             </div>
           </div>
         </CardHeader>
