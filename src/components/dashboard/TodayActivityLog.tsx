@@ -90,7 +90,7 @@ export function TodayActivityLog({ onEditBooking, onEditOutcome, refreshKey }: T
         // Bookings created today by this SA (exclude VIP/COMP)
         supabase
           .from('intros_booked')
-          .select('id, member_name, intro_time, coach_name, lead_source, created_at, booking_type_canon')
+          .select('id, member_name, intro_time, coach_name, lead_source, created_at, booking_type_canon, referred_by_member_name, event_id')
           .eq('booked_by', user.name)
           .gte('created_at', todayStart)
           .is('deleted_at', null)
