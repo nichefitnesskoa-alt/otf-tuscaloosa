@@ -26,6 +26,9 @@ import {
   validateLeadSourceReferrer,
   resolveReferrerForWrite,
 } from '@/components/shared/LeadSourceWithReferrerField';
+import { useEventLookup } from '@/hooks/useEventLookup';
+import { formatLeadSourceDetail } from '@/lib/leadSource/formatLeadSourceDetail';
+import { isEventOrOutreachSource } from '@/lib/sa/leadsBooked';
 
 const isVipSource = (s: string | null | undefined) =>
   !!s && (s === 'VIP Class' || s === 'VIP Class (Friend)' || s.toLowerCase().startsWith('vip class'));
