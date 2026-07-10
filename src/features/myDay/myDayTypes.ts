@@ -43,6 +43,7 @@ export interface UpcomingIntroItem {
   isSecondIntro: boolean;
   isVipClassIntro?: boolean;
   referredBy: string | null;
+  eventId: string | null;
   prepped: boolean;
   preppedAt: string | null;
   preppedBy: string | null;
