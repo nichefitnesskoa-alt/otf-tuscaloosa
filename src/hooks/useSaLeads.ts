@@ -96,14 +96,49 @@ export function useSaLeads(rangeStart: string, rangeEnd: string): UseSaLeadsResu
       .lte('created_at', endIso)
       .is('deleted_at', null);
 
+    // Look up parent bookings referenced by children in-range. When a parent
+    // is soft-deleted, its child is the surviving record for that person and
+    // must count as the sourced lead — otherwise delete+rebook silently drops
+    // the person from the SGL total.
+    const parentIds = Array.from(new Set(
+      ((sglBookings as any[]) || [])
+        .map(b => b.originating_booking_id as string | null)
+        .filter((x): x is string => !!x),
+    ));
+    const parentMap = new Map<string, { deleted_at: string | null; booked_by: string | null }>();
+    if (parentIds.length) {
+      const { data: parents } = await supabase
+        .from('intros_booked')
+        .select('id, deleted_at, booked_by')
+        .in('id', parentIds);
+      ((parents as any[]) || []).forEach(p =>
+        parentMap.set(p.id, { deleted_at: p.deleted_at ?? null, booked_by: p.booked_by ?? null }),
+      );
+    }
+
     const candidateBookings = (sglBookings as (LeadBookedBookingInput & { originating_booking_id: string | null })[] | null || [])
       .filter(b => !b.ignore_from_metrics)
-      // Child bookings (rebook / 2nd intro for an already-sourced person)
-      // never add a NEW self-sourced lead — the originating booking already
-      // represents that person.
-      .filter(b => !b.originating_booking_id)
+      // Child bookings normally don't add a new sourced person — the
+      // originating booking already represents them. Exception: if the
+      // parent is soft-deleted (or missing), the child IS the surviving
+      // record for that person and must count.
+      .filter(b => {
+        if (!b.originating_booking_id) return true;
+        const parent = parentMap.get(b.originating_booking_id);
+        return !parent || !!parent.deleted_at;
+      })
       .filter(b => isSelfSourcedLeadSource(b.lead_source))
-      .filter(b => !linkedBookingIds.has(b.id));
+      .filter(b => !linkedBookingIds.has(b.id))
+      // Inherit booked_by from a soft-deleted parent when the child's is blank
+      // so the SA who originally sourced the person keeps credit after a rebook.
+      .map(b => {
+        if (b.booked_by && b.booked_by.trim()) return b;
+        const parent = b.originating_booking_id ? parentMap.get(b.originating_booking_id) : null;
+        if (parent?.deleted_at && parent.booked_by) {
+          return { ...b, booked_by: parent.booked_by };
+        }
+        return b;
+      });
 
     const sessionIds = Array.from(new Set(
       candidateBookings.map(b => b.vip_session_id).filter((x): x is string => !!x),
