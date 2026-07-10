@@ -39,6 +39,8 @@ interface ClientProfileSheetProps {
     intro_time: string | null;
     coach_name: string;
     lead_source: string;
+    referred_by_member_name?: string | null;
+    event_id?: string | null;
     booking_status: string | null;
     booked_by: string | null;
     fitness_goal: string | null;
