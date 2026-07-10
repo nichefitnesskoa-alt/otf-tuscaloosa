@@ -187,7 +187,7 @@ export function TodayActivityLog({ onEditBooking, onEditOutcome, refreshKey }: T
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium truncate">{b.member_name}</p>
                       <p className="text-[10px] text-muted-foreground truncate">
-                        {formatTime(b.intro_time)}{b.intro_time ? ' · ' : ''}{b.coach_name} · {b.lead_source}
+                        {formatTime(b.intro_time)}{b.intro_time ? ' · ' : ''}{b.coach_name} · {formatLeadSourceDetail({ lead_source: b.lead_source, referred_by_member_name: b.referred_by_member_name, event_id: b.event_id }, eventLookup).combined}
                       </p>
                     </div>
                     {onEditBooking && (
