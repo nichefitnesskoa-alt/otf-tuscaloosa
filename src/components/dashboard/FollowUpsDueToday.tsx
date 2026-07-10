@@ -47,6 +47,8 @@ interface FollowUpItem {
   fitness_goal: string | null;
   is_legacy: boolean;
   lead_source?: string | null;
+  referred_by_member_name?: string | null;
+  event_id?: string | null;
   phone?: string | null;
 }
 
