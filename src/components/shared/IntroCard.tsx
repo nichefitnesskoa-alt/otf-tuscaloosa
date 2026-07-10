@@ -481,7 +481,17 @@ export default function IntroCard({
           {badges}
           {referredBy && (
             <span className="text-[10px] px-1.5 py-0 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 shrink-0 font-medium">
-              Referred by {referredBy}
+              {sourceDetail.label === 'Business Partnership Referral' ? 'Partner: ' : 'Referred by '}
+              {referredBy}
+            </span>
+          )}
+          {isEventOrOutreachSource(leadSource) && eventEntry && (
+            <span className="text-[10px] px-1.5 py-0 rounded-full bg-orange-500/15 text-orange-700 dark:text-orange-400 border border-orange-500/30 shrink-0 font-medium">
+              {eventEntry.activity_type === 'event' ? 'Event: ' : 'Outreach: '}
+              {eventEntry.name}
+              {eventEntry.activity_type === 'event' && eventEntry.event_date
+                ? ` (${(() => { const [y,m,d] = eventEntry.event_date.split('-').map(Number); return `${m}/${d}`; })()})`
+                : ''}
             </span>
           )}
 
