@@ -44,8 +44,9 @@ export interface IntroCardProps {
   vipSessionId?: string | null;
   vipClassName?: string | null;
   referredBy?: string | null;
+  /** Linked event/outreach id — resolved via useEventLookup for at-a-glance name/date. */
+  eventId?: string | null;
 
-  /** Inline editing support */
   bookingId?: string;
   editable?: boolean;
   editedBy?: string;
