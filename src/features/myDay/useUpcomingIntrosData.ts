@@ -100,7 +100,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
 
       let query = supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_time, coach_name, intro_owner, intro_owner_locked, phone, email, lead_source, is_vip, vip_class_name, originating_booking_id, booking_status_canon, booking_type_canon, questionnaire_status_canon, questionnaire_sent_at, questionnaire_completed_at, phone_e164, class_start_at, prepped, prepped_at, prepped_by, referred_by_member_name, sa_conversation_5_of_5, sa_conversation_meaning, sa_conversation_obstacle, coach_brief_five_vision, coach_brief_human_detail, sa_buying_criteria, sa_objection, coach_notes')
+        .select('id, member_name, class_date, intro_time, coach_name, intro_owner, intro_owner_locked, phone, email, lead_source, is_vip, vip_class_name, originating_booking_id, booking_status_canon, booking_type_canon, questionnaire_status_canon, questionnaire_sent_at, questionnaire_completed_at, phone_e164, class_start_at, prepped, prepped_at, prepped_by, referred_by_member_name, event_id, sa_conversation_5_of_5, sa_conversation_meaning, sa_conversation_obstacle, coach_brief_five_vision, coach_brief_human_detail, sa_buying_criteria, sa_objection, coach_notes')
         .is('deleted_at', null)
         .not('booking_type_canon', 'in', '("VIP","COMP")')
         .gte('class_date', start)
@@ -254,6 +254,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           preppedAt: (b as any).prepped_at || null,
           preppedBy: (b as any).prepped_by || null,
           referredBy: (b as any).referred_by_member_name || null,
+          eventId: (b as any).event_id || null,
           // Pre-fetched Q data
           qFitnessGoal: qFullMap.get(b.id)?.q1_fitness_goal ?? null,
           qFitnessLevel: qFullMap.get(b.id)?.q2_fitness_level ?? null,
@@ -388,6 +389,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
             originatingBookingId: null,
             isSecondIntro: false,
             referredBy: null,
+            eventId: null,
             prepped: false,
             preppedAt: null,
             preppedBy: null,

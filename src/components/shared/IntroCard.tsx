@@ -26,6 +26,9 @@ import {
   validateLeadSourceReferrer,
   resolveReferrerForWrite,
 } from '@/components/shared/LeadSourceWithReferrerField';
+import { useEventLookup } from '@/hooks/useEventLookup';
+import { formatLeadSourceDetail } from '@/lib/leadSource/formatLeadSourceDetail';
+import { isEventOrOutreachSource } from '@/lib/sa/leadsBooked';
 
 const isVipSource = (s: string | null | undefined) =>
   !!s && (s === 'VIP Class' || s === 'VIP Class (Friend)' || s.toLowerCase().startsWith('vip class'));
@@ -41,8 +44,9 @@ export interface IntroCardProps {
   vipSessionId?: string | null;
   vipClassName?: string | null;
   referredBy?: string | null;
+  /** Linked event/outreach id — resolved via useEventLookup for at-a-glance name/date. */
+  eventId?: string | null;
 
-  /** Inline editing support */
   bookingId?: string;
   editable?: boolean;
   editedBy?: string;
@@ -338,7 +342,7 @@ function InlineDatePicker({ value, bookingId, editedBy, onSaved }: {
 
 export default function IntroCard({
   memberName, classDate, introTime, coachName, leadSource, phone, email,
-  vipSessionId, vipClassName, referredBy,
+  vipSessionId, vipClassName, referredBy, eventId,
   bookingId, editable = false, editedBy = '', onFieldSaved,
   badges, outcomeBadge, timingInfo, actionButtons, secondaryActions,
   lastContactSummary, topBanner, outcomeBanner, children, className, id, style,
@@ -347,6 +351,12 @@ export default function IntroCard({
   const canEdit = editable && bookingId && editedBy;
   const refresh = () => onFieldSaved?.();
   const { coaches: COACHES } = useActiveStaff();
+  const eventLookup = useEventLookup();
+  const sourceDetail = formatLeadSourceDetail(
+    { lead_source: leadSource, referred_by_member_name: referredBy, event_id: eventId },
+    eventLookup,
+  );
+  const eventEntry = eventId ? eventLookup.get(eventId) : undefined;
 
   // VIP picker state — opens after lead source becomes VIP, or via affordance
   const [vipPickerOpen, setVipPickerOpen] = useState(false);
@@ -437,7 +447,7 @@ export default function IntroCard({
   if (!canEdit) {
     if (introTime) metaSegments.push(formatDisplayTime(introTime));
     if (coachName && coachName !== 'TBD') metaSegments.push(coachName);
-    if (leadSource) metaSegments.push(leadSource);
+    if (leadSource) metaSegments.push(sourceDetail.combined);
     if (phone) {
       const display = formatPhoneDisplay(phone);
       metaSegments.push(
@@ -471,7 +481,17 @@ export default function IntroCard({
           {badges}
           {referredBy && (
             <span className="text-[10px] px-1.5 py-0 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 shrink-0 font-medium">
-              Referred by {referredBy}
+              {sourceDetail.label === 'Business Partnership Referral' ? 'Partner: ' : 'Referred by '}
+              {referredBy}
+            </span>
+          )}
+          {isEventOrOutreachSource(leadSource) && eventEntry && (
+            <span className="text-[10px] px-1.5 py-0 rounded-full bg-orange-500/15 text-orange-700 dark:text-orange-400 border border-orange-500/30 shrink-0 font-medium">
+              {eventEntry.activity_type === 'event' ? 'Event: ' : 'Outreach: '}
+              {eventEntry.name}
+              {eventEntry.activity_type === 'event' && eventEntry.event_date
+                ? ` (${(() => { const [y,m,d] = eventEntry.event_date.split('-').map(Number); return `${m}/${d}`; })()})`
+                : ''}
             </span>
           )}
 

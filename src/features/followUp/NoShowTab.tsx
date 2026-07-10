@@ -73,6 +73,8 @@ export default function NoShowTab({ items, coolingItems, coolingCount, isLoading
           introTime={item.introTime}
           coachName={item.coachName}
           leadSource={item.leadSource}
+          referredBy={item.referredBy}
+          eventId={item.eventId}
           phone={item.phone}
           borderColor="hsl(var(--status-neutral))"
           editable
@@ -144,6 +146,8 @@ export default function NoShowTab({ items, coolingItems, coolingCount, isLoading
             introTime={item.introTime}
             coachName={item.coachName}
             leadSource={item.leadSource}
+            referredBy={item.referredBy}
+            eventId={item.eventId}
             phone={item.phone}
             borderColor="hsl(var(--status-neutral))"
             topBanner={<ContactedBanner lastContactAt={item.lastContactAt} contactNextDate={item.contactNextDate} />}

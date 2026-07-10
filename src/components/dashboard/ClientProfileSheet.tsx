@@ -13,6 +13,8 @@ import { capitalizeName, parseLocalDate } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { User, Calendar, Target, ClipboardList, DollarSign, Heart } from 'lucide-react';
 import { FollowUpStatusBadge } from './FollowUpStatusBadge';
+import { formatLeadSourceDetail } from '@/lib/leadSource/formatLeadSourceDetail';
+import { useEventLookup } from '@/hooks/useEventLookup';
 
 interface QuestionnaireData {
   q1_fitness_goal: string | null;
@@ -37,6 +39,8 @@ interface ClientProfileSheetProps {
     intro_time: string | null;
     coach_name: string;
     lead_source: string;
+    referred_by_member_name?: string | null;
+    event_id?: string | null;
     booking_status: string | null;
     booked_by: string | null;
     fitness_goal: string | null;
@@ -56,6 +60,8 @@ interface ClientProfileSheetProps {
 export function ClientProfileSheet({ open, onOpenChange, memberName, memberKey, bookings, runs }: ClientProfileSheetProps) {
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(null);
   const [loading, setLoading] = useState(false);
+  const eventLookup = useEventLookup();
+
 
   useEffect(() => {
     if (!open || bookings.length === 0) return;
@@ -152,7 +158,7 @@ export function ClientProfileSheet({ open, onOpenChange, memberName, memberKey, 
                   <div className="text-muted-foreground flex flex-wrap gap-x-3">
                     {b.coach_name && <span>Coach: {b.coach_name}</span>}
                     {b.booked_by && <span>By: {capitalizeName(b.booked_by)}</span>}
-                    <span>{b.lead_source}</span>
+                    <span>{formatLeadSourceDetail({ lead_source: b.lead_source, referred_by_member_name: b.referred_by_member_name, event_id: b.event_id }, eventLookup).combined}</span>
                   </div>
                 </div>
               ))}

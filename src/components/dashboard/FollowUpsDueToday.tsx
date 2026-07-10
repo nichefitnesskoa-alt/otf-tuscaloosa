@@ -27,6 +27,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { ClassTimeSelect } from '@/components/shared/FormHelpers';
+import { formatLeadSourceDetail } from '@/lib/leadSource/formatLeadSourceDetail';
+import { useEventLookup } from '@/hooks/useEventLookup';
 
 
 interface FollowUpItem {
@@ -47,6 +49,8 @@ interface FollowUpItem {
   fitness_goal: string | null;
   is_legacy: boolean;
   lead_source?: string | null;
+  referred_by_member_name?: string | null;
+  event_id?: string | null;
   phone?: string | null;
 }
 
@@ -59,6 +63,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
   const { user } = useAuth();
   const { data: templates = [] } = useScriptTemplates();
   const { coaches: COACHES } = useActiveStaff();
+  const eventLookup = useEventLookup();
   const [items, setItems] = useState<FollowUpItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [scriptItem, setScriptItem] = useState<FollowUpItem | null>(null);
@@ -118,7 +123,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
         ] = await Promise.all([
           // 1. Lead source + phone from intros_booked
           bookingIds.length > 0
-            ? supabase.from('intros_booked').select('id, lead_source, phone, member_name').in('id', bookingIds)
+            ? supabase.from('intros_booked').select('id, lead_source, phone, member_name, referred_by_member_name, event_id').in('id', bookingIds)
             : Promise.resolve({ data: [] }),
           // 2. 6-day cooling guardrail
           supabase.from('follow_up_queue').select('person_name')
@@ -147,8 +152,8 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
         ]);
 
         // Build lookup maps
-        const bookingDataMap = new Map<string, { lead_source: string | null; phone: string | null }>(
-          ((leadSourceRes as any).data || []).map((b: any) => [b.id, { lead_source: b.lead_source, phone: b.phone }])
+        const bookingDataMap = new Map<string, { lead_source: string | null; phone: string | null; referred_by_member_name: string | null; event_id: string | null }>(
+          ((leadSourceRes as any).data || []).map((b: any) => [b.id, { lead_source: b.lead_source, phone: b.phone, referred_by_member_name: b.referred_by_member_name || null, event_id: b.event_id || null }])
         );
 
         const recentlySentNames = new Set(
@@ -266,6 +271,8 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
           return {
             ...d,
             lead_source: bookingData?.lead_source || null,
+            referred_by_member_name: bookingData?.referred_by_member_name || null,
+            event_id: bookingData?.event_id || null,
             phone: personPhone,
           };
         });
@@ -624,11 +631,20 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
 
           {/* Row 2: Badges */}
           <div className="flex items-center gap-1.5 flex-wrap mt-1">
-            {item.lead_source && (
-              <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border whitespace-nowrap', getLeadSourceBadgeColor(item.lead_source))}>
-                {item.lead_source}
-              </Badge>
-            )}
+            {item.lead_source && (() => {
+              const sd = formatLeadSourceDetail(
+                { lead_source: item.lead_source, referred_by_member_name: item.referred_by_member_name, event_id: item.event_id },
+                eventLookup,
+              );
+              return (
+                <Badge
+                  className={cn('text-[10px] px-1.5 py-0 h-4 border whitespace-nowrap', getLeadSourceBadgeColor(item.lead_source))}
+                  title={sd.combined}
+                >
+                  {sd.combined}
+                </Badge>
+              );
+            })()}
             {item.is_legacy && (
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">Legacy</Badge>
             )}

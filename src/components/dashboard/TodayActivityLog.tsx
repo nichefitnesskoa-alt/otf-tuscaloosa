@@ -11,6 +11,8 @@ import { getTodayStartISO } from '@/lib/dateUtils';
 import { ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { formatLeadSourceDetail } from '@/lib/leadSource/formatLeadSourceDetail';
+import { useEventLookup } from '@/hooks/useEventLookup';
 
 interface TodayBooking {
   id: string;
@@ -18,6 +20,8 @@ interface TodayBooking {
   intro_time: string | null;
   coach_name: string;
   lead_source: string;
+  referred_by_member_name: string | null;
+  event_id: string | null;
   created_at: string;
 }
 
@@ -76,6 +80,7 @@ export function TodayActivityLog({ onEditBooking, onEditOutcome, refreshKey }: T
   const [outcomes, setOutcomes] = useState<TodayOutcome[]>([]);
   const [sales, setSales] = useState<TodaySale[]>([]);
   const [loading, setLoading] = useState(false);
+  const eventLookup = useEventLookup();
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const todayStart = getTodayStartISO();
@@ -88,7 +93,7 @@ export function TodayActivityLog({ onEditBooking, onEditOutcome, refreshKey }: T
         // Bookings created today by this SA (exclude VIP/COMP)
         supabase
           .from('intros_booked')
-          .select('id, member_name, intro_time, coach_name, lead_source, created_at, booking_type_canon')
+          .select('id, member_name, intro_time, coach_name, lead_source, created_at, booking_type_canon, referred_by_member_name, event_id')
           .eq('booked_by', user.name)
           .gte('created_at', todayStart)
           .is('deleted_at', null)
@@ -182,7 +187,7 @@ export function TodayActivityLog({ onEditBooking, onEditOutcome, refreshKey }: T
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium truncate">{b.member_name}</p>
                       <p className="text-[10px] text-muted-foreground truncate">
-                        {formatTime(b.intro_time)}{b.intro_time ? ' · ' : ''}{b.coach_name} · {b.lead_source}
+                        {formatTime(b.intro_time)}{b.intro_time ? ' · ' : ''}{b.coach_name} · {formatLeadSourceDetail({ lead_source: b.lead_source, referred_by_member_name: b.referred_by_member_name, event_id: b.event_id }, eventLookup).combined}
                       </p>
                     </div>
                     {onEditBooking && (

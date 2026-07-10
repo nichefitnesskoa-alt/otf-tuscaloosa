@@ -35,6 +35,8 @@ export interface FollowUpItem {
   introTime: string | null;
   coachName: string | null;
   leadSource: string | null;
+  referredBy?: string | null;
+  eventId?: string | null;
   phone: string | null;
   email: string | null;
   result: string | null;
@@ -148,7 +150,7 @@ export function useFollowUpData() {
 
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_time, coach_name, lead_source, phone, email, booking_status_canon, originating_booking_id, deleted_at, reschedule_contact_date, booking_type_canon, is_vip, followup_dismissed_at')
+        .select('id, member_name, class_date, intro_time, coach_name, lead_source, phone, email, booking_status_canon, originating_booking_id, deleted_at, reschedule_contact_date, booking_type_canon, is_vip, followup_dismissed_at, referred_by_member_name, event_id')
         .gte('class_date', cutoff)
         .is('deleted_at', null)
         .is('followup_dismissed_at' as any, null)
@@ -265,6 +267,8 @@ export function useFollowUpData() {
           introTime: r.class_time || booking?.intro_time || null,
           coachName: r.coach_name || booking?.coach_name || null,
           leadSource: r.lead_source || booking?.lead_source || null,
+          referredBy: (booking as any)?.referred_by_member_name || null,
+          eventId: (booking as any)?.event_id || null,
           phone: booking?.phone || null,
           email: booking?.email || null,
           result: r.result,
@@ -368,6 +372,8 @@ export function useFollowUpData() {
           introTime: b.intro_time || null,
           coachName: b.coach_name,
           leadSource: b.lead_source,
+          referredBy: (b as any).referred_by_member_name || null,
+          eventId: (b as any).event_id || null,
           phone: b.phone,
           email: b.email,
           result: null,
@@ -407,6 +413,8 @@ export function useFollowUpData() {
           introTime: b.intro_time || null,
           coachName: b.coach_name,
           leadSource: b.lead_source,
+          referredBy: (b as any).referred_by_member_name || null,
+          eventId: (b as any).event_id || null,
           phone: b.phone,
           email: b.email,
           result: null,
@@ -456,6 +464,8 @@ export function useFollowUpData() {
           introTime: b.intro_time || null,
           coachName: b.coach_name,
           leadSource: b.lead_source,
+          referredBy: (b as any).referred_by_member_name || null,
+          eventId: (b as any).event_id || null,
           phone: b.phone,
           email: b.email,
           result: null,
@@ -495,6 +505,8 @@ export function useFollowUpData() {
           introTime: booking.intro_time || null,
           coachName: booking.coach_name,
           leadSource: booking.lead_source,
+          referredBy: (booking as any).referred_by_member_name || null,
+          eventId: (booking as any).event_id || null,
           phone: booking.phone,
           email: booking.email,
           result: 'Planning to buy',
