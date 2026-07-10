@@ -35,6 +35,8 @@ export interface FollowUpItem {
   introTime: string | null;
   coachName: string | null;
   leadSource: string | null;
+  referredBy: string | null;
+  eventId: string | null;
   phone: string | null;
   email: string | null;
   result: string | null;
