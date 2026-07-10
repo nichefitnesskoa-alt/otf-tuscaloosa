@@ -1,40 +1,53 @@
-## Goal
-Everywhere a lead source has an associated dropdown value (referrer name, business partner, event, general outreach activity), show that detail inline next to the lead source — at-a-glance on cards, drill-downs, and drawers.
+## Problem
 
-## Canonical helper (new)
-`src/lib/leadSource/formatLeadSourceDetail.ts`
-- Input: `{ lead_source, referred_by_member_name, event_id }` + `events` lookup (name + activity_type + event_date)
-- Output: `{ label, detail }` where:
-  - Referral variants (`Client Referral`, `Buddy Card Referral`, `Milestone Referral`, `Coach Referral`, `Business Partnership Referral`, `VIP Class (Friend)`, `Event / Self Generated Lead (Friend)`, any `(Friend)` source) → detail = `referred_by_member_name`
-  - `Business Partnership Referral` → detail = partner name (stored in `referred_by_member_name`)
-  - `Event / Self Generated Lead` + `(Friend)` → detail = `Event Name` or `Event Name (M/D)` if event_date present; prefix "Event" or "Outreach" based on `activity_type`
-  - Renders as `Lead Source · Detail` (e.g. `Business Partnership Referral · Turbo Coffee`, `Event · Bama Bash (10/12)`, `General Outreach · Farmer's Market`)
-- Fallback: source only, no detail
+1. **Keyerra shows up in Ellie's "referral leads" drilldown** even though her current `lead_source = 'Event / Self Generated Lead'` with no `referred_by_member_name` — she is an SGL, not a referral. Root cause: a `soml_pending_referrals` row was created earlier (when the source/referrer state was different) and never cleaned up when the booking was edited. The `soml_create_pending_referral` trigger only fires on INSERT and only ever adds rows — it never removes stale ones.
 
-## Shared events lookup
-`useEventLookupMap()` hook (thin wrapper on existing `useEvents`) returning `Map<id, { name, activity_type, event_date }>` — used by all consumers to avoid extra fetches. Pre-fetched on mount per project rule.
+2. Same class of bug will hit any booking whose `lead_source` or `referred_by_member_name` is edited after creation (referral ↔ non-referral flips leave stale/missing pending rows).
 
-## Consumers to update (single-line badge under name / next to source chip)
-1. `src/components/myday/MyDayIntroCard.tsx` — replace bare `booking.lead_source` render with helper output
-2. `src/features/pipeline/components/PipelineRowCard.tsx` — journey rows currently show `| {b.lead_source}`; append detail
-3. `src/components/dashboard/FollowUpsDueToday.tsx`
-4. `src/components/dashboard/UnresolvedIntros.tsx`
-5. `src/components/dashboard/TodayActivityLog.tsx`
-6. `src/components/dashboard/ClientProfileSheet.tsx` (drill-down)
-7. `src/components/dashboard/InlineIntroLogger.tsx`
-8. `src/components/dashboard/PrepDrawer.tsx`
-9. `src/components/myday/OutcomeDrawer.tsx` (context header)
-10. `src/components/myday/EditBookingDialog.tsx` (read-only summary line, editing still uses `LeadSourceWithReferrerField`)
-11. `src/features/pipeline/components/VipPipelineTable.tsx` — where lead_source is shown
-12. `src/components/dashboard/PerSATable.tsx` / `PerCoachTable.tsx` / `BookerStatsTable.tsx` — only if source is currently rendered (tables that count don't need it)
+3. Copy: "Self-Sourced Leads" needs to read "Self Generated Leads" everywhere it's user-facing.
 
-## Data query updates
-Ensure any of the above pulling `intros_booked` also selects `referred_by_member_name` and `event_id`. Add missing columns to the shared prep/booking query hooks so cards can render without extra round-trips (pre-fetch rule).
+## Fix
 
-## Styling
-- Use existing muted-foreground text; detail after a middot `·` on same line
-- Truncate long values with `title=` tooltip
-- No new colors, no new components
+### 1. DB migration — keep `soml_pending_referrals` in sync with the booking
 
-## Coherence proof
-Verify in DB that a booking with `lead_source='Business Partnership Referral'` shows `referred_by_member_name` inline on: MyDay card, Pipeline row, Follow-Up Due Today, Activity Log, Client Profile drill-down. Same for one Event and one Event/(Friend). Cross-page: same text string appears everywhere for the same booking id.
+- Extract the qualification logic into a SQL helper `public.soml_booking_qualifies_as_referral(intros_booked)` returning boolean, matching the current INSERT rules:
+  - `lead_source` in the explicit referral list OR ends with `(Friend)` AND `referred_by_member_name` is non-blank, OR
+  - `paired_booking_id IS NOT NULL` AND `referred_by_member_name` is non-blank.
+- Replace/augment the trigger:
+  - **AFTER INSERT** — existing behavior (unchanged).
+  - **AFTER UPDATE OF lead_source, referred_by_member_name, paired_booking_id, deleted_at**:
+    - If row no longer qualifies (or is soft-deleted) → **delete** the matching `soml_pending_referrals` row (only when `state = 'pending'`, so we never nuke an already-realized referral that's been counted toward someone's SOML).
+    - If row now qualifies and no pending row exists for the chain → call the existing create path.
+- One-time cleanup in the same migration:
+  ```sql
+  DELETE FROM soml_pending_referrals p
+  WHERE p.state = 'pending'
+    AND NOT public.soml_booking_qualifies_as_referral(
+      (SELECT b FROM intros_booked b WHERE b.id = p.booking_id)
+    );
+  ```
+  This removes Keyerra's stale row and any siblings.
+
+### 2. Frontend — rename "Self-Sourced" → "Self Generated" (user-facing copy only)
+
+Change display strings; keep function/file/variable names as-is to avoid churn.
+
+- `src/components/wig/SourcedLeadsDialog.tsx` — DialogTitle "Self-Sourced Leads" → "Self Generated Leads"; footer "self-sourced record(s)" → "self-generated record(s)".
+- `src/components/wig/WigSaLeaderboard.tsx` — drill title "Self-sourced leads" → "Self Generated Leads"; remove-confirm copy "self-sourced count" → "self-generated count"; helper text "self-sourced lead" → "self-generated lead".
+- `src/components/table/SaWeeklyGoals.tsx` — label "Leads (self-sourced)" → "Leads (self-generated)".
+- `src/features/myDay/SelfSourcedLeadEntry.tsx` — card title "Log a lead you sourced" stays; no user-visible "self-sourced" string — leave.
+- `src/features/myDay/SourcedLeadsToText.tsx` — only comments; skip.
+- Comment/JSDoc-only occurrences (hooks, `lib/sa/*`) — leave untouched.
+
+### 3. Verification (coherence proof)
+
+- `SELECT * FROM soml_pending_referrals WHERE booking_id = 'b3f46280…'` returns 0 rows.
+- Ellie's SOML "referral leads" drilldown drops from 3 → 2 (Adriana manual + Lauren pending remain).
+- Toggle Keyerra's `lead_source` to a real referral (`Member Referral`, set `referred_by_member_name`) via the edit UI → pending row reappears; toggle back → pending row disappears. Verified with `read_query` after each toggle.
+- Grep confirms no user-facing "Self-Sourced" strings remain.
+
+### Files touched
+- new migration: trigger + helper + cleanup DELETE
+- `src/components/wig/SourcedLeadsDialog.tsx`
+- `src/components/wig/WigSaLeaderboard.tsx`
+- `src/components/table/SaWeeklyGoals.tsx`
