@@ -378,18 +378,8 @@ export default function MyDayPage() {
 
   const greeting = new Date().getHours() < 12 ? 'morning' : 'afternoon';
 
-  // OTF brand tab-trigger styling — applied inline so tokens beat theme defaults
-  const tabTriggerBase =
-    'flex flex-col items-center gap-0.5 py-2 text-[10px] leading-tight transition-colors ' +
-    'data-[state=active]:font-bold';
-  const tabTriggerStyle = {
-    color: OTF.bone,
-    backgroundColor: 'transparent',
-    borderRadius: 0,
-    ...brandFont,
-  } as const;
-  // Active tab: orange bottom bar via box-shadow (works inside grid)
-  const activeShadow = { boxShadow: `inset 0 -2px 0 ${OTF.orange}` };
+
+
 
   return (
     <div
