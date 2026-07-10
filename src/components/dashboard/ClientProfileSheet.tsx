@@ -13,6 +13,8 @@ import { capitalizeName, parseLocalDate } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { User, Calendar, Target, ClipboardList, DollarSign, Heart } from 'lucide-react';
 import { FollowUpStatusBadge } from './FollowUpStatusBadge';
+import { formatLeadSourceDetail } from '@/lib/leadSource/formatLeadSourceDetail';
+import { useEventLookup } from '@/hooks/useEventLookup';
 
 interface QuestionnaireData {
   q1_fitness_goal: string | null;
