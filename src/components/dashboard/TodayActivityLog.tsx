@@ -11,6 +11,8 @@ import { getTodayStartISO } from '@/lib/dateUtils';
 import { ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { formatLeadSourceDetail } from '@/lib/leadSource/formatLeadSourceDetail';
+import { useEventLookup } from '@/hooks/useEventLookup';
 
 interface TodayBooking {
   id: string;
