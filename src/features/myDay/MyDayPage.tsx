@@ -79,15 +79,12 @@ export default function MyDayPage() {
 
   const isUserAdmin = isAdminCheck(user);
 
-  const [followUpsDueCount, setFollowUpsDueCount] = useState(0);
   const [todayScriptsSent, setTodayScriptsSent] = useState(0);
   const [todayFollowUpsSent, setTodayFollowUpsSent] = useState(0);
   const [bookIntroLead, setBookIntroLead] = useState<Tables<'leads'> | null>(null);
   const [detailLead, setDetailLead] = useState<Tables<'leads'> | null>(null);
   const [needsOutcomeCount, setNeedsOutcomeCount] = useState(0);
-  const [newLeadsCount, setNewLeadsCount] = useState(0);
-  
-  const [activeTab, setActiveTab] = useState('intros');
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [intelligenceDismissed, setIntelligenceDismissed] = useState(false);
 
