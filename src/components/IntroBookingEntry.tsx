@@ -389,7 +389,7 @@ export default function IntroBookingEntry({
         </div>
 
         {/* Event picker — required when source is Event */}
-        {booking.leadSource === 'Event' && (
+        {isEventOrOutreachSource(booking.leadSource) && (
           <EventPicker
             value={booking.eventId ?? null}
             onValueChange={(v) => onUpdate(index, { eventId: v })}
