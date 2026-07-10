@@ -696,6 +696,7 @@ export default function IntroRowCard({
         vipSessionId={item.vipSessionId}
         vipClassName={item.vipClassName}
         referredBy={item.referredBy}
+        eventId={item.eventId}
         bookingId={item.bookingId}
         editable={true}
         editedBy={userName}
