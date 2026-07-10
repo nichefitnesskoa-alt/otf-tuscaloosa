@@ -26,9 +26,11 @@ interface Props {
   /** Called when the picked partner has a stored contact — lets the form
    *  auto-fill the referring-contact field. */
   onContactResolved?: (contact: string | null) => void;
+  className?: string;
+  disabled?: boolean;
 }
 
-export function BusinessPartnerCombobox({ value, onChange, onContactResolved }: Props) {
+export function BusinessPartnerCombobox({ value, onChange, onContactResolved, className, disabled = false }: Props) {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -96,7 +98,8 @@ export function BusinessPartnerCombobox({ value, onChange, onContactResolved }: 
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full h-10 justify-between font-normal"
+          disabled={disabled}
+          className={cn('w-full h-10 justify-between font-normal', className)}
         >
           <span className={cn('truncate', !value && 'text-muted-foreground')}>
             {value || 'Pick a business partner…'}
