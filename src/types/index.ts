@@ -18,7 +18,8 @@ export type StaffName = string;
 // Lead Sources (alphabetized)
 export const LEAD_SOURCES = [
   'Business Partnership Referral',
-  'Event',
+  'Event / Self Generated Lead',
+  'Event / Self Generated Lead (Friend)',
   'Instagram DMs',
   'Instagram DMs (Friend)',
   'Intro Scheduler Link',
