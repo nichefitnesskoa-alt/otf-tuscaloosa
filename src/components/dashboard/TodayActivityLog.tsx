@@ -80,6 +80,7 @@ export function TodayActivityLog({ onEditBooking, onEditOutcome, refreshKey }: T
   const [outcomes, setOutcomes] = useState<TodayOutcome[]>([]);
   const [sales, setSales] = useState<TodaySale[]>([]);
   const [loading, setLoading] = useState(false);
+  const eventLookup = useEventLookup();
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const todayStart = getTodayStartISO();
