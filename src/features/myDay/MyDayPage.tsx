@@ -53,7 +53,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 
 // Canonical intros queue
 import UpcomingIntrosCard from './UpcomingIntrosCard';
-import { MyDayNewLeadsTab } from './MyDayNewLeadsTab';
 
 
 import { WhatsChangedDialog } from '@/components/shared/WhatsChangedDialog';
@@ -61,7 +60,6 @@ import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCar
 
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { NewLeadsAlert } from './NewLeadsAlert';
-import { MyDayScriptsTab } from './MyDayScriptsTab';
 import { VipClaimBanner } from './VipClaimBanner';
 
 import { ClassMilestoneChecks } from './ClassMilestoneChecks';
