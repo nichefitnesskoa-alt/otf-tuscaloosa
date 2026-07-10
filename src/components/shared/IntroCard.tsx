@@ -447,7 +447,7 @@ export default function IntroCard({
   if (!canEdit) {
     if (introTime) metaSegments.push(formatDisplayTime(introTime));
     if (coachName && coachName !== 'TBD') metaSegments.push(coachName);
-    if (leadSource) metaSegments.push(leadSource);
+    if (leadSource) metaSegments.push(sourceDetail.combined);
     if (phone) {
       const display = formatPhoneDisplay(phone);
       metaSegments.push(
