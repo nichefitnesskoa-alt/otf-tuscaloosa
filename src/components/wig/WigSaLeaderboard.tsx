@@ -346,7 +346,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   }, [drill, booked.rows, sourcedLeads.rows, sales.rows, isAdmin, reassignChoices]);
 
   const drillTitle = drill
-    ? `${drill.sa ?? 'Studio'} · ${drill.bucket === 'sales' ? 'Sales' : drill.bucket === 'sourced' ? 'Self-sourced leads' : 'Booked intros'}`
+    ? `${drill.sa ?? 'Studio'} · ${drill.bucket === 'sales' ? 'Sales' : drill.bucket === 'sourced' ? 'Self generated leads' : 'Booked intros'}`
     : '';
 
   // ── HERO: team self-generated leads vs team SGL target ──
