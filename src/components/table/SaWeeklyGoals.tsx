@@ -119,7 +119,7 @@ export function SaWeeklyGoals({ weekStart }: Props) {
   };
 
   const tiles = [
-    { label: 'Leads (self-sourced)', current: mySgl, target: targets.saSgl, pace: pace.sgl },
+    { label: 'Leads (self-generated)', current: mySgl, target: targets.saSgl, pace: pace.sgl },
     { label: 'Booked intros', current: myBooked, target: targets.saBooked, pace: pace.booked },
     { label: 'Sales', current: mySales, target: targets.saSales, pace: pace.sales },
   ];
