@@ -22,6 +22,7 @@
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
+import { BusinessPartnerCombobox } from '@/components/leads/BusinessPartnerCombobox';
 import { LEAD_SOURCES } from '@/types';
 import { isReferralLikeSource } from '@/lib/sa/leadsBooked';
 import { cn } from '@/lib/utils';
