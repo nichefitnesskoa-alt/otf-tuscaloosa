@@ -7,7 +7,7 @@ import { LEAD_SOURCES } from '@/types';
 export const SOURCE_CODE_MAP: Record<string, number> = {
   'Intro Scheduler Link': 1,
   'Instagram DMs': 2,
-  'Event': 3,
+  'Event / Self Generated Lead': 3,
   'Member Referral': 4,
   'Member Referral (3 class pack)': 5,
   'Business Partnership Referral': 6,
@@ -22,6 +22,7 @@ export const SOURCE_CODE_MAP: Record<string, number> = {
   'Online Intro Offer (Friend)': 15,
   'Walk-in': 16,
   'Walk-in (Friend)': 17,
+  'Event / Self Generated Lead (Friend)': 18,
 };
 
 export function codeForSource(source: string): number {
