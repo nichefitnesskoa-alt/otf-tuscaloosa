@@ -323,7 +323,7 @@ export function SourcedLeadsDialog({
                 ? `need${rows.length === 1 ? 's' : ''} OrangeBook import`
                 : status === 'in_mindbody'
                 ? `already in OrangeBook`
-                : `self-sourced record${rows.length === 1 ? '' : 's'} in this range`}
+                : `self-generated record${rows.length === 1 ? '' : 's'} in this range`}
             </span>
           </div>
           <div className="inline-flex rounded-md border border-border overflow-hidden">
