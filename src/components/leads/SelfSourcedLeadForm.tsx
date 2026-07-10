@@ -62,6 +62,8 @@ export function SelfSourcedLeadForm({ onSaved, allowBookIntro = true }: Props) {
   const [bookOpen, setBookOpen] = useState(false);
 
   const needsReferrer = useMemo(() => isReferralLikeSource(source), [source]);
+  const isBusinessPartner = source === 'Business Partnership Referral';
+
 
   const reset = () => {
     setFirstName(''); setLastName(''); setPhone(''); setEmail('');
