@@ -507,102 +507,12 @@ export default function MyDayPage() {
         <ShiftChecklist />
       </div>
 
-      {/* ═══ INTERNAL TABS ═══ */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div
-          className="sticky top-[var(--floating-header-h,140px)] z-10 px-3 pt-2 pb-0"
-          style={{ backgroundColor: OTF.dark }}
-        >
-          <TabsList
-            className="w-full grid grid-cols-4 h-auto gap-0 p-0 rounded-none"
-            style={{
-              backgroundColor: 'transparent',
-              borderBottom: `1px solid ${Theme.border}`,
-            }}
-          >
-            <TabsTrigger
-              value="intros"
-              className={tabTriggerBase}
-              style={{ ...tabTriggerStyle, ...(activeTab === 'intros' ? activeShadow : {}) }}
-            >
-              <CalendarDays className="w-3.5 h-3.5" style={{ color: activeTab === 'intros' ? OTF.orange : OTF.bone }} />
-              <span>Intros</span>
-              {todayBookingsCount > 0 && (
-                <span
-                  className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center"
-                  style={{ backgroundColor: OTF.orange, color: OTF.dark, fontWeight: 700 }}
-                >
-                  {todayBookingsCount}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="leads"
-              className={tabTriggerBase}
-              style={{ ...tabTriggerStyle, ...(activeTab === 'leads' ? activeShadow : {}) }}
-            >
-              <UserPlus className="w-3.5 h-3.5" style={{ color: activeTab === 'leads' ? OTF.orange : OTF.bone }} />
-              <span>Leads</span>
-              {newLeadsCount > 0 && (
-                <span
-                  className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center"
-                  style={{ backgroundColor: OTF.orange, color: OTF.dark, fontWeight: 700 }}
-                >
-                  {newLeadsCount}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="followups"
-              className={tabTriggerBase}
-              style={{ ...tabTriggerStyle, ...(activeTab === 'followups' ? activeShadow : {}) }}
-            >
-              <Clock className="w-3.5 h-3.5" style={{ color: activeTab === 'followups' ? OTF.orange : OTF.bone }} />
-              <span>Follow-Up</span>
-              {followUpsDueCount > 0 && (
-                <span
-                  className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center"
-                  style={{ backgroundColor: OTF.orange, color: OTF.dark, fontWeight: 700 }}
-                >
-                  {followUpsDueCount}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="scripts"
-              className={tabTriggerBase}
-              style={{ ...tabTriggerStyle, ...(activeTab === 'scripts' ? activeShadow : {}) }}
-            >
-              <FileText className="w-3.5 h-3.5" style={{ color: activeTab === 'scripts' ? OTF.orange : OTF.bone }} />
-              <span>Scripts</span>
-            </TabsTrigger>
-          </TabsList>
-        </div>
+      {/* ═══ INTROS (New Leads, Follow-Up, Scripts moved to Outreach page) ═══ */}
+      <div className="px-4 pt-3 space-y-3 pb-[10px]">
+        <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
+        <NewLeadsAlert />
+      </div>
 
-        {/* Tab content */}
-        <div className="px-4 pt-3 space-y-3 rounded-none pb-[10px]">
-          <TabsContent value="intros" className="mt-0 space-y-3">
-            <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
-            <NewLeadsAlert />
-          </TabsContent>
-
-          <TabsContent value="scripts" className="mt-0 space-y-3">
-            <MyDayScriptsTab />
-          </TabsContent>
-
-          <TabsContent value="followups" className="mt-0 space-y-3">
-            <FollowUpList onCountChange={setFollowUpsDueCount} onRefresh={fetchMetrics} />
-          </TabsContent>
-
-          <TabsContent value="leads" className="mt-0 space-y-3">
-            <div className="mb-1">
-              <h2 className="text-sm font-semibold">New Leads</h2>
-              <p className="text-xs text-muted-foreground">Email-parsed leads — speed to contact matters</p>
-            </div>
-            <MyDayNewLeadsTab onCountChange={setNewLeadsCount} />
-          </TabsContent>
-        </div>
-      </Tabs>
 
       {/* Log-a-lead + Sourced-leads-to-text sections removed per SA feedback */}
 
