@@ -25,13 +25,13 @@ import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/p
 import {
   loadMonthlyTargets,
   saveMonthlyTarget,
-  loadPerSaOverrides,
   savePerSaOverride,
   type MonthlyTargets,
   type TargetKind,
 } from '@/lib/wig/targets';
 import { useTrailingConversion, deriveBookedTargetFromSales } from '@/lib/wig/derivedBookedTarget';
 import { useSomlEffectiveTargets } from '@/lib/soml/effectiveTargets';
+import { useEffectiveSglTargets } from '@/lib/wig/effectiveSglTarget';
 
 interface Props {
   dateRange: DateRange | undefined;
