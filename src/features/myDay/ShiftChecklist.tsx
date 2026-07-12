@@ -16,7 +16,7 @@ import {
   type StandardKey,
 } from '@/features/shiftView/standards';
 import { ReferralAskRow } from '@/features/shiftView/ReferralAskRow';
-import { EndOfShiftSubmission } from '@/features/shiftView/EndOfShiftSubmission';
+
 import { useAllReferralAsks } from '@/features/shiftView/useReferralAsks';
 import type { ShiftType as ShiftViewType } from '@/features/shiftView/ShiftSelector';
 import { ShiftOutcomeHeader } from './ShiftOutcomeHeader';
@@ -406,6 +406,9 @@ export function ShiftChecklist() {
 
         {cardOpen && (
           <div className="bg-surface-card rounded-lg p-3 space-y-3">
+            {/* Top-level hero: your WIG today. Loudest object on the card. */}
+            <ShiftOutcomeHeader />
+
             <p className="text-[11px] text-text-secondary">
               {standardsComplete} of {totalStandards} standards complete
             </p>
@@ -413,44 +416,35 @@ export function ShiftChecklist() {
             {loading ? (
               <p className="text-xs text-muted-foreground text-center py-3">Loading…</p>
             ) : (
-              <>
-                <div className="space-y-3">
-                  {grouped.map(({ standard, rows }) => {
-                    if (standard.key === 'other' && rows.length === 0) return null;
-                    return (
-                      <div key={standard.key} className="rounded-md border border-border bg-background/60 p-3">
-                        {/* Quiet secondary label — tasks are the headline, the standard is context */}
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary mb-2">
-                          {standard.key !== 'other' ? standard.key.toUpperCase() + ' · ' : ''}{standard.title}
-                        </p>
-                        {standard.key === 's2' && (
-                          <div className="mb-3">
-                            <ShiftOutcomeHeader />
+              <div className="space-y-3">
+                {grouped.map(({ standard, rows }) => {
+                  if (standard.key === 'other' && rows.length === 0) return null;
+                  return (
+                    <div key={standard.key} className="rounded-md border border-border bg-background/60 p-3">
+                      {/* Quiet secondary label — tasks are the headline, the standard is context */}
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary mb-2">
+                        {standard.key !== 'other' ? standard.key.toUpperCase() + ' · ' : ''}{standard.title}
+                      </p>
+                      <div className="divide-y divide-border">
+                        {rows.map(renderTaskRow)}
+                        {rows.length === 0 && standard.key === 's4' && (
+                          <div className="py-2">
+                            <ReferralAskRow
+                              shiftType={STANDARD_SHIFT}
+                              onLogged={onReferralLogged}
+                            />
                           </div>
                         )}
-                        <div className="divide-y divide-border">
-                          {rows.map(renderTaskRow)}
-                          {rows.length === 0 && standard.key === 's4' && (
-                            <div className="py-2">
-                              <ReferralAskRow
-                                shiftType={STANDARD_SHIFT}
-                                onLogged={onReferralLogged}
-                              />
-                            </div>
-                          )}
-                          {rows.length === 0 && standard.key !== 's4' && (
-                            <p className="text-[11px] text-muted-foreground italic py-2">
-                              No tasks yet for this standard.
-                            </p>
-                          )}
-                        </div>
+                        {rows.length === 0 && standard.key !== 's4' && (
+                          <p className="text-[11px] text-muted-foreground italic py-2">
+                            No tasks yet for this standard.
+                          </p>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-
-                <EndOfShiftSubmission shiftType={STANDARD_SHIFT} />
-              </>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}
