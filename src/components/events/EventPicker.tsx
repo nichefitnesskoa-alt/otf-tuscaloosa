@@ -9,7 +9,7 @@
  * Both persist to the `events` table and communicate the selected event_id
  * up via onValueChange so the parent can store it on the booking insert.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DatePickerField } from '@/components/shared/FormHelpers';
 import { Calendar as CalendarIcon, Megaphone, Plus, X, Loader2, CheckCircle2 } from 'lucide-react';
 import { useActiveEvents, useCreateEvent, formatEventDateLocal, type OutreachActivityType } from '@/hooks/useEvents';
+import { useEventLookup } from '@/hooks/useEventLookup';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -31,6 +32,22 @@ interface EventPickerProps {
 
 export function EventPicker({ value, onValueChange, required, dense }: EventPickerProps) {
   const [activityType, setActivityType] = useState<OutreachActivityType>('event');
+  const [seededFromValue, setSeededFromValue] = useState(false);
+  const eventLookup = useEventLookup();
+
+  // Seed the activity type toggle from the persisted event's activity_type
+  // so reopening a booking tagged to a "General outreach" activity shows the
+  // right tab (and the tag stays visible instead of appearing empty).
+  useEffect(() => {
+    if (seededFromValue || !value) return;
+    const entry = eventLookup.get(value);
+    if (!entry) return;
+    if (entry.activity_type && entry.activity_type !== activityType) {
+      setActivityType(entry.activity_type as OutreachActivityType);
+    }
+    setSeededFromValue(true);
+  }, [value, eventLookup, seededFromValue, activityType]);
+
   const { data: events = [], isLoading } = useActiveEvents(activityType);
   const createEvent = useCreateEvent();
 
@@ -41,7 +58,14 @@ export function EventPicker({ value, onValueChange, required, dense }: EventPick
   const handleTypeSwitch = (t: OutreachActivityType) => {
     if (t === activityType) return;
     setActivityType(t);
-    onValueChange(null);
+    // Only clear the current selection if it belongs to the OTHER type —
+    // switching tabs shouldn't silently wipe a valid, already-persisted tag.
+    if (value) {
+      const entry = eventLookup.get(value);
+      if (!entry || entry.activity_type !== t) {
+        onValueChange(null);
+      }
+    }
     setCreating(false);
     setNewName('');
   };
