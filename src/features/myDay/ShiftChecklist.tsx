@@ -19,6 +19,9 @@ import { ReferralAskRow } from '@/features/shiftView/ReferralAskRow';
 import { EndOfShiftSubmission } from '@/features/shiftView/EndOfShiftSubmission';
 import { useAllReferralAsks } from '@/features/shiftView/useReferralAsks';
 import type { ShiftType as ShiftViewType } from '@/features/shiftView/ShiftSelector';
+import { ShiftOutcomeHeader } from './ShiftOutcomeHeader';
+import { ShiftTaskGuidanceIcon } from './ShiftTaskGuidanceIcon';
+import { useShiftTaskGuidance } from '@/hooks/useShiftTaskGuidance';
 
 function getScriptCategoryForTask(taskName: string): string[] | null {
   const lower = taskName.toLowerCase();
