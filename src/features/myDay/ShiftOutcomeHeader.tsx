@@ -21,6 +21,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getNowCentral } from '@/lib/dateUtils';
 import { loadMonthlyTargets, type MonthlyTargets } from '@/lib/wig/targets';
 import { paceToToday, statusColor, statusClasses, formatPace, type WigStatus } from '@/lib/wig/pace';
+import { useTrailingConversion, deriveBookedTargetFromSales } from '@/lib/wig/derivedBookedTarget';
 import { useSaLeads } from '@/hooks/useSaLeads';
 import { useSaAllBooked } from '@/hooks/useSaAllBooked';
 import { useSaSales } from '@/hooks/useSaSales';
