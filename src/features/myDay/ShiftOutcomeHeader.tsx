@@ -179,9 +179,15 @@ export function ShiftOutcomeHeader() {
     [somlTargets.config, now],
   );
 
+  // Per-SA effective SGL target — reads the canonical helper (global goal,
+  // per-SA overrides, and redistributed shortfall) so this tile can never
+  // disagree with the WIG SA Leaderboard or SaWeeklyGoals.
+  const sglTargets = useEffectiveSglTargets(yyyymm);
+  const mySglTarget = user?.name ? sglTargets.effectiveFor(user.name) : null;
+
   // Pace helper matches SomlSection exactly: same paceToToday + capped-to-window anchor.
   const pace = {
-    sgl: paceToToday(targets.saSgl, now),
+    sgl: paceToToday(mySglTarget, now),
     booked: paceToToday(derivedBookedTarget, somlAnchor),
     sales: paceToToday(salesTarget, somlAnchor),
     referrals: paceToToday(referralLeadsTarget, somlAnchor),
