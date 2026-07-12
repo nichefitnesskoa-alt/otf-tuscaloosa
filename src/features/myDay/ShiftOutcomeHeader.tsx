@@ -213,7 +213,7 @@ export function ShiftOutcomeHeader() {
         <MetricTile
           label="Self-gen leads"
           current={mySgl}
-          target={targets.saSgl}
+          target={mySglTarget != null ? Math.round(mySglTarget * 10) / 10 : null}
           pace={pace.sgl}
           status={status.sgl}
           behindPrompt="You're behind on leads today. Who's one person you could reach out to right now?"
