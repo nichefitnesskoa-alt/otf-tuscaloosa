@@ -423,6 +423,11 @@ export default function MyDayPage() {
         </p>
       </div>
 
+      {/* ═══ SHIFT TASK CHECKLIST — hoisted above scoreboard and banners so it's the first thing you see ═══ */}
+      <div className="px-[5px] pt-3">
+        <ShiftChecklist />
+      </div>
+
       <OfflineBanner />
 
       <div className="mx-4 mt-3">
