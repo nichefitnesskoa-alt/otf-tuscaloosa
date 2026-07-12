@@ -191,7 +191,7 @@ export function ShiftOutcomeHeader() {
         <MetricTile
           label="Booked intros"
           current={myBooked}
-          target={targets.saBooked}
+          target={derivedBookedTarget}
           pace={pace.booked}
           status={status.booked}
           behindPrompt="You're behind on booked intros. Who in your pipeline could you follow up with in the next hour?"
