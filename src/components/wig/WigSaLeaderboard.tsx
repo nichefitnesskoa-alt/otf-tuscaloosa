@@ -100,16 +100,16 @@ export function WigSaLeaderboard({ dateRange }: Props) {
     saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null, netGain: null,
   });
 
-  const [perSaOverrides, setPerSaOverrides] = useState<Record<string, number>>({});
+  // Per-SA SGL targets (overrides + redistributed default) come from the
+  // canonical helper — same math every consumer reads.
+  const sglTargets = useEffectiveSglTargets(yyyymm);
+  const perSaOverrides = sglTargets.overrides;
 
   const refreshTargets = useCallback(async () => {
-    const [t, overrides] = await Promise.all([
-      loadMonthlyTargets(yyyymm),
-      loadPerSaOverrides(yyyymm),
-    ]);
+    const t = await loadMonthlyTargets(yyyymm);
     setTargets(t);
-    setPerSaOverrides(overrides);
-  }, [yyyymm]);
+    await sglTargets.refresh();
+  }, [yyyymm, sglTargets]);
   useEffect(() => { refreshTargets(); }, [refreshTargets]);
 
   // Editor state — one slim editor per target.
