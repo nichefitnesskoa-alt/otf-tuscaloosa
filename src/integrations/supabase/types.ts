@@ -4930,6 +4930,10 @@ export type Database = {
         Returns: boolean
       }
       is_authenticated_staff: { Args: { _user_id: string }; Returns: boolean }
+      map_run_result_to_booking_status: {
+        Args: { _result: string }
+        Returns: string
+      }
       net_gain_write_delta: {
         Args: {
           p_changed_by: string
