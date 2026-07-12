@@ -31,6 +31,7 @@ import {
   type TargetKind,
 } from '@/lib/wig/targets';
 import { useTrailingConversion, deriveBookedTargetFromSales } from '@/lib/wig/derivedBookedTarget';
+import { useSomlEffectiveTargets } from '@/lib/soml/effectiveTargets';
 
 interface Props {
   dateRange: DateRange | undefined;
