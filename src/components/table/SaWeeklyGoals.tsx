@@ -121,16 +121,26 @@ export function SaWeeklyGoals({ weekStart }: Props) {
     : today > endOfMonth(monthAnchor) ? endOfMonth(monthAnchor)
     : today;
 
+  // SOML window pace anchor for sales/booked (matches shift header + SomlSection).
+  const somlAnchor = somlPaceAnchor(somlTargets.config, today);
+
+  // Effective per-SA SOML sales goal for THIS user.
+  const salesTarget = (!somlTargets.loading && somlTargets.config && user?.name)
+    ? (() => { const v = somlTargets.effectiveFor(user.name, 'sales'); return v > 0 ? Math.round(v * 10) / 10 : 0; })()
+    : null;
+  // Booked Intros target = SOML effective sales ÷ trailing (show × close).
+  const derivedBookedTarget = deriveBookedTargetFromSales(salesTarget, trailing);
+
   const pace = {
     sgl: paceToToday(targets.saSgl, paceAnchor),
-    booked: paceToToday(targets.saBooked, paceAnchor),
-    sales: paceToToday(targets.saSales, paceAnchor),
+    booked: paceToToday(derivedBookedTarget, somlAnchor),
+    sales: paceToToday(salesTarget, somlAnchor),
   };
 
   const tiles = [
     { label: 'Leads (self-generated)', current: mySgl, target: targets.saSgl, pace: pace.sgl },
-    { label: 'Booked intros', current: myBooked, target: targets.saBooked, pace: pace.booked },
-    { label: 'Sales', current: mySales, target: targets.saSales, pace: pace.sales },
+    { label: 'Booked intros', current: myBooked, target: derivedBookedTarget, pace: pace.booked },
+    { label: 'Sales', current: mySales, target: salesTarget, pace: pace.sales },
   ];
 
   return (
