@@ -314,7 +314,7 @@ export function ShiftChecklist() {
     const displayCount = task.isFollowUpTask ? todayFollowUpCount : task.countLogged;
     const cats = getScriptCategoryForTask(task.name);
     return (
-      <div key={task.key} className="flex items-start gap-3 py-2.5">
+      <div key={task.key} className="flex items-start gap-2 py-2.5">
         <button
           onClick={() => toggleTask(task)}
           className={cn(
@@ -326,7 +326,7 @@ export function ShiftChecklist() {
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={cn('text-sm text-text-primary', task.completed && 'line-through text-text-secondary')}>
+            <span className={cn('text-sm font-semibold text-text-primary', task.completed && 'line-through font-normal text-text-secondary')}>
               {task.name}
             </span>
             {task.isOverride && (
@@ -368,6 +368,7 @@ export function ShiftChecklist() {
             </div>
           )}
         </div>
+        <ShiftTaskGuidanceIcon taskName={task.name} />
         {cats && (
           <Button
             variant="outline"
