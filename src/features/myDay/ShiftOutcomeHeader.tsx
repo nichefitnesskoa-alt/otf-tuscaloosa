@@ -249,19 +249,3 @@ export function ShiftOutcomeHeader() {
   );
 }
 
-/**
- * Linear pace inside a SOML window (start → end, inclusive), anchored at
- * `anchor` (already capped to the window). Mirrors SomlSection's math.
- */
-function paceSomlWindow(target: number | null, config: { start_date: string; end_date: string } | null, anchor: Date): number | null {
-  if (target == null || !config) return null;
-  const [sy, sm, sd] = config.start_date.split('-').map(Number);
-  const [ey, em, ed] = config.end_date.split('-').map(Number);
-  const start = new Date(sy, sm - 1, sd);
-  const end = new Date(ey, em - 1, ed);
-  const totalDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
-  const dayNum = Math.max(1, Math.min(totalDays,
-    Math.round((anchor.getTime() - start.getTime()) / 86400000) + 1,
-  ));
-  return (target * dayNum) / totalDays;
-}
