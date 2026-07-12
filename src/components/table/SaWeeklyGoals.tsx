@@ -65,6 +65,8 @@ export function SaWeeklyGoals({ weekStart }: Props) {
   // studio_settings.sa_sales_target.
   const somlTargets = useSomlEffectiveTargets();
   const { data: trailing } = useTrailingConversion();
+  // Per-SA effective SGL target (override + redistributed shortfall) — canonical helper.
+  const sglTargets = useEffectiveSglTargets(yyyymm);
 
   const [targets, setTargets] = useState<MonthlyTargets>({
     saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null, netGain: null,
