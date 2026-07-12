@@ -418,8 +418,16 @@ export function ShiftChecklist() {
                   {grouped.map(({ standard, rows }) => {
                     if (standard.key === 'other' && rows.length === 0) return null;
                     return (
-                      <Card key={standard.key} className="p-3">
-                        <p className="text-sm font-bold mb-2">{standard.title}</p>
+                      <div key={standard.key} className="rounded-md border border-border bg-background/60 p-3">
+                        {/* Quiet secondary label — tasks are the headline, the standard is context */}
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary mb-2">
+                          {standard.key !== 'other' ? standard.key.toUpperCase() + ' · ' : ''}{standard.short_label || standard.title}
+                        </p>
+                        {standard.key === 's2' && (
+                          <div className="mb-3">
+                            <ShiftOutcomeHeader />
+                          </div>
+                        )}
                         <div className="divide-y divide-border">
                           {rows.map(renderTaskRow)}
                           {rows.length === 0 && standard.key === 's4' && (
@@ -436,7 +444,7 @@ export function ShiftChecklist() {
                             </p>
                           )}
                         </div>
-                      </Card>
+                      </div>
                     );
                   })}
                 </div>
