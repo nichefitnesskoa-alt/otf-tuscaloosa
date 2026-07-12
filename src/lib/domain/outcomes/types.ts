@@ -146,7 +146,7 @@ export function mapResultToBookingStatus(result: IntroResult): BookingStatus {
     case 'SALE':
       return 'CLOSED_PURCHASED';
     case 'NO_SHOW':
-      return 'ACTIVE'; // keeps them available for rebooking
+      return 'NO_SHOW';
     case 'DIDNT_BUY':
       return 'ACTIVE';
     case 'NOT_INTERESTED':
@@ -181,7 +181,7 @@ export function mapResultToBookingStatus(result: IntroResult): BookingStatus {
 const BOOKING_STATUS_DISPLAY: Record<BookingStatus, string> = {
   ACTIVE: 'Active',
   SECOND_INTRO_SCHEDULED: '2nd Intro Scheduled',
-  NO_SHOW: 'Active',
+  NO_SHOW: 'No-show',
   NOT_INTERESTED: 'Not Interested',
   CLOSED_PURCHASED: 'Closed – Bought',
   CLOSED_DIDNT_BUY: 'Active',
