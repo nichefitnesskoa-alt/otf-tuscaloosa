@@ -34,6 +34,7 @@ import { parseLocalDate, getNowCentral } from '@/lib/dateUtils';
 import { cn } from '@/lib/utils';
 import { useSomlEffectiveTargets, somlPaceAnchor } from '@/lib/soml/effectiveTargets';
 import { useTrailingConversion, deriveBookedTargetFromSales } from '@/lib/wig/derivedBookedTarget';
+import { useEffectiveSglTargets } from '@/lib/wig/effectiveSglTarget';
 
 const DEFAULT_VISION = "Double last June's leads. 182 total.";
 
