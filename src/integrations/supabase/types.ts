@@ -3633,6 +3633,45 @@ export type Database = {
           },
         ]
       }
+      shift_task_guidance: {
+        Row: {
+          created_at: string
+          id: string
+          is_safety_note: boolean
+          is_unmapped: boolean
+          lane_order: number
+          lane_title: string
+          steps: Json
+          task_name: string
+          updated_at: string
+          why_line: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_safety_note?: boolean
+          is_unmapped?: boolean
+          lane_order?: number
+          lane_title: string
+          steps?: Json
+          task_name: string
+          updated_at?: string
+          why_line?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_safety_note?: boolean
+          is_unmapped?: boolean
+          lane_order?: number
+          lane_title?: string
+          steps?: Json
+          task_name?: string
+          updated_at?: string
+          why_line?: string | null
+        }
+        Relationships: []
+      }
       shift_task_overrides: {
         Row: {
           active_date: string
