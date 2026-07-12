@@ -423,6 +423,11 @@ export default function MyDayPage() {
         </p>
       </div>
 
+      {/* ═══ SHIFT TASK CHECKLIST — hoisted above scoreboard and banners so it's the first thing you see ═══ */}
+      <div className="px-[5px] pt-3">
+        <ShiftChecklist />
+      </div>
+
       <OfflineBanner />
 
       <div className="mx-4 mt-3">
@@ -490,10 +495,7 @@ export default function MyDayPage() {
       <OwnItMentionsCard />
       <VipClaimBanner />
 
-      {/* ═══ SHIFT TASK CHECKLIST ═══ */}
-      <div className="px-[5px] py-[10px] my-0 pb-0 pr-[5px] pt-0">
-        <ShiftChecklist />
-      </div>
+      {/* ShiftChecklist hoisted above (right under the persistent reminder banner) — no longer rendered here. */}
 
       {/* ═══ INTROS (New Leads, Follow-Up, Scripts moved to Outreach page) ═══ */}
       <div className="px-4 pt-3 space-y-3 pb-[10px]">

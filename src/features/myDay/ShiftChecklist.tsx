@@ -19,6 +19,9 @@ import { ReferralAskRow } from '@/features/shiftView/ReferralAskRow';
 import { EndOfShiftSubmission } from '@/features/shiftView/EndOfShiftSubmission';
 import { useAllReferralAsks } from '@/features/shiftView/useReferralAsks';
 import type { ShiftType as ShiftViewType } from '@/features/shiftView/ShiftSelector';
+import { ShiftOutcomeHeader } from './ShiftOutcomeHeader';
+import { ShiftTaskGuidanceIcon } from './ShiftTaskGuidanceIcon';
+import { useShiftTaskGuidance } from '@/hooks/useShiftTaskGuidance';
 
 function getScriptCategoryForTask(taskName: string): string[] | null {
   const lower = taskName.toLowerCase();
@@ -58,7 +61,8 @@ export function ShiftChecklist() {
   const [scriptDrawerOpen, setScriptDrawerOpen] = useState(false);
   const [scriptDrawerCategories, setScriptDrawerCategories] = useState<string[] | null>(null);
   const [cardOpen, setCardOpen] = useState<boolean>(() => {
-    try { return sessionStorage.getItem(CARD_OPEN_KEY) === '1'; } catch { return false; }
+    // Default OPEN. Only collapse if the user has explicitly closed it this session.
+    try { return sessionStorage.getItem(CARD_OPEN_KEY) !== '0'; } catch { return true; }
   });
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const { asks: allAsks } = useAllReferralAsks();
@@ -310,7 +314,7 @@ export function ShiftChecklist() {
     const displayCount = task.isFollowUpTask ? todayFollowUpCount : task.countLogged;
     const cats = getScriptCategoryForTask(task.name);
     return (
-      <div key={task.key} className="flex items-start gap-3 py-2.5">
+      <div key={task.key} className="flex items-start gap-2 py-2.5">
         <button
           onClick={() => toggleTask(task)}
           className={cn(
@@ -322,7 +326,7 @@ export function ShiftChecklist() {
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={cn('text-sm text-text-primary', task.completed && 'line-through text-text-secondary')}>
+            <span className={cn('text-sm font-semibold text-text-primary', task.completed && 'line-through font-normal text-text-secondary')}>
               {task.name}
             </span>
             {task.isOverride && (
@@ -364,6 +368,7 @@ export function ShiftChecklist() {
             </div>
           )}
         </div>
+        <ShiftTaskGuidanceIcon taskName={task.name} />
         {cats && (
           <Button
             variant="outline"
@@ -413,8 +418,16 @@ export function ShiftChecklist() {
                   {grouped.map(({ standard, rows }) => {
                     if (standard.key === 'other' && rows.length === 0) return null;
                     return (
-                      <Card key={standard.key} className="p-3">
-                        <p className="text-sm font-bold mb-2">{standard.title}</p>
+                      <div key={standard.key} className="rounded-md border border-border bg-background/60 p-3">
+                        {/* Quiet secondary label — tasks are the headline, the standard is context */}
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary mb-2">
+                          {standard.key !== 'other' ? standard.key.toUpperCase() + ' · ' : ''}{standard.title}
+                        </p>
+                        {standard.key === 's2' && (
+                          <div className="mb-3">
+                            <ShiftOutcomeHeader />
+                          </div>
+                        )}
                         <div className="divide-y divide-border">
                           {rows.map(renderTaskRow)}
                           {rows.length === 0 && standard.key === 's4' && (
@@ -431,7 +444,7 @@ export function ShiftChecklist() {
                             </p>
                           )}
                         </div>
-                      </Card>
+                      </div>
                     );
                   })}
                 </div>
