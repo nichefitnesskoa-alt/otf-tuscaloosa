@@ -28,6 +28,7 @@ import { useSaAllBooked } from '@/hooks/useSaAllBooked';
 import { useSaSales } from '@/hooks/useSaSales';
 import { useSomlData } from '@/hooks/useSomlData';
 import { useSomlEffectiveTargets, somlPaceAnchor } from '@/lib/soml/effectiveTargets';
+import { useEffectiveSglTargets } from '@/lib/wig/effectiveSglTarget';
 import { ShiftTaskGuidanceIcon } from './ShiftTaskGuidanceIcon';
 import { cn } from '@/lib/utils';
 import { Target } from 'lucide-react';
