@@ -1,19 +1,20 @@
 /**
  * S2 outcome header on the shift checklist.
  *
- * Wires the "prospecting" standard's top of the section to the SAME
- * monthly targets and pace helper the WIG page reads
- * (`loadMonthlyTargets` + `paceToToday`). Never a second, separately
- * maintained number: change the target in WIG Admin and this moves too.
+ * Wires the SA's month-to-date leads to the monthly SGL target
+ * (`loadMonthlyTargets`), but reads Sales and Referral Leads goals from
+ * the SOML section (soml_config + soml_sa_goals) via the canonical
+ * `useSomlEffectiveTargets` resolver — same numbers Koa sees on the WIG
+ * page SOML section, no second calculation.
  *
- * Referrals metric: reuses `useSomlData` (booker-credited, sale-gated per
- * SOML). No per-SA monthly referral target exists, so target/pace render
- * as "—" and status is derived from whether the SA has any referrals
- * logged this month (0 → behind-pace prompt; >0 → on-pace prompt).
+ * Sales / Booked / Referrals tiles are scoped to the SOML window so
+ * pace and totals agree with SomlSection.
  *
- * Each metric shows a reflective prompt driven by statusColor(): behind
- * (red/yellow) → "what to do" question; on/ahead (green) → "keep going"
- * reinforcement. Same threshold as WIG so colors and prompts agree.
+ * Booked Intros target is DERIVED from the SOML effective Sales goal ÷
+ * trailing 60d show × 60d close conversion.
+ *
+ * Each metric shows a reflective prompt: behind (red/yellow) → "what to
+ * do" question; on/ahead (green) → "keep going" reinforcement.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
@@ -26,6 +27,7 @@ import { useSaLeads } from '@/hooks/useSaLeads';
 import { useSaAllBooked } from '@/hooks/useSaAllBooked';
 import { useSaSales } from '@/hooks/useSaSales';
 import { useSomlData } from '@/hooks/useSomlData';
+import { useSomlEffectiveTargets, somlPaceAnchor } from '@/lib/soml/effectiveTargets';
 import { ShiftTaskGuidanceIcon } from './ShiftTaskGuidanceIcon';
 import { cn } from '@/lib/utils';
 import { Target } from 'lucide-react';
@@ -96,7 +98,7 @@ function MetricTile({
         )}
       </div>
       <p className="text-[9px] text-text-secondary">
-        Month goal: <span className="font-bold text-text-primary">{target ?? '—'}</span>
+        Goal: <span className="font-bold text-text-primary">{target ?? '—'}</span>
       </p>
     </div>
   );
@@ -104,7 +106,7 @@ function MetricTile({
 
 export function ShiftOutcomeHeader() {
   const { user } = useAuth();
-  const { start, end, yyyymm } = useMemo(monthRange, []);
+  const { start: monthStart, end: monthEnd, yyyymm } = useMemo(monthRange, []);
   const [targets, setTargets] = useState<MonthlyTargets>({
     saSgl: null, saBooked: null, saSales: null,
     coachClose: null, studioLeads: null, netGain: null,
@@ -117,10 +119,19 @@ export function ShiftOutcomeHeader() {
     return () => window.removeEventListener('otf:dataChanged', handler);
   }, [yyyymm]);
 
-  const sgl = useSaLeads(start, end);
-  const booked = useSaAllBooked(start, end);
-  const sales = useSaSales(start, end);
+  // SOML effective per-SA goals — same resolver SomlSection uses.
+  const somlTargets = useSomlEffectiveTargets();
   const soml = useSomlData();
+
+  // SOML window scopes Sales / Booked / Referrals counts.
+  const somlStart = somlTargets.config?.start_date ?? monthStart;
+  const somlEnd = somlTargets.config?.end_date ?? monthEnd;
+
+  // SGL stays on the current calendar month (separate monthly SGL target).
+  const sgl = useSaLeads(monthStart, monthEnd);
+  // Booked/Sales windowed to SOML so pace matches SomlSection.
+  const booked = useSaAllBooked(somlStart, somlEnd);
+  const sales = useSaSales(somlStart, somlEnd);
 
   const mySgl = useMemo(
     () => sgl.rows.find(r => r.sa === user?.name)?.count ?? 0,
@@ -135,37 +146,51 @@ export function ShiftOutcomeHeader() {
     [sales.rows, user?.name],
   );
 
-  // Referrals: count THIS SA's realized referrals with a realized date in the
-  // current calendar month. Reuses useSomlData's booker-credited, sale-gated
-  // ledger — no parallel counting rule.
-  const myReferrals = useMemo(() => {
-    if (!user?.name) return 0;
-    return soml.realizedReferrals.filter(r =>
-      r.sa === user.name && r.date && r.date >= start && r.date <= end,
-    ).length;
-  }, [soml.realizedReferrals, user?.name, start, end]);
+  // Referral Leads — count-at-booking-time, from the SAME per-SA
+  // rollup SomlSection reads. Not "referrals that closed".
+  const myReferralLeads = useMemo(
+    () => soml.rows.find(r => r.sa === user?.name)?.referralLeads ?? 0,
+    [soml.rows, user?.name],
+  );
+
+  // Effective per-SA SOML targets for THIS user.
+  const salesTarget = useMemo(() => {
+    if (!user?.name || somlTargets.loading || !somlTargets.config) return null;
+    const v = somlTargets.effectiveFor(user.name, 'sales');
+    return v > 0 ? Math.round(v * 10) / 10 : 0;
+  }, [user?.name, somlTargets]);
+  const referralLeadsTarget = useMemo(() => {
+    if (!user?.name || somlTargets.loading || !somlTargets.config) return null;
+    const v = somlTargets.effectiveFor(user.name, 'referralLeads');
+    return v > 0 ? Math.round(v * 10) / 10 : 0;
+  }, [user?.name, somlTargets]);
 
   const { data: trailing } = useTrailingConversion();
-  // Booked Intros target is DERIVED — sales goal ÷ (60d show × 60d close).
-  // Single source of truth; the flat sa_leads_booked_target setting is ignored.
+  // Booked Intros target = SOML effective sales ÷ (60d show × 60d close).
   const derivedBookedTarget = useMemo(
-    () => deriveBookedTargetFromSales(targets.saSales, trailing),
-    [targets.saSales, trailing],
+    () => deriveBookedTargetFromSales(salesTarget, trailing),
+    [salesTarget, trailing],
   );
 
   const now = getNowCentral();
+  const somlAnchor = useMemo(
+    () => somlPaceAnchor(somlTargets.config, now),
+    [somlTargets.config, now],
+  );
+
+  // Pace helper matches SomlSection exactly: same paceToToday + capped-to-window anchor.
   const pace = {
     sgl: paceToToday(targets.saSgl, now),
-    booked: paceToToday(derivedBookedTarget, now),
-    sales: paceToToday(targets.saSales, now),
+    booked: paceToToday(derivedBookedTarget, somlAnchor),
+    sales: paceToToday(salesTarget, somlAnchor),
+    referrals: paceToToday(referralLeadsTarget, somlAnchor),
   };
 
   const status = {
     sgl: statusColor(mySgl, pace.sgl),
     booked: statusColor(myBooked, pace.booked),
     sales: statusColor(mySales, pace.sales),
-    // Referrals have no per-SA monthly target. Treat 0 as behind, any as on-pace.
-    referrals: (myReferrals === 0 ? 'red' : 'green') as WigStatus,
+    referrals: statusColor(myReferralLeads, pace.referrals),
   };
 
   return (
@@ -200,20 +225,20 @@ export function ShiftOutcomeHeader() {
         <MetricTile
           label="Sales"
           current={mySales}
-          target={targets.saSales}
+          target={salesTarget}
           pace={pace.sales}
           status={status.sales}
           behindPrompt="You're behind on sales today. Who's close to deciding? Give them a reason to say yes today."
           onPacePrompt="You're on pace on sales. Stay sharp through the next intro."
         />
         <MetricTile
-          label="Referrals"
-          current={myReferrals}
-          target={null}
-          pace={null}
+          label="Referral leads"
+          current={myReferralLeads}
+          target={referralLeadsTarget}
+          pace={pace.referrals}
           status={status.referrals}
-          behindPrompt="No referrals logged yet today. Who's one member you could ask?"
-          onPacePrompt="You're on pace on referrals. Keep asking, every booking is a chance."
+          behindPrompt="Behind on referral leads. Who's one member you could ask for a friend today?"
+          onPacePrompt="You're on pace on referral leads. Keep asking, every booking is a chance."
         />
       </div>
 
@@ -223,3 +248,4 @@ export function ShiftOutcomeHeader() {
     </div>
   );
 }
+
