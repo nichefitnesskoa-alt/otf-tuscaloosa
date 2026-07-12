@@ -178,12 +178,12 @@ export function ShiftOutcomeHeader() {
     [somlTargets.config, now],
   );
 
+  // Pace helper matches SomlSection exactly: same paceToToday + capped-to-window anchor.
   const pace = {
     sgl: paceToToday(targets.saSgl, now),
-    // SOML-windowed pace so the number moves the same way SomlSection's does.
-    booked: paceSomlWindow(derivedBookedTarget, somlTargets.config, somlAnchor),
-    sales: paceSomlWindow(salesTarget, somlTargets.config, somlAnchor),
-    referrals: paceSomlWindow(referralLeadsTarget, somlTargets.config, somlAnchor),
+    booked: paceToToday(derivedBookedTarget, somlAnchor),
+    sales: paceToToday(salesTarget, somlAnchor),
+    referrals: paceToToday(referralLeadsTarget, somlAnchor),
   };
 
   const status = {
