@@ -30,6 +30,7 @@ import {
   type MonthlyTargets,
   type TargetKind,
 } from '@/lib/wig/targets';
+import { useTrailingConversion, deriveBookedTargetFromSales } from '@/lib/wig/derivedBookedTarget';
 
 interface Props {
   dateRange: DateRange | undefined;
