@@ -32,6 +32,8 @@ import { loadMonthlyTargets, type MonthlyTargets } from '@/lib/wig/targets';
 import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/pace';
 import { parseLocalDate, getNowCentral } from '@/lib/dateUtils';
 import { cn } from '@/lib/utils';
+import { useSomlEffectiveTargets, somlPaceAnchor } from '@/lib/soml/effectiveTargets';
+import { useTrailingConversion, deriveBookedTargetFromSales } from '@/lib/wig/derivedBookedTarget';
 
 const DEFAULT_VISION = "Double last June's leads. 182 total.";
 
@@ -55,6 +57,13 @@ export function SaWeeklyGoals({ weekStart }: Props) {
   const sgl = useSaLeads(monthStartYMD, monthEndYMD);
   const booked = useSaLeadsBooked(monthStartYMD, monthEndYMD);
   const sales = useSaSales(monthStartYMD, monthEndYMD);
+
+  // Sales + Booked targets read from SOML (soml_config + soml_sa_goals) — the
+  // real numbers Koa set — via the canonical effectiveTargets resolver. Same
+  // path ShiftOutcomeHeader and SomlSection use. Never the flat
+  // studio_settings.sa_sales_target.
+  const somlTargets = useSomlEffectiveTargets();
+  const { data: trailing } = useTrailingConversion();
 
   const [targets, setTargets] = useState<MonthlyTargets>({
     saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null, netGain: null,
@@ -112,16 +121,26 @@ export function SaWeeklyGoals({ weekStart }: Props) {
     : today > endOfMonth(monthAnchor) ? endOfMonth(monthAnchor)
     : today;
 
+  // SOML window pace anchor for sales/booked (matches shift header + SomlSection).
+  const somlAnchor = somlPaceAnchor(somlTargets.config, today);
+
+  // Effective per-SA SOML sales goal for THIS user.
+  const salesTarget = (!somlTargets.loading && somlTargets.config && user?.name)
+    ? (() => { const v = somlTargets.effectiveFor(user.name, 'sales'); return v > 0 ? Math.round(v * 10) / 10 : 0; })()
+    : null;
+  // Booked Intros target = SOML effective sales ÷ trailing (show × close).
+  const derivedBookedTarget = deriveBookedTargetFromSales(salesTarget, trailing);
+
   const pace = {
     sgl: paceToToday(targets.saSgl, paceAnchor),
-    booked: paceToToday(targets.saBooked, paceAnchor),
-    sales: paceToToday(targets.saSales, paceAnchor),
+    booked: paceToToday(derivedBookedTarget, somlAnchor),
+    sales: paceToToday(salesTarget, somlAnchor),
   };
 
   const tiles = [
     { label: 'Leads (self-generated)', current: mySgl, target: targets.saSgl, pace: pace.sgl },
-    { label: 'Booked intros', current: myBooked, target: targets.saBooked, pace: pace.booked },
-    { label: 'Sales', current: mySales, target: targets.saSales, pace: pace.sales },
+    { label: 'Booked intros', current: myBooked, target: derivedBookedTarget, pace: pace.booked },
+    { label: 'Sales', current: mySales, target: salesTarget, pace: pace.sales },
   ];
 
   return (

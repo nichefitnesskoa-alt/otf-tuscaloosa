@@ -31,6 +31,7 @@ import {
   type TargetKind,
 } from '@/lib/wig/targets';
 import { useTrailingConversion, deriveBookedTargetFromSales } from '@/lib/wig/derivedBookedTarget';
+import { useSomlEffectiveTargets } from '@/lib/soml/effectiveTargets';
 
 interface Props {
   dateRange: DateRange | undefined;
@@ -173,18 +174,27 @@ export function WigSaLeaderboard({ dateRange }: Props) {
     return today;
   }, [dateRange, today]);
 
-  // Booked Intros target is DERIVED from sales goal ÷ trailing 60d conversion.
-  // Same helper the shift header uses — one source of truth.
+  // Booked Intros target is DERIVED from the SOML effective per-SA sales goal
+  // ÷ trailing 60d conversion. Same helper + same SOML source as the shift
+  // header — one source of truth. Never the flat sa_sales_target setting.
   const { data: trailing } = useTrailingConversion();
+  const somlTargets = useSomlEffectiveTargets();
+
+  // Per-SA effective SOML sales goal (used for the derived Booked target).
+  // Default = team goal ÷ active SAs when no per-SA override exists.
+  const activeCountForSoml = Math.max(1, (activeSas || []).filter(n => n !== 'Koa').length);
+  const perSaSalesDefault = somlTargets.config
+    ? (somlTargets.teamGoal('sales') || 0) / activeCountForSoml
+    : null;
   const derivedSaBookedTarget = useMemo(
-    () => deriveBookedTargetFromSales(targets.saSales, trailing),
-    [targets.saSales, trailing],
+    () => deriveBookedTargetFromSales(perSaSalesDefault, trailing),
+    [perSaSalesDefault, trailing],
   );
 
   const perSaPace = {
     sgl: paceToToday(targets.saSgl, paceAnchor),
     booked: paceToToday(derivedSaBookedTarget, paceAnchor),
-    sales: paceToToday(targets.saSales, paceAnchor),
+    sales: paceToToday(perSaSalesDefault, paceAnchor),
   };
 
   // Active SA count (Koa = Admin, not on the SA leaderboard).
@@ -235,7 +245,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const teamTargets = {
     sgl: teamSglTarget,
     booked: derivedSaBookedTarget != null ? derivedSaBookedTarget * activeCount : null,
-    sales: targets.saSales != null ? targets.saSales * activeCount : null,
+    sales: somlTargets.config ? somlTargets.teamGoal('sales') : null,
   };
   const teamPace = {
     sgl: paceToToday(teamTargets.sgl, paceAnchor),
