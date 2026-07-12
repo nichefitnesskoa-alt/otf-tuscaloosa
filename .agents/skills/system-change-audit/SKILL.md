@@ -34,6 +34,7 @@ REACH MAP for <change>
 - React Query cache keys that hold this data: <list>
 - Cross-page surfaces affected: <WIG / Studio / MyDay / Coach View / Pipeline / Follow-Up / commission / leaderboards>
 - DB triggers that fire on writes/deletes: <list>
+- Alternate storage locations — before treating one table/setting as the source of truth, search for a second place the same concept could be computed or stored, especially in a feature built in a different session. List any found.
 ```
 
 If a concept appears in 2+ places in this list, extract it to a canonical helper as part of THIS change. See `references/consumer-map.md` for the known cross-page dependencies in this codebase.
