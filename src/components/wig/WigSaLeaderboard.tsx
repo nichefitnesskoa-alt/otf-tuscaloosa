@@ -30,6 +30,7 @@ import {
   type MonthlyTargets,
   type TargetKind,
 } from '@/lib/wig/targets';
+import { useTrailingConversion, deriveBookedTargetFromSales } from '@/lib/wig/derivedBookedTarget';
 
 interface Props {
   dateRange: DateRange | undefined;
@@ -172,9 +173,17 @@ export function WigSaLeaderboard({ dateRange }: Props) {
     return today;
   }, [dateRange, today]);
 
+  // Booked Intros target is DERIVED from sales goal ÷ trailing 60d conversion.
+  // Same helper the shift header uses — one source of truth.
+  const { data: trailing } = useTrailingConversion();
+  const derivedSaBookedTarget = useMemo(
+    () => deriveBookedTargetFromSales(targets.saSales, trailing),
+    [targets.saSales, trailing],
+  );
+
   const perSaPace = {
     sgl: paceToToday(targets.saSgl, paceAnchor),
-    booked: paceToToday(targets.saBooked, paceAnchor),
+    booked: paceToToday(derivedSaBookedTarget, paceAnchor),
     sales: paceToToday(targets.saSales, paceAnchor),
   };
 
@@ -225,7 +234,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
 
   const teamTargets = {
     sgl: teamSglTarget,
-    booked: targets.saBooked != null ? targets.saBooked * activeCount : null,
+    booked: derivedSaBookedTarget != null ? derivedSaBookedTarget * activeCount : null,
     sales: targets.saSales != null ? targets.saSales * activeCount : null,
   };
   const teamPace = {

@@ -42,7 +42,7 @@ export default function Recaps() {
   const [mainTab, setMainTab] = useState('studio');
 
   // Date filter state
-  const [datePreset, setDatePreset] = useState<DatePreset>('pay_period');
+  const [datePreset, setDatePreset] = useState<DatePreset>('this_month');
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
   
   // Employee filter state

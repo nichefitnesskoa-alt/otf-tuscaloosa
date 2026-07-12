@@ -21,6 +21,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getNowCentral } from '@/lib/dateUtils';
 import { loadMonthlyTargets, type MonthlyTargets } from '@/lib/wig/targets';
 import { paceToToday, statusColor, statusClasses, formatPace, type WigStatus } from '@/lib/wig/pace';
+import { useTrailingConversion, deriveBookedTargetFromSales } from '@/lib/wig/derivedBookedTarget';
 import { useSaLeads } from '@/hooks/useSaLeads';
 import { useSaAllBooked } from '@/hooks/useSaAllBooked';
 import { useSaSales } from '@/hooks/useSaSales';
@@ -144,10 +145,18 @@ export function ShiftOutcomeHeader() {
     ).length;
   }, [soml.realizedReferrals, user?.name, start, end]);
 
+  const { data: trailing } = useTrailingConversion();
+  // Booked Intros target is DERIVED — sales goal ÷ (60d show × 60d close).
+  // Single source of truth; the flat sa_leads_booked_target setting is ignored.
+  const derivedBookedTarget = useMemo(
+    () => deriveBookedTargetFromSales(targets.saSales, trailing),
+    [targets.saSales, trailing],
+  );
+
   const now = getNowCentral();
   const pace = {
     sgl: paceToToday(targets.saSgl, now),
-    booked: paceToToday(targets.saBooked, now),
+    booked: paceToToday(derivedBookedTarget, now),
     sales: paceToToday(targets.saSales, now),
   };
 
@@ -182,7 +191,7 @@ export function ShiftOutcomeHeader() {
         <MetricTile
           label="Booked intros"
           current={myBooked}
-          target={targets.saBooked}
+          target={derivedBookedTarget}
           pace={pace.booked}
           status={status.booked}
           behindPrompt="You're behind on booked intros. Who in your pipeline could you follow up with in the next hour?"
