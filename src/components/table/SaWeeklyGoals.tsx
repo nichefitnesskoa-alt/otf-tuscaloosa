@@ -32,6 +32,8 @@ import { loadMonthlyTargets, type MonthlyTargets } from '@/lib/wig/targets';
 import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/pace';
 import { parseLocalDate, getNowCentral } from '@/lib/dateUtils';
 import { cn } from '@/lib/utils';
+import { useSomlEffectiveTargets, somlPaceAnchor } from '@/lib/soml/effectiveTargets';
+import { useTrailingConversion, deriveBookedTargetFromSales } from '@/lib/wig/derivedBookedTarget';
 
 const DEFAULT_VISION = "Double last June's leads. 182 total.";
 
