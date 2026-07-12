@@ -58,6 +58,13 @@ export function SaWeeklyGoals({ weekStart }: Props) {
   const booked = useSaLeadsBooked(monthStartYMD, monthEndYMD);
   const sales = useSaSales(monthStartYMD, monthEndYMD);
 
+  // Sales + Booked targets read from SOML (soml_config + soml_sa_goals) — the
+  // real numbers Koa set — via the canonical effectiveTargets resolver. Same
+  // path ShiftOutcomeHeader and SomlSection use. Never the flat
+  // studio_settings.sa_sales_target.
+  const somlTargets = useSomlEffectiveTargets();
+  const { data: trailing } = useTrailingConversion();
+
   const [targets, setTargets] = useState<MonthlyTargets>({
     saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null, netGain: null,
   });
