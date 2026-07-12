@@ -421,7 +421,7 @@ export function ShiftChecklist() {
                       <div key={standard.key} className="rounded-md border border-border bg-background/60 p-3">
                         {/* Quiet secondary label — tasks are the headline, the standard is context */}
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary mb-2">
-                          {standard.key !== 'other' ? standard.key.toUpperCase() + ' · ' : ''}{standard.short_label || standard.title}
+                          {standard.key !== 'other' ? standard.key.toUpperCase() + ' · ' : ''}{standard.title}
                         </p>
                         {standard.key === 's2' && (
                           <div className="mb-3">
