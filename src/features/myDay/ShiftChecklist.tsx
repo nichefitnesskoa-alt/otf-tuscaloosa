@@ -61,7 +61,8 @@ export function ShiftChecklist() {
   const [scriptDrawerOpen, setScriptDrawerOpen] = useState(false);
   const [scriptDrawerCategories, setScriptDrawerCategories] = useState<string[] | null>(null);
   const [cardOpen, setCardOpen] = useState<boolean>(() => {
-    try { return sessionStorage.getItem(CARD_OPEN_KEY) === '1'; } catch { return false; }
+    // Default OPEN. Only collapse if the user has explicitly closed it this session.
+    try { return sessionStorage.getItem(CARD_OPEN_KEY) !== '0'; } catch { return true; }
   });
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const { asks: allAsks } = useAllReferralAsks();
