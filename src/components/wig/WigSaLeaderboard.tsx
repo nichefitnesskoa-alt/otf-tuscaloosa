@@ -245,7 +245,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const teamTargets = {
     sgl: teamSglTarget,
     booked: derivedSaBookedTarget != null ? derivedSaBookedTarget * activeCount : null,
-    sales: targets.saSales != null ? targets.saSales * activeCount : null,
+    sales: somlTargets.config ? somlTargets.teamGoal('sales') : null,
   };
   const teamPace = {
     sgl: paceToToday(teamTargets.sgl, paceAnchor),
