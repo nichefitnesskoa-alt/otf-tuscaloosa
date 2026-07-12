@@ -16,14 +16,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getNowCentral } from '@/lib/dateUtils';
-import { format, subDays } from 'date-fns';
+import { format, subDays, startOfDay } from 'date-fns';
+import { didIntroActuallyRun } from '@/lib/canon/introRules';
+import { isSaleInRange } from '@/lib/sales-detection';
 
 export const TRAILING_WINDOW_DAYS = 60;
-
-const SALE_CANONS = new Set([
-  'SALE', 'PREMIER', 'PREMIER_OTBEAT', 'ELITE', 'BASIC',
-]);
-const RAN_EXCLUDED = new Set(['NO_SHOW', 'UNRESOLVED', 'DELETED', 'VIP_CLASS_INTRO']);
 
 export interface TrailingConversion {
   windowDays: number;
@@ -43,8 +40,6 @@ export function useTrailingConversion() {
       const start = format(subDays(now, TRAILING_WINDOW_DAYS), 'yyyy-MM-dd');
       const end = format(now, 'yyyy-MM-dd');
 
-      // Bookings whose class_date is in the trailing window and are resolved
-      // (have a linked run, i.e. someone recorded the outcome).
       const { data: booked } = await supabase
         .from('intros_booked')
         .select('id, class_date, deleted_at, booking_status_canon, booking_type_canon, ignore_from_metrics')
@@ -54,7 +49,7 @@ export function useTrailingConversion() {
 
       const { data: runs } = await supabase
         .from('intros_run')
-        .select('id, run_date, result_canon, linked_intro_booked_id, ignore_from_metrics')
+        .select('id, run_date, result_canon, result, buy_date, linked_intro_booked_id, ignore_from_metrics, created_at')
         .gte('run_date', start)
         .lt('run_date', end);
 
@@ -67,8 +62,7 @@ export function useTrailingConversion() {
 
       const eligibleRuns = (runs || []).filter(r =>
         !r.ignore_from_metrics
-        && r.result_canon
-        && r.result_canon !== 'DELETED'
+        && (r.result_canon || '').toUpperCase() !== 'DELETED'
         && (!r.linked_intro_booked_id || activeBookingIds.has(r.linked_intro_booked_id)),
       );
 
@@ -78,9 +72,17 @@ export function useTrailingConversion() {
           .filter((x): x is string => !!x && activeBookingIds.has(x)),
       );
 
+      // Canonical predicates — no inline rules. NOT_INTERESTED counts as ran
+      // (member showed up and declined). PLANNING_RESCHEDULE does not.
+      // Sales use isSaleInRange so older rows recorded only in the legacy
+      // `result` field are still caught.
       const bookedResolved = resolvedBookingIds.size;
-      const ran = eligibleRuns.filter(r => !RAN_EXCLUDED.has((r.result_canon || '').toUpperCase())).length;
-      const sales = eligibleRuns.filter(r => SALE_CANONS.has((r.result_canon || '').toUpperCase())).length;
+      const ran = eligibleRuns.filter(r => didIntroActuallyRun(r)).length;
+      const windowRange = {
+        start: startOfDay(subDays(now, TRAILING_WINDOW_DAYS)),
+        end: startOfDay(now),
+      };
+      const sales = eligibleRuns.filter(r => isSaleInRange(r as any, windowRange)).length;
 
       return {
         windowDays: TRAILING_WINDOW_DAYS,
@@ -93,6 +95,7 @@ export function useTrailingConversion() {
     },
   });
 }
+
 
 /**
  * Derive the per-SA Booked Intros monthly goal from a sales target.
