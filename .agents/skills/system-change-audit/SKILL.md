@@ -34,6 +34,7 @@ REACH MAP for <change>
 - React Query cache keys that hold this data: <list>
 - Cross-page surfaces affected: <WIG / Studio / MyDay / Coach View / Pipeline / Follow-Up / commission / leaderboards>
 - DB triggers that fire on writes/deletes: <list>
+- Alternate storage locations — before treating one table/setting as the source of truth, search for a second place the same concept could be computed or stored, especially in a feature built in a different session. List any found.
 ```
 
 If a concept appears in 2+ places in this list, extract it to a canonical helper as part of THIS change. See `references/consumer-map.md` for the known cross-page dependencies in this codebase.
@@ -61,6 +62,8 @@ Run only the branches that apply.
 **Metric / canon branch.**
 - Use canon fields (`booking_status_canon`, `result_canon`, `booking_type_canon`) for all filters and counts. Never legacy string matching when a canon exists.
 - Use the canonical helpers: `didIntroActuallyRun`, `isCloseRun`, `getRunSaleDate`, `isSaleInRange`. Do not reimplement these inline.
+
+**Multiple-source guard.** When a diagnosis step finds where a concept is stored or computed (a target, a goal, a rate, an attribution rule), it must also check whether a SECOND, competing definition of that same concept exists elsewhere in the codebase, especially across features built in separate sessions. Report every real candidate location found, not just the first one that resolves an answer. If more than one exists, STOP and ask which is canonical before building against either. The first match is not automatically the only match.
 
 ## Step 3 — Coherence proof (BEFORE saying done)
 
