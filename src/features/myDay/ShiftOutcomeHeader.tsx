@@ -28,6 +28,7 @@ import { useSaAllBooked } from '@/hooks/useSaAllBooked';
 import { useSaSales } from '@/hooks/useSaSales';
 import { useSomlData } from '@/hooks/useSomlData';
 import { useSomlEffectiveTargets, somlPaceAnchor } from '@/lib/soml/effectiveTargets';
+import { useEffectiveSglTargets } from '@/lib/wig/effectiveSglTarget';
 import { ShiftTaskGuidanceIcon } from './ShiftTaskGuidanceIcon';
 import { cn } from '@/lib/utils';
 import { Target } from 'lucide-react';
@@ -178,9 +179,15 @@ export function ShiftOutcomeHeader() {
     [somlTargets.config, now],
   );
 
+  // Per-SA effective SGL target — reads the canonical helper (global goal,
+  // per-SA overrides, and redistributed shortfall) so this tile can never
+  // disagree with the WIG SA Leaderboard or SaWeeklyGoals.
+  const sglTargets = useEffectiveSglTargets(yyyymm);
+  const mySglTarget = user?.name ? sglTargets.effectiveFor(user.name) : null;
+
   // Pace helper matches SomlSection exactly: same paceToToday + capped-to-window anchor.
   const pace = {
-    sgl: paceToToday(targets.saSgl, now),
+    sgl: paceToToday(mySglTarget, now),
     booked: paceToToday(derivedBookedTarget, somlAnchor),
     sales: paceToToday(salesTarget, somlAnchor),
     referrals: paceToToday(referralLeadsTarget, somlAnchor),
@@ -206,7 +213,7 @@ export function ShiftOutcomeHeader() {
         <MetricTile
           label="Self-gen leads"
           current={mySgl}
-          target={targets.saSgl}
+          target={mySglTarget != null ? Math.round(mySglTarget * 10) / 10 : null}
           pace={pace.sgl}
           status={status.sgl}
           behindPrompt="You're behind on leads today. Who's one person you could reach out to right now?"

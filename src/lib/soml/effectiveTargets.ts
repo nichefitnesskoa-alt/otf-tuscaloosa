@@ -1,6 +1,14 @@
 /**
  * Canonical resolver for per-SA SOML goals.
  *
+ * PERMANENCE NOTE: `soml_config` originated as "Summer of More Life"
+ * campaign infrastructure, but Sales, Referral Leads, and Referrals goals
+ * stored here are now the PERMANENT source of truth studio-wide — the
+ * shift header, WIG SA leaderboard, SA Weekly Goals, SomlSection, and
+ * derived Booked Intros target all read from here. Only `upgrades` remains
+ * campaign-scoped and retires at month's end. Do not delete or rename this
+ * table once the "Summer of More Life" name retires.
+ *
  * SINGLE SOURCE OF TRUTH for "what is this SA's effective SOML target for
  * sales / referralLeads / referrals / upgrades this window?" — the SOML
  * section on the WIG page AND the shift header both read from here so

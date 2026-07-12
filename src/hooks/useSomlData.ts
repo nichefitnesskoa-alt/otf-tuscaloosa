@@ -16,11 +16,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { SALE_CANONS, getRunSaleDate } from '@/lib/sales-detection';
 import { DATA_CHANGED_EVENT } from '@/lib/data/invalidation';
 
+/**
+ * PERMANENCE NOTE (do not treat as campaign-only):
+ *   The `soml_config` table originated as "Summer of More Life" campaign
+ *   infrastructure, but the Sales goal (`sales_goal`), Referral Leads goal
+ *   (`referral_leads_goal`), and Referrals goal (`referrals_goal`) are now
+ *   the PERMANENT source of truth for those team goals. ShiftOutcomeHeader,
+ *   WigSaLeaderboard, SaWeeklyGoals, SomlSection, and the derived Booked
+ *   Intros target all read from here. Do not delete or rename this data
+ *   once the "Summer of More Life" name retires.
+ *   Only `upgrades_goal` remains campaign-scoped and can be retired at
+ *   month's end.
+ */
 export interface SomlConfig {
   start_date: string;
   end_date: string;
   referrals_goal: number;
-  upgrades_goal: number;
+  upgrades_goal: number; // campaign-only, retires at month's end
   sales_goal: number;
   referral_leads_goal: number;
 }

@@ -34,6 +34,7 @@ import { parseLocalDate, getNowCentral } from '@/lib/dateUtils';
 import { cn } from '@/lib/utils';
 import { useSomlEffectiveTargets, somlPaceAnchor } from '@/lib/soml/effectiveTargets';
 import { useTrailingConversion, deriveBookedTargetFromSales } from '@/lib/wig/derivedBookedTarget';
+import { useEffectiveSglTargets } from '@/lib/wig/effectiveSglTarget';
 
 const DEFAULT_VISION = "Double last June's leads. 182 total.";
 
@@ -64,6 +65,8 @@ export function SaWeeklyGoals({ weekStart }: Props) {
   // studio_settings.sa_sales_target.
   const somlTargets = useSomlEffectiveTargets();
   const { data: trailing } = useTrailingConversion();
+  // Per-SA effective SGL target (override + redistributed shortfall) — canonical helper.
+  const sglTargets = useEffectiveSglTargets(yyyymm);
 
   const [targets, setTargets] = useState<MonthlyTargets>({
     saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null, netGain: null,
@@ -131,14 +134,17 @@ export function SaWeeklyGoals({ weekStart }: Props) {
   // Booked Intros target = SOML effective sales ÷ trailing (show × close).
   const derivedBookedTarget = deriveBookedTargetFromSales(salesTarget, trailing);
 
+  const mySglTargetRaw = user?.name ? sglTargets.effectiveFor(user.name) : null;
+  const mySglTarget = mySglTargetRaw != null ? Math.round(mySglTargetRaw * 10) / 10 : null;
+
   const pace = {
-    sgl: paceToToday(targets.saSgl, paceAnchor),
+    sgl: paceToToday(mySglTarget, paceAnchor),
     booked: paceToToday(derivedBookedTarget, somlAnchor),
     sales: paceToToday(salesTarget, somlAnchor),
   };
 
   const tiles = [
-    { label: 'Leads (self-generated)', current: mySgl, target: targets.saSgl, pace: pace.sgl },
+    { label: 'Leads (self-generated)', current: mySgl, target: mySglTarget, pace: pace.sgl },
     { label: 'Booked intros', current: myBooked, target: derivedBookedTarget, pace: pace.booked },
     { label: 'Sales', current: mySales, target: salesTarget, pace: pace.sales },
   ];
