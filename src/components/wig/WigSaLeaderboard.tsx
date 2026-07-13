@@ -647,14 +647,14 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                           >
                             <div className="text-4xl font-black tabular-nums text-foreground">
                               {row.booked}
-                              <span className="ml-1 text-sm font-normal text-foreground">
+                              <span className="ml-1 text-lg font-normal text-foreground">
                                 / {bookedPace != null ? Math.round(bookedPace) : '—'}
                               </span>
                             </div>
                             <div className="mt-1 px-2">
                               <PaceBar current={row.booked} target={bookedTarget} pace={bookedPace} />
                             </div>
-                            <div className="text-[11px] font-normal text-muted-foreground mt-1 pb-2">
+                            <div className="text-lg font-normal text-muted-foreground mt-1 pb-2">
                               goal: <span className="font-semibold text-foreground">{bookedTarget ?? '—'}</span>
                             </div>
                           </button>
