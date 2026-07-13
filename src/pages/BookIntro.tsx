@@ -189,8 +189,21 @@ export default function BookIntro() {
     [slotsQ.data, overridesQ.data]
   );
 
+  // On a friend URL (/book-intro/f/<code>), submission is blocked until the
+  // originator has been resolved — otherwise a fast tap or slow network could
+  // silently drop what should have been a friend booking into a plain one.
+  const friendResolutionPending = !!shortFriendCode && !ctx.originatorId && !friendResolveError;
+
   const handleBook = async () => {
     if (!pickedDate || !pickedTime) return;
+    if (friendResolutionPending) {
+      toast.error('Still verifying friend link — one second.');
+      return;
+    }
+    if (friendResolveError) {
+      toast.error(friendResolveError);
+      return;
+    }
     const parsed = infoSchema.safeParse(info);
     if (!parsed.success) {
       toast.error(parsed.error.errors[0].message);
