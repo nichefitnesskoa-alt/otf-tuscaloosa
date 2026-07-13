@@ -30,7 +30,7 @@ import {
   buildShortFriendUrl,
   friendSourceFor,
   resolveIntroLinkCode,
-  resolveFriendCode,
+  resolveFriendCodeStrict,
   ensureFriendCode,
   PUBLIC_BOOKING_BASE,
 } from '@/lib/introScheduler/linkUrl';
@@ -103,6 +103,10 @@ export default function BookIntro() {
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [friendShareCode, setFriendShareCode] = useState<string | null>(null);
   const [qSlug, setQSlug] = useState<string | null>(null);
+  // Snapshot the exact URL the visitor landed on — permanent audit trail.
+  const [entryUrl] = useState<string>(() =>
+    typeof window !== 'undefined' ? window.location.href : ''
+  );
 
   // Resolve short SA link code: /book-intro/<code> → sa / source / event_id
   useEffect(() => {
@@ -124,14 +128,21 @@ export default function BookIntro() {
   }, [shortCode]);
 
   // Resolve short friend code: /book-intro/f/<friendCode> → originator booking id
+  // Distinguishes error vs not_found so a network/RLS failure never silently
+  // degrades a friend booking into a plain SA-link booking.
+  const [friendResolveError, setFriendResolveError] = useState<string | null>(null);
   useEffect(() => {
     if (!shortFriendCode) return;
     (async () => {
-      const originatorId = await resolveFriendCode(shortFriendCode);
-      if (originatorId) {
-        setFriendOf(originatorId);
-      } else {
+      const r = await resolveFriendCodeStrict(shortFriendCode);
+      if (r.status === 'ok') {
+        setFriendOf(r.originatorId);
+      } else if (r.status === 'not_found') {
+        setFriendResolveError('This friend link is no longer valid.');
         toast.error('This friend link is no longer valid.');
+      } else {
+        setFriendResolveError(`Couldn't verify friend link — ${r.message}. Please refresh and try again.`);
+        toast.error("Couldn't verify friend link. Please refresh and try again.");
       }
       setResolvingCode(false);
     })();
@@ -178,8 +189,21 @@ export default function BookIntro() {
     [slotsQ.data, overridesQ.data]
   );
 
+  // On a friend URL (/book-intro/f/<code>), submission is blocked until the
+  // originator has been resolved — otherwise a fast tap or slow network could
+  // silently drop what should have been a friend booking into a plain one.
+  const friendResolutionPending = !!shortFriendCode && !ctx.originatorId && !friendResolveError;
+
   const handleBook = async () => {
     if (!pickedDate || !pickedTime) return;
+    if (friendResolutionPending) {
+      toast.error('Still verifying friend link — one second.');
+      return;
+    }
+    if (friendResolveError) {
+      toast.error(friendResolveError);
+      return;
+    }
     const parsed = infoSchema.safeParse(info);
     if (!parsed.success) {
       toast.error(parsed.error.errors[0].message);
@@ -217,6 +241,8 @@ export default function BookIntro() {
         event_id: ctx.eventId || null,
         booking_type_canon: 'STANDARD',
         booking_status_canon: 'ACTIVE',
+        entry_url: entryUrl || null,
+        friend_code_used: shortFriendCode || null,
       };
       if (ctx.originatorId) {
         insertPayload.paired_booking_id = ctx.originatorId;
@@ -443,9 +469,15 @@ export default function BookIntro() {
               <Button
                 className="flex-1 h-12 bg-[#E8540A] hover:bg-[#c94609] text-white font-semibold"
                 onClick={handleBook}
-                disabled={saving}
+                disabled={saving || friendResolutionPending || !!friendResolveError}
               >
-                {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Booking…</> : <>Book my spot <Check className="w-4 h-4 ml-2" /></>}
+                {saving
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Booking…</>
+                  : friendResolutionPending
+                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying friend link…</>
+                    : friendResolveError
+                      ? 'Friend link invalid'
+                      : <>Book my spot <Check className="w-4 h-4 ml-2" /></>}
               </Button>
             </div>
           </Card>

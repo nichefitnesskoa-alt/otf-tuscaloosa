@@ -1944,10 +1944,12 @@ export type Database = {
           deleted_by: string | null
           edit_reason: string | null
           email: string | null
+          entry_url: string | null
           event_id: string | null
           fitness_goal: string | null
           followup_dismissed_at: string | null
           friend_code: string | null
+          friend_code_used: string | null
           id: string
           ignore_from_metrics: boolean | null
           intro_owner: string | null
@@ -2018,10 +2020,12 @@ export type Database = {
           deleted_by?: string | null
           edit_reason?: string | null
           email?: string | null
+          entry_url?: string | null
           event_id?: string | null
           fitness_goal?: string | null
           followup_dismissed_at?: string | null
           friend_code?: string | null
+          friend_code_used?: string | null
           id?: string
           ignore_from_metrics?: boolean | null
           intro_owner?: string | null
@@ -2092,10 +2096,12 @@ export type Database = {
           deleted_by?: string | null
           edit_reason?: string | null
           email?: string | null
+          entry_url?: string | null
           event_id?: string | null
           fitness_goal?: string | null
           followup_dismissed_at?: string | null
           friend_code?: string | null
+          friend_code_used?: string | null
           id?: string
           ignore_from_metrics?: boolean | null
           intro_owner?: string | null
