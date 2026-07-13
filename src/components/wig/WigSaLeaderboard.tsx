@@ -588,25 +588,16 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                             type="button"
                             disabled={row.sgl === 0}
                             onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'sourced' }); }}
-                            className="w-full min-h-[48px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent [container-type:inline-size]"
+                            className="w-full min-h-[48px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
                           >
-                            <div
-                              className="font-black tabular-nums text-foreground leading-none"
-                              style={{ fontSize: 'clamp(2rem, 13cqi, 4.5rem)' }}
-                            >
+                            <div className="text-4xl font-black tabular-nums text-foreground leading-none">
                               {row.sgl}
-                              <span
-                                className="ml-1 font-normal text-foreground align-baseline"
-                                style={{ fontSize: 'clamp(1.125rem, 5.5cqi, 2rem)' }}
-                              >
+                              <span className="ml-1 font-normal text-foreground align-baseline text-xs">
                                 / {formatPace(saPace)}
                               </span>
                             </div>
                             {row.sglConvPct != null && (
-                              <div
-                                className="font-normal text-muted-foreground mt-1"
-                                style={{ fontSize: 'clamp(1.125rem, 4.5cqi, 1.5rem)' }}
-                              >
+                              <div className="font-normal text-muted-foreground mt-1 text-xs">
                                 {row.sglConvPct}% booked ({row.sglBooked}/{row.sgl})
                               </div>
                             )}
@@ -654,27 +645,18 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                             type="button"
                             disabled={row.booked === 0}
                             onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'leads' }); }}
-                            className="w-full min-h-[48px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent [container-type:inline-size]"
+                            className="w-full min-h-[48px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
                           >
-                            <div
-                              className="font-black tabular-nums text-foreground leading-none"
-                              style={{ fontSize: 'clamp(2rem, 13cqi, 4.5rem)' }}
-                            >
+                            <div className="text-4xl font-black tabular-nums text-foreground leading-none">
                               {row.booked}
-                              <span
-                                className="ml-1 font-normal text-foreground align-baseline"
-                                style={{ fontSize: 'clamp(1.125rem, 5.5cqi, 2rem)' }}
-                              >
+                              <span className="ml-1 font-normal text-foreground align-baseline text-xs">
                                 / {bookedPace != null ? Math.round(bookedPace) : '—'}
                               </span>
                             </div>
                             <div className="mt-1 px-2">
                               <PaceBar current={row.booked} target={bookedTarget} pace={bookedPace} />
                             </div>
-                            <div
-                              className="font-normal text-muted-foreground mt-1 pb-2"
-                              style={{ fontSize: 'clamp(1.125rem, 4.5cqi, 1.5rem)' }}
-                            >
+                            <div className="font-normal text-muted-foreground mt-1 pb-2 text-xs">
                               goal: <span className="font-semibold text-foreground">{bookedTarget ?? '—'}</span>
                             </div>
                           </button>
@@ -685,14 +667,14 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                   <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
                     <TableCell />
                     <TableCell className="text-base font-bold">Team</TableCell>
-                    <TableCell className="text-center font-black tabular-nums text-foreground p-0 [container-type:inline-size]">
-                      <div style={{ fontSize: 'clamp(1.75rem, 10cqi, 3.5rem)' }} className="leading-none py-2">
-                        {totals.sgl} <span className="text-foreground font-normal" style={{ fontSize: 'clamp(1.125rem, 4.5cqi, 1.75rem)' }}>/ {teamPace.sgl != null ? Math.round(teamPace.sgl) : '—'} today</span>
+                    <TableCell className="text-center font-black tabular-nums text-foreground p-0">
+                      <div className="text-3xl font-black tabular-nums text-foreground leading-none py-2">
+                        {totals.sgl} <span className="text-foreground font-normal text-xs">/ {teamPace.sgl != null ? Math.round(teamPace.sgl) : '—'} today</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-center font-black tabular-nums text-foreground p-0 [container-type:inline-size]">
-                      <div style={{ fontSize: 'clamp(1.75rem, 10cqi, 3.5rem)' }} className="leading-none py-2">
-                        {totals.booked} <span className="text-foreground font-normal" style={{ fontSize: 'clamp(1.125rem, 4.5cqi, 1.75rem)' }}>/ {teamPace.booked != null ? Math.round(teamPace.booked) : '—'} today</span>
+                    <TableCell className="text-center font-black tabular-nums text-foreground p-0">
+                      <div className="text-3xl font-black tabular-nums text-foreground leading-none py-2">
+                        {totals.booked} <span className="text-foreground font-normal text-xs">/ {teamPace.booked != null ? Math.round(teamPace.booked) : '—'} today</span>
                       </div>
                     </TableCell>
                   </TableRow>
