@@ -564,8 +564,17 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                     const saPace = paceToToday(saTarget, paceAnchor);
                     const hasOverride = Object.prototype.hasOwnProperty.call(perSaOverrides, row.name);
                     const isEditingThis = editingSa === row.name;
-                    const bookedTarget = derivedSaBookedTarget;
-                    const bookedPace = perSaPace.booked;
+                    // Booked Intros target is derived from THIS SA's effective
+                    // SOML sales goal (overrides + redistribution handled by
+                    // useSomlEffectiveTargets). An explicit 0 override
+                    // ripples to 0 booked; null (no config) renders "—".
+                    const saSalesEffective = somlTargets.config
+                      ? somlTargets.effectiveFor(row.name, 'sales')
+                      : null;
+                    const bookedTarget = saSalesEffective === 0
+                      ? 0
+                      : deriveBookedTargetFromSales(saSalesEffective, trailing);
+                    const bookedPace = bookedTarget === 0 ? 0 : paceToToday(bookedTarget, paceAnchor);
                     return (
                       <TableRow
                         key={row.name}
