@@ -1,0 +1,1 @@
+ALTER TABLE public.intros_booked ADD COLUMN IF NOT EXISTS entry_url text; ALTER TABLE public.intros_booked ADD COLUMN IF NOT EXISTS friend_code_used text; CREATE INDEX IF NOT EXISTS idx_intros_booked_friend_code_used ON public.intros_booked (friend_code_used) WHERE friend_code_used IS NOT NULL;
