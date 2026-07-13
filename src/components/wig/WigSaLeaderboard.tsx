@@ -592,10 +592,10 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                           >
                             <div className="text-4xl font-black tabular-nums text-foreground">
                               {row.sgl}
-                              <span className="ml-1 text-sm font-normal text-foreground">/ {formatPace(saPace)}</span>
+                              <span className="ml-1 text-lg font-normal text-foreground">/ {formatPace(saPace)}</span>
                             </div>
                             {row.sglConvPct != null && (
-                              <div className="text-[11px] font-normal text-muted-foreground mt-0.5">
+                              <div className="text-lg font-normal text-muted-foreground mt-0.5">
                                 {row.sglConvPct}% booked ({row.sglBooked}/{row.sgl})
                               </div>
                             )}
