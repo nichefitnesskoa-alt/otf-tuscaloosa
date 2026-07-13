@@ -239,6 +239,14 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const sortedRows = useMemo(() => {
     const bookedMap = new Map<string, number>(booked.rows.map(r => [r.sa, r.count] as const));
     const sourcedMap = new Map<string, number>(sourcedLeads.rows.map(r => [r.sa, r.count] as const));
+    // Same population as the Leads column — filter down to the people who
+    // have `.booked === true` to get the SA's own sourcing conversion.
+    const sglConvMap = new Map<string, { sgl: number; booked: number }>(
+      sourcedLeads.rows.map(r => [
+        r.sa,
+        { sgl: r.people.length, booked: r.people.filter(p => p.booked).length },
+      ] as const),
+    );
     const salesMap = new Map<string, number>(sales.rows.map(r => [r.sa, r.count] as const));
     const allNames = new Set<string>([
       ...activeSet,
@@ -248,12 +256,19 @@ export function WigSaLeaderboard({ dateRange }: Props) {
     ]);
     return Array.from(allNames)
       .filter(name => activeSet.has(name) && name !== 'Koa')
-      .map(name => ({
-        name,
-        sgl: sourcedMap.get(name) ?? 0,
-        booked: bookedMap.get(name) ?? 0,
-        sales: salesMap.get(name) ?? 0,
-      }))
+      .map(name => {
+        const conv = sglConvMap.get(name);
+        const sgl = sourcedMap.get(name) ?? 0;
+        const sglBooked = conv?.booked ?? 0;
+        return {
+          name,
+          sgl,
+          sglBooked,
+          sglConvPct: sgl > 0 ? Math.round((sglBooked / sgl) * 100) : null,
+          booked: bookedMap.get(name) ?? 0,
+          sales: salesMap.get(name) ?? 0,
+        };
+      })
       // Sort by SGL desc — the lead measure SAs control.
       .sort((a, b) =>
         b.sgl - a.sgl ||
