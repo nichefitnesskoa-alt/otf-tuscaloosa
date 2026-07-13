@@ -237,18 +237,22 @@ All colors MUST be HSL.
   }
 
   /*
-   * Numeric-readability floor (Part 2 pass 1).
-   * `tabular-nums` is used across the app specifically for numeric
-   * display (WIG tiles, table cells, pace labels, secondary stats).
-   * Establish a shared minimum rendered size so tiny stats stay
-   * readable without touching every component. Primary/hero numbers
-   * already exceed this floor and are unaffected. Non-numeric text
-   * is unaffected. Print styles override where needed.
+   * Numeric-readability floor (Part 2 pass 2).
+   * Blanket `.tabular-nums { font-size: max(1rem, 1em) }` broke hero
+   * numbers because `1em` resolves to the PARENT font-size, not the
+   * element's own text-<size> utility, so it overrode text-4xl etc.
+   *
+   * Fix: only apply the 16px floor when no explicit large-size utility
+   * is already present on the same element. Large sizes actually paired
+   * with `tabular-nums` in the codebase (audited via ripgrep):
+   *   text-2xl, text-3xl, text-4xl, text-5xl, text-6xl, text-7xl
+   * text-xl / text-lg included for safety (both already >=16px so the
+   * floor would be a no-op anyway, but exclusion keeps intent explicit).
    *
    * If a specific tight table cell breaks after this, opt that cell
    * out with `[font-size:11px]` inline — do not lower the floor.
    */
-  .tabular-nums {
+  .tabular-nums:not(.text-lg):not(.text-xl):not(.text-2xl):not(.text-3xl):not(.text-4xl):not(.text-5xl):not(.text-6xl):not(.text-7xl) {
     font-size: max(1rem, 1em);
   }
 }
