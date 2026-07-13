@@ -241,6 +241,8 @@ export default function BookIntro() {
         event_id: ctx.eventId || null,
         booking_type_canon: 'STANDARD',
         booking_status_canon: 'ACTIVE',
+        entry_url: entryUrl || null,
+        friend_code_used: shortFriendCode || null,
       };
       if (ctx.originatorId) {
         insertPayload.paired_booking_id = ctx.originatorId;
