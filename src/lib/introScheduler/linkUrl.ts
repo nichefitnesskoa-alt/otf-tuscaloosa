@@ -163,14 +163,38 @@ export async function resolveIntroLinkCode(code: string): Promise<IntroLinkParam
   return { sa: d.sa_name, source: d.source, eventId: d.event_id };
 }
 
-/** Resolve a friend short code → originator booking id. */
-export async function resolveFriendCode(friendCode: string): Promise<string | null> {
-  const { data } = await (supabase.from('intros_booked') as any)
+/**
+ * Result of resolving a friend short code.
+ *  - status='ok'        → real originator booking id
+ *  - status='not_found' → query succeeded, no booking has that code
+ *  - status='error'     → the query itself failed (network, RLS, etc.)
+ *                         DO NOT silently fall back to a plain booking in this case.
+ */
+export type FriendCodeResolution =
+  | { status: 'ok'; originatorId: string }
+  | { status: 'not_found' }
+  | { status: 'error'; message: string };
+
+export async function resolveFriendCodeStrict(friendCode: string): Promise<FriendCodeResolution> {
+  const { data, error } = await (supabase.from('intros_booked') as any)
     .select('id')
     .eq('friend_code', friendCode)
     .maybeSingle();
-  return (data as any)?.id || null;
+  if (error) {
+    console.error('[resolveFriendCode] query error', { friendCode, error });
+    return { status: 'error', message: error.message || 'Friend code lookup failed' };
+  }
+  const id = (data as any)?.id;
+  if (!id) return { status: 'not_found' };
+  return { status: 'ok', originatorId: id };
 }
+
+/** Back-compat: returns id or null. Prefer resolveFriendCodeStrict for new callers. */
+export async function resolveFriendCode(friendCode: string): Promise<string | null> {
+  const r = await resolveFriendCodeStrict(friendCode);
+  return r.status === 'ok' ? r.originatorId : null;
+}
+
 
 /** Ensure a friend short code exists on a booking, returning it. */
 export async function ensureFriendCode(bookingId: string): Promise<string> {
