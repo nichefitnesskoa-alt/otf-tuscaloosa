@@ -34,6 +34,11 @@ export const EXCLUDED_LEAD_SOURCES = new Set<string>([
  */
 export function isSelfSourcedLeadSource(source: string | null | undefined): boolean {
   if (!source) return false;
+  // Any "(Friend)" variant is ALWAYS self-generated — an SA got a member/friend
+  // to bring someone in, which is itself the self-generated action, regardless
+  // of the base source (Lead Management, OIO, Intro Scheduler Link, etc.).
+  // This override runs FIRST, before any exclusion-list check.
+  if (source.trim().endsWith('(Friend)')) return true;
   return !EXCLUDED_LEAD_SOURCES.has(source);
 }
 
