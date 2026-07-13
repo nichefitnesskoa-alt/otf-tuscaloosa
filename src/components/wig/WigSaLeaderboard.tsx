@@ -588,14 +588,25 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                             type="button"
                             disabled={row.sgl === 0}
                             onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'sourced' }); }}
-                            className="w-full min-h-[48px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
+                            className="w-full min-h-[48px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent [container-type:inline-size]"
                           >
-                            <div className="text-4xl font-black tabular-nums text-foreground">
+                            <div
+                              className="font-black tabular-nums text-foreground leading-none"
+                              style={{ fontSize: 'clamp(2rem, 13cqi, 4.5rem)' }}
+                            >
                               {row.sgl}
-                              <span className="ml-1 text-lg font-normal text-foreground">/ {formatPace(saPace)}</span>
+                              <span
+                                className="ml-1 font-normal text-foreground align-baseline"
+                                style={{ fontSize: 'clamp(1.125rem, 5.5cqi, 2rem)' }}
+                              >
+                                / {formatPace(saPace)}
+                              </span>
                             </div>
                             {row.sglConvPct != null && (
-                              <div className="text-lg font-normal text-muted-foreground mt-0.5">
+                              <div
+                                className="font-normal text-muted-foreground mt-1"
+                                style={{ fontSize: 'clamp(1.125rem, 4.5cqi, 1.5rem)' }}
+                              >
                                 {row.sglConvPct}% booked ({row.sglBooked}/{row.sgl})
                               </div>
                             )}
@@ -643,18 +654,27 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                             type="button"
                             disabled={row.booked === 0}
                             onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'leads' }); }}
-                            className="w-full min-h-[48px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
+                            className="w-full min-h-[48px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent [container-type:inline-size]"
                           >
-                            <div className="text-4xl font-black tabular-nums text-foreground">
+                            <div
+                              className="font-black tabular-nums text-foreground leading-none"
+                              style={{ fontSize: 'clamp(2rem, 13cqi, 4.5rem)' }}
+                            >
                               {row.booked}
-                              <span className="ml-1 text-lg font-normal text-foreground">
+                              <span
+                                className="ml-1 font-normal text-foreground align-baseline"
+                                style={{ fontSize: 'clamp(1.125rem, 5.5cqi, 2rem)' }}
+                              >
                                 / {bookedPace != null ? Math.round(bookedPace) : '—'}
                               </span>
                             </div>
                             <div className="mt-1 px-2">
                               <PaceBar current={row.booked} target={bookedTarget} pace={bookedPace} />
                             </div>
-                            <div className="text-lg font-normal text-muted-foreground mt-1 pb-2">
+                            <div
+                              className="font-normal text-muted-foreground mt-1 pb-2"
+                              style={{ fontSize: 'clamp(1.125rem, 4.5cqi, 1.5rem)' }}
+                            >
                               goal: <span className="font-semibold text-foreground">{bookedTarget ?? '—'}</span>
                             </div>
                           </button>
