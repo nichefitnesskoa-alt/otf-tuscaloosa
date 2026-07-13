@@ -239,6 +239,14 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const sortedRows = useMemo(() => {
     const bookedMap = new Map<string, number>(booked.rows.map(r => [r.sa, r.count] as const));
     const sourcedMap = new Map<string, number>(sourcedLeads.rows.map(r => [r.sa, r.count] as const));
+    // Same population as the Leads column — filter down to the people who
+    // have `.booked === true` to get the SA's own sourcing conversion.
+    const sglConvMap = new Map<string, { sgl: number; booked: number }>(
+      sourcedLeads.rows.map(r => [
+        r.sa,
+        { sgl: r.people.length, booked: r.people.filter(p => p.booked).length },
+      ] as const),
+    );
     const salesMap = new Map<string, number>(sales.rows.map(r => [r.sa, r.count] as const));
     const allNames = new Set<string>([
       ...activeSet,
@@ -248,12 +256,19 @@ export function WigSaLeaderboard({ dateRange }: Props) {
     ]);
     return Array.from(allNames)
       .filter(name => activeSet.has(name) && name !== 'Koa')
-      .map(name => ({
-        name,
-        sgl: sourcedMap.get(name) ?? 0,
-        booked: bookedMap.get(name) ?? 0,
-        sales: salesMap.get(name) ?? 0,
-      }))
+      .map(name => {
+        const conv = sglConvMap.get(name);
+        const sgl = sourcedMap.get(name) ?? 0;
+        const sglBooked = conv?.booked ?? 0;
+        return {
+          name,
+          sgl,
+          sglBooked,
+          sglConvPct: sgl > 0 ? Math.round((sglBooked / sgl) * 100) : null,
+          booked: bookedMap.get(name) ?? 0,
+          sales: salesMap.get(name) ?? 0,
+        };
+      })
       // Sort by SGL desc — the lead measure SAs control.
       .sort((a, b) =>
         b.sgl - a.sgl ||
@@ -535,6 +550,12 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                         individual monthly goal (tap {isAdmin ? 'pencil' : 'admin'} to adjust for vacation, etc.)
                       </div>
                     </TableHead>
+                    <TableHead className="text-sm text-center">
+                      Booked Intros
+                      <div className="text-xs font-normal text-muted-foreground mt-0.5">
+                        derived from sales goal ÷ trailing 60d conversion
+                      </div>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -543,6 +564,8 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                     const saPace = paceToToday(saTarget, paceAnchor);
                     const hasOverride = Object.prototype.hasOwnProperty.call(perSaOverrides, row.name);
                     const isEditingThis = editingSa === row.name;
+                    const bookedTarget = derivedSaBookedTarget;
+                    const bookedPace = perSaPace.booked;
                     return (
                       <TableRow
                         key={row.name}
@@ -562,6 +585,11 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                               {row.sgl}
                               <span className="ml-1 text-sm font-normal text-foreground">/ {formatPace(saPace)}</span>
                             </div>
+                            {row.sglConvPct != null && (
+                              <div className="text-[11px] font-normal text-muted-foreground mt-0.5">
+                                {row.sglConvPct}% booked ({row.sglBooked}/{row.sgl})
+                              </div>
+                            )}
                             <div className="mt-1 px-2">
                               <PaceBar current={row.sgl} target={saTarget} pace={saPace} />
                             </div>
@@ -601,6 +629,27 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                             )}
                           </div>
                         </TableCell>
+                        <TableCell className="text-base text-center p-0">
+                          <button
+                            type="button"
+                            disabled={row.booked === 0}
+                            onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'leads' }); }}
+                            className="w-full min-h-[48px] px-3 cursor-pointer hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
+                          >
+                            <div className="text-4xl font-black tabular-nums text-foreground">
+                              {row.booked}
+                              <span className="ml-1 text-sm font-normal text-foreground">
+                                / {bookedPace != null ? Math.round(bookedPace) : '—'}
+                              </span>
+                            </div>
+                            <div className="mt-1 px-2">
+                              <PaceBar current={row.booked} target={bookedTarget} pace={bookedPace} />
+                            </div>
+                            <div className="text-[11px] font-normal text-muted-foreground mt-1 pb-2">
+                              goal: <span className="font-semibold text-foreground">{bookedTarget ?? '—'}</span>
+                            </div>
+                          </button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -609,6 +658,9 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                     <TableCell className="text-base font-bold">Team</TableCell>
                     <TableCell className="text-3xl text-center font-black tabular-nums text-foreground">
                       {totals.sgl} <span className="text-foreground font-normal text-base">/ {teamPace.sgl != null ? Math.round(teamPace.sgl) : '—'} today</span>
+                    </TableCell>
+                    <TableCell className="text-3xl text-center font-black tabular-nums text-foreground">
+                      {totals.booked} <span className="text-foreground font-normal text-base">/ {teamPace.booked != null ? Math.round(teamPace.booked) : '—'} today</span>
                     </TableCell>
                   </TableRow>
                 </TableBody>
