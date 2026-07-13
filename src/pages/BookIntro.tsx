@@ -30,7 +30,7 @@ import {
   buildShortFriendUrl,
   friendSourceFor,
   resolveIntroLinkCode,
-  resolveFriendCode,
+  resolveFriendCodeStrict,
   ensureFriendCode,
   PUBLIC_BOOKING_BASE,
 } from '@/lib/introScheduler/linkUrl';
