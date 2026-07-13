@@ -34,6 +34,11 @@ export const EXCLUDED_LEAD_SOURCES = new Set<string>([
  */
 export function isSelfSourcedLeadSource(source: string | null | undefined): boolean {
   if (!source) return false;
+  // Any "(Friend)" variant is ALWAYS self-generated — an SA got a member/friend
+  // to bring someone in, which is itself the self-generated action, regardless
+  // of the base source (Lead Management, OIO, Intro Scheduler Link, etc.).
+  // This override runs FIRST, before any exclusion-list check.
+  if (source.trim().endsWith('(Friend)')) return true;
   return !EXCLUDED_LEAD_SOURCES.has(source);
 }
 
@@ -136,6 +141,9 @@ export function isSelfGeneratedLeadBooked(b: LeadBookedBookingInput): boolean {
   if (!b.lead_source) return false;
   if (b.deleted_at) return false;
   if (b.ignore_from_metrics) return false;
+  // Friend-variant sources are always self-generated, even if the base source
+  // (e.g. Lead Management) would normally be excluded. Checked FIRST.
+  if (b.lead_source.trim().endsWith('(Friend)')) return true;
   return !EXCLUDED_LEAD_SOURCES.has(b.lead_source);
 }
 
