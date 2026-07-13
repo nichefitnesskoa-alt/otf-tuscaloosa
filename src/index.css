@@ -235,7 +235,28 @@ All colors MUST be HSL.
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /*
+   * Numeric-readability floor (Part 2 pass 1).
+   * `tabular-nums` is used across the app specifically for numeric
+   * display (WIG tiles, table cells, pace labels, secondary stats).
+   * Establish a shared minimum rendered size so tiny stats stay
+   * readable without touching every component. Primary/hero numbers
+   * already exceed this floor and are unaffected. Non-numeric text
+   * is unaffected. Print styles override where needed.
+   *
+   * If a specific tight table cell breaks after this, opt that cell
+   * out with `[font-size:11px]` inline — do not lower the floor.
+   */
+  .tabular-nums {
+    font-size: max(1rem, 1em);
+  }
 }
+
+@media print {
+  .tabular-nums { font-size: inherit; }
+}
+
 
 /* ══════════ PRINT STYLES ══════════ */
 @media print {
