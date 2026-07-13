@@ -255,10 +255,47 @@ All colors MUST be HSL.
   .tabular-nums:not(.text-lg):not(.text-xl):not(.text-2xl):not(.text-3xl):not(.text-4xl):not(.text-5xl):not(.text-6xl):not(.text-7xl) {
     font-size: max(1.125rem, 1em);
   }
+
+  /*
+   * Graduated readability floor — INTERNAL SURFACES ONLY.
+   * Scoped to `.app-internal` (set on AppLayout root). Public pages
+   * (giveaway, /book, /vip/*, /apply, /bingo, /q/*, success stories)
+   * render outside AppLayout and keep their own type scale. Print
+   * output is exempt via the @media print reset below.
+   *
+   * Tiering rationale:
+   *   Body / labels / subtext (text-sm, text-base, text-[13-17px]) → 18px
+   *   Ultra-small chrome / badges / chip counts (text-xs and every
+   *     arbitrary size ≤12px) → 16px so tight pills/tags stay compact.
+   *
+   * Numbers (`.tabular-nums`) are already handled by the rule above at
+   * 18px with hero exclusions — this block only affects non-numeric text.
+   */
+  .app-internal .text-sm,
+  .app-internal .text-base,
+  .app-internal .text-\[13px\],
+  .app-internal .text-\[14px\],
+  .app-internal .text-\[15px\],
+  .app-internal .text-\[16px\],
+  .app-internal .text-\[17px\] {
+    font-size: 1.125rem; /* 18px */
+  }
+  .app-internal .text-xs,
+  .app-internal .text-\[8px\],
+  .app-internal .text-\[9px\],
+  .app-internal .text-\[10px\],
+  .app-internal .text-\[11px\],
+  .app-internal .text-\[12px\] {
+    font-size: 1rem; /* 16px */
+  }
 }
 
 @media print {
   .tabular-nums { font-size: inherit; }
+  .app-internal .text-sm,
+  .app-internal .text-base,
+  .app-internal .text-xs,
+  .app-internal [class*="text-["] { font-size: inherit; }
 }
 
 
