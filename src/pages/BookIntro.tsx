@@ -469,9 +469,15 @@ export default function BookIntro() {
               <Button
                 className="flex-1 h-12 bg-[#E8540A] hover:bg-[#c94609] text-white font-semibold"
                 onClick={handleBook}
-                disabled={saving}
+                disabled={saving || friendResolutionPending || !!friendResolveError}
               >
-                {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Booking…</> : <>Book my spot <Check className="w-4 h-4 ml-2" /></>}
+                {saving
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Booking…</>
+                  : friendResolutionPending
+                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying friend link…</>
+                    : friendResolveError
+                      ? 'Friend link invalid'
+                      : <>Book my spot <Check className="w-4 h-4 ml-2" /></>}
               </Button>
             </div>
           </Card>
