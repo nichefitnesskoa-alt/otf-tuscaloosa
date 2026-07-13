@@ -666,10 +666,10 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                     <TableCell />
                     <TableCell className="text-base font-bold">Team</TableCell>
                     <TableCell className="text-3xl text-center font-black tabular-nums text-foreground">
-                      {totals.sgl} <span className="text-foreground font-normal text-base">/ {teamPace.sgl != null ? Math.round(teamPace.sgl) : '—'} today</span>
+                      {totals.sgl} <span className="text-foreground font-normal text-lg">/ {teamPace.sgl != null ? Math.round(teamPace.sgl) : '—'} today</span>
                     </TableCell>
                     <TableCell className="text-3xl text-center font-black tabular-nums text-foreground">
-                      {totals.booked} <span className="text-foreground font-normal text-base">/ {teamPace.booked != null ? Math.round(teamPace.booked) : '—'} today</span>
+                      {totals.booked} <span className="text-foreground font-normal text-lg">/ {teamPace.booked != null ? Math.round(teamPace.booked) : '—'} today</span>
                     </TableCell>
                   </TableRow>
                 </TableBody>
