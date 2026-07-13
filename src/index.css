@@ -253,7 +253,7 @@ All colors MUST be HSL.
    * out with `[font-size:11px]` inline — do not lower the floor.
    */
   .tabular-nums:not(.text-lg):not(.text-xl):not(.text-2xl):not(.text-3xl):not(.text-4xl):not(.text-5xl):not(.text-6xl):not(.text-7xl) {
-    font-size: max(1rem, 1em);
+    font-size: max(1.125rem, 1em);
   }
 }
 
