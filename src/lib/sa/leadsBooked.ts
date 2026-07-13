@@ -141,6 +141,9 @@ export function isSelfGeneratedLeadBooked(b: LeadBookedBookingInput): boolean {
   if (!b.lead_source) return false;
   if (b.deleted_at) return false;
   if (b.ignore_from_metrics) return false;
+  // Friend-variant sources are always self-generated, even if the base source
+  // (e.g. Lead Management) would normally be excluded. Checked FIRST.
+  if (b.lead_source.trim().endsWith('(Friend)')) return true;
   return !EXCLUDED_LEAD_SOURCES.has(b.lead_source);
 }
 
