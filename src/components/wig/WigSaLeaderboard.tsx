@@ -685,11 +685,15 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                   <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
                     <TableCell />
                     <TableCell className="text-base font-bold">Team</TableCell>
-                    <TableCell className="text-3xl text-center font-black tabular-nums text-foreground">
-                      {totals.sgl} <span className="text-foreground font-normal text-lg">/ {teamPace.sgl != null ? Math.round(teamPace.sgl) : '—'} today</span>
+                    <TableCell className="text-center font-black tabular-nums text-foreground p-0 [container-type:inline-size]">
+                      <div style={{ fontSize: 'clamp(1.75rem, 10cqi, 3.5rem)' }} className="leading-none py-2">
+                        {totals.sgl} <span className="text-foreground font-normal" style={{ fontSize: 'clamp(1.125rem, 4.5cqi, 1.75rem)' }}>/ {teamPace.sgl != null ? Math.round(teamPace.sgl) : '—'} today</span>
+                      </div>
                     </TableCell>
-                    <TableCell className="text-3xl text-center font-black tabular-nums text-foreground">
-                      {totals.booked} <span className="text-foreground font-normal text-lg">/ {teamPace.booked != null ? Math.round(teamPace.booked) : '—'} today</span>
+                    <TableCell className="text-center font-black tabular-nums text-foreground p-0 [container-type:inline-size]">
+                      <div style={{ fontSize: 'clamp(1.75rem, 10cqi, 3.5rem)' }} className="leading-none py-2">
+                        {totals.booked} <span className="text-foreground font-normal" style={{ fontSize: 'clamp(1.125rem, 4.5cqi, 1.75rem)' }}>/ {teamPace.booked != null ? Math.round(teamPace.booked) : '—'} today</span>
+                      </div>
                     </TableCell>
                   </TableRow>
                 </TableBody>
