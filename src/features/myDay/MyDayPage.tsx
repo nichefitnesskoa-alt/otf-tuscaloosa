@@ -423,16 +423,17 @@ export default function MyDayPage() {
         </p>
       </div>
 
-      {/* ═══ SHIFT TASK CHECKLIST — hoisted above scoreboard and banners so it's the first thing you see ═══ */}
+      {/* ═══ NET GAIN TRACKER — sits above the shift checklist so SAs see the studio goal first ═══ */}
+      <div className="mx-4 mt-3">
+        <NetGainScoreboard />
+      </div>
+
+      {/* ═══ SHIFT TASK CHECKLIST — the daily action list follows the studio goal ═══ */}
       <div className="px-[5px] pt-3">
         <ShiftChecklist />
       </div>
 
       <OfflineBanner />
-
-      <div className="mx-4 mt-3">
-        <NetGainScoreboard />
-      </div>
 
 
 
