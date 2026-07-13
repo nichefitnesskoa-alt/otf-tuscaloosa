@@ -124,14 +124,21 @@ export default function BookIntro() {
   }, [shortCode]);
 
   // Resolve short friend code: /book-intro/f/<friendCode> → originator booking id
+  // Distinguishes error vs not_found so a network/RLS failure never silently
+  // degrades a friend booking into a plain SA-link booking.
+  const [friendResolveError, setFriendResolveError] = useState<string | null>(null);
   useEffect(() => {
     if (!shortFriendCode) return;
     (async () => {
-      const originatorId = await resolveFriendCode(shortFriendCode);
-      if (originatorId) {
-        setFriendOf(originatorId);
-      } else {
+      const r = await resolveFriendCodeStrict(shortFriendCode);
+      if (r.status === 'ok') {
+        setFriendOf(r.originatorId);
+      } else if (r.status === 'not_found') {
+        setFriendResolveError('This friend link is no longer valid.');
         toast.error('This friend link is no longer valid.');
+      } else {
+        setFriendResolveError(`Couldn't verify friend link — ${r.message}. Please refresh and try again.`);
+        toast.error("Couldn't verify friend link. Please refresh and try again.");
       }
       setResolvingCode(false);
     })();
