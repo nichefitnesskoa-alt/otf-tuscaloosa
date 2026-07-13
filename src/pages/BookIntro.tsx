@@ -103,6 +103,10 @@ export default function BookIntro() {
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [friendShareCode, setFriendShareCode] = useState<string | null>(null);
   const [qSlug, setQSlug] = useState<string | null>(null);
+  // Snapshot the exact URL the visitor landed on — permanent audit trail.
+  const [entryUrl] = useState<string>(() =>
+    typeof window !== 'undefined' ? window.location.href : ''
+  );
 
   // Resolve short SA link code: /book-intro/<code> → sa / source / event_id
   useEffect(() => {
