@@ -490,6 +490,15 @@ function LeadRow({
           {isVip && (
             <span className="ml-2 text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded">VIP · In Unified Portal</span>
           )}
+          {!inMindbody && !hasExportableEmail(l) && (
+            <span
+              className="ml-2 text-xs bg-destructive/15 text-destructive px-1.5 py-0.5 rounded"
+              title="No email on file — this lead will be skipped from the CSV export until an email is added"
+            >
+              No email
+            </span>
+          )}
+
         </div>
         <div className="text-xs text-muted-foreground truncate">
           {[l.phone, l.email].filter(Boolean).join(' · ')}
