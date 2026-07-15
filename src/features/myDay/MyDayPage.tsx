@@ -59,7 +59,7 @@ import { WhatsChangedDialog } from '@/components/shared/WhatsChangedDialog';
 import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
 
 import { useDarkMode } from '@/hooks/useDarkMode';
-import { NewLeadsAlert } from './NewLeadsAlert';
+import { NewLeadsModal } from './NewLeadsModal';
 import { VipClaimBanner } from './VipClaimBanner';
 
 import { ClassMilestoneChecks } from './ClassMilestoneChecks';
