@@ -1,5 +1,5 @@
 /**
- * Pure CSV builder for the self-sourced leads explorer.
+ * CSV builder for the Unified Portal bulk import format.
  *
  * `SourcedLeadCsvRow` is the union shape used by the dialog. It is now
  * derived from `useSaLeads.SaLeadPersonRow` so the dialog total always
@@ -11,6 +11,7 @@
  *   - 'vip_registrant' → vip_registrations row, unbooked (id `vip-`)
  */
 import { format } from 'date-fns';
+import { stripCountryCode } from '@/lib/parsing/phone';
 
 export interface SourcedLeadCsvRow {
   /** Stable id — keep the source-prefixed form from useSaLeads so the UI
@@ -38,43 +39,18 @@ function esc(v: unknown): string {
   return s;
 }
 
-/** YYYY-MM-DD HH:mm in America/Chicago for an ISO timestamp. */
-function ymdCentral(iso: string): string {
-  try {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Chicago',
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', hour12: false,
-    }).formatToParts(new Date(iso));
-    const get = (t: string) => parts.find(p => p.type === t)?.value || '';
-    return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}`;
-  } catch {
-    return iso;
-  }
-}
-
-const HEADERS = [
-  'first_name', 'last_name', 'phone', 'email', 'source',
-  'sourced_by_sa', 'created_at_central', 'stage', 'source_type',
-  'booked', 'booked_intro_id',
-  'in_mindbody', 'mindbody_imported_at_central', 'mindbody_imported_by',
-  'text_archived_at', 'text_archived_reason',
-];
+const HEADERS = ['First Name', 'Last Name', 'Phone', 'Email', 'Channel'];
 
 export function buildSourcedLeadsCsv(rows: SourcedLeadCsvRow[]): string {
   const lines = [HEADERS.join(',')];
   for (const r of rows) {
-    const inMindbody = !!r.booked_intro_id || !!r.mindbody_imported_at;
+    const phone = stripCountryCode(r.phone) ?? '';
     lines.push([
-      r.first_name, r.last_name, r.phone, r.email ?? '', r.source ?? '',
-      r.sourced_by_sa ?? '', ymdCentral(r.created_at), r.stage ?? '', r.source_type,
-      r.booked_intro_id ? 'yes' : 'no',
-      r.booked_intro_id ?? '',
-      inMindbody ? 'yes' : 'no',
-      r.mindbody_imported_at ? ymdCentral(r.mindbody_imported_at) : '',
-      r.mindbody_imported_by ?? '',
-      r.text_archived_at ? ymdCentral(r.text_archived_at) : '',
-      r.text_archived_reason ?? '',
+      r.first_name,
+      r.last_name,
+      phone,
+      r.email ?? '',
+      'Grassroots',
     ].map(esc).join(','));
   }
   return lines.join('\n');
@@ -88,7 +64,7 @@ export function downloadSourcedLeadsCsv(rows: SourcedLeadCsvRow[], label: string
   a.href = url;
   const stamp = format(new Date(), 'yyyy-MM-dd');
   const safe = label.replace(/[^a-z0-9-_]+/gi, '-').toLowerCase();
-  a.download = `sourced-leads-${safe}-${stamp}.csv`;
+  a.download = `unified-portal-import-${safe}-${stamp}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
