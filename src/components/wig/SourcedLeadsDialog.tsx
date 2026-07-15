@@ -254,8 +254,15 @@ export function SourcedLeadsDialog({
     const label = preset === 'all_time'
       ? 'all-time'
       : `${format(dateRange.start, 'yyyy-MM-dd')}_to_${format(dateRange.end, 'yyyy-MM-dd')}`;
-    downloadSourcedLeadsCsv(rows, label);
+    const { skipped } = downloadSourcedLeadsCsv(rows, label);
+    if (skipped > 0) {
+      toast({
+        title: `Downloaded — ${skipped} skipped (missing email)`,
+        description: `Check them off manually once you've got it. They're flagged in the list with a "No email" badge.`,
+      });
+    }
   };
+
 
   const toggleSa = (sa: string) => setExpandedSa(prev => ({ ...prev, [sa]: !prev[sa] }));
 
