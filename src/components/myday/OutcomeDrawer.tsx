@@ -823,6 +823,28 @@ export function OutcomeDrawer({
         </p>
       )}
 
+      {/* Winback flag — sale-only. Counts as sale/commission everywhere, but
+          is EXCLUDED from trailing close-rate / show-rate (never a new lead). */}
+      {isSale && (
+        <label className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/40 p-2.5 text-sm cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isWinback}
+            onChange={e => setIsWinback(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+          />
+          <span className="flex-1">
+            <span className="font-medium">Winback</span>
+            <span className="block text-xs text-muted-foreground">
+              Previously an OTF member or class-pack holder. Counts fully for
+              commission and sales totals, excluded from close/show rate.
+            </span>
+          </span>
+        </label>
+      )}
+
+
+
       {/* Follow-up category selector — shown for follow-up/no-show outcomes */}
       {(isFollowUpNeeded || isNoShow) && (
         <div className="space-y-1">
