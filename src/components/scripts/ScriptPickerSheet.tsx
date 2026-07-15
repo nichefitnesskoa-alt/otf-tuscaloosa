@@ -222,7 +222,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
     };
     fetchCtx();
     return () => { cancelled = true; };
-  }, [open, bookingId]);
+  }, [open, bookingId, leadId]);
 
   const allActive = templates.filter(t => t.is_active !== false);
 
