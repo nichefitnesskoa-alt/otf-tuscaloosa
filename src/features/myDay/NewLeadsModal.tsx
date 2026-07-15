@@ -28,10 +28,14 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, MessageSquare } from 'lucide-react';
+import { AlertTriangle, MessageSquare, Copy, Check } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { getNowCentral } from '@/lib/dateUtils';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
+import { useAuth } from '@/context/AuthContext';
+import { toast } from 'sonner';
+
+const REOPEN_INTERVAL_MS = 5 * 60 * 1000;
 
 interface NewLead {
   id: string;
@@ -68,9 +72,11 @@ function writeConfirmed(ids: Set<string>) {
 
 export function NewLeadsModal() {
   const location = useLocation();
+  const { user } = useAuth();
   const [leads, setLeads] = useState<NewLead[]>([]);
   const [open, setOpen] = useState(false);
   const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
+  const [copiedLeadId, setCopiedLeadId] = useState<string | null>(null);
   const confirmedRef = useRef<Set<string>>(readConfirmed());
 
   const fetchNewLeads = useCallback(async () => {
@@ -208,13 +214,45 @@ export function NewLeadsModal() {
     else setOpen(false);
   }, [leads]);
 
-  const markHandled = useCallback((leadId: string) => {
+  // Repeating nag: even if the SA never navigates, reopen the modal every
+  // REOPEN_INTERVAL_MS while any lead is still unconfirmed.
+  useEffect(() => {
+    const iv = window.setInterval(() => {
+      const unconfirmed = leads.some((l) => !confirmedRef.current.has(l.id));
+      if (unconfirmed) setOpen(true);
+    }, REOPEN_INTERVAL_MS);
+    return () => window.clearInterval(iv);
+  }, [leads]);
+
+  const markHandled = useCallback(async (leadId: string, reason: string) => {
+    const { error } = await supabase.from('lead_activities').insert({
+      lead_id: leadId,
+      activity_type: 'note',
+      performed_by: user?.name || 'Unknown',
+      notes: reason,
+    });
+    if (error) {
+      toast.error('Could not mark lead handled — try again');
+      return;
+    }
     const next = new Set(confirmedRef.current);
     next.add(leadId);
     confirmedRef.current = next;
     writeConfirmed(next);
     setLeads((prev) => prev.filter((l) => l.id !== leadId));
-  }, []);
+  }, [user?.name]);
+
+  const handleCopyPhone = useCallback(async (lead: NewLead) => {
+    if (!lead.phone) return;
+    try {
+      await navigator.clipboard.writeText(lead.phone);
+      toast.success('Phone copied');
+      setCopiedLeadId(lead.id);
+      await markHandled(lead.id, 'Copied phone number from New Leads modal');
+    } catch {
+      toast.error('Could not copy phone number');
+    }
+  }, [markHandled]);
 
   const activeLead = activeLeadId ? leads.find((l) => l.id === activeLeadId) : null;
 
@@ -224,16 +262,9 @@ export function NewLeadsModal() {
     <>
       <Dialog
         open={open && !activeLeadId}
-        onOpenChange={() => {
-          /* intentionally ignored — each lead must be handled individually */
-        }}
+        onOpenChange={(o) => setOpen(o)}
       >
-        <DialogContent
-          className="max-w-md [&>button]:hidden"
-          onEscapeKeyDown={(e) => e.preventDefault()}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-        >
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
               <AlertTriangle className="w-5 h-5" />
@@ -241,14 +272,14 @@ export function NewLeadsModal() {
             </DialogTitle>
             <DialogDescription>
               {leads.length} new lead{leads.length !== 1 ? 's' : ''} waiting for a first touch.
-              Open each one, send a script, and copy their phone number to mark them handled.
+              Send a script, copy their phone, or mark them as already contacted.
             </DialogDescription>
           </DialogHeader>
 
           <div className="divide-y divide-border max-h-[60vh] overflow-y-auto">
             {leads.map((lead) => (
-              <div key={lead.id} className="py-3 flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
+              <div key={lead.id} className="py-3 space-y-2">
+                <div className="min-w-0">
                   <p className="text-base font-medium">
                     {lead.first_name} {lead.last_name}
                   </p>
@@ -279,14 +310,43 @@ export function NewLeadsModal() {
                     </p>
                   )}
                 </div>
-                <Button
-                  size="sm"
-                  onClick={() => setActiveLeadId(lead.id)}
-                  className="shrink-0 min-h-[44px] bg-[#E8540A] hover:bg-[#E8540A]/90 text-white gap-1.5"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Send script
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => setActiveLeadId(lead.id)}
+                    className="min-h-[44px] bg-[#E8540A] hover:bg-[#E8540A]/90 text-white gap-1.5 flex-1 min-w-[140px]"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Send script
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!lead.phone}
+                    onClick={() => handleCopyPhone(lead)}
+                    className="min-h-[44px] gap-1.5 flex-1 min-w-[120px]"
+                  >
+                    {copiedLeadId === lead.id ? (
+                      <Check className="w-4 h-4" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                    Copy phone
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      markHandled(
+                        lead.id,
+                        'Marked as already contacted (outside app) from New Leads modal'
+                      )
+                    }
+                    className="min-h-[44px] flex-1 min-w-[140px]"
+                  >
+                    I contacted them
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -306,7 +366,7 @@ export function NewLeadsModal() {
           onPhoneCopied={() => {
             const id = activeLead.id;
             setActiveLeadId(null);
-            markHandled(id);
+            markHandled(id, 'Copied phone number via Send Script sheet');
           }}
         />
       )}
