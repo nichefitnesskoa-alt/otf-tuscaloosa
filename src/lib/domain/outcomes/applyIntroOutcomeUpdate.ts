@@ -57,7 +57,16 @@ export interface OutcomeUpdateParams {
    * cleared so the no-show returns to the queue.
    */
   dismissFollowUp?: boolean;
+  /**
+   * Marks this sale as a Winback: the person previously held an OTF membership
+   * or class pack. Counts fully in commission / SA Sales / WIG Sales / SOML Sales,
+   * but is EXCLUDED from trailing close-rate / show-rate calculations (never a new
+   * lead — matches corporate's Lead Funnel exclusion). Only meaningful on sale
+   * outcomes; ignored for non-sale outcomes.
+   */
+  isWinback?: boolean;
 }
+
 
 export interface OutcomeUpdateResult {
   success: boolean;
