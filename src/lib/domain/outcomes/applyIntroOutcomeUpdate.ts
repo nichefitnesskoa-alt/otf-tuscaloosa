@@ -242,7 +242,9 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         last_edited_by: params.editedBy,
         edit_reason: params.editReason || `Outcome changed to ${params.newResult} via ${params.sourceComponent}`,
         second_intro_reason: params.secondIntroReason,
+        is_winback: isNowSale ? !!params.isWinback : false,
       };
+
       if (params.coachName) {
         runUpdate.coach_name = params.coachName;
       }
