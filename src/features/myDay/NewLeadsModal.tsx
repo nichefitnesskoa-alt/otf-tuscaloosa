@@ -208,86 +208,108 @@ export function NewLeadsModal() {
     else setOpen(false);
   }, [leads]);
 
-  const handleConfirm = () => {
+  const markHandled = useCallback((leadId: string) => {
     const next = new Set(confirmedRef.current);
-    leads.forEach((l) => next.add(l.id));
+    next.add(leadId);
     confirmedRef.current = next;
     writeConfirmed(next);
-    setOpen(false);
-  };
+    setLeads((prev) => prev.filter((l) => l.id !== leadId));
+  }, []);
+
+  const activeLead = activeLeadId ? leads.find((l) => l.id === activeLeadId) : null;
 
   if (leads.length === 0) return null;
 
   return (
-    <Dialog
-      open={open}
-      // Block casual dismissal — the ONLY way out is the confirm button.
-      onOpenChange={() => {
-        /* intentionally ignored */
-      }}
-    >
-      <DialogContent
-        className="max-w-md [&>button]:hidden"
-        onEscapeKeyDown={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onInteractOutside={(e) => e.preventDefault()}
+    <>
+      <Dialog
+        open={open && !activeLeadId}
+        onOpenChange={() => {
+          /* intentionally ignored — each lead must be handled individually */
+        }}
       >
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-            <AlertTriangle className="w-5 h-5" />
-            New Leads — Respond Now
-          </DialogTitle>
-          <DialogDescription>
-            {leads.length} new lead{leads.length !== 1 ? 's' : ''} waiting for a first touch. Send a
-            message and mark them in Unified Portal before continuing.
-          </DialogDescription>
-        </DialogHeader>
+        <DialogContent
+          className="max-w-md [&>button]:hidden"
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="w-5 h-5" />
+              New Leads — Respond Now
+            </DialogTitle>
+            <DialogDescription>
+              {leads.length} new lead{leads.length !== 1 ? 's' : ''} waiting for a first touch.
+              Open each one, send a script, and copy their phone number to mark them handled.
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="divide-y divide-border max-h-[50vh] overflow-y-auto">
-          {leads.map((lead) => (
-            <div key={lead.id} className="py-2">
-              <p className="text-base font-medium">
-                {lead.first_name} {lead.last_name}
-              </p>
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                {lead.is_buddy_card ? (
-                  <Badge className="text-xs px-1.5 py-0 h-5 bg-[#FF6900] text-black hover:bg-[#FF6900]">
-                    Buddy Card
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">
-                    {lead.source}
-                  </Badge>
-                )}
-                <span className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(parseISO(lead.created_at), { addSuffix: true })}
-                </span>
-                {lead.phone && (
-                  <span className="text-xs text-muted-foreground">· {lead.phone}</span>
-                )}
+          <div className="divide-y divide-border max-h-[60vh] overflow-y-auto">
+            {leads.map((lead) => (
+              <div key={lead.id} className="py-3 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-medium">
+                    {lead.first_name} {lead.last_name}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    {lead.is_buddy_card ? (
+                      <Badge className="text-xs px-1.5 py-0 h-5 bg-[#FF6900] text-black hover:bg-[#FF6900]">
+                        Buddy Card
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">
+                        {lead.source}
+                      </Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(parseISO(lead.created_at), { addSuffix: true })}
+                    </span>
+                    {lead.phone && (
+                      <span className="text-xs text-muted-foreground">· {lead.phone}</span>
+                    )}
+                  </div>
+                  {lead.is_buddy_card && lead.referred_by_member_name && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Referred by{' '}
+                      <span className="font-medium text-foreground">
+                        {lead.referred_by_member_name}
+                      </span>
+                      {lead.referring_member_contact ? ` · ${lead.referring_member_contact}` : ''}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setActiveLeadId(lead.id)}
+                  className="shrink-0 min-h-[44px] bg-[#E8540A] hover:bg-[#E8540A]/90 text-white gap-1.5"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Send script
+                </Button>
               </div>
-              {lead.is_buddy_card && lead.referred_by_member_name && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Referred by{' '}
-                  <span className="font-medium text-foreground">
-                    {lead.referred_by_member_name}
-                  </span>
-                  {lead.referring_member_contact ? ` · ${lead.referring_member_contact}` : ''}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
-        <DialogFooter>
-          <Button
-            onClick={handleConfirm}
-            className="w-full min-h-[44px] bg-[#E8540A] hover:bg-[#E8540A]/90 text-white"
-          >
-            I sent a message and marked this in Unified Portal
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      {activeLead && (
+        <ScriptPickerSheet
+          open={!!activeLeadId}
+          onOpenChange={(o) => { if (!o) setActiveLeadId(null); }}
+          suggestedCategories={['web_lead']}
+          mergeContext={{
+            'first-name': activeLead.first_name,
+            'last-name': activeLead.last_name,
+          }}
+          leadId={activeLead.id}
+          onPhoneCopied={() => {
+            const id = activeLead.id;
+            setActiveLeadId(null);
+            markHandled(id);
+          }}
+        />
+      )}
+    </>
   );
 }
