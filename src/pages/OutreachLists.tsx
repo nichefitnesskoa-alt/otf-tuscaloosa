@@ -22,7 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { UnifiedPortalReminder } from '@/features/outreach/UnifiedPortalReminder';
 import { BuddyCardExportButton } from '@/features/outreach/BuddyCardExportButton';
 import { MyDayNewLeadsTab } from '@/features/myDay/MyDayNewLeadsTab';
-import { NewLeadsAlert } from '@/features/myDay/NewLeadsAlert';
+
 import { MyDayScriptsTab } from '@/features/myDay/MyDayScriptsTab';
 import FollowUpList from '@/features/followUp/FollowUpList';
 
@@ -174,7 +174,7 @@ export default function OutreachLists() {
             </div>
             {isAdmin && <BuddyCardExportButton />}
           </div>
-          <NewLeadsAlert />
+          
           <MyDayNewLeadsTab onCountChange={setNewLeadsCount} />
         </TabsContent>
 

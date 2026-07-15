@@ -59,7 +59,7 @@ import { WhatsChangedDialog } from '@/components/shared/WhatsChangedDialog';
 import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
 
 import { useDarkMode } from '@/hooks/useDarkMode';
-import { NewLeadsAlert } from './NewLeadsAlert';
+import { NewLeadsModal } from './NewLeadsModal';
 import { VipClaimBanner } from './VipClaimBanner';
 
 import { ClassMilestoneChecks } from './ClassMilestoneChecks';
@@ -501,7 +501,7 @@ export default function MyDayPage() {
       {/* ═══ INTROS (New Leads, Follow-Up, Scripts moved to Outreach page) ═══ */}
       <div className="px-4 pt-3 space-y-3 pb-[10px]">
         <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
-        <NewLeadsAlert />
+        <NewLeadsModal />
       </div>
 
 
