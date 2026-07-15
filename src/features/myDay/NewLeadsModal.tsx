@@ -226,8 +226,7 @@ export function NewLeadsModal() {
       }}
     >
       <DialogContent
-        className="max-w-md"
-        showCloseButton={false}
+        className="max-w-md [&>button]:hidden"
         onEscapeKeyDown={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
