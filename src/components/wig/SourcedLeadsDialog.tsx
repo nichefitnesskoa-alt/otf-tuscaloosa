@@ -28,7 +28,7 @@ import {
 import { useSaLeads, type SaLeadPersonRow, reassignSelfSourcedRow } from '@/hooks/useSaLeads';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useMarkLeadImported } from '@/hooks/useMarkLeadImported';
-import { downloadSourcedLeadsCsv, type SourcedLeadCsvRow } from '@/lib/sa/sourcedLeadsCsv';
+import { downloadSourcedLeadsCsv, hasExportableEmail, type SourcedLeadCsvRow } from '@/lib/sa/sourcedLeadsCsv';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -254,14 +254,21 @@ export function SourcedLeadsDialog({
     const label = preset === 'all_time'
       ? 'all-time'
       : `${format(dateRange.start, 'yyyy-MM-dd')}_to_${format(dateRange.end, 'yyyy-MM-dd')}`;
-    downloadSourcedLeadsCsv(rows, label);
+    const { skipped } = downloadSourcedLeadsCsv(rows, label);
+    if (skipped > 0) {
+      toast({
+        title: `Downloaded — ${skipped} skipped (missing email)`,
+        description: `Check them off manually once you've got it. They're flagged in the list with a "No email" badge.`,
+      });
+    }
   };
+
 
   const toggleSa = (sa: string) => setExpandedSa(prev => ({ ...prev, [sa]: !prev[sa] }));
 
   const statusOptions: { value: StatusFilter; label: string; count: number }[] = [
     { value: 'needs', label: 'Needs import', count: counts.needs },
-    { value: 'in_mindbody', label: 'In OrangeBook', count: counts.in_mindbody },
+    { value: 'in_mindbody', label: 'In Unified Portal', count: counts.in_mindbody },
     { value: 'all', label: 'All', count: counts.all },
   ];
 
@@ -320,9 +327,9 @@ export function SourcedLeadsDialog({
             </span>
             <span className="text-sm text-muted-foreground">
               {status === 'needs'
-                ? `need${rows.length === 1 ? 's' : ''} OrangeBook import`
+                ? `need${rows.length === 1 ? 's' : ''} Unified Portal import`
                 : status === 'in_mindbody'
-                ? `already in OrangeBook`
+                ? `already in Unified Portal`
                 : `self-generated record${rows.length === 1 ? '' : 's'} in this range`}
             </span>
           </div>
@@ -456,12 +463,12 @@ function LeadRow({
           )}
           title={
             isBooked
-              ? 'Already in OrangeBook (booked)'
+              ? 'Already in Unified Portal (booked)'
               : isVip
-              ? 'Already in OrangeBook (VIP registrant)'
+              ? 'Already in Unified Portal (VIP registrant)'
               : inMindbody
               ? 'Mark not yet imported'
-              : 'Mark imported to OrangeBook'
+              : 'Mark imported to Unified Portal'
           }
         >
           <Checkbox
@@ -478,11 +485,20 @@ function LeadRow({
             <span className="ml-2 text-xs bg-success/20 text-success px-1.5 py-0.5 rounded">Booked</span>
           )}
           {!isBooked && !isVip && l.mindbody_imported_at && (
-            <span className="ml-2 text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded">In OrangeBook</span>
+            <span className="ml-2 text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded">In Unified Portal</span>
           )}
           {isVip && (
-            <span className="ml-2 text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded">VIP · In OrangeBook</span>
+            <span className="ml-2 text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded">VIP · In Unified Portal</span>
           )}
+          {!inMindbody && !hasExportableEmail(l) && (
+            <span
+              className="ml-2 text-xs bg-destructive/15 text-destructive px-1.5 py-0.5 rounded"
+              title="No email on file — this lead will be skipped from the CSV export until an email is added"
+            >
+              No email
+            </span>
+          )}
+
         </div>
         <div className="text-xs text-muted-foreground truncate">
           {[l.phone, l.email].filter(Boolean).join(' · ')}

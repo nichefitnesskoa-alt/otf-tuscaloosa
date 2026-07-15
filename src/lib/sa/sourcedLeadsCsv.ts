@@ -41,9 +41,17 @@ function esc(v: unknown): string {
 
 const HEADERS = ['first_name', 'last_name', 'phone_number', 'email', 'channel'];
 
+/** A row is exportable only if it has a non-blank email. Unified Portal's
+ *  Bulk Upload rejects the whole file when any row is missing an email, so
+ *  we filter these out at the source and surface the skip count to the UI. */
+export function hasExportableEmail(r: Pick<SourcedLeadCsvRow, 'email'>): boolean {
+  return !!(r.email && r.email.trim());
+}
+
 export function buildSourcedLeadsCsv(rows: SourcedLeadCsvRow[]): string {
   const lines = [HEADERS.join(',')];
   for (const r of rows) {
+    if (!hasExportableEmail(r)) continue;
     const phone = stripCountryCode(r.phone) ?? '';
     lines.push([
       r.first_name,
@@ -56,8 +64,11 @@ export function buildSourcedLeadsCsv(rows: SourcedLeadCsvRow[]): string {
   return lines.join('\n');
 }
 
-export function downloadSourcedLeadsCsv(rows: SourcedLeadCsvRow[], label: string) {
+/** Returns the number of rows that were skipped for missing email so the
+ *  caller can surface a toast. */
+export function downloadSourcedLeadsCsv(rows: SourcedLeadCsvRow[], label: string): { skipped: number } {
   const csv = buildSourcedLeadsCsv(rows);
+  const skipped = rows.filter(r => !hasExportableEmail(r)).length;
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -69,4 +80,6 @@ export function downloadSourcedLeadsCsv(rows: SourcedLeadCsvRow[], label: string
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  return { skipped };
 }
+

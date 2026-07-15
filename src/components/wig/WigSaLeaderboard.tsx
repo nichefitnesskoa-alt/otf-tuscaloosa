@@ -452,7 +452,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         </div>
       )}
 
-      {/* ===== OrangeBook import reminder ===== */}
+      {/* ===== Unified Portal import reminder ===== */}
       {(() => {
         let needsImport = 0;
         for (const r of sourcedLeads.rows) {
@@ -474,8 +474,9 @@ export function WigSaLeaderboard({ dateRange }: Props) {
               <AlertCircle className="w-5 h-5 text-primary shrink-0" />
               <div className="min-w-0">
                 <p className="text-sm font-bold text-primary">
-                  {needsImport} sourced {needsImport === 1 ? 'lead' : 'leads'} still {needsImport === 1 ? 'needs' : 'need'} to be imported into OrangeBook
+                  {needsImport} sourced {needsImport === 1 ? 'lead' : 'leads'} still {needsImport === 1 ? 'needs' : 'need'} to go to Unified Portal
                 </p>
+
                 <p className="text-xs text-muted-foreground">
                   Tap to review and check them off. This banner clears once the list is empty.
                 </p>
@@ -524,9 +525,10 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           <div className="mt-3 flex items-start gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
             <AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
             <div className="text-foreground">
-              <span className="font-semibold">All leads go in OrangeBook, not Mindbody.</span>{' '}
-              Add every self-generated lead here, then check it off in <span className="font-medium">Sourced Leads</span> once it's entered in OrangeBook.
+              <span className="font-semibold">Log every self-generated lead here as normal.</span>{' '}
+              Then open <span className="font-medium">Sourced Leads</span>, filter to Needs import, and click Download CSV. In Unified Portal, go to Add Lead → Bulk Upload and upload the file (or use Manual Entry for a one-off). Check each lead off here once it's in.
             </div>
+
           </div>
         </CardHeader>
         <CardContent className="p-0">
