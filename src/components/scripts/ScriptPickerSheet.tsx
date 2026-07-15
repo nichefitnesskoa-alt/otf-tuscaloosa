@@ -104,9 +104,9 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
       setResolvedQuestionnaireUrl(undefined);
       return;
     }
+    let cancelled = false;
     // Lead-only path: no booking yet, pull name + phone from leads table
     if (!bookingId && leadId) {
-      let cancelled = false;
       (async () => {
         setCtxLoading(true);
         try {
@@ -131,7 +131,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
           if (!cancelled) setCtxLoading(false);
         }
       })();
-      return () => { cancelled = true; } as any;
+      return () => { cancelled = true; };
     }
     if (!bookingId) {
       setMemberCtx(null);
@@ -139,7 +139,6 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
       setResolvedQuestionnaireUrl(undefined);
       return;
     }
-    let cancelled = false;
     const fetchCtx = async () => {
       setCtxLoading(true);
       try {
