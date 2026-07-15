@@ -426,6 +426,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
                         setPhoneCopied(true);
                         setTimeout(() => setPhoneCopied(false), 2000);
                         toast.success('Phone copied');
+                        onPhoneCopied?.();
                       } catch {
                         toast.error('Failed to copy');
                       }
