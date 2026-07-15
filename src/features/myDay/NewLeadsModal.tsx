@@ -70,6 +70,7 @@ export function NewLeadsModal() {
   const location = useLocation();
   const [leads, setLeads] = useState<NewLead[]>([]);
   const [open, setOpen] = useState(false);
+  const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
   const confirmedRef = useRef<Set<string>>(readConfirmed());
 
   const fetchNewLeads = useCallback(async () => {
