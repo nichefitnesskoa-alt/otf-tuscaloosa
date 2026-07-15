@@ -158,6 +158,22 @@ export function WalkInSaleSheet({ open, onOpenChange, onSaved }: WalkInSaleSheet
             <Label>Notes</Label>
             <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Optional" />
           </div>
+          <label className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/40 p-2.5 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isWinback}
+              onChange={e => setIsWinback(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+            />
+            <span className="flex-1">
+              <span className="font-medium">Winback</span>
+              <span className="block text-xs text-muted-foreground">
+                Previously an OTF member or class-pack holder. Counts fully for
+                commission and sales totals, excluded from close/show rate.
+              </span>
+            </span>
+          </label>
+
           {tier && (
             <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-green-600" />
