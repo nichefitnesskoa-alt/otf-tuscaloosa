@@ -64,9 +64,10 @@ interface ScriptPickerSheetProps {
   friendQuestionnaireId?: string;
   onQuestionnaireSent?: () => void;
   onFriendQuestionnaireSent?: () => void;
+  onPhoneCopied?: () => void;
 }
 
-export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mergeContext, leadId, bookingId, onLogged, questionnaireId, friendQuestionnaireId, onQuestionnaireSent, onFriendQuestionnaireSent }: ScriptPickerSheetProps) {
+export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mergeContext, leadId, bookingId, onLogged, questionnaireId, friendQuestionnaireId, onQuestionnaireSent, onFriendQuestionnaireSent, onPhoneCopied }: ScriptPickerSheetProps) {
   const [selectedCategory, setSelectedCategory] = useState(suggestedCategories[0] || '');
   const [search, setSearch] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<ScriptTemplate | null>(null);
