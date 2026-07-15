@@ -118,15 +118,17 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
   const activeDayGroups = useMemo(() => groupByDay(activeDayItems), [activeDayItems]);
   const completedDayGroups = useMemo(() => groupByDay(completedDayItems), [completedDayItems]);
 
-  // Tomorrow confirmation banner — loud prompt to text & confirm tomorrow's intros
-  const tomorrowStr = useMemo(() => {
+  // Confirmation banner — fires 2 days before class (moved from 1-day prior).
+  // Gives leads real time to plan/confirm/reschedule and leaves room for a
+  // follow-up nudge if the first message doesn't get a response.
+  const confirmDayStr = useMemo(() => {
     const d = new Date();
-    d.setDate(d.getDate() + 1);
+    d.setDate(d.getDate() + 2);
     return format(d, 'yyyy-MM-dd');
   }, []);
-  const tomorrowItems = useMemo(() => items.filter(i => i.classDate === tomorrowStr), [items, tomorrowStr]);
-  const tomorrowUnconfirmed = useMemo(() => tomorrowItems.filter(i => !i.confirmedAt).length, [tomorrowItems]);
-  const showTomorrowBanner = isCurrentWeek && tomorrowItems.length > 0 && tomorrowUnconfirmed > 0;
+  const confirmDayItems = useMemo(() => items.filter(i => i.classDate === confirmDayStr), [items, confirmDayStr]);
+  const confirmDayUnconfirmed = useMemo(() => confirmDayItems.filter(i => !i.confirmedAt).length, [confirmDayItems]);
+  const showConfirmDayBanner = isCurrentWeek && confirmDayItems.length > 0 && confirmDayUnconfirmed > 0;
 
   // Today confirmation banner — same loud prompt for today's intros
   const todayItems = useMemo(() => items.filter(i => i.classDate === todayStr), [items, todayStr]);
