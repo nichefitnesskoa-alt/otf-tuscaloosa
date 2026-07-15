@@ -560,7 +560,9 @@ export function OutcomeDrawer({
         followUpCategory: followUpCategory || undefined,
         friendReferralAsked: false, // Will be updated after friend prompt
         dismissFollowUp: isNoShow ? dismissNoShowFollowUp : undefined,
+        isWinback: isSale ? isWinback : undefined,
       });
+
 
       if (result.success) {
         // If booking had no coach (or "TBD") and SA picked one, persist to intros_booked so it stops appearing as TBD downstream
