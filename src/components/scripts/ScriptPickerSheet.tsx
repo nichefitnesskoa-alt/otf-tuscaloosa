@@ -98,7 +98,42 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
   const PUBLISHED_URL = 'https://otf-tuscaloosa.lovable.app';
 
   useEffect(() => {
-    if (!open || !bookingId) {
+    if (!open) {
+      setMemberCtx(null);
+      setResolvedQuestionnaireId(undefined);
+      setResolvedQuestionnaireUrl(undefined);
+      return;
+    }
+    // Lead-only path: no booking yet, pull name + phone from leads table
+    if (!bookingId && leadId) {
+      let cancelled = false;
+      (async () => {
+        setCtxLoading(true);
+        try {
+          const { data: lead } = await supabase
+            .from('leads')
+            .select('first_name, last_name, phone')
+            .eq('id', leadId)
+            .maybeSingle();
+          if (cancelled || !lead) return;
+          const raw = (lead as any).phone || null;
+          const displayPhone = raw
+            ? String(raw).replace(/^\+1/, '').replace(/\D/g, '').replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')
+            : null;
+          setMemberCtx({
+            name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim(),
+            goal: null,
+            obstacle: null,
+            why: null,
+            phone: displayPhone,
+          });
+        } finally {
+          if (!cancelled) setCtxLoading(false);
+        }
+      })();
+      return () => { cancelled = true; } as any;
+    }
+    if (!bookingId) {
       setMemberCtx(null);
       setResolvedQuestionnaireId(undefined);
       setResolvedQuestionnaireUrl(undefined);
