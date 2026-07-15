@@ -525,9 +525,10 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           <div className="mt-3 flex items-start gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
             <AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
             <div className="text-foreground">
-              <span className="font-semibold">All leads go in OrangeBook, not Mindbody.</span>{' '}
-              Add every self-generated lead here, then check it off in <span className="font-medium">Sourced Leads</span> once it's entered in OrangeBook.
+              <span className="font-semibold">Log every self-generated lead here as normal.</span>{' '}
+              Then open <span className="font-medium">Sourced Leads</span>, filter to Needs import, and click Download CSV. In Unified Portal, go to Add Lead → Bulk Upload and upload the file (or use Manual Entry for a one-off). Check each lead off here once it's in.
             </div>
+
           </div>
         </CardHeader>
         <CardContent className="p-0">
