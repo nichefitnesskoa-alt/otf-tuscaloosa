@@ -2214,6 +2214,7 @@ export type Database = {
           intro_owner_locked: boolean | null
           is_self_gen: boolean | null
           is_vip: boolean
+          is_winback: boolean
           last_edited_at: string | null
           last_edited_by: string | null
           lead_measures: string[] | null
@@ -2261,6 +2262,7 @@ export type Database = {
           intro_owner_locked?: boolean | null
           is_self_gen?: boolean | null
           is_vip?: boolean
+          is_winback?: boolean
           last_edited_at?: string | null
           last_edited_by?: string | null
           lead_measures?: string[] | null
@@ -2308,6 +2310,7 @@ export type Database = {
           intro_owner_locked?: boolean | null
           is_self_gen?: boolean | null
           is_vip?: boolean
+          is_winback?: boolean
           last_edited_at?: string | null
           last_edited_by?: string | null
           lead_measures?: string[] | null
@@ -3115,6 +3118,7 @@ export type Database = {
           edit_reason: string | null
           id: string
           intro_owner: string | null
+          is_winback: boolean
           last_edited_at: string | null
           last_edited_by: string | null
           lead_source: string
@@ -3134,6 +3138,7 @@ export type Database = {
           edit_reason?: string | null
           id?: string
           intro_owner?: string | null
+          is_winback?: boolean
           last_edited_at?: string | null
           last_edited_by?: string | null
           lead_source: string
@@ -3153,6 +3158,7 @@ export type Database = {
           edit_reason?: string | null
           id?: string
           intro_owner?: string | null
+          is_winback?: boolean
           last_edited_at?: string | null
           last_edited_by?: string | null
           lead_source?: string

@@ -57,7 +57,16 @@ export interface OutcomeUpdateParams {
    * cleared so the no-show returns to the queue.
    */
   dismissFollowUp?: boolean;
+  /**
+   * Marks this sale as a Winback: the person previously held an OTF membership
+   * or class pack. Counts fully in commission / SA Sales / WIG Sales / SOML Sales,
+   * but is EXCLUDED from trailing close-rate / show-rate calculations (never a new
+   * lead — matches corporate's Lead Funnel exclusion). Only meaningful on sale
+   * outcomes; ignored for non-sale outcomes.
+   */
+  isWinback?: boolean;
 }
+
 
 export interface OutcomeUpdateResult {
   success: boolean;
@@ -193,11 +202,13 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
           commission_amount: resolvedCommission,
           primary_objection: params.objection || null,
           buy_date: isNowSale ? runDate : null,
+          is_winback: isNowSale ? !!params.isWinback : false,
           created_at: new Date().toISOString(),
           last_edited_at: new Date().toISOString(),
           last_edited_by: params.editedBy,
           edit_reason: params.editReason || `Run auto-created via ${params.sourceComponent}`,
         })
+
         .select('id, result, buy_date, run_date, lead_source, amc_incremented_at')
         .single();
 
@@ -231,7 +242,9 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         last_edited_by: params.editedBy,
         edit_reason: params.editReason || `Outcome changed to ${params.newResult} via ${params.sourceComponent}`,
         second_intro_reason: params.secondIntroReason,
+        is_winback: isNowSale ? !!params.isWinback : false,
       };
+
       if (params.coachName) {
         runUpdate.coach_name = params.coachName;
       }

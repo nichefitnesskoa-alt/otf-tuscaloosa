@@ -49,7 +49,7 @@ export function useTrailingConversion() {
 
       const { data: runs } = await supabase
         .from('intros_run')
-        .select('id, run_date, result_canon, result, buy_date, linked_intro_booked_id, ignore_from_metrics, created_at')
+        .select('id, run_date, result_canon, result, buy_date, linked_intro_booked_id, ignore_from_metrics, is_winback, created_at')
         .gte('run_date', start)
         .lt('run_date', end);
 
@@ -60,11 +60,16 @@ export function useTrailingConversion() {
           .map(b => b.id),
       );
 
+      // Winback runs are excluded from BOTH numerator and denominator of trailing
+      // close-rate / show-rate. A winback was never a new lead — including it would
+      // distort new-lead conversion the way corporate's Lead Funnel does not.
       const eligibleRuns = (runs || []).filter(r =>
         !r.ignore_from_metrics
+        && !(r as any).is_winback
         && (r.result_canon || '').toUpperCase() !== 'DELETED'
         && (!r.linked_intro_booked_id || activeBookingIds.has(r.linked_intro_booked_id)),
       );
+
 
       const resolvedBookingIds = new Set(
         eligibleRuns

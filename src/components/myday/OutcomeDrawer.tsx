@@ -118,6 +118,8 @@ export function OutcomeDrawer({
   // No-show-only: "Not interested — no follow-up" disposition.
   // Stays NO_SHOW everywhere counted; just suppresses the follow-up queue/texts.
   const [dismissNoShowFollowUp, setDismissNoShowFollowUp] = useState(false);
+  const [isWinback, setIsWinback] = useState(false);
+
 
   // Friend referral post-sale state
   const [showFriendPrompt, setShowFriendPrompt] = useState(false);
@@ -558,7 +560,9 @@ export function OutcomeDrawer({
         followUpCategory: followUpCategory || undefined,
         friendReferralAsked: false, // Will be updated after friend prompt
         dismissFollowUp: isNoShow ? dismissNoShowFollowUp : undefined,
+        isWinback: isSale ? isWinback : undefined,
       });
+
 
       if (result.success) {
         // If booking had no coach (or "TBD") and SA picked one, persist to intros_booked so it stops appearing as TBD downstream
@@ -818,6 +822,28 @@ export function OutcomeDrawer({
           Commission: <span className="font-medium text-foreground">${commission.toFixed(2)}</span>
         </p>
       )}
+
+      {/* Winback flag — sale-only. Counts as sale/commission everywhere, but
+          is EXCLUDED from trailing close-rate / show-rate (never a new lead). */}
+      {isSale && (
+        <label className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/40 p-2.5 text-sm cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isWinback}
+            onChange={e => setIsWinback(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+          />
+          <span className="flex-1">
+            <span className="font-medium">Winback</span>
+            <span className="block text-xs text-muted-foreground">
+              Previously an OTF member or class-pack holder. Counts fully for
+              commission and sales totals, excluded from close/show rate.
+            </span>
+          </span>
+        </label>
+      )}
+
+
 
       {/* Follow-up category selector — shown for follow-up/no-show outcomes */}
       {(isFollowUpNeeded || isNoShow) && (
