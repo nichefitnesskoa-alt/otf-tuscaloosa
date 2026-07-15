@@ -202,11 +202,13 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
           commission_amount: resolvedCommission,
           primary_objection: params.objection || null,
           buy_date: isNowSale ? runDate : null,
+          is_winback: isNowSale ? !!params.isWinback : false,
           created_at: new Date().toISOString(),
           last_edited_at: new Date().toISOString(),
           last_edited_by: params.editedBy,
           edit_reason: params.editReason || `Run auto-created via ${params.sourceComponent}`,
         })
+
         .select('id, result, buy_date, run_date, lead_source, amc_incremented_at')
         .single();
 
