@@ -39,7 +39,7 @@ function esc(v: unknown): string {
   return s;
 }
 
-const HEADERS = ['First Name', 'Last Name', 'Phone', 'Email', 'Channel'];
+const HEADERS = ['first_name', 'last_name', 'phone_number', 'email', 'channel'];
 
 export function buildSourcedLeadsCsv(rows: SourcedLeadCsvRow[]): string {
   const lines = [HEADERS.join(',')];
