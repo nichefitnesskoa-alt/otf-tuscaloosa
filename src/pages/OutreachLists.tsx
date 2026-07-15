@@ -174,7 +174,7 @@ export default function OutreachLists() {
             </div>
             {isAdmin && <BuddyCardExportButton />}
           </div>
-          <NewLeadsAlert />
+          
           <MyDayNewLeadsTab onCountChange={setNewLeadsCount} />
         </TabsContent>
 
