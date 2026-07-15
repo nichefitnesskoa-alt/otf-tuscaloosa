@@ -28,7 +28,7 @@ import {
 import { useSaLeads, type SaLeadPersonRow, reassignSelfSourcedRow } from '@/hooks/useSaLeads';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useMarkLeadImported } from '@/hooks/useMarkLeadImported';
-import { downloadSourcedLeadsCsv, type SourcedLeadCsvRow } from '@/lib/sa/sourcedLeadsCsv';
+import { downloadSourcedLeadsCsv, hasExportableEmail, type SourcedLeadCsvRow } from '@/lib/sa/sourcedLeadsCsv';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
