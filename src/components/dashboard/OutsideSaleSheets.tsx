@@ -61,12 +61,13 @@ export function WalkInSaleSheet({ open, onOpenChange, onSaved }: WalkInSaleSheet
   const [tier, setTier] = useState('');
   const [date, setDate] = useState(today());
   const [notes, setNotes] = useState('');
+  const [isWinback, setIsWinback] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const commission = computeCommission({ membershipType: tier });
 
   const reset = () => {
-    setMemberName(''); setPhone(''); setTier(''); setDate(today()); setNotes('');
+    setMemberName(''); setPhone(''); setTier(''); setDate(today()); setNotes(''); setIsWinback(false);
   };
 
   const handleSave = async () => {
@@ -83,20 +84,24 @@ export function WalkInSaleSheet({ open, onOpenChange, onSaved }: WalkInSaleSheet
         sale_id: saleId,
         sale_type: 'walk_in',
         member_name: memberName.trim(),
-        lead_source: 'Walk in',
+        lead_source: isWinback ? 'Winback' : 'Walk in',
         membership_type: tier,
         commission_amount: commission,
         intro_owner: sa,
         date_closed: date,
+        is_winback: isWinback,
         edit_reason: notes || null,
-      });
+      } as any);
 
-      // AMC — walk-in is a new membership
-      if (isAmcEligibleSale({ membershipType: tier, leadSource: 'Walk in' })) {
+      // AMC — walk-in is a new membership. Winback is a returning member, so
+      // it does NOT count as a new membership for AMC purposes.
+      if (!isWinback && isAmcEligibleSale({ membershipType: tier, leadSource: 'Walk in' })) {
         await incrementAmcOnSale(memberName.trim(), tier, sa, date);
       }
 
-      toast.success(`${memberName.trim()} walk-in sale logged — ${tier} — $${commission.toFixed(2)}`);
+      toast.success(
+        `${memberName.trim()} ${isWinback ? 'winback' : 'walk-in'} sale logged — ${tier} — $${commission.toFixed(2)}`,
+      );
       reset();
       onOpenChange(false);
       onSaved();
@@ -107,6 +112,7 @@ export function WalkInSaleSheet({ open, onOpenChange, onSaved }: WalkInSaleSheet
       setSaving(false);
     }
   };
+
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
