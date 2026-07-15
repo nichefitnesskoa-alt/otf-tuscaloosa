@@ -28,10 +28,14 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, MessageSquare } from 'lucide-react';
+import { AlertTriangle, MessageSquare, Copy, Check } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { getNowCentral } from '@/lib/dateUtils';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
+import { useAuth } from '@/context/AuthContext';
+import { toast } from 'sonner';
+
+const REOPEN_INTERVAL_MS = 5 * 60 * 1000;
 
 interface NewLead {
   id: string;
