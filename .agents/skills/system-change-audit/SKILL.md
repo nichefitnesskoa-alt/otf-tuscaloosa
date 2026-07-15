@@ -65,6 +65,10 @@ Run only the branches that apply.
 
 **Multiple-source guard.** When a diagnosis step finds where a concept is stored or computed (a target, a goal, a rate, an attribution rule), it must also check whether a SECOND, competing definition of that same concept exists elsewhere in the codebase, especially across features built in separate sessions. Report every real candidate location found, not just the first one that resolves an answer. If more than one exists, STOP and ask which is canonical before building against either. The first match is not automatically the only match.
 
+**Global style-change guard.** Before applying any broad, shared style rule (a CSS class, a design token, a floor/ceiling on a property like font-size), explicitly audit for elements that already set the same property via a different class or component, and exclude them by name. Do not rely on CSS functions like `max()`/`min()` to distinguish intent between "this is small on purpose" and "this is small because nothing else set it" — they cannot see that distinction, only the literal computed values in front of them. A shared class combined with an existing size utility on the same element is a collision, not a coincidence, and needs to be found before the change ships, not after.
+
+**Public-flow observability guard.** Any new or existing public-facing, unauthenticated flow (booking links, referral links, giveaway pages, anything reachable without login) must record which entry point/URL/code a visitor actually used, permanently, at the moment of write. If a public flow can succeed or silently degrade in more than one way, and there is no record of which path a given row took, that ambiguity will eventually become an unresolvable support question. Observability is not optional hardening added after a failure, it is a required part of building any new public flow from the start.
+
 ## Step 3 — Coherence proof (BEFORE saying done)
 
 End the response with a block in this exact shape:
