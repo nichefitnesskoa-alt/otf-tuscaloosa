@@ -377,27 +377,32 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
           </div>
         )}
 
-        {/* Tomorrow confirmation prompt — loud, action-oriented */}
-        {showTomorrowBanner && (
-          <div className="border-2 border-primary bg-primary/15 rounded-md px-4 py-3 flex items-center justify-between gap-3 min-h-[44px]">
-            <div className="flex items-start gap-2 min-w-0">
-              <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-primary leading-tight">
-                  Send confirmation texts for tomorrow's intros
-                </p>
-                <p className="text-xs text-foreground/80 mt-0.5">
-                  {tomorrowUnconfirmed} of {tomorrowItems.length} haven't gotten a confirmation text yet (includes 2nd intros)
-                </p>
+        {/* 2-day-out confirmation prompt — loud, action-oriented, includes the "why" every time */}
+        {showConfirmDayBanner && (
+          <div className="border-2 border-primary bg-primary/15 rounded-md px-4 py-3 flex flex-col gap-2 min-h-[44px]">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-start gap-2 min-w-0">
+                <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-primary leading-tight">
+                    Send confirmation texts — class is 2 days out
+                  </p>
+                  <p className="text-xs text-foreground/80 mt-0.5">
+                    {confirmDayUnconfirmed} of {confirmDayItems.length} haven't gotten a confirmation text yet (includes 2nd intros)
+                  </p>
+                </div>
               </div>
+              <Button
+                size="sm"
+                className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() => setSelectedDate(confirmDayStr)}
+              >
+                Go to that day →
+              </Button>
             </div>
-            <Button
-              size="sm"
-              className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => setSelectedDate(tomorrowStr)}
-            >
-              Go to tomorrow →
-            </Button>
+            <p className="text-[11px] leading-snug text-foreground/70 border-t border-primary/20 pt-2">
+              We're reaching out 2 days before class now, not 1. It gives people real time to actually plan and confirm instead of finding out too late they've already made other plans. If someone does need to reschedule, we hear about it early enough to move them to a better time, not scramble the day before. And if the first message doesn't get a response, there's still time to follow up again before class.
+            </p>
           </div>
         )}
 
