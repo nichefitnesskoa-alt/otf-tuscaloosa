@@ -25,13 +25,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, MessageSquare } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { getNowCentral } from '@/lib/dateUtils';
+import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 
 interface NewLead {
   id: string;
