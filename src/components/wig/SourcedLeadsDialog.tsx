@@ -268,7 +268,7 @@ export function SourcedLeadsDialog({
 
   const statusOptions: { value: StatusFilter; label: string; count: number }[] = [
     { value: 'needs', label: 'Needs import', count: counts.needs },
-    { value: 'in_mindbody', label: 'In OrangeBook', count: counts.in_mindbody },
+    { value: 'in_mindbody', label: 'In Unified Portal', count: counts.in_mindbody },
     { value: 'all', label: 'All', count: counts.all },
   ];
 
@@ -327,9 +327,9 @@ export function SourcedLeadsDialog({
             </span>
             <span className="text-sm text-muted-foreground">
               {status === 'needs'
-                ? `need${rows.length === 1 ? 's' : ''} OrangeBook import`
+                ? `need${rows.length === 1 ? 's' : ''} Unified Portal import`
                 : status === 'in_mindbody'
-                ? `already in OrangeBook`
+                ? `already in Unified Portal`
                 : `self-generated record${rows.length === 1 ? '' : 's'} in this range`}
             </span>
           </div>
@@ -463,12 +463,12 @@ function LeadRow({
           )}
           title={
             isBooked
-              ? 'Already in OrangeBook (booked)'
+              ? 'Already in Unified Portal (booked)'
               : isVip
-              ? 'Already in OrangeBook (VIP registrant)'
+              ? 'Already in Unified Portal (VIP registrant)'
               : inMindbody
               ? 'Mark not yet imported'
-              : 'Mark imported to OrangeBook'
+              : 'Mark imported to Unified Portal'
           }
         >
           <Checkbox
@@ -485,10 +485,10 @@ function LeadRow({
             <span className="ml-2 text-xs bg-success/20 text-success px-1.5 py-0.5 rounded">Booked</span>
           )}
           {!isBooked && !isVip && l.mindbody_imported_at && (
-            <span className="ml-2 text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded">In OrangeBook</span>
+            <span className="ml-2 text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded">In Unified Portal</span>
           )}
           {isVip && (
-            <span className="ml-2 text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded">VIP · In OrangeBook</span>
+            <span className="ml-2 text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded">VIP · In Unified Portal</span>
           )}
         </div>
         <div className="text-xs text-muted-foreground truncate">
