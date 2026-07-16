@@ -85,6 +85,7 @@ interface OutcomeDrawerProps {
   initialCoach?: string;
   initialObjection?: string;
   initialNotes?: string;
+  initialIsWinback?: boolean;
   isVipClassIntro?: boolean;
   onSaved: () => void;
   onCancel: () => void;
