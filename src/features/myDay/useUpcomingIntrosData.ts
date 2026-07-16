@@ -387,6 +387,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
             latestRunCoach: null,
             latestRunObjection: null,
             latestRunNotes: null,
+            latestRunIsWinback: null,
             originatingBookingId: null,
             isSecondIntro: false,
             referredBy: null,
