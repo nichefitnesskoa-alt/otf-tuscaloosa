@@ -73,7 +73,7 @@ export function OutcomeEditButton({ bookingId, label, tone = 'muted', onChanged,
 
       const { data: runs } = await supabase
         .from('intros_run')
-        .select('id, result, primary_objection, run_date, created_at')
+        .select('id, result, primary_objection, is_winback, run_date, created_at')
         .eq('linked_intro_booked_id', bookingId)
         .order('run_date', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
@@ -91,6 +91,7 @@ export function OutcomeEditButton({ bookingId, label, tone = 'muted', onChanged,
         latest_run_id: latest?.id ?? null,
         latest_run_result: latest?.result ?? null,
         latest_run_objection: latest?.primary_objection ?? null,
+        latest_run_is_winback: latest?.is_winback ?? false,
       });
       setOpen(true);
     } catch (err: any) {
