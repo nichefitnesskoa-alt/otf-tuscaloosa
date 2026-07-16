@@ -191,7 +191,7 @@ export function computeTabCounts(journeys: ClientJourney[]): TabCounts {
     if (latestActiveBooking && isBookingToday(latestActiveBooking)) counts.today++;
 
     const hasActiveBooking = journey.bookings.some(
-      b => (b.booking_status_canon === 'ACTIVE' || !b.booking_status || b.booking_status === 'Active') && isBookingPast(b)
+      b => (b.booking_status_canon === 'ACTIVE' || b.booking_status_canon === 'NO_SHOW' || !b.booking_status || b.booking_status === 'Active' || b.booking_status === 'No-show') && isBookingPast(b)
     );
     const hasValidRun = journey.runs.some(r => r.result !== 'No-show');
     if (!hasPurchased && hasActiveBooking && !hasValidRun && journey.runs.every(r => !r || r.result === 'No-show')) {
