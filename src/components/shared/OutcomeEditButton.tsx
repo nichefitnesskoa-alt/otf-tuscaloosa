@@ -30,6 +30,7 @@ interface BookingContext {
   latest_run_id: string | null;
   latest_run_result: string | null;
   latest_run_objection: string | null;
+  latest_run_is_winback: boolean;
 }
 
 interface Props {
