@@ -247,6 +247,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           latestRunCoach: run?.coach_name || null,
           latestRunObjection: run?.primary_objection || null,
           latestRunNotes: run?.notes || null,
+          latestRunIsWinback: run?.is_winback ?? false,
           originatingBookingId: b.originating_booking_id,
           isSecondIntro: false, // will be set after prior-run lookup
           isVipClassIntro: (b.lead_source || '').toLowerCase() === 'vip class',
