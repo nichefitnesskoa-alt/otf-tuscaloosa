@@ -166,12 +166,12 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         }
       }
 
-      const runMap = new Map<string, { result: string; created_at: string; id: string; coach_name: string | null; primary_objection: string | null; notes: string | null }>();
+      const runMap = new Map<string, { result: string; created_at: string; id: string; coach_name: string | null; primary_objection: string | null; notes: string | null; is_winback: boolean | null }>();
       for (const r of (runRes.data || [])) {
         if (!r.linked_intro_booked_id) continue;
         const existing = runMap.get(r.linked_intro_booked_id);
         if (!existing || r.created_at > existing.created_at) {
-          runMap.set(r.linked_intro_booked_id, { result: r.result, created_at: r.created_at, id: r.id, coach_name: r.coach_name, primary_objection: r.primary_objection, notes: r.notes });
+          runMap.set(r.linked_intro_booked_id, { result: r.result, created_at: r.created_at, id: r.id, coach_name: r.coach_name, primary_objection: r.primary_objection, notes: r.notes, is_winback: (r as any).is_winback ?? null });
         }
       }
 
