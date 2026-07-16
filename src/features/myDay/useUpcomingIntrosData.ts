@@ -130,7 +130,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           .in('booking_id', bookingIds),
         supabase
           .from('intros_run')
-          .select('id, linked_intro_booked_id, result, created_at, coach_name, primary_objection, notes')
+          .select('id, linked_intro_booked_id, result, created_at, coach_name, primary_objection, notes, is_winback')
           .in('linked_intro_booked_id', bookingIds)
           .limit(500),
         supabase
