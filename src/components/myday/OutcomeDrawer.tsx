@@ -120,7 +120,7 @@ export function OutcomeDrawer({
   // No-show-only: "Not interested — no follow-up" disposition.
   // Stays NO_SHOW everywhere counted; just suppresses the follow-up queue/texts.
   const [dismissNoShowFollowUp, setDismissNoShowFollowUp] = useState(false);
-  const [isWinback, setIsWinback] = useState(false);
+  const [isWinback, setIsWinback] = useState(initialIsWinback);
 
 
   // Friend referral post-sale state
