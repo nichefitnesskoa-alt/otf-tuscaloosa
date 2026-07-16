@@ -104,6 +104,7 @@ export function OutcomeDrawer({
   initialCoach = '',
   initialObjection = '',
   initialNotes = '',
+  initialIsWinback = false,
   isVipClassIntro = false,
   onSaved,
   onCancel,
