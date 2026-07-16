@@ -39,6 +39,7 @@ export interface UpcomingIntroItem {
   latestRunCoach: string | null;
   latestRunObjection: string | null;
   latestRunNotes: string | null;
+  latestRunIsWinback: boolean | null;
   originatingBookingId: string | null;
   isSecondIntro: boolean;
   isVipClassIntro?: boolean;

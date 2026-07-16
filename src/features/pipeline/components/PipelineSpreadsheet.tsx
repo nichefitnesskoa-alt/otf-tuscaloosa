@@ -61,7 +61,7 @@ interface ColumnDef {
 
 function getLatestBooking(j: ClientJourney): PipelineBooking | null {
   return j.bookings.find(b =>
-    b.booking_status_canon === 'ACTIVE' || !b.booking_status || b.booking_status === 'Active'
+    b.booking_status_canon === 'ACTIVE' || b.booking_status_canon === 'NO_SHOW' || !b.booking_status || b.booking_status === 'Active' || b.booking_status === 'No-show'
   ) || j.bookings[0] || null;
 }
 

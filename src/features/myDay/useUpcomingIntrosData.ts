@@ -130,7 +130,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           .in('booking_id', bookingIds),
         supabase
           .from('intros_run')
-          .select('id, linked_intro_booked_id, result, created_at, coach_name, primary_objection, notes')
+          .select('id, linked_intro_booked_id, result, created_at, coach_name, primary_objection, notes, is_winback')
           .in('linked_intro_booked_id', bookingIds)
           .limit(500),
         supabase
@@ -166,12 +166,12 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         }
       }
 
-      const runMap = new Map<string, { result: string; created_at: string; id: string; coach_name: string | null; primary_objection: string | null; notes: string | null }>();
+      const runMap = new Map<string, { result: string; created_at: string; id: string; coach_name: string | null; primary_objection: string | null; notes: string | null; is_winback: boolean | null }>();
       for (const r of (runRes.data || [])) {
         if (!r.linked_intro_booked_id) continue;
         const existing = runMap.get(r.linked_intro_booked_id);
         if (!existing || r.created_at > existing.created_at) {
-          runMap.set(r.linked_intro_booked_id, { result: r.result, created_at: r.created_at, id: r.id, coach_name: r.coach_name, primary_objection: r.primary_objection, notes: r.notes });
+          runMap.set(r.linked_intro_booked_id, { result: r.result, created_at: r.created_at, id: r.id, coach_name: r.coach_name, primary_objection: r.primary_objection, notes: r.notes, is_winback: (r as any).is_winback ?? null });
         }
       }
 
@@ -247,6 +247,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           latestRunCoach: run?.coach_name || null,
           latestRunObjection: run?.primary_objection || null,
           latestRunNotes: run?.notes || null,
+          latestRunIsWinback: run?.is_winback ?? false,
           originatingBookingId: b.originating_booking_id,
           isSecondIntro: false, // will be set after prior-run lookup
           isVipClassIntro: (b.lead_source || '').toLowerCase() === 'vip class',
@@ -386,6 +387,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
             latestRunCoach: null,
             latestRunObjection: null,
             latestRunNotes: null,
+            latestRunIsWinback: null,
             originatingBookingId: null,
             isSecondIntro: false,
             referredBy: null,
