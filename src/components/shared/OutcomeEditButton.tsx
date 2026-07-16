@@ -149,6 +149,7 @@ export function OutcomeEditButton({ bookingId, label, tone = 'muted', onChanged,
               editedBy={user?.name || 'Unknown'}
               initialCoach={ctx.coach_name || ''}
               initialObjection={ctx.latest_run_objection || ''}
+              initialIsWinback={ctx.latest_run_is_winback}
               isVipClassIntro={ctx.latest_run_result === 'VIP Class Intro'}
               onSaved={handleSaved}
               onCancel={() => setOpen(false)}
