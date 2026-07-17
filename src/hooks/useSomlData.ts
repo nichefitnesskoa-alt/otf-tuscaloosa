@@ -66,6 +66,7 @@ export interface SomlDetailItem {
   source: 'auto' | 'manual' | 'legacy';
   tier?: 'Premier' | 'Elite' | null;
   referring_member?: string | null;
+  is_winback?: boolean;
   // Removable rows carry the source row identity so the drilldown can delete/dismiss.
   source_table?: 'soml_upgrades' | 'soml_manual_referrals' | 'soml_pending_referrals' | null;
   source_id?: string | null;
@@ -247,6 +248,31 @@ export function useSomlData(): SomlData {
         member_name: bk?.member_name || r.member_name || '',
         date: d,
         source: 'auto',
+        is_winback: !!r.is_winback,
+      });
+    }
+
+    // 5b. Winback sales logged via the Walk-in / Outside-Sale flow.
+    // These live in `sales_outside_intro` (not intros_run) but still count as
+    // real Sales for the SA. Non-winback outside sales are intentionally NOT
+    // included here — this SOML/WIG board tracks intro-attributable sales plus
+    // explicit winbacks. See project note: Winback = real sale, excluded from
+    // conversion rates only.
+    const { data: outsideWinbacks } = await supabase
+      .from('sales_outside_intro')
+      .select('id, intro_owner, member_name, date_closed, is_winback')
+      .eq('is_winback', true)
+      .gte('date_closed', start)
+      .lte('date_closed', end);
+    for (const s of ((outsideWinbacks as any[]) || [])) {
+      const sa = (s.intro_owner as string | null)?.trim();
+      if (!sa) continue;
+      salesItems.push({
+        sa,
+        member_name: s.member_name || '',
+        date: s.date_closed || null,
+        source: 'auto',
+        is_winback: true,
       });
     }
 
