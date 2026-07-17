@@ -837,6 +837,11 @@ function SomlDrilldownDialog({ open, onClose, metric, saFilter, referrals, upgra
                         → {r.tier}
                       </span>
                     )}
+                    {r.is_winback && (
+                      <span className="ml-2 inline-flex items-center rounded bg-warning/20 text-warning text-[10px] font-semibold px-1.5 py-0.5 align-middle">
+                        Winback
+                      </span>
+                    )}
                   </div>
                   <div className="text-muted-foreground">
                     {r.referring_member && (
