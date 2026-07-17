@@ -61,18 +61,23 @@ export function WalkInSaleSheet({ open, onOpenChange, onSaved }: WalkInSaleSheet
   const [tier, setTier] = useState('');
   const [date, setDate] = useState(today());
   const [notes, setNotes] = useState('');
-  const [isWinback, setIsWinback] = useState(false);
+  const [winbackChoice, setWinbackChoice] = useState<'' | 'yes' | 'no'>('');
   const [saving, setSaving] = useState(false);
 
+  const isWinback = winbackChoice === 'yes';
   const commission = computeCommission({ membershipType: tier });
 
   const reset = () => {
-    setMemberName(''); setPhone(''); setTier(''); setDate(today()); setNotes(''); setIsWinback(false);
+    setMemberName(''); setPhone(''); setTier(''); setDate(today()); setNotes(''); setWinbackChoice('');
   };
 
   const handleSave = async () => {
     if (!memberName.trim() || !tier) {
       toast.error('Member name and membership tier are required');
+      return;
+    }
+    if (winbackChoice === '') {
+      toast.error('Please answer whether this is a winback sale');
       return;
     }
     setSaving(true);
