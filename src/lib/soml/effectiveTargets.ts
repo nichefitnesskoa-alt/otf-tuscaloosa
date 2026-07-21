@@ -49,7 +49,12 @@ interface SaOverride {
 
 export interface SomlEffectiveTargets {
   config: SomlConfig | null;
-  rosterSas: string[];              // active SAs excluding Koa
+  /** Quota-bearing SAs (non-admin). Drives all redistribution math. */
+  rosterSas: string[];
+  /** Full display roster: quota-bearing SAs followed by admins. Consumers
+   *  that render a per-SA table iterate this so Koa (Admin) appears with
+   *  his real activity and a hard 0 goal, without inflating others' pace. */
+  displayRoster: string[];
   overrides: Record<string, SaOverride>;
   effectiveFor: (sa: string, metric: SomlMetricKey) => number;
   teamGoal: (metric: SomlMetricKey) => number;
@@ -58,7 +63,7 @@ export interface SomlEffectiveTargets {
 
 export function useSomlEffectiveTargets(): SomlEffectiveTargets {
   const { config, loading: somlLoading } = useSomlData();
-  const { salesAssociates } = useActiveStaff();
+  const { salesAssociates, admins } = useActiveStaff();
   const [overrides, setOverrides] = useState<Record<string, SaOverride>>({});
   const [ovLoaded, setOvLoaded] = useState(false);
 
@@ -73,9 +78,17 @@ export function useSomlEffectiveTargets(): SomlEffectiveTargets {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  const adminSet = useMemo(() => new Set(admins || []), [admins]);
+
+  // Quota-bearing roster = active SAs excluding admins. Admins appear in
+  // the leaderboard for visibility but never dilute redistribution.
   const rosterSas = useMemo(
-    () => (salesAssociates || []).filter(n => n !== 'Koa'),
-    [salesAssociates],
+    () => (salesAssociates || []).filter(n => !adminSet.has(n)),
+    [salesAssociates, adminSet],
+  );
+  const displayRoster = useMemo(
+    () => [...rosterSas, ...(admins || [])],
+    [rosterSas, admins],
   );
 
   const goals: Record<SomlMetricKey, number> = useMemo(() => ({
@@ -109,17 +122,20 @@ export function useSomlEffectiveTargets(): SomlEffectiveTargets {
   }, [rosterSas, overrides, goals]);
 
   const effectiveFor = useCallback((sa: string, metric: SomlMetricKey): number => {
+    // Admins are quota-exempt — always 0, regardless of stored override.
+    if (adminSet.has(sa)) return 0;
     const ov = overrides[sa];
     const key = SOML_METRIC_TO_GOAL_COL[metric] as keyof SaOverride;
     if (ov && ov[key] != null) return ov[key] as number;
     return defaultPerSa[metric];
-  }, [overrides, defaultPerSa]);
+  }, [overrides, defaultPerSa, adminSet]);
 
   const teamGoal = useCallback((metric: SomlMetricKey) => goals[metric], [goals]);
 
   return {
     config,
     rosterSas,
+    displayRoster,
     overrides,
     effectiveFor,
     teamGoal,
