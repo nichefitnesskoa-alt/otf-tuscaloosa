@@ -34,11 +34,12 @@ type Lead = Tables<'leads'> & {
 type LeadAction = 'contacted' | 'move_to_new' | 'confirm_duplicate' | 'confirm_not_duplicate' | 'mark_lost';
 
 function getSpeedInfo(createdAt: string) {
+  // Constraint tiers: green under 5m, yellow 5–30m, red past 30m.
+  // Matches the Shift Scoreboard tone rules — see src/lib/metrics/constraint.ts.
   const minutesSince = differenceInMinutes(new Date(), parseISO(createdAt));
-  const hoursSince = minutesSince / 60;
-  if (hoursSince >= 4) return { color: 'hsl(var(--status-danger))', text: '🔴 Overdue — Contact Now' };
-  if (hoursSince >= 1) return { color: 'hsl(var(--status-warning))', text: `⚠ Contact Soon — ${Math.floor(hoursSince)}h since received` };
-  return { color: 'hsl(var(--status-success))', text: `✓ New Lead — ${minutesSince}m ago` };
+  if (minutesSince >= 30) return { color: 'hsl(var(--status-danger))', text: `🔴 Overdue — ${minutesSince}m since received` };
+  if (minutesSince >= 5) return { color: 'hsl(var(--status-warning))', text: `⚠ Contact now — ${minutesSince}m since received` };
+  return { color: 'hsl(var(--status-success))', text: `✓ New lead — ${minutesSince}m ago` };
 }
 
 function LeadCard({ lead, onAction, onBook, onScript, onOpenJourney }: {

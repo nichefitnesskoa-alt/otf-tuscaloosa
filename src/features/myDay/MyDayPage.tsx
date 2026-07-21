@@ -71,6 +71,7 @@ import { AssignCoachDialog } from './AssignCoachDialog';
 
 import { OTF, Theme, brandFont } from '@/lib/otfBrand';
 import { NetGainScoreboard } from '@/components/shared/NetGainScoreboard';
+import { ShiftScoreboard } from '@/components/dashboard/ShiftScoreboard';
 
 export default function MyDayPage() {
   const { user } = useAuth();
@@ -423,7 +424,12 @@ export default function MyDayPage() {
         </p>
       </div>
 
-      {/* ═══ NET GAIN TRACKER — sits above the shift checklist so SAs see the studio goal first ═══ */}
+      {/* ═══ SHIFT SCOREBOARD — the constraint game (speed / booking / show) ═══ */}
+      <div className="mx-4 mt-3">
+        <ShiftScoreboard />
+      </div>
+
+      {/* ═══ NET GAIN TRACKER — result of the game ═══ */}
       <div className="mx-4 mt-3">
         <NetGainScoreboard />
       </div>
