@@ -714,6 +714,7 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
           }
           mergeContext={scriptMergeContext}
           leadId={scriptLead.id}
+          leadPhone={scriptLead.phone}
           onLogged={() => {
             const sent = scriptLead;
             setScriptLead(null);

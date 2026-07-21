@@ -59,6 +59,8 @@ interface ScriptPickerSheetProps {
   mergeContext: MergeContext;
   leadId?: string;
   bookingId?: string;
+  /** Phone from the calling surface — forwarded to MessageGenerator. */
+  leadPhone?: string | null;
   onLogged?: () => void;
   questionnaireId?: string;
   friendQuestionnaireId?: string;
@@ -67,7 +69,7 @@ interface ScriptPickerSheetProps {
   onPhoneCopied?: () => void;
 }
 
-export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mergeContext, leadId, bookingId, onLogged, questionnaireId, friendQuestionnaireId, onQuestionnaireSent, onFriendQuestionnaireSent, onPhoneCopied }: ScriptPickerSheetProps) {
+export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mergeContext, leadId, bookingId, leadPhone, onLogged, questionnaireId, friendQuestionnaireId, onQuestionnaireSent, onFriendQuestionnaireSent, onPhoneCopied }: ScriptPickerSheetProps) {
   const [selectedCategory, setSelectedCategory] = useState(suggestedCategories[0] || '');
   const [search, setSearch] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<ScriptTemplate | null>(null);
@@ -474,6 +476,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
           }}
           leadId={leadId}
           bookingId={bookingId}
+          leadPhone={leadPhone ?? memberCtx?.phone ?? null}
           onLogged={onLogged}
           questionnaireId={questionnaireId ?? resolvedQuestionnaireId}
           friendQuestionnaireId={friendQuestionnaireId}

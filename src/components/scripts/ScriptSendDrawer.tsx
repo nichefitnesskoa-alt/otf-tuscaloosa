@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { buildRcSmsUri, fireRcSmsUri, toE164Us } from '@/lib/ringcentral/smsUri';
 import { useRingCentralUriTemplate } from '@/hooks/useRingCentralUriTemplate';
+import { useResolvedLeadPhone } from '@/lib/scripts/useResolvedLeadPhone';
 
 const CENTRAL_TZ = 'America/Chicago';
 
@@ -63,7 +64,7 @@ export function ScriptSendDrawer({
   leadId = null,
   bookingId = null,
   leadName = null,
-  leadPhone = null,
+  leadPhone: leadPhoneProp = null,
   categoryFilter = null,
   defaultCategory = null,
   saName,
@@ -88,6 +89,9 @@ export function ScriptSendDrawer({
   // taps both "Copy to Clipboard" and "Open in RingCentral" on the same script.
   const [loggedIds, setLoggedIds] = useState<Set<string>>(new Set());
   const { data: rcUriTemplate } = useRingCentralUriTemplate();
+  // Canonical phone resolution: surface-provided prop wins, then booking/lead
+  // DB lookups as fallback. See src/lib/scripts/useResolvedLeadPhone.ts.
+  const leadPhone = useResolvedLeadPhone(open, leadPhoneProp, bookingId, leadId);
 
   // Reset state when drawer opens; pre-select default category
   useEffect(() => {
@@ -379,7 +383,7 @@ export function ScriptSendDrawer({
                           </TooltipTrigger>
                           {!toE164Us(leadPhone) && (
                             <TooltipContent>
-                              This lead has no usable phone number.
+                              No phone number on this lead.
                             </TooltipContent>
                           )}
                         </Tooltip>
