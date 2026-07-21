@@ -283,6 +283,7 @@ export function LeadDetailSheet({ lead, activities, open, onOpenChange, onRefres
         suggestedCategories={scriptCategories}
         mergeContext={scriptMergeContext}
         leadId={lead.id}
+        leadPhone={lead.phone}
         onLogged={onRefresh}
       />
     </>
