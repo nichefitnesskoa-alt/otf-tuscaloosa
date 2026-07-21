@@ -14,7 +14,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Phone, Copy, Check, Send } from 'lucide-react';
+import { Phone, Copy, Check, Send, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useScriptTemplates, ScriptTemplate } from '@/hooks/useScriptTemplates';
 import { useScriptCategoryOptions } from '@/hooks/useScriptCategories';
@@ -24,6 +24,9 @@ import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { format } from 'date-fns';
 import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { buildRcSmsUri, fireRcSmsUri, toE164Us } from '@/lib/ringcentral/smsUri';
+import { useRingCentralUriTemplate } from '@/hooks/useRingCentralUriTemplate';
 
 const CENTRAL_TZ = 'America/Chicago';
 
@@ -81,6 +84,10 @@ export function ScriptSendDrawer({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [phoneCopied, setPhoneCopied] = useState(false);
   const [firstIntroCoach, setFirstIntroCoach] = useState<string | null>(null);
+  // Log-once-per-drawer-open per template: prevents double-writes when the SA
+  // taps both "Copy to Clipboard" and "Open in RingCentral" on the same script.
+  const [loggedIds, setLoggedIds] = useState<Set<string>>(new Set());
+  const { data: rcUriTemplate } = useRingCentralUriTemplate();
 
   // Reset state when drawer opens; pre-select default category
   useEffect(() => {
@@ -88,6 +95,7 @@ export function ScriptSendDrawer({
       setSelectedCategory(defaultCategory || '');
       setCopiedId(null);
       setPhoneCopied(false);
+      setLoggedIds(new Set());
     }
   }, [open, defaultCategory]);
 
@@ -185,35 +193,51 @@ export function ScriptSendDrawer({
     return cleanCoachFallbackPhrasing(resolved);
   };
 
-  const handleCopy = async (template: ScriptTemplate) => {
+  /**
+   * Shared send handler for both "Copy to Clipboard" and "Open in RingCentral".
+   * Always copies + logs (once per template per drawer open). Optionally fires
+   * the configured RingCentral URI. Firing is fail-safe: unregistered handlers
+   * do not open a blank tab or throw.
+   */
+  const handleSend = async (template: ScriptTemplate, opts: { fireUri: boolean }) => {
     const resolved = resolveMergeFields(template.body);
-    await navigator.clipboard.writeText(resolved);
+    try { await navigator.clipboard.writeText(resolved); } catch { /* clipboard blocked */ }
     setCopiedId(template.id);
 
-    // Auto-log to script_send_log
-    try {
-      await supabase.from('script_send_log').insert({
-        template_id: template.id,
-        lead_id: leadId || null,
-        booking_id: bookingId || null,
-        sent_by: saName,
-        message_body_sent: resolved,
-        sequence_step_number: template.sequence_order,
-      } as any);
-    } catch (err) {
-      console.error('Failed to log script send:', err);
+    if (!loggedIds.has(template.id)) {
+      // script_send_log
+      try {
+        await supabase.from('script_send_log').insert({
+          template_id: template.id,
+          lead_id: leadId || null,
+          booking_id: bookingId || null,
+          sent_by: saName,
+          message_body_sent: resolved,
+          sequence_step_number: template.sequence_order,
+        } as any);
+      } catch (err) {
+        console.error('Failed to log script send:', err);
+      }
+      // script_actions
+      try {
+        await (supabase as any).from('script_actions').insert({
+          action_type: 'script_sent',
+          completed_by: saName,
+          booking_id: bookingId || null,
+          template_id: template.id,
+        });
+      } catch { /* noop */ }
+      setLoggedIds(prev => {
+        const next = new Set(prev);
+        next.add(template.id);
+        return next;
+      });
     }
 
-    // Also log to script_actions
-    try {
-      await (supabase as any).from('script_actions').insert({
-        action_type: 'script_sent',
-        completed_by: saName,
-        booking_id: bookingId || null,
-        template_id: template.id,
-      });
-    } catch {}
-
+    if (opts.fireUri) {
+      const uri = buildRcSmsUri(rcUriTemplate, leadPhone, resolved);
+      if (uri) fireRcSmsUri(uri);
+    }
     // Keep drawer open so SA can still copy phone
   };
 
@@ -316,28 +340,51 @@ export function ScriptSendDrawer({
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">{t.category}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">{preview}</p>
-                    <Button
-                      className={cn(
-                        'w-full min-h-[44px] text-[13px] font-medium gap-1.5 cursor-pointer',
-                        isCopied
-                          ? 'bg-success-dim hover:bg-success-dim text-primary-foreground'
-                          : 'bg-primary hover:bg-primary/90 text-primary-foreground'
-                      )}
-                      onClick={() => handleCopy(t)}
-                      disabled={isCopied}
-                    >
-                      {isCopied ? (
-                        <>
-                          <Check className="w-4 h-4" />
-                          Copied + Logged!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-4 h-4" />
-                          Copy to Clipboard
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        className={cn(
+                          'flex-1 min-h-[44px] text-[13px] font-medium gap-1.5 cursor-pointer',
+                          isCopied
+                            ? 'bg-success-dim hover:bg-success-dim text-primary-foreground'
+                            : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                        )}
+                        onClick={() => handleSend(t, { fireUri: false })}
+                      >
+                        {isCopied ? (
+                          <>
+                            <Check className="w-4 h-4" />
+                            Copied + Logged!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4" />
+                            Copy to Clipboard
+                          </>
+                        )}
+                      </Button>
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="flex-1">
+                              <Button
+                                variant="outline"
+                                className="w-full min-h-[44px] text-[13px] font-medium gap-1.5 cursor-pointer"
+                                onClick={() => handleSend(t, { fireUri: true })}
+                                disabled={!toE164Us(leadPhone)}
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                                Open in RingCentral
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          {!toE164Us(leadPhone) && (
+                            <TooltipContent>
+                              This lead has no usable phone number.
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                   </div>
                 );
               })

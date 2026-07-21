@@ -35,6 +35,7 @@ import { BingoAdminTab } from '@/components/admin/BingoAdminTab';
 import { IntroSchedulerLinkCard } from '@/components/admin/IntroSchedulerLinkCard';
 import { BookableScheduleAdmin } from '@/components/admin/BookableScheduleAdmin';
 import { RingCentralHealthCard } from '@/components/admin/RingCentralHealthCard';
+import { RingCentralUriTemplateCard } from '@/components/admin/RingCentralUriTemplateCard';
 
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
@@ -319,6 +320,9 @@ export default function Admin() {
           <SectionHeader title="Intro Scheduler" />
           <IntroSchedulerLinkCard />
           <BookableScheduleAdmin />
+
+          <SectionHeader title="RingCentral" subtitle="Deep-link template for the desktop app's SMS composer" />
+          <RingCentralUriTemplateCard />
 
           <div className="flex justify-end">
             <Button

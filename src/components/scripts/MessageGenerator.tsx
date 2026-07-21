@@ -6,11 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Copy, ClipboardCheck, Phone } from 'lucide-react';
+import { Copy, ClipboardCheck, Phone, ExternalLink } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ScriptTemplate } from '@/hooks/useScriptTemplates';
 import { useLogScriptSent } from '@/hooks/useScriptSendLog';
 import { useAuth } from '@/context/AuthContext';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { buildRcSmsUri, fireRcSmsUri, toE164Us } from '@/lib/ringcentral/smsUri';
+import { useRingCentralUriTemplate } from '@/hooks/useRingCentralUriTemplate';
 
 /** Copy Phone button for Script tab — pulls phone from booking */
 function CopyPhoneButton({ bookingId }: { bookingId?: string }) {
@@ -168,12 +171,43 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
   const [manualFields, setManualFields] = useState<Record<string, string>>({});
   const [editedMessage, setEditedMessage] = useState('');
   const [copied, setCopied] = useState(false);
+  const [leadPhone, setLeadPhone] = useState<string | null>(null);
+  const { data: rcUriTemplate } = useRingCentralUriTemplate();
   const prevOpenRef = useRef(false);
   const userEditedRef = useRef(false);
+  const loggedRef = useRef(false);
+
+  // Fetch phone for RC deep-link (booking first, then lead as fallback).
+  useEffect(() => {
+    let cancelled = false;
+    if (!open) { setLeadPhone(null); return; }
+    (async () => {
+      if (bookingId) {
+        const { data } = await supabase
+          .from('intros_booked')
+          .select('phone, phone_e164')
+          .eq('id', bookingId)
+          .maybeSingle();
+        const p = (data as any)?.phone_e164 || (data as any)?.phone || null;
+        if (!cancelled && p) { setLeadPhone(p); return; }
+      }
+      if (leadId) {
+        const { data } = await supabase
+          .from('leads')
+          .select('phone, phone_e164')
+          .eq('id', leadId)
+          .maybeSingle();
+        const p = (data as any)?.phone_e164 || (data as any)?.phone || null;
+        if (!cancelled) setLeadPhone(p || null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, bookingId, leadId]);
 
   useEffect(() => {
     if (open && !prevOpenRef.current) {
       userEditedRef.current = false;
+      loggedRef.current = false;
       setManualFields({});
       setCopied(false);
     }
@@ -193,60 +227,71 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
     setEditedMessage(cleanCoachFallbackPhrasing(applyMergeFields(templateBody, fullContext, newManual)));
   };
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(editedMessage);
+  /**
+   * Shared send handler for both "Copy to Clipboard" and "Open in RingCentral".
+   * Copies + logs once per open. Optionally fires the RingCentral deep-link;
+   * firing is fail-safe (unregistered handlers do not open a blank tab).
+   */
+  const handleSend = async (opts: { fireUri: boolean }) => {
+    try { await navigator.clipboard.writeText(editedMessage); } catch { /* clipboard blocked */ }
+    setCopiedPastTense();
+
+    if (!loggedRef.current) {
+      loggedRef.current = true;
+      window.dispatchEvent(new CustomEvent('myday:refresh'));
+
+      try {
+        await logSent.mutateAsync({
+          template_id: template.id,
+          lead_id: leadId || null,
+          booking_id: bookingId || null,
+          sent_by: user?.name || 'Unknown',
+          message_body_sent: editedMessage,
+          sequence_step_number: template.sequence_order || null,
+        });
+      } catch (e) {
+        console.error('Failed to auto-log script send:', e);
+      }
+      try {
+        await supabase.from('script_actions').insert({
+          booking_id: bookingId || null,
+          lead_id: leadId || null,
+          action_type: 'script_sent',
+          script_category: template.category,
+          completed_by: user?.name || 'Unknown',
+        });
+      } catch (e) {
+        console.error('Failed to log script action:', e);
+      }
+      if (questionnaireId) {
+        await supabase
+          .from('intro_questionnaires')
+          .update({ status: 'sent' })
+          .eq('id', questionnaireId)
+          .eq('status', 'not_sent');
+        onQuestionnaireSent?.();
+      }
+      if (friendQuestionnaireId) {
+        await supabase
+          .from('intro_questionnaires')
+          .update({ status: 'sent' })
+          .eq('id', friendQuestionnaireId)
+          .eq('status', 'not_sent');
+        onFriendQuestionnaireSent?.();
+      }
+      onLogged?.();
+    }
+
+    if (opts.fireUri) {
+      const uri = buildRcSmsUri(rcUriTemplate, leadPhone, editedMessage);
+      if (uri) fireRcSmsUri(uri);
+    }
+  };
+
+  const setCopiedPastTense = () => {
     setCopied(true);
     toast({ title: 'Copied + Logged', description: 'Message copied and logged automatically' });
     setTimeout(() => setCopied(false), 2000);
-    // Dispatch refresh so follow-up tabs update immediately
-    window.dispatchEvent(new CustomEvent('myday:refresh'));
-
-    // Auto-log script_send_log on copy (replaces manual "Log as Sent")
-    try {
-      await logSent.mutateAsync({
-        template_id: template.id,
-        lead_id: leadId || null,
-        booking_id: bookingId || null,
-        sent_by: user?.name || 'Unknown',
-        message_body_sent: editedMessage,
-        sequence_step_number: template.sequence_order || null,
-      });
-    } catch (e) {
-      console.error('Failed to auto-log script send:', e);
-    }
-
-    // Also log script_actions for completion tracking
-    try {
-      await supabase.from('script_actions').insert({
-        booking_id: bookingId || null,
-        lead_id: leadId || null,
-        action_type: 'script_sent',
-        script_category: template.category,
-        completed_by: user?.name || 'Unknown',
-      });
-    } catch (e) {
-      console.error('Failed to log script action:', e);
-    }
-
-    // Auto-mark questionnaires as "sent" if IDs are provided
-    if (questionnaireId) {
-      await supabase
-        .from('intro_questionnaires')
-        .update({ status: 'sent' })
-        .eq('id', questionnaireId)
-        .eq('status', 'not_sent');
-      onQuestionnaireSent?.();
-    }
-    if (friendQuestionnaireId) {
-      await supabase
-        .from('intro_questionnaires')
-        .update({ status: 'sent' })
-        .eq('id', friendQuestionnaireId)
-        .eq('status', 'not_sent');
-      onFriendQuestionnaireSent?.();
-    }
-
-    onLogged?.();
   };
 
   // handleLog removed — auto-log on copy replaces it
@@ -323,11 +368,33 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-2">
-            <Button onClick={handleCopy} className="flex-1 min-h-[44px]">
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => handleSend({ fireUri: false })} className="flex-1 min-h-[44px]">
               {copied ? <ClipboardCheck className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
               {copied ? 'Copied + Logged' : 'Copy to Clipboard'}
             </Button>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex-1">
+                    <Button
+                      variant="outline"
+                      className="w-full min-h-[44px]"
+                      onClick={() => handleSend({ fireUri: true })}
+                      disabled={!toE164Us(leadPhone)}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-1" />
+                      Open in RingCentral
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!toE164Us(leadPhone) && (
+                  <TooltipContent>
+                    This lead has no usable phone number.
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
             <CopyPhoneButton bookingId={bookingId} />
           </div>
 
