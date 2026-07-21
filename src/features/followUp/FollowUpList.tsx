@@ -4,7 +4,8 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, ChevronDown, ChevronRight, Phone, Copy, ClipboardList, CheckCheck } from 'lucide-react';
+import { RefreshCw, ChevronDown, ChevronRight, Phone, Copy, ClipboardList, CheckCheck, MessageSquare } from 'lucide-react';
+import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 import { stripCountryCode, formatPhoneDisplay } from '@/lib/parsing/phone';
 import { useFollowUpData, type FollowUpItem, type FollowUpType } from './useFollowUpData';
 import { ObjectionChip } from '@/components/shared/ObjectionChip';
@@ -260,6 +261,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
 }) {
   const [swiped, setSwiped] = useState(false);
   const [loggingSent, setLoggingSent] = useState(false);
+  const [scriptOpen, setScriptOpen] = useState(false);
   const touchStartX = useRef(0);
   const priority = getPriority(item, todayStr);
 
@@ -456,7 +458,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
         />
 
         {/* Actions */}
-        <div className="flex items-center gap-2 pt-1">
+        <div className="flex items-center gap-2 pt-1 flex-wrap">
           <Button
             size="sm"
             className="min-h-[44px] bg-brand hover:bg-brand-hover text-primary-foreground flex-1 cursor-pointer"
@@ -464,6 +466,16 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
           >
             <Phone className="w-3.5 h-3.5 mr-1" />
             Send Text
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="min-h-[44px] flex-1 cursor-pointer"
+            onClick={(e) => { e.stopPropagation(); setScriptOpen(true); }}
+            title="Open script picker"
+          >
+            <MessageSquare className="w-3.5 h-3.5 mr-1" />
+            Script
           </Button>
           <Button
             size="sm"
@@ -495,6 +507,29 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
           </Button>
         </div>
       </div>
+
+      {/* Script picker — passes phone through so Open in RingCentral is enabled */}
+      <ScriptPickerSheet
+        open={scriptOpen}
+        onOpenChange={setScriptOpen}
+        suggestedCategories={
+          item.followUpType === 'noshow_1st' || item.followUpType === 'noshow_2nd'
+            ? ['no_show', 'follow_up']
+            : item.followUpType === 'reschedule'
+              ? ['reschedule', 'follow_up']
+              : ['follow_up']
+        }
+        mergeContext={{
+          'first-name': item.memberName.split(' ')[0] || '',
+          'last-name': item.memberName.split(' ').slice(1).join(' ') || '',
+          'sa-name': userName,
+          'coach-name': item.coachName || 'your coach',
+          'coach-first-name': item.coachName ? item.coachName.split(/\s+/)[0] : 'your coach',
+        }}
+        bookingId={item.bookingId}
+        leadPhone={item.phone}
+        onLogged={() => { setScriptOpen(false); onRefresh(); }}
+      />
     </div>
   );
 }
