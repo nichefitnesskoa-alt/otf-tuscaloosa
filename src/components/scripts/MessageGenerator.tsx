@@ -6,11 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Copy, ClipboardCheck, Phone } from 'lucide-react';
+import { Copy, ClipboardCheck, Phone, ExternalLink } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ScriptTemplate } from '@/hooks/useScriptTemplates';
 import { useLogScriptSent } from '@/hooks/useScriptSendLog';
 import { useAuth } from '@/context/AuthContext';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { buildRcSmsUri, fireRcSmsUri, toE164Us } from '@/lib/ringcentral/smsUri';
+import { useRingCentralUriTemplate } from '@/hooks/useRingCentralUriTemplate';
 
 /** Copy Phone button for Script tab — pulls phone from booking */
 function CopyPhoneButton({ bookingId }: { bookingId?: string }) {
