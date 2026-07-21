@@ -15,6 +15,7 @@ import { isMembershipSale } from '@/lib/sales-detection';
 import { isCloseRun } from '@/lib/intros/close-detection';
 import { didIntroActuallyRun } from '@/lib/canon/introRules';
 import { computeCoverage, formatCoveragePct } from '@/lib/sa/coverage';
+import { ShiftScoreboard } from './ShiftScoreboard';
 
 interface CloseOutShiftProps {
   completedIntros: number;
@@ -388,6 +389,10 @@ export function CloseOutShift({
                 <p className="text-xs font-semibold text-foreground">{user?.name} — {summary.shiftType}</p>
                 <p className="text-[11px] text-muted-foreground">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
               </div>
+
+              {/* Constraint scoreboard — the shift's three numbers (canonical helper) */}
+              <ShiftScoreboard />
+
 
               {/* Intros */}
               <div className="rounded-lg border border-border/60 overflow-hidden">
