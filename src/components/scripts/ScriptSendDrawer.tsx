@@ -193,35 +193,51 @@ export function ScriptSendDrawer({
     return cleanCoachFallbackPhrasing(resolved);
   };
 
-  const handleCopy = async (template: ScriptTemplate) => {
+  /**
+   * Shared send handler for both "Copy to Clipboard" and "Open in RingCentral".
+   * Always copies + logs (once per template per drawer open). Optionally fires
+   * the configured RingCentral URI. Firing is fail-safe: unregistered handlers
+   * do not open a blank tab or throw.
+   */
+  const handleSend = async (template: ScriptTemplate, opts: { fireUri: boolean }) => {
     const resolved = resolveMergeFields(template.body);
-    await navigator.clipboard.writeText(resolved);
+    try { await navigator.clipboard.writeText(resolved); } catch { /* clipboard blocked */ }
     setCopiedId(template.id);
 
-    // Auto-log to script_send_log
-    try {
-      await supabase.from('script_send_log').insert({
-        template_id: template.id,
-        lead_id: leadId || null,
-        booking_id: bookingId || null,
-        sent_by: saName,
-        message_body_sent: resolved,
-        sequence_step_number: template.sequence_order,
-      } as any);
-    } catch (err) {
-      console.error('Failed to log script send:', err);
+    if (!loggedIds.has(template.id)) {
+      // script_send_log
+      try {
+        await supabase.from('script_send_log').insert({
+          template_id: template.id,
+          lead_id: leadId || null,
+          booking_id: bookingId || null,
+          sent_by: saName,
+          message_body_sent: resolved,
+          sequence_step_number: template.sequence_order,
+        } as any);
+      } catch (err) {
+        console.error('Failed to log script send:', err);
+      }
+      // script_actions
+      try {
+        await (supabase as any).from('script_actions').insert({
+          action_type: 'script_sent',
+          completed_by: saName,
+          booking_id: bookingId || null,
+          template_id: template.id,
+        });
+      } catch { /* noop */ }
+      setLoggedIds(prev => {
+        const next = new Set(prev);
+        next.add(template.id);
+        return next;
+      });
     }
 
-    // Also log to script_actions
-    try {
-      await (supabase as any).from('script_actions').insert({
-        action_type: 'script_sent',
-        completed_by: saName,
-        booking_id: bookingId || null,
-        template_id: template.id,
-      });
-    } catch {}
-
+    if (opts.fireUri) {
+      const uri = buildRcSmsUri(rcUriTemplate, leadPhone, resolved);
+      if (uri) fireRcSmsUri(uri);
+    }
     // Keep drawer open so SA can still copy phone
   };
 
