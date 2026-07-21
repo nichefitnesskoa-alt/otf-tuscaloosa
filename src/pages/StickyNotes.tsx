@@ -294,8 +294,116 @@ function NoteCard({
             <Trash2 className="w-4 h-4" />
           </Button>
         )}
+        <CommentsDialog
+          note={note}
+          currentName={currentName}
+          comments={comments}
+          commentCount={commentCount}
+          onSend={onSendComment}
+        />
       </div>
     </div>
+  );
+}
+
+function CommentsDialog({
+  note,
+  currentName,
+  comments,
+  commentCount,
+  onSend,
+}: {
+  note: Note;
+  currentName: string;
+  comments: StickyNoteComment[];
+  commentCount: number;
+  onSend: (content: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+  const feedRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (open && feedRef.current) {
+      feedRef.current.scrollTop = feedRef.current.scrollHeight;
+    }
+  }, [open, comments.length]);
+
+  const submit = async () => {
+    const c = draft.trim();
+    if (!c || !currentName) return;
+    setSending(true);
+    await onSend(c);
+    setSending(false);
+    setDraft('');
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="ghost" className="ml-auto" aria-label="Comments">
+          <MessageCircle className="w-4 h-4 mr-1" />
+          {commentCount}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Comments</DialogTitle></DialogHeader>
+        <div className="rounded-md p-3 bg-muted text-sm whitespace-pre-wrap break-words">
+          <div className="text-xs opacity-70 mb-1">
+            <strong>{note.created_by}</strong>
+            {note.assigned_to !== note.created_by && <> → <strong>{note.assigned_to}</strong></>}
+          </div>
+          {note.content}
+        </div>
+        <div ref={feedRef} className="flex flex-col gap-3 max-h-[50vh] overflow-y-auto py-2">
+          {comments.length === 0 && (
+            <div className="text-sm opacity-60 italic">No comments yet. Start the thread.</div>
+          )}
+          {comments.map(c => {
+            const mine = c.author === currentName;
+            return (
+              <div key={c.id} className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}>
+                <div className="text-xs opacity-70 mb-0.5">
+                  <strong>{c.author}</strong> · {formatTime(c.created_at)}
+                </div>
+                <div
+                  className="rounded-md px-3 py-2 max-w-[85%] whitespace-pre-wrap break-words"
+                  style={{
+                    backgroundColor: mine ? OTF.orange : 'hsl(var(--card))',
+                    color: mine ? OTF.rawBone : 'hsl(var(--foreground))',
+                  }}
+                >
+                  {c.content}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <form
+          className="flex gap-2 border-t pt-2"
+          style={{ borderColor: 'hsl(var(--border))' }}
+          onSubmit={(e) => { e.preventDefault(); submit(); }}
+        >
+          <Input
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            placeholder="Add a comment…"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+            }}
+          />
+          <Button
+            type="submit"
+            disabled={!draft.trim() || sending}
+            style={{ backgroundColor: OTF.orange, color: OTF.rawBone }}
+          >
+            <Send className="w-4 h-4" />
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
