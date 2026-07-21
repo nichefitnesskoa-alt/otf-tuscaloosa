@@ -476,6 +476,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
           }}
           leadId={leadId}
           bookingId={bookingId}
+          leadPhone={leadPhone ?? memberCtx?.phone ?? null}
           onLogged={onLogged}
           questionnaireId={questionnaireId ?? resolvedQuestionnaireId}
           friendQuestionnaireId={friendQuestionnaireId}
