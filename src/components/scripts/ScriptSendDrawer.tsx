@@ -340,28 +340,51 @@ export function ScriptSendDrawer({
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">{t.category}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">{preview}</p>
-                    <Button
-                      className={cn(
-                        'w-full min-h-[44px] text-[13px] font-medium gap-1.5 cursor-pointer',
-                        isCopied
-                          ? 'bg-success-dim hover:bg-success-dim text-primary-foreground'
-                          : 'bg-primary hover:bg-primary/90 text-primary-foreground'
-                      )}
-                      onClick={() => handleCopy(t)}
-                      disabled={isCopied}
-                    >
-                      {isCopied ? (
-                        <>
-                          <Check className="w-4 h-4" />
-                          Copied + Logged!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-4 h-4" />
-                          Copy to Clipboard
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        className={cn(
+                          'flex-1 min-h-[44px] text-[13px] font-medium gap-1.5 cursor-pointer',
+                          isCopied
+                            ? 'bg-success-dim hover:bg-success-dim text-primary-foreground'
+                            : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                        )}
+                        onClick={() => handleSend(t, { fireUri: false })}
+                      >
+                        {isCopied ? (
+                          <>
+                            <Check className="w-4 h-4" />
+                            Copied + Logged!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4" />
+                            Copy to Clipboard
+                          </>
+                        )}
+                      </Button>
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="flex-1">
+                              <Button
+                                variant="outline"
+                                className="w-full min-h-[44px] text-[13px] font-medium gap-1.5 cursor-pointer"
+                                onClick={() => handleSend(t, { fireUri: true })}
+                                disabled={!toE164Us(leadPhone)}
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                                Open in RingCentral
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          {!toE164Us(leadPhone) && (
+                            <TooltipContent>
+                              This lead has no usable phone number.
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                   </div>
                 );
               })
