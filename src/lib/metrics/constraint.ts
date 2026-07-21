@@ -44,7 +44,10 @@ export function isContactActivity(a: {
   if (CONTACT_ACTIVITY_TYPES.has(t)) return true;
   if (t === 'stage_change') {
     if ((a.new_stage || '').toLowerCase() === 'contacted') return true;
-    if ((a.notes || '').toLowerCase().startsWith('marked contacted')) return true;
+    // Legacy: handleAction('contacted') used to write stage_change rows with
+    // notes like "Marked as Contacted from MyDay". Broadened so 100+ historical
+    // rows count retroactively.
+    if (/^marked (as )?contacted/i.test(a.notes || '')) return true;
   }
   return false;
 }

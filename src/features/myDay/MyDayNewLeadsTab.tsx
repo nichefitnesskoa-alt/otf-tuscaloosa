@@ -20,15 +20,13 @@ import {
   Ban, RotateCcw, Info, ExternalLink, Search, Loader2, XCircle,
 } from 'lucide-react';
 import { StatusBanner } from '@/components/shared/StatusBanner';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { MarkLostDialog } from '@/components/leads/MarkLostDialog';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 import { runDeduplicationForLead, detectDuplicate, type DuplicateResult } from '@/lib/leads/detectDuplicate';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
+import { useConstraintMetrics, todayRangeCentral } from '@/lib/metrics/constraint';
+import { notifyDataChanged } from '@/lib/data/invalidation';
 
 // Speed-to-lead helpers
 function getSpeedInfo(createdAt: string) {
@@ -48,94 +46,29 @@ function formatDuration(minutes: number) {
 
 function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
   const newLeads = leads.filter(l => l.stage === 'new');
-  // Treat any lead that has progressed past New as "contacted" for speed-to-lead
-  const contactedLeads = leads.filter(l =>
-    l.stage === 'contacted' || l.stage === 'booked' || l.stage === 'won'
-  );
-
   const overdue = newLeads.filter(l => differenceInMinutes(new Date(), parseISO(l.created_at)) >= 240).length;
   const warning = newLeads.filter(l => {
     const m = differenceInMinutes(new Date(), parseISO(l.created_at));
     return m >= 60 && m < 240;
   }).length;
 
-  // Fetch first-contact time from lead_activities + script_send_log for accurate speed-to-lead.
-  // Bug fix: handleAction('contacted') writes activity_type='stage_change' (not 'contacted'),
-  // so the previous filter never matched. We now union multiple signals and take the earliest.
-  const [responseTimes, setResponseTimes] = useState<number[]>([]);
-  const [activityLoaded, setActivityLoaded] = useState(false);
-
-  useEffect(() => {
-    if (contactedLeads.length === 0) {
-      setResponseTimes([]);
-      setActivityLoaded(true);
-      return;
-    }
-    const contactedIds = contactedLeads.map(l => l.id);
-    Promise.all([
-      supabase
-        .from('lead_activities')
-        .select('lead_id, created_at, activity_type, notes')
-        .in('lead_id', contactedIds)
-        .order('created_at', { ascending: true }),
-      supabase
-        .from('script_send_log')
-        .select('lead_id, sent_at')
-        .in('lead_id', contactedIds)
-        .order('sent_at', { ascending: true }),
-    ]).then(([activitiesRes, sendLogRes]) => {
-      const firstContactMap = new Map<string, string>();
-      const consider = (leadId: string | null | undefined, ts: string | null | undefined) => {
-        if (!leadId || !ts) return;
-        const existing = firstContactMap.get(leadId);
-        if (!existing || ts < existing) firstContactMap.set(leadId, ts);
-      };
-      for (const row of (activitiesRes.data as any[]) || []) {
-        const isContact =
-          row.activity_type === 'contacted' ||
-          row.activity_type === 'script_sent' ||
-          (row.activity_type === 'stage_change' &&
-            typeof row.notes === 'string' &&
-            /contacted|booked/i.test(row.notes));
-        if (isContact) consider(row.lead_id, row.created_at);
-      }
-      for (const row of (sendLogRes.data as any[]) || []) {
-        consider(row.lead_id, row.sent_at);
-      }
-      const times: number[] = [];
-      for (const lead of contactedLeads) {
-        const contactTime = firstContactMap.get(lead.id);
-        if (contactTime) {
-          const mins = differenceInMinutes(parseISO(contactTime), parseISO(lead.created_at));
-          if (mins >= 0) times.push(mins);
-        }
-      }
-      setResponseTimes(times);
-      setActivityLoaded(true);
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contactedLeads.length, contactedLeads.map(l => l.id).join(',')]);
-
-  const avgResponse = responseTimes.length > 0
-    ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
-    : null;
-  const bestResponse = responseTimes.length > 0
-    ? Math.min(...responseTimes)
-    : null;
+  // Speed-to-lead value is CANONICAL — read from constraint.ts, do not
+  // recompute inline. Overdue/warning stay card-state based on visible leads.
+  // Range: today (matches ShiftScoreboard's default range).
+  const range = todayRangeCentral();
+  const { data: metrics, isLoading: metricsLoading } = useConstraintMetrics(range, null);
+  const median = metrics?.speedMedianMin ?? null;
 
   const statusColor = overdue > 0 ? 'border-destructive/40 bg-destructive/5' : warning > 0 ? 'border-warning bg-warning-dim' : 'border-success bg-success-dim';
 
   return (
     <div className={`rounded-lg border-2 ${statusColor} p-2.5`}>
-      <p className="text-[11px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Speed to Lead</p>
+      <p className="text-[11px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Speed to Lead · today</p>
       <div className="flex items-center gap-3 flex-wrap text-[12px]">
-        {!activityLoaded ? (
+        {metricsLoading ? (
           <span className="text-muted-foreground">Loading…</span>
-        ) : avgResponse !== null ? (
-          <>
-            <span className="text-foreground font-medium">Avg: {formatDuration(avgResponse)}</span>
-            <span className="text-foreground font-medium">Best: {formatDuration(bestResponse!)}</span>
-          </>
+        ) : median !== null ? (
+          <span className="text-foreground font-medium">Median: {formatDuration(median)}</span>
         ) : (
           <span className="text-muted-foreground">No contacts yet</span>
         )}
@@ -145,7 +78,7 @@ function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
         {warning > 0 && (
           <Badge className="text-[10px] px-1.5 py-0 h-4 bg-warning-dim text-primary-foreground">⚠ {warning} Soon</Badge>
         )}
-        {overdue === 0 && warning === 0 && newLeads.length === 0 && activityLoaded && avgResponse !== null && (
+        {overdue === 0 && warning === 0 && newLeads.length === 0 && !metricsLoading && median !== null && (
           <span className="text-muted-foreground">All clear</span>
         )}
         {overdue === 0 && warning === 0 && newLeads.length > 0 && (
@@ -429,7 +362,7 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
   const [bookLead, setBookLead] = useState<Lead | null>(null);
   const [scriptLead, setScriptLead] = useState<Lead | null>(null);
   const [lostLeadId, setLostLeadId] = useState<string | null>(null);
-  const [confirmContactLead, setConfirmContactLead] = useState<Lead | null>(null);
+  
   const [subTab, setSubTab] = useState('non_contacted');
   const [search, setSearch] = useState('');
   const dedupRunning = useRef(false);
@@ -577,15 +510,20 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
 
     await supabase.from('leads').update(update).eq('id', leadId);
     if (activityNote) {
+      // For 'contacted' write the canonical activity_type so constraint.ts
+      // counts it as first contact directly. Others stay as stage_change for
+      // history — constraint.ts also matches new_stage='contacted' and
+      // 'Marked as Contacted' notes as a legacy fallback.
       await supabase.from('lead_activities').insert({
         lead_id: leadId,
-        activity_type: 'stage_change',
+        activity_type: action === 'contacted' ? 'contacted' : 'stage_change',
         performed_by: user?.name || 'Unknown',
         notes: activityNote,
       });
     }
     fetchLeads();
     queryClient.invalidateQueries({ queryKey: ['leads'] });
+    notifyDataChanged(['constraint', 'leads', 'lead_activities'], 'lead-action');
   };
 
   const handleBookDone = () => {
@@ -715,38 +653,49 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
           mergeContext={scriptMergeContext}
           leadId={scriptLead.id}
           leadPhone={scriptLead.phone}
-          onLogged={() => {
+          onLogged={async () => {
+            // Do NOT close the sheet. The SA needs to tap "Open in RingCentral"
+            // next, then close the sheet themselves. If the lead was still
+            // 'new', auto-bump to 'contacted' silently with an Undo toast.
             const sent = scriptLead;
-            setScriptLead(null);
-            if (sent && sent.stage === 'new') {
-              setConfirmContactLead(sent);
-            }
+            if (!sent || sent.stage !== 'new') return;
+            const prevStage = sent.stage;
+            const { data: inserted } = await supabase
+              .from('lead_activities')
+              .insert({
+                lead_id: sent.id,
+                activity_type: 'contacted',
+                performed_by: user?.name || 'Unknown',
+                notes: 'Auto-marked contacted after script send',
+              })
+              .select('id')
+              .single();
+            await supabase
+              .from('leads')
+              .update({ stage: 'contacted', updated_at: new Date().toISOString() })
+              .eq('id', sent.id);
+            fetchLeads();
+            queryClient.invalidateQueries({ queryKey: ['leads'] });
+            notifyDataChanged(['constraint', 'leads', 'lead_activities'], 'auto-contacted');
+            toast.success('Marked contacted', {
+              action: {
+                label: 'Undo',
+                onClick: async () => {
+                  await supabase
+                    .from('leads')
+                    .update({ stage: prevStage, updated_at: new Date().toISOString() })
+                    .eq('id', sent.id);
+                  if (inserted?.id) {
+                    await supabase.from('lead_activities').delete().eq('id', inserted.id);
+                  }
+                  fetchLeads();
+                  queryClient.invalidateQueries({ queryKey: ['leads'] });
+                  notifyDataChanged(['constraint', 'leads', 'lead_activities'], 'auto-contacted-undo');
+                },
+              },
+            });
           }}
         />
-      )}
-      {confirmContactLead && (
-        <AlertDialog open={!!confirmContactLead} onOpenChange={open => { if (!open) setConfirmContactLead(null); }}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Mark as Contacted?</AlertDialogTitle>
-              <AlertDialogDescription>
-                You just sent a script to {confirmContactLead.first_name} {confirmContactLead.last_name}. Move them to the Contacted list?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Not yet</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  const id = confirmContactLead.id;
-                  setConfirmContactLead(null);
-                  handleAction(id, 'contacted');
-                }}
-              >
-                Yes, mark Contacted
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       )}
       {lostLeadId && (
         <MarkLostDialog

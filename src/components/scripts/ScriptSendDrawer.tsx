@@ -231,6 +231,23 @@ export function ScriptSendDrawer({
           template_id: template.id,
         });
       } catch { /* noop */ }
+      // Count script sends as first contact for speed-to-lead.
+      if (leadId) {
+        try {
+          await supabase.from('lead_activities').insert({
+            lead_id: leadId,
+            activity_type: 'script_sent',
+            performed_by: saName,
+            notes: `Script sent: ${template.name || template.category || 'template'}`,
+          });
+        } catch (e) {
+          console.error('Failed to log lead_activities contact row:', e);
+        }
+      }
+      try {
+        const { notifyDataChanged } = await import('@/lib/data/invalidation');
+        notifyDataChanged(['constraint', 'leads', 'lead_activities'], 'script_sent');
+      } catch { /* noop */ }
       setLoggedIds(prev => {
         const next = new Set(prev);
         next.add(template.id);
