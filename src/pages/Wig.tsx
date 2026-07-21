@@ -23,6 +23,8 @@ import { format, isWithinInterval } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { isSaleInRange, isRunInRange } from '@/lib/sales-detection';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
+import { isCloseRun } from '@/lib/intros/close-detection';
+import { resolveCorporateJourneyChains } from '@/lib/wig/corporateCloses';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 import { resolvePromotedOrphanBookingIds } from '@/lib/intros/orphanedFirstIntros';
 import { NON_RAN_BOOKING_STATUSES, didIntroActuallyRun } from '@/lib/canon/introRules';
