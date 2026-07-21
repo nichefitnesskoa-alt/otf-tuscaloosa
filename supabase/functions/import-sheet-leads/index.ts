@@ -700,6 +700,21 @@ Deno.serve(async (req) => {
       console.error('[import-sheet-leads] Failed to log sync:', logErr);
     }
 
+    // 30-day retention: prune stale sync log rows. Nothing reads rows older than 30 days.
+    // Runs every sync so the table stays bounded even at */10 cron cadence.
+    try {
+      await supabase.rpc('exec_sql' as any, {}); // no-op guard if rpc unavailable
+    } catch { /* ignore */ }
+    try {
+      await supabase
+        .from('sheets_sync_log')
+        .delete()
+        .lt('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+    } catch (retErr) {
+      console.error('[import-sheet-leads] Retention prune failed:', retErr);
+    }
+
+
     console.log(`[import-sheet-leads] Done: imported=${imported}, skipped_dup=${skippedDuplicate}, skipped_filtered=${skippedFiltered}, skipped_empty=${skippedEmpty}, errors=${errors}`);
 
     return jsonResponse({
