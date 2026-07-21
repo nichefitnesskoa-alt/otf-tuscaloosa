@@ -839,7 +839,46 @@ export default function Wig() {
         }
       }
 
-      const allCoachNames = new Set<string>([...coachMap.keys(), ...coachCloseMap.keys()]);
+      // ── Corporate journey credit ──
+      // Every ran class in a journey that ended in an in-range sale counts as
+      // a close for the coach who ran THAT class. Direct sales are already in
+      // closes above; here we add journey-only credit (via 2nd intro) for
+      // ran bookings whose own run is not itself the sale.
+      const coachedForJourney = Array.from(corpCoachedBookingIds)
+        .map(id => bookingByIdMap.get(id))
+        .filter((b): b is any => !!b);
+      const corpJourney = await resolveCorporateJourneyChains(
+        coachedForJourney.map(b => ({ id: b.id, originating_booking_id: b.originating_booking_id })),
+        rangeStart,
+        rangeEnd,
+      );
+      for (const b of coachedForJourney) {
+        const run = allRunsByBookingId.get(b.id);
+        if (!run) continue;
+        if (isCloseRun(run)) continue; // direct sale already credited above
+        if (!corpJourney.isJourneyClosedInRange(b.id)) continue;
+        const runCoachRaw = isMissingCoach(b.coach_name)
+          ? (run.coach_name || b.coach_name)
+          : b.coach_name;
+        if (isMissingCoach(runCoachRaw)) continue;
+        const coach = resolveCloseCoach(b, runCoachRaw) || runCoachRaw;
+        const ex = coachCloseMapCorp.get(coach) || { total: 0, closed: 0 };
+        ex.total++;
+        ex.closed++;
+        coachCloseMapCorp.set(coach, ex);
+        ensureAttribCorp(coach).closes.push({
+          bookingId: b.id,
+          member: b.member_name || 'Unknown',
+          classDate: b.class_date,
+          source: b.lead_source,
+          resultLabel: labelFromRun(run),
+          via: '2nd_intro',
+        });
+        // Mark the matching Coached row so the drilldown shows "→ SALE via 2nd".
+        const coachedRow = ensureAttribCorp(coach).coached.find(c => c.bookingId === b.id);
+        if (coachedRow) coachedRow.via2ndIntroSale = true;
+      }
+
       const coachData = Array.from(allCoachNames).map(name => {
         const wk = coachMap.get(name) || { coached: 0 };
         const cl = coachCloseMap.get(name) || { total: 0, closed: 0 };
