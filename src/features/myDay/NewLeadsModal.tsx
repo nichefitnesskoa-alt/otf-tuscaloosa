@@ -363,6 +363,7 @@ export function NewLeadsModal() {
             'last-name': activeLead.last_name,
           }}
           leadId={activeLead.id}
+          leadPhone={activeLead.phone}
           onPhoneCopied={() => {
             const id = activeLead.id;
             setActiveLeadId(null);
