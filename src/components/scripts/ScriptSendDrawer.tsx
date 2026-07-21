@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { buildRcSmsUri, fireRcSmsUri, toE164Us } from '@/lib/ringcentral/smsUri';
 import { useRingCentralUriTemplate } from '@/hooks/useRingCentralUriTemplate';
+import { useResolvedLeadPhone } from '@/lib/scripts/useResolvedLeadPhone';
 
 const CENTRAL_TZ = 'America/Chicago';
 
