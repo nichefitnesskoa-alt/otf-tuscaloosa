@@ -657,38 +657,49 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
           mergeContext={scriptMergeContext}
           leadId={scriptLead.id}
           leadPhone={scriptLead.phone}
-          onLogged={() => {
+          onLogged={async () => {
+            // Do NOT close the sheet. The SA needs to tap "Open in RingCentral"
+            // next, then close the sheet themselves. If the lead was still
+            // 'new', auto-bump to 'contacted' silently with an Undo toast.
             const sent = scriptLead;
-            setScriptLead(null);
-            if (sent && sent.stage === 'new') {
-              setConfirmContactLead(sent);
-            }
+            if (!sent || sent.stage !== 'new') return;
+            const prevStage = sent.stage;
+            const { data: inserted } = await supabase
+              .from('lead_activities')
+              .insert({
+                lead_id: sent.id,
+                activity_type: 'contacted',
+                performed_by: user?.name || 'Unknown',
+                notes: 'Auto-marked contacted after script send',
+              })
+              .select('id')
+              .single();
+            await supabase
+              .from('leads')
+              .update({ stage: 'contacted', updated_at: new Date().toISOString() })
+              .eq('id', sent.id);
+            fetchLeads();
+            queryClient.invalidateQueries({ queryKey: ['leads'] });
+            notifyDataChanged(['constraint', 'leads', 'lead_activities'], 'auto-contacted');
+            toast.success('Marked contacted', {
+              action: {
+                label: 'Undo',
+                onClick: async () => {
+                  await supabase
+                    .from('leads')
+                    .update({ stage: prevStage, updated_at: new Date().toISOString() })
+                    .eq('id', sent.id);
+                  if (inserted?.id) {
+                    await supabase.from('lead_activities').delete().eq('id', inserted.id);
+                  }
+                  fetchLeads();
+                  queryClient.invalidateQueries({ queryKey: ['leads'] });
+                  notifyDataChanged(['constraint', 'leads', 'lead_activities'], 'auto-contacted-undo');
+                },
+              },
+            });
           }}
         />
-      )}
-      {confirmContactLead && (
-        <AlertDialog open={!!confirmContactLead} onOpenChange={open => { if (!open) setConfirmContactLead(null); }}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Mark as Contacted?</AlertDialogTitle>
-              <AlertDialogDescription>
-                You just sent a script to {confirmContactLead.first_name} {confirmContactLead.last_name}. Move them to the Contacted list?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Not yet</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  const id = confirmContactLead.id;
-                  setConfirmContactLead(null);
-                  handleAction(id, 'contacted');
-                }}
-              >
-                Yes, mark Contacted
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       )}
       {lostLeadId && (
         <MarkLostDialog
