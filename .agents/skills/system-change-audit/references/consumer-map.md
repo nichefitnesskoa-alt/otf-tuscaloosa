@@ -34,7 +34,7 @@ Shared data concepts in this codebase and every surface that reads them. When ch
 - Consumers: WIG leaderboards, Per-Coach / Per-SA tables, Coach View dropdowns, assignment dropdowns, scorecard evaluator dropdown, dashboard tiles, `@mention` parser (DB trigger `process_own_it_mentions`)
 - Inactive staff must vanish from every picker/assignment surface, AND must keep their numbers on every historical display.
 
-## Archived surfaces (Phase Zero + Phase Three funerals)
+## Archived surfaces (Phase Zero + Phase Three + Phase Four funerals)
 Do not resurrect these paths. Legacy links auto-redirect. Underlying tables still support live features.
 - `/recaps` and `src/pages/Recaps.tsx` — folded into WIG + My Day. Route now redirects to `/my-day`.
 - `src/pages/ShiftRecap.tsx` + `src/components/dashboard/ShiftRecapAutoBuild.tsx` — legacy shift-recap editor.
@@ -42,7 +42,14 @@ Do not resurrect these paths. Legacy links auto-redirect. Underlying tables stil
 - `src/features/myDay/WinTheDay.tsx` + `useWinTheDayItems.ts` — Win-the-Day checklist widget.
 - `nav.studio` permission key retired; Studio bottom-nav tile removed.
 - **Phase Three (one-time backfills, verified 0 pending, DB triggers now enforce)**: `FixVipBookingTypesCard`, `QuestionnaireReconcileCard`, `QuestionnaireSlugBackfillCard` (inline components in `src/pages/Admin.tsx`); `src/components/admin/FixBookingAttribution.tsx` (already unmounted, contradictory query). Do not re-add — the invariants they backfilled are now maintained by triggers `validate_booking_type_canon`, `sync_booking_on_questionnaire_submit`, `auto_create_questionnaire`.
-- **Kept alive**: `shift_recaps` writes from `CloseOutShift` and `InlineIntroLogger` (attribution anchor for `intros_run.shift_recap_id` / `intros_booked.shift_recap_id`). GroupMe posting (`post-groupme` edge function) still reads `shift_recaps` for contact counts and still writes `daily_recaps` as its send-log. `GroupMeSettings` and `AdminOverviewHealth` are kept because they read the live send-log. `sheets_sync_log` retained on a rolling 30-day retention (pruned inline by `import-sheet-leads`); nothing reads older rows.
+- **Phase Four — Close-out ritual + GroupMe recap pipeline retired**:
+  - Deleted: `CloseOutShift.tsx`, `MyDayShiftSummary.tsx`, `ShiftHandoffSummary.tsx`, `ShiftScanOverlay.tsx`, `ActivityTrackerSheet.tsx`, `GroupMeSettings.tsx`, `src/lib/groupme.ts`, `WeeklyContactAvgCard` (Admin Reporting), `EndOfShiftSubmission.tsx`, `ShiftViewPage.tsx`, `ShiftTaskList.tsx`, `ShiftIntroCards.tsx`, `useShiftSubmission.ts`, `src/features/shiftView/index.ts`. AdminOverviewHealth's GroupMe Posts row removed.
+  - `shift_recaps` writers now = **`InlineIntroLogger` only** (per-intro attribution anchor for `intros_run.shift_recap_id` / `intros_booked.shift_recap_id`). Contact-count fields (`calls_made`, `texts_sent`, `dms_sent`) have no live writer; historical rows preserved for reporting.
+  - `useLeadMeasures` no longer reads `shift_recaps.dms_sent`; the DMs Sent column is gone from the Studio Outreach table.
+  - `post-groupme` edge function **kept alive** — still called by `VipAvailability.tsx` for VIP claim announcements (`action: 'custom'`). The function's internal `post` / `resend` branches are dead code but left in place this pass (no client caller).
+  - `daily_recaps` table + rows preserved as history; nothing writes new rows.
+- **Kept alive**: `shift_recaps` table + FKs (`intros_run.shift_recap_id`, `intros_booked.shift_recap_id`, `outcome_events.shift_recap_id`, `daily_recaps.shift_recap_id`), `InlineIntroLogger`, `ShiftScoreboard` + `src/lib/metrics/constraint.ts`, `useDashboardMetrics`, `useMeetingAgenda`, `useLeadMeasures` (minus DMs), StaffManagement last-active. `sheets_sync_log` retained on a rolling 30-day retention (pruned inline by `import-sheet-leads`).
+- **Surviving `src/features/shiftView/` files** (referenced from live surfaces outside the folder — do not delete): `ShiftSelector.tsx` (used by `src/features/myDay/ShiftChecklist.tsx`), `ReferralAskRow.tsx` + `ReferralAskHistorySheet.tsx` + `useReferralAsks.ts` (used by `ShiftChecklist`), `standards.ts` (used by `ShiftChecklist` and `src/components/admin/ShiftTasksAdmin.tsx`).
 
 
 ## Dates / weeks / today

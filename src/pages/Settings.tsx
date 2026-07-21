@@ -1,7 +1,6 @@
 import { useAuth } from '@/context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Settings as SettingsIcon } from 'lucide-react';
-import { GroupMeSettings } from '@/components/admin/GroupMeSettings';
 import DataHealthPanel from '@/components/admin/DataHealthPanel';
 import { LeadSheetImport } from '@/components/admin/LeadSheetImport';
 import { useMemo } from 'react';
@@ -28,8 +27,6 @@ export default function SettingsPage() {
       </div>
 
       <LeadSheetImport />
-
-      <GroupMeSettings />
 
       <DataHealthPanel
         dateRange={healthDateRange}

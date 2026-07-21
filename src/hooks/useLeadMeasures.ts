@@ -18,12 +18,10 @@ export interface SALeadMeasure {
   qCompletedCount: number;
   prepRatePct: number | null;
   followUpTouches: number;
-  dmsSent: number;
   leadsReachedOut: number;
   introsRan: number;
   // Per-metric drill data
   followUpPeople?: OutreachPerson[];
-  dmPeople?: OutreachPerson[];
   leadsReachedPeople?: OutreachPerson[];
 }
 
@@ -32,6 +30,9 @@ interface UseLeadMeasuresOpts {
   endDate?: string;
 }
 
+// NOTE: DMs Sent was removed with the close-out ritual (Phase Four). Its
+// only writer was CloseOutShift/MyDayShiftSummary via shift_recaps.dms_sent,
+// both retired. Raw shift_recaps rows are preserved in the DB.
 export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
   const [data, setData] = useState<SALeadMeasure[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +53,6 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         { data: bookings },
         { data: runs },
         { data: touches },
-        { data: recaps },
         { data: leads },
         { data: activities },
       ] = await Promise.all([
@@ -66,9 +66,6 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         supabase.from('followup_touches')
           .select('id, created_by, created_at, lead_id, booking_id, channel')
           .gte('created_at', localDateToStartISO(start)).lte('created_at', localDateToEndISO(end)),
-        supabase.from('shift_recaps')
-          .select('staff_name, dms_sent, shift_date')
-          .gte('shift_date', start).lte('shift_date', end),
         supabase.from('leads')
           .select('id, first_name, last_name, source, created_at, stage, updated_at')
           .gte('created_at', localDateToStartISO(start)).lte('created_at', localDateToEndISO(end)),
@@ -79,34 +76,29 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
 
       const allBookings = (bookings || []).filter((b: any) => !b.is_vip && (!b.originating_booking_id || b.referred_by_member_name));
 
-      // Build set of booking IDs where member actually showed (for Q completion denominator)
       const showedBookingIds = new Set(
         (runs || []).filter((r: any) =>
           didIntroActuallyRun(r) && r.linked_intro_booked_id
         ).map((r: any) => r.linked_intro_booked_id)
       );
 
-      // Per-SA aggregation
       const saMap = new Map<string, {
         qTotal: number; qCompleted: number;
         prepTotal: number; prepDone: number;
-        touches: number; dms: number; leadsReached: number;
+        touches: number; leadsReached: number;
         speedSumMin: number; speedCount: number; introsRan: number;
         followUpPeople: OutreachPerson[];
-        dmPeople: OutreachPerson[];
         leadsReachedPeople: OutreachPerson[];
       }>();
 
       const ensure = (name: string) => {
         if (!name || !ALL_STAFF.includes(name)) return;
-        if (!saMap.has(name)) saMap.set(name, { qTotal: 0, qCompleted: 0, prepTotal: 0, prepDone: 0, touches: 0, dms: 0, leadsReached: 0, speedSumMin: 0, speedCount: 0, introsRan: 0, followUpPeople: [], dmPeople: [], leadsReachedPeople: [] });
+        if (!saMap.has(name)) saMap.set(name, { qTotal: 0, qCompleted: 0, prepTotal: 0, prepDone: 0, touches: 0, leadsReached: 0, speedSumMin: 0, speedCount: 0, introsRan: 0, followUpPeople: [], leadsReachedPeople: [] });
       };
 
-      // Lead lookup map for names
       const leadById = new Map<string, any>();
       (leads || []).forEach((l: any) => leadById.set(l.id, l));
 
-      // Prep rate by SA (booking-side, only for showed intros)
       allBookings.forEach((b: any) => {
         const sa = [b.intro_owner, b.prepped_by].find(n => n && ALL_STAFF.includes(n)) || '';
         if (!sa) return;
@@ -119,11 +111,9 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         }
       });
 
-      // Build booking lookup for Q status
       const bookingMap = new Map<string, any>();
       allBookings.forEach((b: any) => bookingMap.set(b.id, b));
 
-      // Intros ran per SA + Q completion (run-side attribution)
       (runs || []).forEach((r: any) => {
         if (!didIntroActuallyRun(r)) return;
         const sa = r.intro_owner || r.sa_name || '';
@@ -140,7 +130,6 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         }
       });
 
-      // Follow-up touches
       (touches || []).forEach((t: any) => {
         const sa = t.created_by || '';
         if (!sa) return;
@@ -158,24 +147,6 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         }
       });
 
-      // DMs sent
-      (recaps || []).forEach((r: any) => {
-        const sa = r.staff_name || '';
-        if (!sa || !r.dms_sent) return;
-        ensure(sa);
-        const entry = saMap.get(sa);
-        if (entry) {
-          entry.dms += r.dms_sent;
-          entry.dmPeople.push({
-            id: `${sa}-${r.shift_date}`,
-            name: `Shift ${r.shift_date}`,
-            subtitle: `${r.dms_sent} DM${r.dms_sent === 1 ? '' : 's'} logged`,
-            rightLabel: String(r.dms_sent),
-          });
-        }
-      });
-
-      // Speed to lead + leads reached out
       const leadFirstContact = new Map<string, { performer: string; contactTime: string }>();
       (activities || []).forEach((a: any) => {
         if (a.activity_type !== 'contacted' && a.activity_type !== 'call' && a.activity_type !== 'text' && a.activity_type !== 'dm' && a.activity_type !== 'email') return;
@@ -184,18 +155,14 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         }
       });
 
-      // Also check leads that moved from 'new' to 'contacted' via updated_at
       (leads || []).forEach((l: any) => {
         if (l.stage !== 'new') {
-          // Lead was contacted - check if we have an activity for it
           if (!leadFirstContact.has(l.id)) {
-            // Use updated_at as proxy
             leadFirstContact.set(l.id, { performer: '', contactTime: l.updated_at });
           }
         }
       });
 
-      // Compute speed per SA
       leadFirstContact.forEach((contact, leadId) => {
         const lead = leadById.get(leadId);
         if (!lead || !contact.performer) return;
@@ -225,14 +192,12 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           qCompletedCount: s.qCompleted,
           prepRatePct: s.prepTotal > 0 ? Math.round((s.prepDone / s.prepTotal) * 100) : null,
           followUpTouches: s.touches,
-          dmsSent: s.dms,
           leadsReachedOut: s.leadsReached,
           introsRan: s.introsRan,
           followUpPeople: s.followUpPeople,
-          dmPeople: s.dmPeople,
           leadsReachedPeople: s.leadsReachedPeople,
         }))
-        .filter(s => (s.qCompletionPct !== null || s.prepRatePct !== null || s.introsRan > 0 || s.followUpTouches > 0 || s.dmsSent > 0 || s.leadsReachedOut > 0))
+        .filter(s => (s.qCompletionPct !== null || s.prepRatePct !== null || s.introsRan > 0 || s.followUpTouches > 0 || s.leadsReachedOut > 0))
         .sort((a, b) => (b.introsRan - a.introsRan) || ((b.prepRatePct ?? 0) - (a.prepRatePct ?? 0)));
 
       setData(result);
