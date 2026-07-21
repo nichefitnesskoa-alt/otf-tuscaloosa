@@ -242,8 +242,18 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         last_edited_by: params.editedBy,
         edit_reason: params.editReason || `Outcome changed to ${params.newResult} via ${params.sourceComponent}`,
         second_intro_reason: params.secondIntroReason,
-        is_winback: isNowSale ? !!params.isWinback : false,
       };
+      // is_winback: preserve prior value when caller doesn't specify. Only
+      // coerce undefined→false for non-sale outcomes (where winback is not
+      // meaningful). For sale outcomes, only write when caller explicitly
+      // passes true/false, so reopen-and-save round-trips the stored flag.
+      if (isNowSale) {
+        if (params.isWinback === true || params.isWinback === false) {
+          runUpdate.is_winback = params.isWinback;
+        }
+      } else {
+        runUpdate.is_winback = false;
+      }
 
       if (params.coachName) {
         runUpdate.coach_name = params.coachName;
