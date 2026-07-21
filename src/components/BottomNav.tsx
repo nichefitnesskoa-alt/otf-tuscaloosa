@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { GitBranch, Home, Settings, Eye, Trophy, BarChart3, Star, Flag, ListChecks, StickyNote } from 'lucide-react';
+import { GitBranch, Home, Settings, Eye, Trophy, Star, Flag, ListChecks, StickyNote } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useDataAudit } from '@/hooks/useDataAudit';
@@ -14,7 +14,7 @@ const ALL_NAV: NavItem[] = [
   { path: '/outreach-lists', label: 'Outreach', icon: ListChecks, permKey: 'nav.outreach_lists' },
   { path: '/sticky-notes', label: 'Sticky Notes', icon: StickyNote, permKey: 'nav.sticky_notes' },
   { path: '/coach-view',   label: 'Coach View',   icon: Eye,        permKey: 'nav.coach_view' },
-  { path: '/recaps',       label: 'Studio',       icon: BarChart3,  permKey: 'nav.studio' },
+  // Studio tile (/recaps) archived Phase Zero — folded into WIG + My Day.
   { path: '/wig',          label: 'WIG',          icon: Trophy,     permKey: 'nav.wig' },
   { path: '/the-table',    label: 'Own It',       icon: Flag,       permKey: 'nav.own_it' },
   { path: '/vips',         label: 'VIPs',         icon: Star,       permKey: 'nav.vips' },

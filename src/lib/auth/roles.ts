@@ -33,7 +33,7 @@ export const canFormalEval = (u: User | null | undefined): boolean =>
 export const PERMISSION_KEYS = [
   'nav.my_day',
   'nav.coach_view',
-  'nav.studio',
+  // 'nav.studio' archived Phase Zero — Studio (/recaps) tile removed.
   'nav.wig',
   'nav.own_it',
   'nav.vips',
@@ -51,7 +51,6 @@ export type PermissionKey = typeof PERMISSION_KEYS[number];
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'nav.my_day': 'My Day tab',
   'nav.coach_view': 'Coach View tab',
-  'nav.studio': 'Studio tab',
   'nav.wig': 'WIG tab',
   'nav.own_it': 'Own It tab',
   'nav.vips': 'VIPs tab',
@@ -75,7 +74,6 @@ function defaultForRole(u: User | null | undefined, key: PermissionKey): boolean
   switch (key) {
     case 'nav.my_day': return sa;
     case 'nav.coach_view': return coach;
-    case 'nav.studio': return sa || coach; // SA, Coach, Both all see Studio (Recaps)
     case 'nav.wig': return sa || coach;
     case 'nav.own_it': return sa || coach;
     case 'nav.vips': return sa || coach;

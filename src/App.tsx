@@ -26,7 +26,7 @@ import VipConfirmed from "./pages/VipConfirmed";
 import VipRoster from "./pages/VipRoster";
 import Vips from "./pages/Vips";
 import CoachView from "./pages/CoachView";
-import Recaps from "./pages/Recaps";
+// Recaps page archived — /recaps redirects to /my-day (Phase Zero funeral)
 import CoachMyIntros from "./pages/CoachMyIntros";
 import CoachScorecards from "./pages/CoachScorecards";
 import CoachDetail from "./pages/CoachDetail";
@@ -114,14 +114,8 @@ function AppRoutes() {
       <Route path="/shift-recap" element={<Navigate to="/my-day" replace />} />
       <Route path="/dashboard" element={<Navigate to="/my-day" replace />} />
       <Route path="/my-shifts" element={<Navigate to="/my-day" replace />} />
-      <Route
-        path="/recaps"
-        element={
-          <ProtectedRoute>
-            <Recaps />
-          </ProtectedRoute>
-        }
-      />
+      {/* /recaps archived Phase Zero — redirect all legacy links to My Day. */}
+      <Route path="/recaps" element={<Navigate to="/my-day" replace />} />
       <Route path="/reports" element={<Navigate to="/admin" replace />} />
       <Route path="/leads" element={<Navigate to="/pipeline" replace />} />
       <Route
