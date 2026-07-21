@@ -207,6 +207,7 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
   useEffect(() => {
     if (open && !prevOpenRef.current) {
       userEditedRef.current = false;
+      loggedRef.current = false;
       setManualFields({});
       setCopied(false);
     }
