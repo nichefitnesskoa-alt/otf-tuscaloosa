@@ -271,7 +271,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
       ...sales.rows.map(r => r.sa),
     ]);
     return Array.from(allNames)
-      .filter(name => activeSet.has(name))
+      .filter(name => displayNameSet.has(name))
       .map(name => {
         const conv = sglConvMap.get(name);
         const sgl = sourcedMap.get(name) ?? 0;
