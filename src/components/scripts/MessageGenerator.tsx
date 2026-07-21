@@ -227,60 +227,71 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
     setEditedMessage(cleanCoachFallbackPhrasing(applyMergeFields(templateBody, fullContext, newManual)));
   };
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(editedMessage);
+  /**
+   * Shared send handler for both "Copy to Clipboard" and "Open in RingCentral".
+   * Copies + logs once per open. Optionally fires the RingCentral deep-link;
+   * firing is fail-safe (unregistered handlers do not open a blank tab).
+   */
+  const handleSend = async (opts: { fireUri: boolean }) => {
+    try { await navigator.clipboard.writeText(editedMessage); } catch { /* clipboard blocked */ }
+    setCopiedPastTense();
+
+    if (!loggedRef.current) {
+      loggedRef.current = true;
+      window.dispatchEvent(new CustomEvent('myday:refresh'));
+
+      try {
+        await logSent.mutateAsync({
+          template_id: template.id,
+          lead_id: leadId || null,
+          booking_id: bookingId || null,
+          sent_by: user?.name || 'Unknown',
+          message_body_sent: editedMessage,
+          sequence_step_number: template.sequence_order || null,
+        });
+      } catch (e) {
+        console.error('Failed to auto-log script send:', e);
+      }
+      try {
+        await supabase.from('script_actions').insert({
+          booking_id: bookingId || null,
+          lead_id: leadId || null,
+          action_type: 'script_sent',
+          script_category: template.category,
+          completed_by: user?.name || 'Unknown',
+        });
+      } catch (e) {
+        console.error('Failed to log script action:', e);
+      }
+      if (questionnaireId) {
+        await supabase
+          .from('intro_questionnaires')
+          .update({ status: 'sent' })
+          .eq('id', questionnaireId)
+          .eq('status', 'not_sent');
+        onQuestionnaireSent?.();
+      }
+      if (friendQuestionnaireId) {
+        await supabase
+          .from('intro_questionnaires')
+          .update({ status: 'sent' })
+          .eq('id', friendQuestionnaireId)
+          .eq('status', 'not_sent');
+        onFriendQuestionnaireSent?.();
+      }
+      onLogged?.();
+    }
+
+    if (opts.fireUri) {
+      const uri = buildRcSmsUri(rcUriTemplate, leadPhone, editedMessage);
+      if (uri) fireRcSmsUri(uri);
+    }
+  };
+
+  const setCopiedPastTense = () => {
     setCopied(true);
     toast({ title: 'Copied + Logged', description: 'Message copied and logged automatically' });
     setTimeout(() => setCopied(false), 2000);
-    // Dispatch refresh so follow-up tabs update immediately
-    window.dispatchEvent(new CustomEvent('myday:refresh'));
-
-    // Auto-log script_send_log on copy (replaces manual "Log as Sent")
-    try {
-      await logSent.mutateAsync({
-        template_id: template.id,
-        lead_id: leadId || null,
-        booking_id: bookingId || null,
-        sent_by: user?.name || 'Unknown',
-        message_body_sent: editedMessage,
-        sequence_step_number: template.sequence_order || null,
-      });
-    } catch (e) {
-      console.error('Failed to auto-log script send:', e);
-    }
-
-    // Also log script_actions for completion tracking
-    try {
-      await supabase.from('script_actions').insert({
-        booking_id: bookingId || null,
-        lead_id: leadId || null,
-        action_type: 'script_sent',
-        script_category: template.category,
-        completed_by: user?.name || 'Unknown',
-      });
-    } catch (e) {
-      console.error('Failed to log script action:', e);
-    }
-
-    // Auto-mark questionnaires as "sent" if IDs are provided
-    if (questionnaireId) {
-      await supabase
-        .from('intro_questionnaires')
-        .update({ status: 'sent' })
-        .eq('id', questionnaireId)
-        .eq('status', 'not_sent');
-      onQuestionnaireSent?.();
-    }
-    if (friendQuestionnaireId) {
-      await supabase
-        .from('intro_questionnaires')
-        .update({ status: 'sent' })
-        .eq('id', friendQuestionnaireId)
-        .eq('status', 'not_sent');
-      onFriendQuestionnaireSent?.();
-    }
-
-    onLogged?.();
   };
 
   // handleLog removed — auto-log on copy replaces it
