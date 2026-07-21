@@ -14,7 +14,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Phone, Copy, Check, Send } from 'lucide-react';
+import { Phone, Copy, Check, Send, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useScriptTemplates, ScriptTemplate } from '@/hooks/useScriptTemplates';
 import { useScriptCategoryOptions } from '@/hooks/useScriptCategories';
@@ -24,6 +24,9 @@ import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { format } from 'date-fns';
 import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { buildRcSmsUri, fireRcSmsUri, toE164Us } from '@/lib/ringcentral/smsUri';
+import { useRingCentralUriTemplate } from '@/hooks/useRingCentralUriTemplate';
 
 const CENTRAL_TZ = 'America/Chicago';
 
