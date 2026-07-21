@@ -381,7 +381,7 @@ interface SaOverride { sa_name: string; referrals_goal: number | null; upgrades_
 export function SomlSection() {
   const { user } = useAuth();
   const isAdmin = useEffectiveAdmin();
-  const { salesAssociates: activeSas } = useActiveStaff();
+  const { salesAssociates: activeSas, admins } = useActiveStaff();
   const { config, totals, rows, pendingReferrals, realizedReferrals, upgradesList, salesList, referralLeadsList, refetch } = useSomlData();
 
   const [editMetric, setEditMetric] = useState<MetricKey | null>(null);
@@ -403,14 +403,19 @@ export function SomlSection() {
   }, []);
   useEffect(() => { loadOverrides(); }, [loadOverrides]);
 
-  const activeCount = useMemo(
-    () => (activeSas || []).filter(n => n !== 'Koa').length,
-    [activeSas],
-  );
+  // Admins appear in the leaderboard for visibility but never bear a quota
+  // — they're excluded from redistribution math and always resolve to 0.
+  const adminSet = useMemo(() => new Set(admins || []), [admins]);
   const rosterSas = useMemo(
-    () => (activeSas || []).filter(n => n !== 'Koa'),
-    [activeSas],
+    () => (activeSas || []).filter(n => !adminSet.has(n)),
+    [activeSas, adminSet],
   );
+  const displayRoster = useMemo(
+    () => [...rosterSas, ...(admins || [])],
+    [rosterSas, admins],
+  );
+  const activeCount = rosterSas.length;
+
 
   // Pace anchor: today, capped to SOML window
   const paceAnchor = useMemo(() => {
