@@ -178,38 +178,11 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
   const [manualFields, setManualFields] = useState<Record<string, string>>({});
   const [editedMessage, setEditedMessage] = useState('');
   const [copied, setCopied] = useState(false);
-  const [leadPhone, setLeadPhone] = useState<string | null>(null);
+  const leadPhone = useResolvedLeadPhone(open, leadPhoneProp, bookingId, leadId);
   const { data: rcUriTemplate } = useRingCentralUriTemplate();
   const prevOpenRef = useRef(false);
   const userEditedRef = useRef(false);
   const loggedRef = useRef(false);
-
-  // Fetch phone for RC deep-link (booking first, then lead as fallback).
-  useEffect(() => {
-    let cancelled = false;
-    if (!open) { setLeadPhone(null); return; }
-    (async () => {
-      if (bookingId) {
-        const { data } = await supabase
-          .from('intros_booked')
-          .select('phone, phone_e164')
-          .eq('id', bookingId)
-          .maybeSingle();
-        const p = (data as any)?.phone_e164 || (data as any)?.phone || null;
-        if (!cancelled && p) { setLeadPhone(p); return; }
-      }
-      if (leadId) {
-        const { data } = await supabase
-          .from('leads')
-          .select('phone, phone_e164')
-          .eq('id', leadId)
-          .maybeSingle();
-        const p = (data as any)?.phone_e164 || (data as any)?.phone || null;
-        if (!cancelled) setLeadPhone(p || null);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [open, bookingId, leadId]);
 
   useEffect(() => {
     if (open && !prevOpenRef.current) {
