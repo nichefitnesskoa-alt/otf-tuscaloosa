@@ -87,7 +87,7 @@ export function thisWeekRangeCentral(): ConstraintRange {
 export type LeadRow = {
   id: string;
   created_at: string;
-  self_sourced_by?: string | null;
+  sourced_by_sa?: string | null;
   booked_intro_id?: string | null;
   stage?: string | null;
 };
@@ -206,13 +206,13 @@ export function useConstraintMetrics(range: ConstraintRange, saName?: string | n
   return useQuery<ConstraintMetrics>({
     queryKey: ['constraint', 'metrics', saName || 'studio', startISO, endISO],
     queryFn: async () => {
-      const leadsQ = supabase
+      let leadsQ: any = supabase
         .from('leads')
-        .select('id, created_at, self_sourced_by, booked_intro_id, stage')
+        .select('id, created_at, sourced_by_sa, booked_intro_id, stage')
         .gte('created_at', startISO).lte('created_at', endISO);
-      if (saName) leadsQ.eq('self_sourced_by', saName);
-      const { data: leads } = await leadsQ;
-      const leadIds = (leads || []).map(l => l.id);
+      if (saName) leadsQ = leadsQ.eq('sourced_by_sa', saName);
+      const { data: leads } = (await leadsQ) as { data: LeadRow[] | null };
+      const leadIds = (leads || []).map((l: LeadRow) => l.id);
 
       const activities = leadIds.length
         ? (await supabase.from('lead_activities')
