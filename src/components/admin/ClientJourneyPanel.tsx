@@ -581,9 +581,16 @@ export default function ClientJourneyPanel() {
       }
 
       // No-show detection: booking is past AND no run exists (or only no-show runs)
-      // EXCLUDE clients who eventually purchased
-      const hasActiveBooking = journey.bookings.some(b => 
-        (!b.booking_status || b.booking_status === 'Active' || b.booking_status === 'No-show') && isBookingPast(b)
+      // EXCLUDE clients who eventually purchased. Accept both canon
+      // (ACTIVE/NO_SHOW) and legacy strings ('Active'/'No-show'/null) — matches
+      // src/features/pipeline/selectors.ts so historical rows with the new
+      // NO_SHOW canon are not dropped from the tab.
+      const hasActiveBooking = journey.bookings.some(b =>
+        ((b as any).booking_status_canon === 'ACTIVE'
+          || (b as any).booking_status_canon === 'NO_SHOW'
+          || !b.booking_status
+          || b.booking_status === 'Active'
+          || b.booking_status === 'No-show') && isBookingPast(b)
       );
       const hasValidRun = journey.runs.some(r => r.result !== 'No-show');
       
