@@ -181,8 +181,8 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const somlTargets = useSomlEffectiveTargets();
 
   // Per-SA effective SOML sales goal (used for the derived Booked target).
-  // Default = team goal ÷ active SAs when no per-SA override exists.
-  const activeCountForSoml = Math.max(1, (activeSas || []).filter(n => n !== 'Koa').length);
+  // Default = team goal ÷ quota-bearing SA count when no per-SA override exists.
+  const activeCountForSoml = Math.max(1, somlTargets.rosterSas.length);
   const perSaSalesDefault = somlTargets.config
     ? (somlTargets.teamGoal('sales') || 0) / activeCountForSoml
     : null;
@@ -234,7 +234,9 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   };
 
   // Active SA set — used to suppress phantom/inactive names from the leaderboard.
-  const activeSet = useMemo(() => new Set(activeSas || []), [activeSas]);
+  // Sourced from the canonical display roster (quota SAs + admins) so Koa
+  // shows up as a row with a 0 goal via `effectiveFor`.
+  const activeSet = useMemo(() => new Set(sglTargets.displayRoster), [sglTargets.displayRoster]);
 
   const sortedRows = useMemo(() => {
     const bookedMap = new Map<string, number>(booked.rows.map(r => [r.sa, r.count] as const));
@@ -255,7 +257,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
       ...sales.rows.map(r => r.sa),
     ]);
     return Array.from(allNames)
-      .filter(name => activeSet.has(name) && name !== 'Koa')
+      .filter(name => activeSet.has(name))
       .map(name => {
         const conv = sglConvMap.get(name);
         const sgl = sourcedMap.get(name) ?? 0;

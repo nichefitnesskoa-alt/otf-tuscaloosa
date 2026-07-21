@@ -381,7 +381,7 @@ interface SaOverride { sa_name: string; referrals_goal: number | null; upgrades_
 export function SomlSection() {
   const { user } = useAuth();
   const isAdmin = useEffectiveAdmin();
-  const { salesAssociates: activeSas } = useActiveStaff();
+  const { salesAssociates: activeSas, admins } = useActiveStaff();
   const { config, totals, rows, pendingReferrals, realizedReferrals, upgradesList, salesList, referralLeadsList, refetch } = useSomlData();
 
   const [editMetric, setEditMetric] = useState<MetricKey | null>(null);
@@ -403,14 +403,19 @@ export function SomlSection() {
   }, []);
   useEffect(() => { loadOverrides(); }, [loadOverrides]);
 
-  const activeCount = useMemo(
-    () => (activeSas || []).filter(n => n !== 'Koa').length,
-    [activeSas],
-  );
+  // Admins appear in the leaderboard for visibility but never bear a quota
+  // — they're excluded from redistribution math and always resolve to 0.
+  const adminSet = useMemo(() => new Set(admins || []), [admins]);
   const rosterSas = useMemo(
-    () => (activeSas || []).filter(n => n !== 'Koa'),
-    [activeSas],
+    () => (activeSas || []).filter(n => !adminSet.has(n)),
+    [activeSas, adminSet],
   );
+  const displayRoster = useMemo(
+    () => [...rosterSas, ...(admins || [])],
+    [rosterSas, admins],
+  );
+  const activeCount = rosterSas.length;
+
 
   // Pace anchor: today, capped to SOML window
   const paceAnchor = useMemo(() => {
@@ -475,6 +480,8 @@ export function SomlSection() {
   };
   const anyOverride = overrideStats.referrals.count + overrideStats.upgrades.count + overrideStats.sales.count + overrideStats.referralLeads.count > 0;
   const effectiveTarget = (sa: string, metric: MetricKey): number => {
+    // Admins are quota-exempt — always 0. Their real activity still counts.
+    if (adminSet.has(sa)) return 0;
     const ov = overrides[sa];
     const key = METRIC_TO_GOAL_COL[metric] as keyof SaOverride;
     if (ov && ov[key] != null) return ov[key] as number;
@@ -482,9 +489,9 @@ export function SomlSection() {
   };
 
   const rowMap = useMemo(() => new Map(rows.map(r => [r.sa, r])), [rows]);
-  const leaderboardRows = useMemo(() => rosterSas.map(sa => (
+  const leaderboardRows = useMemo(() => displayRoster.map(sa => (
     rowMap.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0, pending: 0, referralLeads: 0 }
-  )), [rosterSas, rowMap]);
+  )), [displayRoster, rowMap]);
 
   const windowLabel = config
     ? `${format(new Date(config.start_date + 'T12:00:00'), 'MMM d')} – ${format(new Date(config.end_date + 'T12:00:00'), 'MMM d, yyyy')}`

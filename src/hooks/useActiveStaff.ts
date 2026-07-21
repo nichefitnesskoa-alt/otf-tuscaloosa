@@ -29,6 +29,9 @@ export function useActiveStaff() {
     allActive: staff.map(s => s.name),
     coaches: staff.filter(s => ['Coach', 'Both', 'Admin'].includes(s.role)).map(s => s.name),
     salesAssociates: staff.filter(s => ['SA', 'Both', 'Admin'].includes(s.role)).map(s => s.name),
+    /** Admins (studio leaders). Appear in per-SA rosters for visibility but
+     *  never bear a quota — see useSomlEffectiveTargets / useEffectiveSglTargets. */
+    admins: staff.filter(s => s.role === 'Admin').map(s => s.name),
   }), [staff]);
 
   return { staff, ...derived, loading };
