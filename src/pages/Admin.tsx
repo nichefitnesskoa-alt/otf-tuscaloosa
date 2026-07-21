@@ -5,23 +5,20 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, FileSpreadsheet, Database, Users, BarChart3, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown, Gift, CalendarDays, ClipboardList } from 'lucide-react';
+import {
+  Settings as SettingsIcon, Database, BarChart3, Wrench, Phone, SearchCheck,
+  TrendingUp,
+} from 'lucide-react';
 import GiveawaysAdminTab from '@/components/admin/GiveawaysAdminTab';
 import { MindbodyImportsPanel } from '@/components/admin/MindbodyImportsPanel';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-// ShiftRecapsEditor archived Phase Zero — shift_recaps still writes from CloseOutShift/InlineIntroLogger.
-
-// CoachPerformance removed from Overview - available in Coaching tab and Studio
 import ReferralTracker from '@/components/admin/ReferralTracker';
 import ReferralTree from '@/components/admin/ReferralTree';
-
-
 import AdminOverviewHealth from '@/components/admin/AdminOverviewHealth';
-
 import { IntegrityDashboard } from '@/components/admin/IntegrityDashboard';
 import SuccessStoriesPanel from '@/components/admin/SuccessStoriesPanel';
 import DataAuditDashboard from '@/components/admin/DataAuditDashboard';
@@ -29,7 +26,6 @@ import ArchiveOldDmLeads from '@/components/admin/ArchiveOldDmLeads';
 import { LeadSheetImport } from '@/components/admin/LeadSheetImport';
 import ScriptsPage from '@/pages/Scripts';
 import HiringPipeline from '@/components/admin/HiringPipeline';
-import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
 import ObjectionReport from '@/components/admin/ObjectionReport';
 import ShiftTasksAdmin from '@/components/admin/ShiftTasksAdmin';
 import StaffManagement from '@/components/admin/StaffManagement';
@@ -40,16 +36,15 @@ import { BingoAdminTab } from '@/components/admin/BingoAdminTab';
 import { IntroSchedulerLinkCard } from '@/components/admin/IntroSchedulerLinkCard';
 import { BookableScheduleAdmin } from '@/components/admin/BookableScheduleAdmin';
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
 
-// Staff names now loaded from database via useActiveStaff hook where needed
+// ─────────────────────────────────────────────────────────────
+// Ongoing utility cards. FixVipBookingTypesCard, QuestionnaireReconcileCard,
+// and QuestionnaireSlugBackfillCard were retired Phase Three — DB queries
+// confirmed zero pending rows and DB triggers keep those invariants going
+// forward. See .agents/skills/system-change-audit/references/consumer-map.md.
+// ─────────────────────────────────────────────────────────────
 
 function PhoneBackfillCard() {
   const [running, setRunning] = useState(false);
@@ -96,147 +91,6 @@ function PhoneBackfillCard() {
   );
 }
 
-function FixVipBookingTypesCard() {
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<number | null>(null);
-
-  const handleFix = async () => {
-    setRunning(true);
-    setResult(null);
-    try {
-      const { data, error } = await supabase
-        .from('intros_booked')
-        .update({ booking_type_canon: 'VIP' } as any)
-        .eq('is_vip', true)
-        .neq('booking_type_canon', 'VIP')
-        .neq('booking_type_canon', 'COMP')
-        .select('id');
-      if (error) throw error;
-      const count = data?.length ?? 0;
-      setResult(count);
-      toast.success(`Fixed ${count} record${count !== 1 ? 's' : ''}`);
-    } catch (err: any) {
-      toast.error(err?.message || 'Fix failed');
-    } finally {
-      setRunning(false);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Star className="w-4 h-4" />
-          Fix VIP Booking Types
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <p className="text-xs text-muted-foreground">
-          Finds all bookings where is_vip=true but booking_type_canon is not 'VIP'. Sets them to 'VIP' so they're correctly excluded from MyDay.
-        </p>
-        <div className="flex items-center gap-3">
-          <Button size="sm" onClick={handleFix} disabled={running} variant="outline">
-            {running ? 'Running…' : 'Fix VIP booking types'}
-          </Button>
-          {result !== null && (
-            <span className="text-sm text-muted-foreground">Fixed {result} records</span>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function QuestionnaireReconcileCard() {
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<number | null>(null);
-
-  const handleReconcile = async () => {
-    setRunning(true);
-    setResult(null);
-    try {
-      const { data, error } = await supabase.rpc('reconcile_questionnaire_statuses');
-      if (error) throw error;
-      const updated = (data as any)?.updated ?? 0;
-      setResult(updated);
-      toast.success(`Fixed ${updated} row${updated !== 1 ? 's' : ''}`);
-    } catch (err: any) {
-      toast.error(err?.message || 'Reconciliation failed');
-    } finally {
-      setRunning(false);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <ClipboardCheck className="w-4 h-4" />
-          Questionnaire Status Sync
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <p className="text-xs text-muted-foreground">
-          Finds intros where the questionnaire was completed but the status wasn't updated. Safe to run multiple times.
-        </p>
-        <div className="flex items-center gap-3">
-          <Button size="sm" onClick={handleReconcile} disabled={running} variant="outline">
-            {running ? 'Running…' : 'Fix questionnaire statuses'}
-          </Button>
-          {result !== null && (
-            <span className="text-sm text-muted-foreground">Fixed {result} rows</span>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function QuestionnaireSlugBackfillCard() {
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<number | null>(null);
-
-  const handleBackfill = async () => {
-    setRunning(true);
-    setResult(null);
-    try {
-      const { data, error } = await supabase.rpc('backfill_questionnaire_slugs' as any);
-      if (error) throw error;
-      const updated = (data as any)?.updated ?? 0;
-      setResult(updated);
-      toast.success(`Updated ${updated} row${updated !== 1 ? 's' : ''}`);
-    } catch (err: any) {
-      toast.error(err?.message || 'Backfill failed');
-    } finally {
-      setRunning(false);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <FileText className="w-4 h-4" />
-          Questionnaire URL Slugs
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <p className="text-xs text-muted-foreground">
-          Updates all questionnaire slugs to the new <code className="font-mono text-[10px]">firstname-lastname-uuid</code> format. Safe to run multiple times — skips rows already in the correct format.
-        </p>
-        <div className="flex items-center gap-3">
-          <Button size="sm" onClick={handleBackfill} disabled={running} variant="outline">
-            {running ? 'Running…' : 'Backfill questionnaire URL slugs'}
-          </Button>
-          {result !== null && (
-            <span className="text-sm text-muted-foreground">Updated {result} rows</span>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function DuplicateDetectionCard() {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<{ flagged: number; moved: number } | null>(null);
@@ -245,7 +99,6 @@ function DuplicateDetectionCard() {
     setRunning(true);
     setResult(null);
     try {
-      // Include 'contacted' leads — they may have matched a booking that was created after they were contacted
       const { data: leads, error } = await supabase
         .from('leads')
         .select('id, first_name, last_name, phone, email, stage, duplicate_override')
@@ -314,9 +167,8 @@ function WeeklyContactAvgCard() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      // Current Mon–today
       const now = new Date();
-      const dayOfWeek = now.getDay(); // 0=Sun
+      const dayOfWeek = now.getDay();
       const diffToMon = (dayOfWeek + 6) % 7;
       const mon = new Date(now);
       mon.setDate(now.getDate() - diffToMon);
@@ -332,7 +184,6 @@ function WeeklyContactAvgCard() {
 
       if (!data) { setLoading(false); return; }
 
-      // Aggregate by staff — sum contacts, count distinct shift days
       const map: Record<string, { total: number; days: Set<string> }> = {};
       for (const r of data) {
         const key = r.staff_name;
@@ -354,7 +205,7 @@ function WeeklyContactAvgCard() {
   const daysElapsed = (() => {
     const now = new Date();
     const dayOfWeek = now.getDay();
-    return dayOfWeek === 0 ? 7 : dayOfWeek; // Mon–Sun: days since last Monday including today
+    return dayOfWeek === 0 ? 7 : dayOfWeek;
   })();
 
   return (
@@ -375,7 +226,7 @@ function WeeklyContactAvgCard() {
           <div className="space-y-1.5">
             {rows.map(r => {
               const avg = r.days > 0 ? (r.total / r.days).toFixed(1) : '—';
-              const pct = Math.min(100, (r.total / (daysElapsed * 25)) * 100); // 25 = rough daily target
+              const pct = Math.min(100, (r.total / (daysElapsed * 25)) * 100);
               return (
                 <div key={r.staff_name} className="flex items-center gap-2 text-xs">
                   <span className="w-20 shrink-0 font-medium truncate">{r.staff_name}</span>
@@ -400,202 +251,103 @@ function WeeklyContactAvgCard() {
   );
 }
 
-function IntelligenceTab() {
-  const [reports, setReports] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchReports = async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from('studio_intelligence')
-        .select('id, report_date, content_json, created_at')
-        .order('report_date', { ascending: false })
-        .limit(14);
-      setReports(data || []);
-      setLoading(false);
-    };
-    fetchReports();
-  }, []);
-
+function EventsSection() {
+  const [eventId, setEventId] = useState<string | null>(null);
   return (
-    <div className="space-y-4">
-      {/* Latest report card with generate button */}
-      <StudioIntelligenceCard />
+    <>
+      <EventsAdminPanel />
+      <EventsIndexPanel selectedEventId={eventId} onSelectEvent={setEventId} />
+      <EventCohortPanel eventId={eventId} onEventIdChange={setEventId} />
+    </>
+  );
+}
 
-      {/* Historical reports */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Brain className="w-4 h-4" />
-            Report History (Last 14 Days)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Loading…</p>
-          ) : reports.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              No reports yet. Click "Generate Now" above to create the first one.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {reports.map((r) => {
-                const data = r.content_json as any;
-                return (
-                  <div key={r.id} className="rounded-lg border p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold">{data?.report_date || r.report_date}</span>
-                      <div className="flex items-center gap-2 text-xs">
-                        <Badge variant="outline">{data?.intros_ran ?? '—'} intros</Badge>
-                        <Badge variant="outline" className="text-success">{data?.sales ?? '—'} sales</Badge>
-                        <Badge variant="outline">{data?.close_rate ?? '—'}%</Badge>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2 text-[11px]">
-                      {data?.best_source && data.best_source !== 'N/A' && (
-                        <span className="text-muted-foreground">Best source: <strong>{data.best_source}</strong> ({data.best_source_rate}%)</span>
-                      )}
-                      {data?.top_sa && data.top_sa !== 'N/A' && (
-                        <span className="text-muted-foreground">Top SA: <strong>{data.top_sa}</strong> ({data.top_sa_rate}%)</span>
-                      )}
-                      {data?.top_objection && data.top_objection !== 'N/A' && (
-                        <span className="text-muted-foreground">Top objection: <strong>{data.top_objection}</strong> ({data.top_objection_count}x)</span>
-                      )}
-                    </div>
-                    {data?.report_text && (
-                      <details className="text-xs">
-                        <summary className="cursor-pointer text-primary font-medium">View full report</summary>
-                        <div className="mt-2 rounded bg-muted/50 p-2.5 whitespace-pre-line leading-relaxed">
-                          {data.report_text}
-                        </div>
-                      </details>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className="border-b pb-2 mt-2">
+      <h2 className="text-base font-semibold">{title}</h2>
+      {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
     </div>
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// Admin — four canonical buckets: Operations, Reporting, Data, Settings.
+// Sub-sections within each bucket stack vertically; each section has its
+// own header for orientation.
+// ─────────────────────────────────────────────────────────────
 export default function Admin() {
   const { user } = useAuth();
-  const { introsBooked, introsRun, refreshData } = useData();
-  const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const { refreshData } = useData();
+  const [activeTab, setActiveTab] = useState('operations');
 
-  // Global date filter state for Overview tab
   const [datePreset, setDatePreset] = useState<DatePreset>('pay_period');
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
-  
-  // Computed date range based on preset/custom selection
-  const dateRange = useMemo(() => {
-    return getDateRangeForPreset(datePreset, customRange);
-  }, [datePreset, customRange]);
-  
-  const adminSections = useMemo(() => [
-    { value: 'overview', label: 'Overview', icon: <FileSpreadsheet className="w-4 h-4" /> },
-    { value: 'objections', label: 'Objections', icon: <AlertTriangle className="w-4 h-4" /> },
-    { value: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
-    { value: 'mindbody_imports', label: 'OrangeBook Imports', icon: <ClipboardList className="w-4 h-4" /> },
-    { value: 'referrals', label: 'Referrals', icon: <Users className="w-4 h-4" /> },
-    { value: 'stories', label: 'Stories', icon: <BookOpen className="w-4 h-4" /> },
-    { value: 'scripts', label: 'Scripts', icon: <FileText className="w-4 h-4" /> },
-    { value: 'hiring', label: 'Hiring', icon: <UserPlus className="w-4 h-4" /> },
-    { value: 'staff', label: 'Staff Management', icon: <Users className="w-4 h-4" /> },
-    { value: 'shifts', label: 'Shifts', icon: <ListChecks className="w-4 h-4" /> },
-    { value: 'giveaways', label: 'Giveaways', icon: <Gift className="w-4 h-4" /> },
-    { value: 'events', label: 'Events', icon: <CalendarDays className="w-4 h-4" /> },
-    { value: 'intro_scheduler', label: 'Intro Scheduler Link', icon: <CalendarDays className="w-4 h-4" /> },
-    { value: 'bingo', label: 'Summer Bingo', icon: <Gift className="w-4 h-4" /> },
-  ], []);
+  const dateRange = useMemo(
+    () => getDateRangeForPreset(datePreset, customRange),
+    [datePreset, customRange],
+  );
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-      } catch (error) {
-        console.error('Error fetching admin data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  // Only admin can access
   if (user?.role !== 'Admin') {
     return <Navigate to="/my-day" replace />;
   }
 
-
-  const handleRefresh = async () => {
-    await refreshData();
-    toast.success('Data refreshed!');
-  };
-
-
   return (
     <div className="p-4 space-y-4">
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="text-xl font-bold flex items-center gap-2">
-          <Settings className="w-5 h-5" />
+          <SettingsIcon className="w-5 h-5" />
           Admin Panel
         </h1>
         <p className="text-sm text-muted-foreground">
-          Manage data sync, edit records, and view team stats
+          Operations, reporting, data health, and settings
         </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        {/* Dropdown navigation replaces overflowing tabs grid */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="w-full justify-between mb-4">
-              <span className="flex items-center gap-2">
-                {adminSections.find(s => s.value === activeTab)?.icon}
-                {adminSections.find(s => s.value === activeTab)?.label || 'Overview'}
-              </span>
-              <ChevronDown className="w-4 h-4 ml-2" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start">
-            {adminSections.map(section => (
-              <DropdownMenuItem
-                key={section.value}
-                onClick={() => setActiveTab(section.value)}
-                className={activeTab === section.value ? 'bg-accent font-semibold' : ''}
-              >
-                <span className="flex items-center gap-2">
-                  {section.icon}
-                  {section.label}
-                </span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <TabsList className="grid grid-cols-4 w-full">
+          <TabsTrigger value="operations" className="gap-1.5">
+            <Wrench className="w-4 h-4" />
+            Operations
+          </TabsTrigger>
+          <TabsTrigger value="reporting" className="gap-1.5">
+            <BarChart3 className="w-4 h-4" />
+            Reporting
+          </TabsTrigger>
+          <TabsTrigger value="data" className="gap-1.5">
+            <Database className="w-4 h-4" />
+            Data
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="gap-1.5">
+            <SettingsIcon className="w-4 h-4" />
+            Settings
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Objections Tab */}
-        <TabsContent value="objections" className="space-y-4">
-          <ObjectionReport />
+        {/* Operations */}
+        <TabsContent value="operations" className="space-y-6 mt-4">
+          <SectionHeader title="Success Stories" />
+          <SuccessStoriesPanel />
+
+          <SectionHeader title="Scripts" />
+          <ScriptsPage />
+
+          <SectionHeader title="Giveaways" />
+          <GiveawaysAdminTab />
+
+          <SectionHeader title="Events" />
+          <EventsSection />
+
+          <SectionHeader title="Summer Bingo" />
+          <BingoAdminTab />
+
+          <SectionHeader title="Hiring" />
+          <HiringPipeline />
         </TabsContent>
 
-
-        {/* Referrals Tab */}
-        <TabsContent value="referrals" className="space-y-4">
-          <ReferralTracker />
-          <ReferralTree />
-        </TabsContent>
-
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-4">
-          {/* Global Date Filter */}
+        {/* Reporting */}
+        <TabsContent value="reporting" className="space-y-6 mt-4">
+          <SectionHeader title="Overview" subtitle="Business health for the selected date range" />
           <DateRangeFilter
             preset={datePreset}
             customRange={customRange}
@@ -603,94 +355,69 @@ export default function Admin() {
             onCustomRangeChange={setCustomRange}
             dateRange={dateRange || { start: new Date(), end: new Date() }}
           />
-
-          {/* Business Health Dashboard */}
           <AdminOverviewHealth dateRange={dateRange} />
 
+          <SectionHeader title="Objections" />
+          <ObjectionReport />
+
+          <SectionHeader title="Referrals" />
+          <ReferralTracker />
+          <ReferralTree />
+
+          <SectionHeader title="Unified Portal Imports" subtitle="Who marked leads and VIP registrants imported into Mindbody" />
+          <MindbodyImportsPanel />
+
+          <SectionHeader title="Weekly Contact Averages" />
+          <WeeklyContactAvgCard />
         </TabsContent>
 
-        {/* Data Management Tab */}
-        <TabsContent value="data" className="space-y-4">
+        {/* Data */}
+        <TabsContent value="data" className="space-y-6 mt-4">
+          <SectionHeader title="Lead Sheet Import" />
           <LeadSheetImport />
+
+          <SectionHeader title="Data Audit" />
           <DataAuditDashboard />
-          <WeeklyContactAvgCard />
+
+          <SectionHeader title="Duplicate Detection" />
           <DuplicateDetectionCard />
+
+          <SectionHeader title="Integrity Dashboard" />
           <IntegrityDashboard />
-          {/* ShiftRecapsEditor archived Phase Zero. */}
+
+          <SectionHeader title="Phone Backfill" subtitle="Ongoing — parses missing phones from email intake" />
           <PhoneBackfillCard />
-          <FixVipBookingTypesCard />
-          <QuestionnaireReconcileCard />
-          <QuestionnaireSlugBackfillCard />
+
+          <SectionHeader title="Archive Old DM Leads" subtitle="Ongoing — rolling 30-day archive" />
           <ArchiveOldDmLeads />
         </TabsContent>
 
-        {/* Mindbody Imports Tab */}
-        <TabsContent value="mindbody_imports" className="space-y-4">
-          <MindbodyImportsPanel />
-        </TabsContent>
-
-
-        {/* Stories Tab */}
-        <TabsContent value="stories" className="space-y-4">
-          <SuccessStoriesPanel />
-        </TabsContent>
-
-        {/* Scripts Tab */}
-        <TabsContent value="scripts" className="space-y-4">
-          <ScriptsPage />
-        </TabsContent>
-
-        {/* Hiring Tab */}
-        <TabsContent value="hiring" className="space-y-4">
-          <HiringPipeline />
-        </TabsContent>
-
-        {/* Staff Management Tab */}
-        <TabsContent value="staff" className="space-y-4">
+        {/* Settings */}
+        <TabsContent value="settings" className="space-y-6 mt-4">
+          <SectionHeader title="Staff Management" />
           <StaffManagement />
-        </TabsContent>
 
-        {/* Shifts Tab */}
-        <TabsContent value="shifts" className="space-y-4">
+          <SectionHeader title="Shift Tasks" />
           <ShiftTasksAdmin />
-        </TabsContent>
 
-        {/* Giveaways Tab */}
-        <TabsContent value="giveaways" className="space-y-4">
-          <GiveawaysAdminTab />
-        </TabsContent>
-
-        {/* Events Tab */}
-        <TabsContent value="events" className="space-y-4">
-          <EventsAdminPanel />
-          <EventsTabCohortSection />
-        </TabsContent>
-
-        <TabsContent value="intro_scheduler" className="space-y-4">
+          <SectionHeader title="Intro Scheduler" />
           <IntroSchedulerLinkCard />
           <BookableScheduleAdmin />
+
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await refreshData();
+                toast.success('Data refreshed');
+              }}
+            >
+              Refresh cached data
+            </Button>
+          </div>
         </TabsContent>
-
-        {/* Summer Bingo Tab */}
-        <TabsContent value="bingo" className="space-y-4">
-          <BingoAdminTab />
-        </TabsContent>
-
-
-
-
       </Tabs>
     </div>
   );
 }
-
-function EventsTabCohortSection() {
-  const [eventId, setEventId] = useState<string | null>(null);
-  return (
-    <>
-      <EventsIndexPanel selectedEventId={eventId} onSelectEvent={setEventId} />
-      <EventCohortPanel eventId={eventId} onEventIdChange={setEventId} />
-    </>
-  );
-}
-
