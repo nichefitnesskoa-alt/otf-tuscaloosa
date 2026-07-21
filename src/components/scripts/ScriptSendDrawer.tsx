@@ -84,6 +84,10 @@ export function ScriptSendDrawer({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [phoneCopied, setPhoneCopied] = useState(false);
   const [firstIntroCoach, setFirstIntroCoach] = useState<string | null>(null);
+  // Log-once-per-drawer-open per template: prevents double-writes when the SA
+  // taps both "Copy to Clipboard" and "Open in RingCentral" on the same script.
+  const [loggedIds, setLoggedIds] = useState<Set<string>>(new Set());
+  const { data: rcUriTemplate } = useRingCentralUriTemplate();
 
   // Reset state when drawer opens; pre-select default category
   useEffect(() => {
@@ -91,6 +95,7 @@ export function ScriptSendDrawer({
       setSelectedCategory(defaultCategory || '');
       setCopiedId(null);
       setPhoneCopied(false);
+      setLoggedIds(new Set());
     }
   }, [open, defaultCategory]);
 
