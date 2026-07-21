@@ -844,8 +844,9 @@ export default function Wig() {
       // a close for the coach who ran THAT class. Direct sales are already in
       // closes above; here we add journey-only credit (via 2nd intro) for
       // ran bookings whose own run is not itself the sale.
+      const allCoachBookingsById = new Map<string, any>(allCoachBookings.map(b => [b.id, b]));
       const coachedForJourney = Array.from(corpCoachedBookingIds)
-        .map(id => bookingByIdMap.get(id))
+        .map(id => allCoachBookingsById.get(id))
         .filter((b): b is any => !!b);
       const corpJourney = await resolveCorporateJourneyChains(
         coachedForJourney.map(b => ({ id: b.id, originating_booking_id: b.originating_booking_id })),
