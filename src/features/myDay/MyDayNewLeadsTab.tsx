@@ -514,15 +514,20 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
 
     await supabase.from('leads').update(update).eq('id', leadId);
     if (activityNote) {
+      // For 'contacted' write the canonical activity_type so constraint.ts
+      // counts it as first contact directly. Others stay as stage_change for
+      // history — constraint.ts also matches new_stage='contacted' and
+      // 'Marked as Contacted' notes as a legacy fallback.
       await supabase.from('lead_activities').insert({
         lead_id: leadId,
-        activity_type: 'stage_change',
+        activity_type: action === 'contacted' ? 'contacted' : 'stage_change',
         performed_by: user?.name || 'Unknown',
         notes: activityNote,
       });
     }
     fetchLeads();
     queryClient.invalidateQueries({ queryKey: ['leads'] });
+    notifyDataChanged(['constraint', 'leads', 'lead_activities'], 'lead-action');
   };
 
   const handleBookDone = () => {
