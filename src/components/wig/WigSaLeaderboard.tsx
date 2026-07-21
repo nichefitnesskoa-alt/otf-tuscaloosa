@@ -238,6 +238,19 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   // shows up as a row with a 0 goal via `effectiveFor`.
   const activeSet = useMemo(() => new Set(sglTargets.displayRoster), [sglTargets.displayRoster]);
 
+  // Re-admit inactive staff who have data in the selected date range — history
+  // must never vanish when `is_active` flips false. Canonical helper.
+  const dataNames = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of booked.rows) s.add(r.sa);
+    for (const r of sourcedLeads.rows) s.add(r.sa);
+    for (const r of sales.rows) s.add(r.sa);
+    return Array.from(s);
+  }, [booked.rows, sourcedLeads.rows, sales.rows]);
+  const roster = useRosterWithDataInRange(sglTargets.displayRoster, dataNames);
+  const displayNameSet = useMemo(() => new Set(roster.names), [roster.names]);
+  const inactiveNames = roster.inactiveNames;
+
   const sortedRows = useMemo(() => {
     const bookedMap = new Map<string, number>(booked.rows.map(r => [r.sa, r.count] as const));
     const sourcedMap = new Map<string, number>(sourcedLeads.rows.map(r => [r.sa, r.count] as const));
