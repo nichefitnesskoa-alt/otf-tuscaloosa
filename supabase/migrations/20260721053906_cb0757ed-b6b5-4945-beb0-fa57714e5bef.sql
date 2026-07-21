@@ -1,0 +1,1 @@
+DELETE FROM public.sheets_sync_log WHERE created_at < now() - interval '30 days';
