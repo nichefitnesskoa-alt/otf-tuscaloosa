@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { StickyNote, Trash2, Check, Bell, Plus, Send } from 'lucide-react';
+import { StickyNote, Trash2, Check, Bell, Plus, Send, MessageCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
@@ -10,6 +10,7 @@ import {
   type StickyPriority,
 } from '@/hooks/useStickyNotes';
 import { useTeamChat } from '@/hooks/useTeamChat';
+import { useStickyNoteComments, type StickyNoteComment } from '@/hooks/useStickyNoteComments';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
