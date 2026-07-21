@@ -243,6 +243,25 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
       } catch (e) {
         console.error('Failed to log script action:', e);
       }
+      // Count script sends as first contact for speed-to-lead. constraint.ts
+      // reads lead_activities only, so this is where 'script_sent' becomes a
+      // real contact signal.
+      if (leadId) {
+        try {
+          await supabase.from('lead_activities').insert({
+            lead_id: leadId,
+            activity_type: 'script_sent',
+            performed_by: user?.name || 'Unknown',
+            notes: `Script sent: ${template.name || template.category || 'template'}`,
+          });
+        } catch (e) {
+          console.error('Failed to log lead_activities contact row:', e);
+        }
+      }
+      try {
+        const { notifyDataChanged } = await import('@/lib/data/invalidation');
+        notifyDataChanged(['constraint', 'leads', 'lead_activities'], 'script_sent');
+      } catch { /* noop */ }
       if (questionnaireId) {
         await supabase
           .from('intro_questionnaires')
