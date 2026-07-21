@@ -48,94 +48,29 @@ function formatDuration(minutes: number) {
 
 function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
   const newLeads = leads.filter(l => l.stage === 'new');
-  // Treat any lead that has progressed past New as "contacted" for speed-to-lead
-  const contactedLeads = leads.filter(l =>
-    l.stage === 'contacted' || l.stage === 'booked' || l.stage === 'won'
-  );
-
   const overdue = newLeads.filter(l => differenceInMinutes(new Date(), parseISO(l.created_at)) >= 240).length;
   const warning = newLeads.filter(l => {
     const m = differenceInMinutes(new Date(), parseISO(l.created_at));
     return m >= 60 && m < 240;
   }).length;
 
-  // Fetch first-contact time from lead_activities + script_send_log for accurate speed-to-lead.
-  // Bug fix: handleAction('contacted') writes activity_type='stage_change' (not 'contacted'),
-  // so the previous filter never matched. We now union multiple signals and take the earliest.
-  const [responseTimes, setResponseTimes] = useState<number[]>([]);
-  const [activityLoaded, setActivityLoaded] = useState(false);
-
-  useEffect(() => {
-    if (contactedLeads.length === 0) {
-      setResponseTimes([]);
-      setActivityLoaded(true);
-      return;
-    }
-    const contactedIds = contactedLeads.map(l => l.id);
-    Promise.all([
-      supabase
-        .from('lead_activities')
-        .select('lead_id, created_at, activity_type, notes')
-        .in('lead_id', contactedIds)
-        .order('created_at', { ascending: true }),
-      supabase
-        .from('script_send_log')
-        .select('lead_id, sent_at')
-        .in('lead_id', contactedIds)
-        .order('sent_at', { ascending: true }),
-    ]).then(([activitiesRes, sendLogRes]) => {
-      const firstContactMap = new Map<string, string>();
-      const consider = (leadId: string | null | undefined, ts: string | null | undefined) => {
-        if (!leadId || !ts) return;
-        const existing = firstContactMap.get(leadId);
-        if (!existing || ts < existing) firstContactMap.set(leadId, ts);
-      };
-      for (const row of (activitiesRes.data as any[]) || []) {
-        const isContact =
-          row.activity_type === 'contacted' ||
-          row.activity_type === 'script_sent' ||
-          (row.activity_type === 'stage_change' &&
-            typeof row.notes === 'string' &&
-            /contacted|booked/i.test(row.notes));
-        if (isContact) consider(row.lead_id, row.created_at);
-      }
-      for (const row of (sendLogRes.data as any[]) || []) {
-        consider(row.lead_id, row.sent_at);
-      }
-      const times: number[] = [];
-      for (const lead of contactedLeads) {
-        const contactTime = firstContactMap.get(lead.id);
-        if (contactTime) {
-          const mins = differenceInMinutes(parseISO(contactTime), parseISO(lead.created_at));
-          if (mins >= 0) times.push(mins);
-        }
-      }
-      setResponseTimes(times);
-      setActivityLoaded(true);
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contactedLeads.length, contactedLeads.map(l => l.id).join(',')]);
-
-  const avgResponse = responseTimes.length > 0
-    ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
-    : null;
-  const bestResponse = responseTimes.length > 0
-    ? Math.min(...responseTimes)
-    : null;
+  // Speed-to-lead value is CANONICAL — read from constraint.ts, do not
+  // recompute inline. Overdue/warning stay card-state based on visible leads.
+  // Range: today (matches ShiftScoreboard's default range).
+  const range = todayRangeCentral();
+  const { data: metrics, isLoading: metricsLoading } = useConstraintMetrics(range, null);
+  const median = metrics?.speedMedianMin ?? null;
 
   const statusColor = overdue > 0 ? 'border-destructive/40 bg-destructive/5' : warning > 0 ? 'border-warning bg-warning-dim' : 'border-success bg-success-dim';
 
   return (
     <div className={`rounded-lg border-2 ${statusColor} p-2.5`}>
-      <p className="text-[11px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Speed to Lead</p>
+      <p className="text-[11px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Speed to Lead · today</p>
       <div className="flex items-center gap-3 flex-wrap text-[12px]">
-        {!activityLoaded ? (
+        {metricsLoading ? (
           <span className="text-muted-foreground">Loading…</span>
-        ) : avgResponse !== null ? (
-          <>
-            <span className="text-foreground font-medium">Avg: {formatDuration(avgResponse)}</span>
-            <span className="text-foreground font-medium">Best: {formatDuration(bestResponse!)}</span>
-          </>
+        ) : median !== null ? (
+          <span className="text-foreground font-medium">Median: {formatDuration(median)}</span>
         ) : (
           <span className="text-muted-foreground">No contacts yet</span>
         )}
@@ -145,7 +80,7 @@ function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
         {warning > 0 && (
           <Badge className="text-[10px] px-1.5 py-0 h-4 bg-warning-dim text-primary-foreground">⚠ {warning} Soon</Badge>
         )}
-        {overdue === 0 && warning === 0 && newLeads.length === 0 && activityLoaded && avgResponse !== null && (
+        {overdue === 0 && warning === 0 && newLeads.length === 0 && !metricsLoading && median !== null && (
           <span className="text-muted-foreground">All clear</span>
         )}
         {overdue === 0 && warning === 0 && newLeads.length > 0 && (
