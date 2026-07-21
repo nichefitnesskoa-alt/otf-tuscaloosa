@@ -22,6 +22,7 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
+import { useRosterWithDataInRange } from '@/lib/staff/rosterInRange';
 import { useEffectiveAdmin } from '@/hooks/useViewAsAdmin';
 import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/pace';
 import { getNowCentral } from '@/lib/dateUtils';
