@@ -18,9 +18,7 @@ export default function AdminOverviewHealth({ dateRange }: AdminOverviewHealthPr
   const [systemHealth, setSystemHealth] = useState<{
     lastGroupMePost: string | null;
     failedRecaps: number;
-    lastSyncStatus: string | null;
-    lastSyncTime: string | null;
-  }>({ lastGroupMePost: null, failedRecaps: 0, lastSyncStatus: null, lastSyncTime: null });
+  }>({ lastGroupMePost: null, failedRecaps: 0 });
 
   useEffect(() => {
     fetchAll();
@@ -57,8 +55,6 @@ export default function AdminOverviewHealth({ dateRange }: AdminOverviewHealthPr
     setSystemHealth({
       lastGroupMePost: lastSent?.created_at || null,
       failedRecaps,
-      lastSyncStatus: null,
-      lastSyncTime: null,
     });
   };
 
@@ -106,14 +102,6 @@ export default function AdminOverviewHealth({ dateRange }: AdminOverviewHealthPr
               ? `Last sent ${format(parseISO(systemHealth.lastGroupMePost), 'MMM d, h:mm a')}`
               : 'No posts yet'}
             warning={systemHealth.failedRecaps > 0 ? `${systemHealth.failedRecaps} failed` : undefined}
-          />
-          <HealthRow
-            label="Data Sync"
-            ok={systemHealth.lastSyncStatus === 'success'}
-            detail={systemHealth.lastSyncTime
-              ? `Last sync ${format(parseISO(systemHealth.lastSyncTime), 'MMM d, h:mm a')}`
-              : 'No syncs recorded'}
-            warning={systemHealth.lastSyncStatus === 'error' ? 'Last sync failed' : undefined}
           />
         </CardContent>
       </Card>
