@@ -4058,7 +4058,6 @@ export type Database = {
           due_date: string | null
           id: string
           priority: string
-          status: string
         }
         Insert: {
           acknowledged_at?: string | null
@@ -4072,7 +4071,6 @@ export type Database = {
           due_date?: string | null
           id?: string
           priority?: string
-          status?: string
         }
         Update: {
           acknowledged_at?: string | null
@@ -4086,7 +4084,6 @@ export type Database = {
           due_date?: string | null
           id?: string
           priority?: string
-          status?: string
         }
         Relationships: []
       }
@@ -4621,22 +4618,22 @@ export type Database = {
       }
       team_chat_messages: {
         Row: {
-          author: string
           content: string
           created_at: string
           id: string
+          sender: string
         }
         Insert: {
-          author: string
           content: string
           created_at?: string
           id?: string
+          sender: string
         }
         Update: {
-          author?: string
           content?: string
           created_at?: string
           id?: string
+          sender?: string
         }
         Relationships: []
       }
