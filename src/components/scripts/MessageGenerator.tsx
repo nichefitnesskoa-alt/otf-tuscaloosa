@@ -368,11 +368,33 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-2">
-            <Button onClick={handleCopy} className="flex-1 min-h-[44px]">
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => handleSend({ fireUri: false })} className="flex-1 min-h-[44px]">
               {copied ? <ClipboardCheck className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
               {copied ? 'Copied + Logged' : 'Copy to Clipboard'}
             </Button>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex-1">
+                    <Button
+                      variant="outline"
+                      className="w-full min-h-[44px]"
+                      onClick={() => handleSend({ fireUri: true })}
+                      disabled={!toE164Us(leadPhone)}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-1" />
+                      Open in RingCentral
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!toE164Us(leadPhone) && (
+                  <TooltipContent>
+                    This lead has no usable phone number.
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
             <CopyPhoneButton bookingId={bookingId} />
           </div>
 
