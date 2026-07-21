@@ -32,6 +32,7 @@ import {
 import { useTrailingConversion, deriveBookedTargetFromSales } from '@/lib/wig/derivedBookedTarget';
 import { useSomlEffectiveTargets } from '@/lib/soml/effectiveTargets';
 import { useEffectiveSglTargets } from '@/lib/wig/effectiveSglTarget';
+import { useRosterWithDataInRange } from '@/lib/staff/rosterInRange';
 
 interface Props {
   dateRange: DateRange | undefined;
