@@ -28,16 +28,14 @@ function speedColor(minutes: number | null): 'success' | 'warning' | 'destructiv
 
 export function OutreachTable({ data, loading }: Props) {
   const journey = useJourneyCard('Studio · Outreach');
-  const [drill, setDrill] = useState<{ sa: string; metric: 'fu' | 'dm' | 'leads' } | null>(null);
+  const [drill, setDrill] = useState<{ sa: string; metric: 'fu' | 'leads' } | null>(null);
 
   const drillRows: PersonRow[] = useMemo(() => {
     if (!drill) return [];
     const sa = data.find(s => s.saName === drill.sa);
     if (!sa) return [];
     const base = drill.metric === 'fu' ? (sa.followUpPeople || [])
-      : drill.metric === 'dm' ? (sa.dmPeople || [])
       : (sa.leadsReachedPeople || []);
-    // Name-only resolve — these rows are aggregations, no bookingId attached.
     return base.map(r => ({
       ...r,
       onClick: () => journey.open({ name: r.name }),
@@ -67,9 +65,6 @@ export function OutreachTable({ data, loading }: Props) {
                     <Tooltip><TooltipTrigger asChild><div className="cursor-help"><MessageCircle className="w-3 h-3 mx-auto" /><span className="block text-[9px]">FU</span></div></TooltipTrigger><TooltipContent side="top" className="text-xs">Follow-Up Touches</TooltipContent></Tooltip>
                   </th>
                   <th className="text-center py-2 px-1 font-medium text-muted-foreground">
-                    <Tooltip><TooltipTrigger asChild><div className="cursor-help"><span className="block text-[9px]">DMs</span></div></TooltipTrigger><TooltipContent side="top" className="text-xs">DMs sent (from shift recaps)</TooltipContent></Tooltip>
-                  </th>
-                  <th className="text-center py-2 px-1 font-medium text-muted-foreground">
                     <Tooltip><TooltipTrigger asChild><div className="cursor-help"><Users className="w-3 h-3 mx-auto" /><span className="block text-[9px]">Leads</span></div></TooltipTrigger><TooltipContent side="top" className="text-xs">Unique leads first-contacted</TooltipContent></Tooltip>
                   </th>
                 </tr>
@@ -83,9 +78,6 @@ export function OutreachTable({ data, loading }: Props) {
                     </td>
                     <td className="text-center py-1.5 px-1">
                       <DrillNumber value={sa.followUpTouches} onClick={() => setDrill({ sa: sa.saName, metric: 'fu' })} ariaLabel={`View ${sa.followUpTouches} follow-up touches for ${sa.saName}`} className="text-xs" />
-                    </td>
-                    <td className="text-center py-1.5 px-1">
-                      <DrillNumber value={sa.dmsSent} onClick={() => setDrill({ sa: sa.saName, metric: 'dm' })} ariaLabel={`View DMs for ${sa.saName}`} className="text-xs" />
                     </td>
                     <td className="text-center py-1.5 px-1">
                       <DrillNumber value={sa.leadsReachedOut} onClick={() => setDrill({ sa: sa.saName, metric: 'leads' })} ariaLabel={`View ${sa.leadsReachedOut} leads for ${sa.saName}`} className="text-xs" />
@@ -102,7 +94,7 @@ export function OutreachTable({ data, loading }: Props) {
     <PersonListDrillDown
       open={!!drill}
       onOpenChange={(o) => { if (!o) setDrill(null); }}
-      title={drill ? `${drill.sa} · ${drill.metric === 'fu' ? 'Follow-up touches' : drill.metric === 'dm' ? 'DMs sent' : 'Leads reached'}` : ''}
+      title={drill ? `${drill.sa} · ${drill.metric === 'fu' ? 'Follow-up touches' : 'Leads reached'}` : ''}
       scopeBadge="Studio tab"
       rows={drillRows}
       emptyText="No outreach in this bucket."
