@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface TeamChatMessage {
   id: string;
-  author: string;
+  sender: string;
   content: string;
   created_at: string;
 }
@@ -26,21 +26,25 @@ export function useTeamChat() {
     load();
     const channel = supabase
       .channel('team-chat-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'team_chat_messages' }, (payload) => {
-        setMessages(prev => {
-          const row = payload.new as TeamChatMessage;
-          if (prev.some(m => m.id === row.id)) return prev;
-          return [...prev, row];
-        });
-      })
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'team_chat_messages' },
+        (payload) => {
+          setMessages(prev => {
+            const row = payload.new as TeamChatMessage;
+            if (prev.some(m => m.id === row.id)) return prev;
+            return [...prev, row];
+          });
+        },
+      )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [load]);
 
-  const send = useCallback(async (author: string, content: string) => {
+  const send = useCallback(async (sender: string, content: string) => {
     const trimmed = content.trim();
-    if (!trimmed || !author) return;
-    await supabase.from('team_chat_messages' as any).insert({ author, content: trimmed });
+    if (!trimmed || !sender) return;
+    await supabase.from('team_chat_messages' as any).insert({ sender, content: trimmed });
   }, []);
 
   return { messages, loading, send };
