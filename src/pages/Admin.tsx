@@ -13,7 +13,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-import ShiftRecapsEditor from '@/components/admin/ShiftRecapsEditor';
+// ShiftRecapsEditor archived Phase Zero — shift_recaps still writes from CloseOutShift/InlineIntroLogger.
 
 // CoachPerformance removed from Overview - available in Coaching tab and Studio
 import ReferralTracker from '@/components/admin/ReferralTracker';
@@ -616,7 +616,7 @@ export default function Admin() {
           <WeeklyContactAvgCard />
           <DuplicateDetectionCard />
           <IntegrityDashboard />
-          <ShiftRecapsEditor />
+          {/* ShiftRecapsEditor archived Phase Zero. */}
           <PhoneBackfillCard />
           <FixVipBookingTypesCard />
           <QuestionnaireReconcileCard />

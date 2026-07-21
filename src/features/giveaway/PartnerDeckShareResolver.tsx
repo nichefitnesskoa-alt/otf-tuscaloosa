@@ -6,7 +6,7 @@ import NotFound from '@/pages/NotFound';
 
 // Slugs that map to real top-level app routes — must never be intercepted.
 const RESERVED = new Set([
-  'my-day', 'coach-view', 'recaps', 'wig', 'the-table', 'vips', 'my-intros',
+  'my-day', 'coach-view', 'wig', 'the-table', 'vips', 'my-intros',
   'pipeline', 'admin', 'login', 'scripts', 'settings', 'meeting', 'q', 'story',
   'vip-register', 'vip-availability', 'vip', 'apply', 'join-the-team', 'giveaway',
   'partner-deck', 'questionnaire', 'scorecards', 'coaches', 'sas', 'dashboard',

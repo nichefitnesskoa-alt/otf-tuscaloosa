@@ -34,7 +34,8 @@ interface UpcomingIntrosCardProps {
 
 export default function UpcomingIntrosCard({ userName, fixedTimeRange }: UpcomingIntrosCardProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>(fixedTimeRange ?? 'today');
-  const [confirmResults, setConfirmResults] = useState<Record<string, string>>({});
+  // win_the_day_reflections archived Phase Zero — child cards tolerate an empty map.
+  const [confirmResults] = useState<Record<string, string>>({});
 
   // Week navigation state
   const [weekOffset, setWeekOffset] = useState(0);
@@ -61,22 +62,6 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
 
   // Shoutout consent removed (superseded by FV Scorecard)
   const [shoutoutMap] = useState<Record<string, boolean | null>>({});
-
-  // Fetch confirmation reflection results
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from('win_the_day_reflections')
-        .select('booking_id, result')
-        .eq('reflection_type', 'booking_confirmation')
-        .not('booking_id', 'is', null);
-      if (data) {
-        const map: Record<string, string> = {};
-        (data as any[]).forEach(r => { if (r.booking_id) map[r.booking_id] = r.result; });
-        setConfirmResults(map);
-      }
-    })();
-  }, [items]);
 
   // Refresh on walk-in
   useEffect(() => {
