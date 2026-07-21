@@ -3047,6 +3047,72 @@ export type Database = {
           },
         ]
       }
+      rc_message_log: {
+        Row: {
+          booking_id: string | null
+          counterparty_e164: string | null
+          direction: string
+          lead_id: string | null
+          matched: boolean
+          message_id: string
+          message_ts: string | null
+          processed_at: string
+        }
+        Insert: {
+          booking_id?: string | null
+          counterparty_e164?: string | null
+          direction: string
+          lead_id?: string | null
+          matched?: boolean
+          message_id: string
+          message_ts?: string | null
+          processed_at?: string
+        }
+        Update: {
+          booking_id?: string | null
+          counterparty_e164?: string | null
+          direction?: string
+          lead_id?: string | null
+          matched?: boolean
+          message_id?: string
+          message_ts?: string | null
+          processed_at?: string
+        }
+        Relationships: []
+      }
+      rc_subscription: {
+        Row: {
+          expires_at: string | null
+          id: string
+          last_error: string | null
+          last_recreated_at: string | null
+          last_renewed_at: string | null
+          rc_subscription_id: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          expires_at?: string | null
+          id?: string
+          last_error?: string | null
+          last_recreated_at?: string | null
+          last_renewed_at?: string | null
+          rc_subscription_id?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          expires_at?: string | null
+          id?: string
+          last_error?: string | null
+          last_recreated_at?: string | null
+          last_renewed_at?: string | null
+          rc_subscription_id?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       referral_asks: {
         Row: {
           asked_at: string
