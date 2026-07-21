@@ -34,6 +34,7 @@ import { EventsIndexPanel } from '@/components/admin/EventsIndexPanel';
 import { BingoAdminTab } from '@/components/admin/BingoAdminTab';
 import { IntroSchedulerLinkCard } from '@/components/admin/IntroSchedulerLinkCard';
 import { BookableScheduleAdmin } from '@/components/admin/BookableScheduleAdmin';
+import { RingCentralHealthCard } from '@/components/admin/RingCentralHealthCard';
 
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
@@ -296,6 +297,9 @@ export default function Admin() {
 
           <SectionHeader title="Integrity Dashboard" />
           <IntegrityDashboard />
+
+          <SectionHeader title="RingCentral Webhook" subtitle="Auto-logs outbound texts as lead contacts. Subscription renews daily." />
+          <RingCentralHealthCard />
 
           <SectionHeader title="Phone Backfill" subtitle="Ongoing — parses missing phones from email intake" />
           <PhoneBackfillCard />
