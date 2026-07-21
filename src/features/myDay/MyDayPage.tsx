@@ -3,11 +3,10 @@
  *
  * Layout order:
  * 1. Floating header (greeting + progress)
- * 2. End Shift button (prominent, at top)
- * 3. Activity Tracker (shift summary)
- * 4. Win the Day checklist
- * 5. This Week's Schedule
- * 6. Tabs (Today, Week, F/U, Leads, IG DMs, Q Hub, Outcomes)
+ * 2. Shift Scoreboard (live constraint metrics — replaced end-of-shift ritual)
+ * 3. Net Gain Tracker
+ * 4. Shift Checklist
+ * 5. Upcoming intros + follow-up + milestones
  */
 import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -526,7 +525,7 @@ export default function MyDayPage() {
         <ReferralAskActions />
       </div>
 
-      {/* Floating End Shift bar removed — End Shift stays reachable from the FAB. */}
+      {/* End-of-shift ritual retired — score lives on ShiftScoreboard above. */}
 
       {/* FAB */}
       <QuickAddFAB onRefresh={fetchMetrics} />
