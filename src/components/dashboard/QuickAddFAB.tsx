@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, X, CalendarPlus, LogOut, ShoppingBag, TrendingUp, Watch, RefreshCw, QrCode } from 'lucide-react';
+import { Plus, X, CalendarPlus, ShoppingBag, TrendingUp, Watch, RefreshCw, QrCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BookIntroSheet } from '@/components/dashboard/BookIntroSheet';
-import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 import { WalkInSaleSheet, UpgradeSheet, HRMAddOnSheet } from '@/components/dashboard/OutsideSaleSheets';
 import { FABFollowUpPurchaseSheet } from '@/components/dashboard/FABFollowUpPurchaseSheet';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -11,32 +10,11 @@ import { IntroSchedulerLinkCard } from '@/components/admin/IntroSchedulerLinkCar
 
 interface QuickAddFABProps {
   onRefresh: () => void;
-  completedIntros?: number;
-  activeIntros?: number;
-  scriptsSent?: number;
-  followUpsSent?: number;
-  purchaseCount?: number;
-  noShowCount?: number;
-  didntBuyCount?: number;
-  topObjection?: string | null;
-  onEndShift?: () => void;
 }
 
-export function QuickAddFAB({
-  onRefresh,
-  completedIntros = 0,
-  activeIntros = 0,
-  scriptsSent = 0,
-  followUpsSent = 0,
-  purchaseCount = 0,
-  noShowCount = 0,
-  didntBuyCount = 0,
-  topObjection,
-  onEndShift,
-}: QuickAddFABProps) {
+export function QuickAddFAB({ onRefresh }: QuickAddFABProps) {
   const [expanded, setExpanded] = useState(false);
   const [showBookIntro, setShowBookIntro] = useState(false);
-  const [showEndShift, setShowEndShift] = useState(false);
   const [showWalkInSale, setShowWalkInSale] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showHRM, setShowHRM] = useState(false);
@@ -44,25 +22,20 @@ export function QuickAddFAB({
   const [showIntroLink, setShowIntroLink] = useState(false);
 
   const handleBookIntro = () => { setExpanded(false); setShowBookIntro(true); };
-  const handleEndShift = () => { setExpanded(false); onEndShift?.(); setShowEndShift(true); };
   const handleWalkInSale = () => { setExpanded(false); setShowWalkInSale(true); };
   const handleUpgrade = () => { setExpanded(false); setShowUpgrade(true); };
   const handleHRM = () => { setExpanded(false); setShowHRM(true); };
   const handleFollowUpPurchase = () => { setExpanded(false); setShowFollowUpPurchase(true); };
   const handleIntroLink = () => { setExpanded(false); setShowIntroLink(true); };
 
+  // End Shift removed — shift score now lives on the MyDay ShiftScoreboard,
+  // which computes from live data and needs no close-out ritual.
   const actions = [
     {
       icon: QrCode,
       label: 'My Intro Link',
       onClick: handleIntroLink,
       color: 'bg-orange-500 text-primary-foreground',
-    },
-    {
-      icon: LogOut,
-      label: 'End Shift',
-      onClick: handleEndShift,
-      color: 'bg-destructive text-destructive-foreground',
     },
     {
       icon: CalendarPlus,
@@ -137,7 +110,6 @@ export function QuickAddFAB({
       <HRMAddOnSheet open={showHRM} onOpenChange={setShowHRM} onSaved={onRefresh} />
       <FABFollowUpPurchaseSheet open={showFollowUpPurchase} onOpenChange={setShowFollowUpPurchase} onSaved={onRefresh} />
 
-      {/* Intro Scheduler Link sheet — gives SAs access to their personal booking link/QR */}
       <Sheet open={showIntroLink} onOpenChange={setShowIntroLink}>
         <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
@@ -148,20 +120,6 @@ export function QuickAddFAB({
           </div>
         </SheetContent>
       </Sheet>
-
-      {/* End Shift dialog */}
-      <CloseOutShift
-        completedIntros={completedIntros}
-        activeIntros={activeIntros}
-        scriptsSent={scriptsSent}
-        followUpsSent={followUpsSent}
-        purchaseCount={purchaseCount}
-        noShowCount={noShowCount}
-        didntBuyCount={didntBuyCount}
-        topObjection={topObjection}
-        forceOpen={showEndShift}
-        onForceOpenChange={setShowEndShift}
-      />
     </>
   );
 }

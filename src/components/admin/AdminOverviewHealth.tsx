@@ -1,11 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  DollarSign, Activity,
-  CheckCircle, AlertTriangle, XCircle,
-} from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { DollarSign } from 'lucide-react';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { DateRange } from '@/lib/pay-period';
 
@@ -15,23 +11,17 @@ interface AdminOverviewHealthProps {
 
 export default function AdminOverviewHealth({ dateRange }: AdminOverviewHealthProps) {
   const [referralStats, setReferralStats] = useState({ pending: 0, qualified: 0, liability: 0 });
-  const [systemHealth, setSystemHealth] = useState<{
-    lastGroupMePost: string | null;
-    failedRecaps: number;
-  }>({ lastGroupMePost: null, failedRecaps: 0 });
 
   useEffect(() => {
     fetchAll();
   }, [dateRange]);
 
   const fetchAll = async () => {
-    const [referralRes, runsRes, recapRes] = await Promise.all([
+    const [referralRes, runsRes] = await Promise.all([
       supabase.from('referrals').select('*'),
       supabase.from('intros_run').select('linked_intro_booked_id, result'),
-      supabase.from('daily_recaps').select('status, created_at').order('created_at', { ascending: false }).limit(50),
     ]);
 
-    // Referral liability
     if (referralRes.data && runsRes.data) {
       const memberSales = new Set<string>();
       runsRes.data.forEach(r => {
@@ -48,19 +38,10 @@ export default function AdminOverviewHealth({ dateRange }: AdminOverviewHealthPr
       });
       setReferralStats({ pending, qualified, liability: qualified * 50 });
     }
-
-    // System health
-    const failedRecaps = (recapRes.data || []).filter(r => r.status === 'failed').length;
-    const lastSent = (recapRes.data || []).find(r => r.status === 'sent');
-    setSystemHealth({
-      lastGroupMePost: lastSent?.created_at || null,
-      failedRecaps,
-    });
   };
 
   return (
     <div className="space-y-4">
-      {/* Referral Discount Liability */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -85,47 +66,6 @@ export default function AdminOverviewHealth({ dateRange }: AdminOverviewHealthPr
           </div>
         </CardContent>
       </Card>
-
-      {/* System Health */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Activity className="w-4 h-4 text-primary" />
-            System Health
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <HealthRow
-            label="GroupMe Posts"
-            ok={systemHealth.failedRecaps === 0}
-            detail={systemHealth.lastGroupMePost
-              ? `Last sent ${format(parseISO(systemHealth.lastGroupMePost), 'MMM d, h:mm a')}`
-              : 'No posts yet'}
-            warning={systemHealth.failedRecaps > 0 ? `${systemHealth.failedRecaps} failed` : undefined}
-          />
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function HealthRow({ label, ok, detail, warning }: { label: string; ok: boolean; detail: string; warning?: string }) {
-  return (
-    <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
-      <div className="flex items-center gap-2">
-        {warning ? (
-          <AlertTriangle className="w-4 h-4 text-warning" />
-        ) : ok ? (
-          <CheckCircle className="w-4 h-4 text-success" />
-        ) : (
-          <XCircle className="w-4 h-4 text-muted-foreground" />
-        )}
-        <span className="text-sm font-medium">{label}</span>
-      </div>
-      <div className="text-right">
-        <p className="text-xs text-muted-foreground">{detail}</p>
-        {warning && <p className="text-xs text-warning font-medium">{warning}</p>}
-      </div>
     </div>
   );
 }

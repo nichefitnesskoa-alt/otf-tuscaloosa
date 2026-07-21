@@ -40,8 +40,6 @@ import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
 
-import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
-import { MyDayShiftSummary } from './MyDayShiftSummary';
 
 
 // Prep/Script/Coach/Outcome drawers
@@ -531,18 +529,7 @@ export default function MyDayPage() {
       {/* Floating End Shift bar removed — End Shift stays reachable from the FAB. */}
 
       {/* FAB */}
-      <QuickAddFAB
-        onRefresh={fetchMetrics}
-        completedIntros={completedTodayCount}
-        activeIntros={todayBookingsCount - completedTodayCount}
-        scriptsSent={todayScriptsSent}
-        followUpsSent={todayFollowUpsSent}
-        purchaseCount={purchaseTodayCount}
-        noShowCount={noShowTodayCount}
-        didntBuyCount={didntBuyTodayCount}
-        topObjection={topObjectionToday}
-        onEndShift={refreshData}
-      />
+      <QuickAddFAB onRefresh={fetchMetrics} />
 
       {/* ═══ DRAWERS / DIALOGS ═══ */}
       {prepBooking && (
