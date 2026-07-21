@@ -676,7 +676,14 @@ export function SomlSection() {
             )}
             {leaderboardRows.map(r => (
               <TableRow key={r.sa}>
-                <TableCell className="font-semibold text-sm truncate py-4">{r.sa}</TableCell>
+                <TableCell className="font-semibold text-sm truncate py-4">
+                  {r.sa}
+                  {inactiveNames.has(r.sa) && (
+                    <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                      inactive
+                    </span>
+                  )}
+                </TableCell>
                 {(['referralLeads', 'referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => {
                   const tgt = effectiveTarget(r.sa, k);
                   const pace = paceToToday(tgt || null, paceAnchor);
