@@ -3,7 +3,12 @@ import { StickyNote, Trash2, Check, Bell, Plus, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
-import { useStickyNotes, type StickyNote as Note, type StickyPriority, type StickyStatus } from '@/hooks/useStickyNotes';
+import {
+  useStickyNotes,
+  stickyState,
+  type StickyNote as Note,
+  type StickyPriority,
+} from '@/hooks/useStickyNotes';
 import { useTeamChat } from '@/hooks/useTeamChat';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,22 +18,32 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { OTF } from '@/lib/otfBrand';
+import { statusClasses, type WigStatus } from '@/lib/wig/pace';
 import { cn } from '@/lib/utils';
 
-// Priority visual language — hotter = more urgent. Sticky-note personality
-// deliberately breaks brand palette on cards only; page chrome stays brand.
-const PRIORITY_STYLES: Record<StickyPriority, { bg: string; ring: string; label: string; text: string }> = {
-  urgent: { bg: '#FFD1C2', ring: '#FF6F0D', label: 'Urgent', text: '#0A0A0A' },
-  high:   { bg: '#FFE4B0', ring: '#F59E0B', label: 'High',   text: '#0A0A0A' },
-  medium: { bg: '#FFF7B0', ring: '#EAB308', label: 'Medium', text: '#0A0A0A' },
-  low:    { bg: '#C9F0D6', ring: '#22C55E', label: 'Low',    text: '#0A0A0A' },
+// Priority → shared WIG status token. Overdue always escalates to red.
+// This is the same red/yellow/green token every other WIG surface uses,
+// so a note flagged red matches "red" everywhere else in the app.
+function priorityStatus(p: StickyPriority, overdue: boolean): WigStatus {
+  if (overdue) return 'red';
+  if (p === 'urgent') return 'red';
+  if (p === 'important') return 'yellow';
+  return 'green';
+}
+
+const PRIORITY_LABEL: Record<StickyPriority, string> = {
+  urgent: 'Urgent',
+  important: 'Important',
+  normal: 'Normal',
 };
 
-const STATUS_COLS: { key: StickyStatus; label: string }[] = [
-  { key: 'open', label: 'New' },
-  { key: 'acknowledged', label: 'Acknowledged' },
-  { key: 'done', label: 'Done' },
-];
+const PRIORITY_ORDER: Record<StickyPriority, number> = {
+  urgent: 0,
+  important: 1,
+  normal: 2,
+};
+
+type FilterKey = 'all' | 'mine' | 'assigned' | 'done';
 
 function todayLocalISO() {
   const d = new Date();
@@ -36,16 +51,20 @@ function todayLocalISO() {
 }
 
 function isOverdue(n: Note) {
-  return !!n.due_date && n.status !== 'done' && n.due_date < todayLocalISO();
+  return !!n.due_date && !n.completed_at && n.due_date < todayLocalISO();
 }
 
-function comparePriority(a: Note, b: Note) {
-  const order: Record<StickyPriority, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
-  const p = order[a.priority] - order[b.priority];
+function compareNotes(a: Note, b: Note) {
+  // Urgent > Important > Normal, then earliest due date, then unacknowledged first, then done last.
+  const p = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
   if (p !== 0) return p;
   const ad = a.due_date || '9999-12-31';
   const bd = b.due_date || '9999-12-31';
   if (ad !== bd) return ad < bd ? -1 : 1;
+  const sOrder = (n: Note) =>
+    n.completed_at ? 2 : n.acknowledged_at ? 1 : 0;
+  const s = sOrder(a) - sOrder(b);
+  if (s !== 0) return s;
   return a.created_at < b.created_at ? -1 : 1;
 }
 
@@ -64,14 +83,14 @@ export default function StickyNotesPage() {
   const [tab, setTab] = useState<'board' | 'chat'>('board');
 
   return (
-    <div className="p-4 max-w-6xl mx-auto">
+    <div className="app-internal p-4 max-w-6xl mx-auto">
       <div className="flex items-center gap-2 mb-4">
         <StickyNote className="w-6 h-6" style={{ color: OTF.orange }} />
         <h1 className="text-2xl font-bold">Sticky Notes</h1>
       </div>
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
         <TabsList className="mb-4">
-          <TabsTrigger value="board">Board</TabsTrigger>
+          <TabsTrigger value="board">Notes</TabsTrigger>
           <TabsTrigger value="chat">Team Chat</TabsTrigger>
         </TabsList>
         <TabsContent value="board">
@@ -88,38 +107,70 @@ export default function StickyNotesPage() {
 function BoardTab({ currentName }: { currentName: string }) {
   const { notes, loading } = useStickyNotes();
   const { allActive } = useActiveStaff();
+  const [filter, setFilter] = useState<FilterKey>('all');
 
-  const grouped = useMemo(() => {
-    const g: Record<StickyStatus, Note[]> = { open: [], acknowledged: [], done: [] };
-    for (const n of notes) g[n.status].push(n);
-    for (const k of Object.keys(g) as StickyStatus[]) g[k].sort(comparePriority);
-    return g;
-  }, [notes]);
+  const openForMe = useMemo(
+    () => notes.filter(n => n.assigned_to === currentName && !n.acknowledged_at && !n.completed_at).length,
+    [notes, currentName],
+  );
+
+  const filtered = useMemo(() => {
+    const list = notes.filter(n => {
+      const st = stickyState(n);
+      if (filter === 'mine') return n.created_by === currentName;
+      if (filter === 'assigned') return n.assigned_to === currentName;
+      if (filter === 'done') return st === 'done';
+      // 'all' hides done by default so the board reflects live work.
+      return st !== 'done';
+    });
+    return [...list].sort(compareNotes);
+  }, [notes, filter, currentName]);
+
+  const filterOpts: { key: FilterKey; label: string; count?: number }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'mine', label: 'Mine' },
+    { key: 'assigned', label: 'For me', count: openForMe },
+    { key: 'done', label: 'Done' },
+  ];
 
   return (
     <div>
-      <div className="flex justify-end mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {filterOpts.map(opt => (
+            <button
+              key={opt.key}
+              onClick={() => setFilter(opt.key)}
+              className={cn(
+                'px-3 py-2 rounded-md text-sm font-medium border transition',
+                filter === opt.key
+                  ? 'border-transparent'
+                  : 'border-border hover:bg-muted',
+              )}
+              style={filter === opt.key ? { backgroundColor: OTF.orange, color: OTF.rawBone } : undefined}
+            >
+              {opt.label}
+              {typeof opt.count === 'number' && opt.count > 0 && (
+                <span className={cn('ml-2 inline-block rounded-full px-2 py-0.5 text-xs', filter === opt.key ? 'bg-white/25' : 'bg-destructive text-destructive-foreground')}>
+                  {opt.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
         <NewNoteDialog currentName={currentName} staffNames={allActive} />
       </div>
+
       {loading ? (
         <div className="text-sm opacity-70">Loading…</div>
+      ) : filtered.length === 0 ? (
+        <div className="text-sm opacity-60 italic p-8 text-center border border-dashed rounded-md">
+          Nothing here. Tap "New note" to leave one.
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {STATUS_COLS.map(col => (
-            <div key={col.key} className="min-h-[200px]">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-semibold">{col.label}</h2>
-                <span className="text-sm opacity-70">{grouped[col.key].length}</span>
-              </div>
-              <div className="space-y-3">
-                {grouped[col.key].length === 0 && (
-                  <div className="text-sm opacity-50 italic">No notes</div>
-                )}
-                {grouped[col.key].map(n => (
-                  <NoteCard key={n.id} note={n} currentName={currentName} />
-                ))}
-              </div>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map(n => (
+            <NoteCard key={n.id} note={n} currentName={currentName} />
           ))}
         </div>
       )}
@@ -128,14 +179,18 @@ function BoardTab({ currentName }: { currentName: string }) {
 }
 
 function NoteCard({ note, currentName }: { note: Note; currentName: string }) {
-  const p = PRIORITY_STYLES[note.priority];
+  const state = stickyState(note);
   const overdue = isOverdue(note);
-  const canAck = note.status === 'open' && note.assigned_to === currentName;
-  const canDone = note.status === 'acknowledged' && (note.assigned_to === currentName || note.created_by === currentName);
-  const canDelete = note.created_by === currentName;
+  const status = priorityStatus(note.priority, overdue);
+  const cls = statusClasses(status);
+
+  const isAssignee = note.assigned_to === currentName;
+  const isCreator = note.created_by === currentName;
+  const canAck = state === 'new' && isAssignee;
+  const canDone = state === 'acknowledged' && (isAssignee || isCreator);
+  const canDelete = isCreator;
 
   const rotate = useMemo(() => {
-    // Deterministic slight rotation per note id
     const seed = note.id.charCodeAt(0) + note.id.charCodeAt(1);
     return (seed % 5) - 2; // -2..+2 deg
   }, [note.id]);
@@ -143,7 +198,7 @@ function NoteCard({ note, currentName }: { note: Note; currentName: string }) {
   const ack = async () => {
     const { error } = await supabase
       .from('sticky_notes' as any)
-      .update({ status: 'acknowledged', acknowledged_at: new Date().toISOString(), acknowledged_by: currentName })
+      .update({ acknowledged_at: new Date().toISOString(), acknowledged_by: currentName })
       .eq('id', note.id);
     if (error) toast.error('Could not acknowledge'); else toast.success('Acknowledged');
   };
@@ -151,9 +206,9 @@ function NoteCard({ note, currentName }: { note: Note; currentName: string }) {
   const markDone = async () => {
     const { error } = await supabase
       .from('sticky_notes' as any)
-      .update({ status: 'done', completed_at: new Date().toISOString(), completed_by: currentName })
+      .update({ completed_at: new Date().toISOString(), completed_by: currentName })
       .eq('id', note.id);
-    if (error) toast.error('Could not mark done'); else toast.success('Marked done');
+    if (error) toast.error('Could not mark done'); else toast.success('Done');
   };
 
   const del = async () => {
@@ -164,32 +219,42 @@ function NoteCard({ note, currentName }: { note: Note; currentName: string }) {
 
   return (
     <div
-      className="rounded-md p-3 shadow-md"
+      className={cn('rounded-md p-4 shadow-md ring-2', cls.ring, state === 'done' && 'opacity-60')}
       style={{
-        backgroundColor: p.bg,
-        color: p.text,
+        backgroundColor: 'hsl(var(--card))',
         transform: `rotate(${rotate}deg)`,
-        boxShadow: overdue ? `0 0 0 3px #DC2626, 0 4px 10px rgba(0,0,0,0.25)` : '0 4px 10px rgba(0,0,0,0.25)',
-        border: `1px solid ${p.ring}`,
       }}
     >
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <span
-          className="text-xs font-bold uppercase px-2 py-0.5 rounded"
-          style={{ backgroundColor: p.ring, color: '#0A0A0A' }}
-        >
-          {p.label}
+      <div className="flex items-start justify-between gap-2 mb-2 flex-wrap">
+        <span className={cn('text-xs font-bold uppercase px-2 py-0.5 rounded', cls.bar, 'text-white')}>
+          {PRIORITY_LABEL[note.priority]}
         </span>
-        {overdue && (
-          <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: '#DC2626', color: 'white' }}>
-            Overdue
-          </span>
-        )}
+        <div className="flex gap-1 flex-wrap">
+          {overdue && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded bg-destructive text-destructive-foreground">
+              Overdue
+            </span>
+          )}
+          {state === 'new' && !isAssignee && (
+            <span className="text-xs px-2 py-0.5 rounded bg-muted text-foreground">Waiting on {note.assigned_to}</span>
+          )}
+          {state === 'new' && isAssignee && (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-warning text-warning-foreground">Needs your ack</span>
+          )}
+          {state === 'acknowledged' && (
+            <span className="text-xs px-2 py-0.5 rounded bg-muted text-foreground">Acknowledged</span>
+          )}
+          {state === 'done' && (
+            <span className="text-xs px-2 py-0.5 rounded bg-success text-success-foreground">Done</span>
+          )}
+        </div>
       </div>
       <div className="text-base whitespace-pre-wrap break-words mb-3">{note.content}</div>
       <div className="text-sm space-y-0.5 mb-3">
-        <div><span className="opacity-70">For:</span> <strong>{note.assigned_to}</strong></div>
-        <div><span className="opacity-70">From:</span> {note.created_by}</div>
+        <div><span className="opacity-70">For:</span> <strong>{note.assigned_to}</strong>{note.assigned_to === note.created_by ? ' (self)' : ''}</div>
+        {note.assigned_to !== note.created_by && (
+          <div><span className="opacity-70">From:</span> {note.created_by}</div>
+        )}
         {note.due_date && <div><span className="opacity-70">Due:</span> {formatDate(note.due_date)}</div>}
       </div>
       <div className="flex gap-2 flex-wrap">
@@ -199,12 +264,12 @@ function NoteCard({ note, currentName }: { note: Note; currentName: string }) {
           </Button>
         )}
         {canDone && (
-          <Button size="sm" onClick={markDone} style={{ backgroundColor: '#0A0A0A', color: '#FDF7EA' }}>
-            <Check className="w-4 h-4 mr-1" /> Mark Done
+          <Button size="sm" onClick={markDone} variant="secondary">
+            <Check className="w-4 h-4 mr-1" /> Mark done
           </Button>
         )}
         {canDelete && (
-          <Button size="sm" variant="ghost" onClick={del} className="text-red-700 hover:text-red-800 hover:bg-red-100">
+          <Button size="sm" variant="ghost" onClick={del} className="text-destructive hover:bg-destructive/10">
             <Trash2 className="w-4 h-4" />
           </Button>
         )}
@@ -218,7 +283,7 @@ function NewNoteDialog({ currentName, staffNames }: { currentName: string; staff
   const [content, setContent] = useState('');
   const [assignedTo, setAssignedTo] = useState(currentName);
   const [dueDate, setDueDate] = useState('');
-  const [priority, setPriority] = useState<StickyPriority>('medium');
+  const [priority, setPriority] = useState<StickyPriority>('normal');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { if (currentName && !assignedTo) setAssignedTo(currentName); }, [currentName, assignedTo]);
@@ -227,18 +292,20 @@ function NewNoteDialog({ currentName, staffNames }: { currentName: string; staff
     if (!content.trim()) { toast.error('Content required'); return; }
     if (!assignedTo) { toast.error('Pick who this is for'); return; }
     setSaving(true);
+    // Self-notes get acknowledged_at stamped by the sticky_notes_auto_ack_self
+    // trigger, so we never insert a status here — state is entirely derived
+    // from acknowledged_at / completed_at.
     const { error } = await supabase.from('sticky_notes' as any).insert({
       content: content.trim(),
       created_by: currentName,
       assigned_to: assignedTo,
       due_date: dueDate || null,
       priority,
-      status: 'open',
     });
     setSaving(false);
     if (error) { toast.error('Could not save: ' + error.message); return; }
     toast.success('Note posted');
-    setContent(''); setDueDate(''); setPriority('medium'); setAssignedTo(currentName);
+    setContent(''); setDueDate(''); setPriority('normal'); setAssignedTo(currentName);
     setOpen(false);
   };
 
@@ -246,11 +313,11 @@ function NewNoteDialog({ currentName, staffNames }: { currentName: string; staff
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button style={{ backgroundColor: OTF.orange, color: OTF.rawBone }}>
-          <Plus className="w-4 h-4 mr-1" /> New Note
+          <Plus className="w-4 h-4 mr-1" /> New note
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogHeader><DialogTitle>New Sticky Note</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>New sticky note</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div>
             <label className="text-sm font-medium mb-1 block">What's the note?</label>
@@ -275,16 +342,15 @@ function NewNoteDialog({ currentName, staffNames }: { currentName: string; staff
               <Select value={priority} onValueChange={(v) => setPriority(v as StickyPriority)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="important">Important</SelectItem>
                   <SelectItem value="urgent">Urgent</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           {assignedTo === currentName && (
-            <div className="text-xs opacity-70">Self-notes are auto-acknowledged.</div>
+            <div className="text-xs opacity-70">A note to yourself skips the acknowledge step.</div>
           )}
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
@@ -320,11 +386,11 @@ function ChatTab({ currentName }: { currentName: string }) {
         {loading && <div className="text-sm opacity-70">Loading…</div>}
         {!loading && messages.length === 0 && <div className="text-sm opacity-50 italic">No messages yet. Say hi.</div>}
         {messages.map(m => {
-          const mine = m.author === currentName;
+          const mine = m.sender === currentName;
           return (
             <div key={m.id} className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}>
               <div className="text-xs opacity-70 mb-0.5">
-                <strong>{m.author}</strong> · {formatTime(m.created_at)}
+                <strong>{m.sender}</strong> · {formatTime(m.created_at)}
               </div>
               <div
                 className="rounded-md px-3 py-2 max-w-[80%] whitespace-pre-wrap break-words"
