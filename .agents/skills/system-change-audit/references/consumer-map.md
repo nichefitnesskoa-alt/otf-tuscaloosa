@@ -79,3 +79,15 @@ After mutating a record, invalidate every key in its row.
 | `intros_run` write | run queries, commission queries, WIG queries, Studio close rate queries |
 | `follow_up_queue` write | follow-up queue, MyDay follow-up, Coach Follow-Up |
 | `staff` write (is_active flip) | `useActiveStaff`, plus every leaderboard / dropdown that hydrated from it |
+
+## RingCentral integration (webhook — read-only)
+- **Tables:** `rc_message_log` (dedup + unmatched reporting), `rc_subscription` (singleton subscription health)
+- **`lead_activities` gets a second writer:** the `ringcentral-webhook` edge function.
+  - Outbound RC text → `activity_type='text'`, `performed_by='RingCentral'`. **Counts as contact** for speed-to-lead (in `CONTACT_ACTIVITY_TYPES` set in `src/lib/metrics/constraint.ts`).
+  - Inbound RC text → `activity_type='note'`, `performed_by='RingCentral'`. **Does NOT count as contact** — a lead texting us is not us contacting them.
+  - Matching order: `leads.phone` last-10-digit match → `intros_booked` fallback (`phone_e164` or last-10) → hop to newest linked lead via `leads.booked_intro_id`. Soft-deleted rows excluded.
+- **Dedup:** every RC `message_id` is written to `rc_message_log` first; already-processed ids are skipped. Redelivered webhook events produce zero duplicate activities.
+- **Unmatched:** number matches nothing, or matches a booking with no linked lead → `rc_message_log` row with `matched=false` (booking_id stored if any), **no `lead_activities` row written**.
+- **Subscription health:** daily pg_cron `rc-renew-subscription-daily` (06:00 UTC) calls `ringcentral-renew-subscription`. Self-healing: missing or expired subscription is recreated and `last_recreated_at` stamped. Surfaced in Admin → Data via `RingCentralHealthCard`.
+- **Never touched by this integration:** `CONTACT_ACTIVITY_TYPES`, `script_send_log`, manual contact logging paths (`Leads.tsx`, `NewLeadsModal.tsx`, `ContactLogger.tsx`, `LogActionDialog.tsx`).
+- **Secrets (function only):** `RC_CLIENT_ID`, `RC_CLIENT_SECRET`, `RC_JWT`, `RC_STUDIO_NUMBER`.
