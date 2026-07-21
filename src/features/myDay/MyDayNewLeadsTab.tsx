@@ -20,10 +20,6 @@ import {
   Ban, RotateCcw, Info, ExternalLink, Search, Loader2, XCircle,
 } from 'lucide-react';
 import { StatusBanner } from '@/components/shared/StatusBanner';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { MarkLostDialog } from '@/components/leads/MarkLostDialog';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
