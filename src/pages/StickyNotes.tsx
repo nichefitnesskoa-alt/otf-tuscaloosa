@@ -107,6 +107,7 @@ export default function StickyNotesPage() {
 
 function BoardTab({ currentName }: { currentName: string }) {
   const { notes, loading } = useStickyNotes();
+  const { forNote, countFor, send: sendComment } = useStickyNoteComments();
   const { allActive } = useActiveStaff();
   const [filter, setFilter] = useState<FilterKey>('all');
 
@@ -171,7 +172,14 @@ function BoardTab({ currentName }: { currentName: string }) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(n => (
-            <NoteCard key={n.id} note={n} currentName={currentName} />
+            <NoteCard
+              key={n.id}
+              note={n}
+              currentName={currentName}
+              commentCount={countFor(n.id)}
+              comments={forNote(n.id)}
+              onSendComment={(content) => sendComment(n.id, currentName, content)}
+            />
           ))}
         </div>
       )}
@@ -179,7 +187,19 @@ function BoardTab({ currentName }: { currentName: string }) {
   );
 }
 
-function NoteCard({ note, currentName }: { note: Note; currentName: string }) {
+function NoteCard({
+  note,
+  currentName,
+  commentCount,
+  comments,
+  onSendComment,
+}: {
+  note: Note;
+  currentName: string;
+  commentCount: number;
+  comments: StickyNoteComment[];
+  onSendComment: (content: string) => Promise<void>;
+}) {
   const state = stickyState(note);
   const overdue = isOverdue(note);
   const status = priorityStatus(note.priority, overdue);
