@@ -666,10 +666,15 @@ export default function ClientJourneyPanel() {
           return journey.runs.length > 0 && journey.runs.some(r => r.result !== 'No-show');
 
         case 'no_show': {
-          // Exclude clients who eventually purchased
+          // Exclude clients who eventually purchased. Accept canon + legacy
+          // strings, matching selectors.ts and the count above.
           if (hasPurchased) return false;
-          const hasActiveBooking = journey.bookings.some(b => 
-            (!b.booking_status || b.booking_status === 'Active' || b.booking_status === 'No-show') && isBookingPast(b)
+          const hasActiveBooking = journey.bookings.some(b =>
+            ((b as any).booking_status_canon === 'ACTIVE'
+              || (b as any).booking_status_canon === 'NO_SHOW'
+              || !b.booking_status
+              || b.booking_status === 'Active'
+              || b.booking_status === 'No-show') && isBookingPast(b)
           );
           const hasValidRun = journey.runs.some(r => r.result !== 'No-show');
           return hasActiveBooking && !hasValidRun && journey.runs.every(r => !r || r.result === 'No-show');
