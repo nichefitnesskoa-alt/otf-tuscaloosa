@@ -1,8 +1,9 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { GitBranch, Home, Settings, Eye, Trophy, BarChart3, Star, Flag, ListChecks } from 'lucide-react';
+import { GitBranch, Home, Settings, Eye, Trophy, BarChart3, Star, Flag, ListChecks, StickyNote } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useDataAudit } from '@/hooks/useDataAudit';
+import { useMyOpenStickyCount } from '@/hooks/useStickyNotes';
 import { canSee, isAdmin as isAdminCheck, type PermissionKey } from '@/lib/auth/roles';
 import { OTF, Theme, brandFont } from '@/lib/otfBrand';
 
@@ -17,6 +18,7 @@ const ALL_NAV: NavItem[] = [
   { path: '/the-table',    label: 'Own It',       icon: Flag,       permKey: 'nav.own_it' },
   { path: '/vips',         label: 'VIPs',         icon: Star,       permKey: 'nav.vips' },
   { path: '/pipeline',     label: 'Pipeline',     icon: GitBranch,  permKey: 'nav.pipeline' },
+  { path: '/sticky-notes', label: 'Sticky Notes', icon: StickyNote, permKey: 'nav.sticky_notes' },
   { path: '/admin',        label: 'Admin',        icon: Settings,   permKey: 'nav.admin' },
 ];
 
@@ -26,6 +28,7 @@ export function BottomNav() {
   const { user } = useAuth();
   const isAdmin = isAdminCheck(user);
   const { failCount } = useDataAudit(isAdmin);
+  const stickyOpenCount = useMyOpenStickyCount(user?.name);
 
   const visibleItems = ALL_NAV.filter(item => {
     if (item.path === '/admin') return isAdmin;
@@ -64,6 +67,14 @@ export function BottomNav() {
                     style={{ backgroundColor: OTF.orange, color: OTF.dark }}
                   >
                     {failCount > 9 ? '9+' : failCount}
+                  </span>
+                )}
+                {item.path === '/sticky-notes' && stickyOpenCount > 0 && (
+                  <span
+                    className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] text-[9px] font-bold flex items-center justify-center px-0.5"
+                    style={{ backgroundColor: OTF.orange, color: OTF.dark }}
+                  >
+                    {stickyOpenCount > 9 ? '9+' : stickyOpenCount}
                   </span>
                 )}
               </div>

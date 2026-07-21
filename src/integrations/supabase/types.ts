@@ -4013,6 +4013,83 @@ export type Database = {
         }
         Relationships: []
       }
+      sticky_note_comments: {
+        Row: {
+          author: string
+          content: string
+          created_at: string
+          id: string
+          note_id: string
+        }
+        Insert: {
+          author: string
+          content: string
+          created_at?: string
+          id?: string
+          note_id: string
+        }
+        Update: {
+          author?: string
+          content?: string
+          created_at?: string
+          id?: string
+          note_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sticky_note_comments_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "sticky_notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sticky_notes: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          assigned_to: string
+          completed_at: string | null
+          completed_by: string | null
+          content: string
+          created_at: string
+          created_by: string
+          due_date: string | null
+          id: string
+          priority: string
+          status: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          assigned_to: string
+          completed_at?: string | null
+          completed_by?: string | null
+          content: string
+          created_at?: string
+          created_by: string
+          due_date?: string | null
+          id?: string
+          priority?: string
+          status?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          assigned_to?: string
+          completed_at?: string | null
+          completed_by?: string | null
+          content?: string
+          created_at?: string
+          created_by?: string
+          due_date?: string | null
+          id?: string
+          priority?: string
+          status?: string
+        }
+        Relationships: []
+      }
       studio_intelligence: {
         Row: {
           content_json: Json
@@ -4541,6 +4618,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      team_chat_messages: {
+        Row: {
+          author: string
+          content: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          author: string
+          content: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          author?: string
+          content?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
       }
       ten_x_ideas: {
         Row: {
