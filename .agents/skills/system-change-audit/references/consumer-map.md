@@ -34,14 +34,16 @@ Shared data concepts in this codebase and every surface that reads them. When ch
 - Consumers: WIG leaderboards, Per-Coach / Per-SA tables, Coach View dropdowns, assignment dropdowns, scorecard evaluator dropdown, dashboard tiles, `@mention` parser (DB trigger `process_own_it_mentions`)
 - Inactive staff must vanish from every picker/assignment surface, AND must keep their numbers on every historical display.
 
-## Archived surfaces (Phase Zero funeral)
+## Archived surfaces (Phase Zero + Phase Three funerals)
 Do not resurrect these paths. Legacy links auto-redirect. Underlying tables still support live features.
 - `/recaps` and `src/pages/Recaps.tsx` — folded into WIG + My Day. Route now redirects to `/my-day`.
 - `src/pages/ShiftRecap.tsx` + `src/components/dashboard/ShiftRecapAutoBuild.tsx` — legacy shift-recap editor.
 - `src/components/admin/ShiftRecapsEditor.tsx` + `ShiftRecapDetails.tsx` — admin recap editor/details panels.
 - `src/features/myDay/WinTheDay.tsx` + `useWinTheDayItems.ts` — Win-the-Day checklist widget.
 - `nav.studio` permission key retired; Studio bottom-nav tile removed.
-- **Kept alive**: `shift_recaps` writes from `CloseOutShift` and `InlineIntroLogger` (attribution anchor for `intros_run.shift_recap_id` / `intros_booked.shift_recap_id`). GroupMe posting (`post-groupme` edge function) still reads `shift_recaps` for contact counts and still writes `daily_recaps` as its send-log. `GroupMeSettings` and `AdminOverviewHealth` are kept because they read the live send-log.
+- **Phase Three (one-time backfills, verified 0 pending, DB triggers now enforce)**: `FixVipBookingTypesCard`, `QuestionnaireReconcileCard`, `QuestionnaireSlugBackfillCard` (inline components in `src/pages/Admin.tsx`); `src/components/admin/FixBookingAttribution.tsx` (already unmounted, contradictory query). Do not re-add — the invariants they backfilled are now maintained by triggers `validate_booking_type_canon`, `sync_booking_on_questionnaire_submit`, `auto_create_questionnaire`.
+- **Kept alive**: `shift_recaps` writes from `CloseOutShift` and `InlineIntroLogger` (attribution anchor for `intros_run.shift_recap_id` / `intros_booked.shift_recap_id`). GroupMe posting (`post-groupme` edge function) still reads `shift_recaps` for contact counts and still writes `daily_recaps` as its send-log. `GroupMeSettings` and `AdminOverviewHealth` are kept because they read the live send-log. `sheets_sync_log` retained on a rolling 30-day retention (pruned inline by `import-sheet-leads`); nothing reads older rows.
+
 
 ## Dates / weeks / today
 - Canonical helpers: `src/lib/dateUtils.ts`, `src/lib/pay-period.ts`, `src/lib/time/timeUtils.ts`
