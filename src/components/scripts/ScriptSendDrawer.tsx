@@ -383,7 +383,7 @@ export function ScriptSendDrawer({
                           </TooltipTrigger>
                           {!toE164Us(leadPhone) && (
                             <TooltipContent>
-                              This lead has no usable phone number.
+                              No phone number on this lead.
                             </TooltipContent>
                           )}
                         </Tooltip>
