@@ -1943,9 +1943,23 @@ export default function ClientJourneyPanel() {
                         {journey.latestIntroOwner && (
                           <span>Owner: {journey.latestIntroOwner}</span>
                         )}
-                        {journey.bookings[0]?.coach_name && journey.bookings[0].coach_name !== 'TBD' && (
-                          <span>🏋️ Coach: {journey.bookings[0].coach_name}</span>
-                        )}
+                        {(() => {
+                          // On no-show tab, surface the actual past no-show
+                          // booking (not the earliest bookings[0]) so coach etc.
+                          // match the row that placed the journey in this tab.
+                          const b = activeTab === 'no_show'
+                            ? (journey.bookings.find(x =>
+                                ((x as any).booking_status_canon === 'NO_SHOW'
+                                  || x.booking_status === 'No-show'
+                                  || (x as any).booking_status_canon === 'ACTIVE'
+                                  || x.booking_status === 'Active'
+                                  || !x.booking_status)
+                                && isBookingPast(x)) || journey.bookings[0])
+                            : journey.bookings[0];
+                          return b?.coach_name && b.coach_name !== 'TBD'
+                            ? <span>🏋️ Coach: {b.coach_name}</span>
+                            : null;
+                        })()}
                         {(() => {
                           const phone = journey.bookings.find(b => b.phone)?.phone;
                           const email = journey.bookings.find(b => b.email)?.email;
@@ -2026,9 +2040,20 @@ export default function ClientJourneyPanel() {
                         {journey.latestIntroOwner && (
                           <span>Owner: {journey.latestIntroOwner}</span>
                         )}
-                        {journey.bookings[0]?.coach_name && journey.bookings[0].coach_name !== 'TBD' && (
-                          <span>🏋️ Coach: {journey.bookings[0].coach_name}</span>
-                        )}
+                        {(() => {
+                          const b = activeTab === 'no_show'
+                            ? (journey.bookings.find(x =>
+                                ((x as any).booking_status_canon === 'NO_SHOW'
+                                  || x.booking_status === 'No-show'
+                                  || (x as any).booking_status_canon === 'ACTIVE'
+                                  || x.booking_status === 'Active'
+                                  || !x.booking_status)
+                                && isBookingPast(x)) || journey.bookings[0])
+                            : journey.bookings[0];
+                          return b?.coach_name && b.coach_name !== 'TBD'
+                            ? <span>🏋️ Coach: {b.coach_name}</span>
+                            : null;
+                        })()}
                         {(() => {
                           const phone = journey.bookings.find(b => b.phone)?.phone;
                           const email = journey.bookings.find(b => b.email)?.email;
