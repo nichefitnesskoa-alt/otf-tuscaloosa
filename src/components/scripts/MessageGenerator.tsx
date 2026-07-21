@@ -83,6 +83,12 @@ interface MessageGeneratorProps {
   mergeContext?: MergeContext;
   leadId?: string;
   bookingId?: string;
+  /**
+   * Phone the calling surface already has in hand (e.g. from a lead card that
+   * renders it). When present it wins over DB lookups — see
+   * `useResolvedLeadPhone` for the full resolution order.
+   */
+  leadPhone?: string | null;
   onLogged?: () => void;
   questionnaireId?: string;
   friendQuestionnaireId?: string;
