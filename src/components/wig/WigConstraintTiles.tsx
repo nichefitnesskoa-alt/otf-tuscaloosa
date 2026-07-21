@@ -65,9 +65,9 @@ function SaRow({ name, isInactive, range }: { name: string; isInactive: boolean;
 
 export function WigConstraintTiles({ dateRange }: { dateRange: DateRange | null }) {
   const range: DateRange | null = dateRange;
-  const { sas: activeSas } = useActiveStaff();
-  const activeSet = useMemo(() => new Set((activeSas || []).map(s => s.name)), [activeSas]);
-  const displayRoster = useRosterWithDataInRange(range);
+  const { salesAssociates } = useActiveStaff();
+  const activeSet = useMemo(() => new Set(salesAssociates || []), [salesAssociates]);
+  const roster = useRosterWithDataInRange(salesAssociates || [], salesAssociates || []);
 
   if (!range) return null;
 
@@ -90,8 +90,8 @@ export function WigConstraintTiles({ dateRange }: { dateRange: DateRange | null 
               </tr>
             </thead>
             <tbody>
-              {displayRoster.map(name => (
-                <SaRow key={name} name={name} isInactive={!activeSet.has(name)} range={range} />
+              {roster.names.map(name => (
+                <SaRow key={name} name={name} isInactive={roster.inactiveNames.has(name) || !activeSet.has(name)} range={range} />
               ))}
             </tbody>
           </table>
