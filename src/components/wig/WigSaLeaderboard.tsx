@@ -181,8 +181,8 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const somlTargets = useSomlEffectiveTargets();
 
   // Per-SA effective SOML sales goal (used for the derived Booked target).
-  // Default = team goal ÷ active SAs when no per-SA override exists.
-  const activeCountForSoml = Math.max(1, (activeSas || []).filter(n => n !== 'Koa').length);
+  // Default = team goal ÷ quota-bearing SA count when no per-SA override exists.
+  const activeCountForSoml = Math.max(1, somlTargets.rosterSas.length);
   const perSaSalesDefault = somlTargets.config
     ? (somlTargets.teamGoal('sales') || 0) / activeCountForSoml
     : null;
