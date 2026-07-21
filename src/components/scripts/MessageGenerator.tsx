@@ -123,7 +123,7 @@ function applyMergeFields(body: string, context: MergeContext, manual: Record<st
   });
 }
 
-export function MessageGenerator({ open, onOpenChange, template, mergeContext = {}, leadId, bookingId, onLogged, questionnaireId, friendQuestionnaireId, onQuestionnaireSent, onFriendQuestionnaireSent, contextNote, bodyOverride, onChangeScript }: MessageGeneratorProps) {
+export function MessageGenerator({ open, onOpenChange, template, mergeContext = {}, leadId, bookingId, leadPhone: leadPhoneProp, onLogged, questionnaireId, friendQuestionnaireId, onQuestionnaireSent, onFriendQuestionnaireSent, contextNote, bodyOverride, onChangeScript }: MessageGeneratorProps) {
   const { user } = useAuth();
   const logSent = useLogScriptSent();
 
