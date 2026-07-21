@@ -489,9 +489,16 @@ export function SomlSection() {
   };
 
   const rowMap = useMemo(() => new Map(rows.map(r => [r.sa, r])), [rows]);
-  const leaderboardRows = useMemo(() => displayRoster.map(sa => (
+
+  // Re-admit inactive staff who have SOML data in this window — history must
+  // never vanish when `is_active` flips false. Canonical helper.
+  const dataNames = useMemo(() => rows.map(r => r.sa), [rows]);
+  const roster = useRosterWithDataInRange(displayRoster, dataNames);
+  const inactiveNames = roster.inactiveNames;
+
+  const leaderboardRows = useMemo(() => roster.names.map(sa => (
     rowMap.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0, pending: 0, referralLeads: 0 }
-  )), [displayRoster, rowMap]);
+  )), [roster.names, rowMap]);
 
   const windowLabel = config
     ? `${format(new Date(config.start_date + 'T12:00:00'), 'MMM d')} – ${format(new Date(config.end_date + 'T12:00:00'), 'MMM d, yyyy')}`
