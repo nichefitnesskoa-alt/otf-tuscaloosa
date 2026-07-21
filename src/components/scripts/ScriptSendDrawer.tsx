@@ -64,7 +64,7 @@ export function ScriptSendDrawer({
   leadId = null,
   bookingId = null,
   leadName = null,
-  leadPhone = null,
+  leadPhone: leadPhoneProp = null,
   categoryFilter = null,
   defaultCategory = null,
   saName,
@@ -89,6 +89,9 @@ export function ScriptSendDrawer({
   // taps both "Copy to Clipboard" and "Open in RingCentral" on the same script.
   const [loggedIds, setLoggedIds] = useState<Set<string>>(new Set());
   const { data: rcUriTemplate } = useRingCentralUriTemplate();
+  // Canonical phone resolution: surface-provided prop wins, then booking/lead
+  // DB lookups as fallback. See src/lib/scripts/useResolvedLeadPhone.ts.
+  const leadPhone = useResolvedLeadPhone(open, leadPhoneProp, bookingId, leadId);
 
   // Reset state when drawer opens; pre-select default category
   useEffect(() => {
