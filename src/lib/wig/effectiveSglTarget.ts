@@ -32,16 +32,18 @@ import {
 export interface EffectiveSglTargets {
   /** Global per-SA monthly SGL target (studio_settings.sa_sgl_target:YYYY-MM). */
   perSaGlobal: number | null;
-  /** Team SGL goal = perSaGlobal × activeCount. Null if perSaGlobal unset. */
+  /** Team SGL goal = perSaGlobal × quota-bearing SA count. Null if perSaGlobal unset. */
   teamGoal: number | null;
   /** Per-SA overrides map (sa → integer target). */
   overrides: Record<string, number>;
-  /** Redistributed per-SA target for non-overridden SAs. Null if unset. */
+  /** Redistributed per-SA target for non-overridden quota-bearing SAs. */
   redistributedPerSa: number | null;
-  /** Effective per-SA target: override wins, else redistributed default. */
+  /** Effective per-SA target: admin → 0; override wins; else redistributed default. */
   effectiveFor: (sa: string) => number | null;
-  /** Active SA roster (excluding Koa). */
+  /** Quota-bearing SA roster (excludes admins). Drives all redistribution math. */
   rosterSas: string[];
+  /** Full display roster: quota SAs followed by admins. Leaderboards iterate this. */
+  displayRoster: string[];
   loading: boolean;
   refresh: () => Promise<void>;
 }
@@ -73,7 +75,7 @@ export function computeRedistributedPerSa(
 }
 
 export function useEffectiveSglTargets(yyyymm: string): EffectiveSglTargets {
-  const { salesAssociates } = useActiveStaff();
+  const { salesAssociates, admins } = useActiveStaff();
   const [targets, setTargets] = useState<MonthlyTargets>({
     saSgl: null, saBooked: null, saSales: null, coachClose: null, studioLeads: null, netGain: null,
   });
@@ -92,9 +94,15 @@ export function useEffectiveSglTargets(yyyymm: string): EffectiveSglTargets {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  const adminSet = useMemo(() => new Set(admins || []), [admins]);
+  // Quota-bearing SAs (non-admin). Admins never inflate teamGoal.
   const rosterSas = useMemo(
-    () => (salesAssociates || []).filter(n => n !== 'Koa'),
-    [salesAssociates],
+    () => (salesAssociates || []).filter(n => !adminSet.has(n)),
+    [salesAssociates, adminSet],
+  );
+  const displayRoster = useMemo(
+    () => [...rosterSas, ...(admins || [])],
+    [rosterSas, admins],
   );
 
   const { teamGoal, redistributedPerSa } = useMemo(
@@ -104,11 +112,13 @@ export function useEffectiveSglTargets(yyyymm: string): EffectiveSglTargets {
 
   const effectiveFor = useCallback(
     (sa: string): number | null => {
+      // Admins are quota-exempt — always 0, regardless of stored override.
+      if (adminSet.has(sa)) return 0;
       if (Object.prototype.hasOwnProperty.call(overrides, sa)) return overrides[sa];
       if (redistributedPerSa != null) return redistributedPerSa;
       return targets.saSgl;
     },
-    [overrides, redistributedPerSa, targets.saSgl],
+    [overrides, redistributedPerSa, targets.saSgl, adminSet],
   );
 
   return {
@@ -118,6 +128,7 @@ export function useEffectiveSglTargets(yyyymm: string): EffectiveSglTargets {
     redistributedPerSa,
     effectiveFor,
     rosterSas,
+    displayRoster,
     loading: !loaded,
     refresh,
   };
