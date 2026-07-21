@@ -166,6 +166,25 @@ export function OutcomeDrawer({
     })();
   }, [bookingId, currentResult]);
 
+  // Seed isWinback from the existing run so reopening a Winback sale shows
+  // the toggle already ON. Without this, initialIsWinback defaults to false
+  // when the caller doesn't pass it and a no-op save would clobber the flag.
+  useEffect(() => {
+    if (!existingRunId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('intros_run')
+        .select('is_winback')
+        .eq('id', existingRunId)
+        .maybeSingle();
+      if (!cancelled && data && typeof data.is_winback === 'boolean') {
+        setIsWinback(data.is_winback);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [existingRunId]);
+
   // Pre-populate 2nd intro form fields from linked data
   useEffect(() => {
     if (!linkedSecondIntro) return;
