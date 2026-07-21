@@ -39,6 +39,7 @@ import OutreachLists from "./pages/OutreachLists";
 import OutreachListDetail from "./pages/OutreachListDetail";
 import OutreachListImport from "./pages/OutreachListImport";
 import NotFound from "./pages/NotFound";
+import StickyNotes from "./pages/StickyNotes";
 import GiveawayEntryPage from "./features/giveaway/GiveawayEntryPage";
 import GiveawayAdminPage from "./features/giveaway/GiveawayAdminPage";
 import GiveawaySpinPage from "./features/giveaway/GiveawaySpinPage";
@@ -268,6 +269,8 @@ function AppRoutes() {
       <Route path="/outreach-lists" element={<ProtectedRoute><OutreachLists /></ProtectedRoute>} />
       <Route path="/outreach-lists/new" element={<ProtectedRoute requireAdmin><OutreachListImport /></ProtectedRoute>} />
       <Route path="/outreach-lists/:id" element={<ProtectedRoute><OutreachListDetail /></ProtectedRoute>} />
+      <Route path="/sticky-notes" element={<ProtectedRoute><StickyNotes /></ProtectedRoute>} />
+
 
       <Route path="/" element={<Navigate to={defaultRoute} replace />} />
       <Route path="/:shareSlug" element={<PartnerDeckShareResolver />} />
