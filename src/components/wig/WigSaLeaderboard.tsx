@@ -32,6 +32,7 @@ import {
 import { useTrailingConversion, deriveBookedTargetFromSales } from '@/lib/wig/derivedBookedTarget';
 import { useSomlEffectiveTargets } from '@/lib/soml/effectiveTargets';
 import { useEffectiveSglTargets } from '@/lib/wig/effectiveSglTarget';
+import { useRosterWithDataInRange } from '@/lib/staff/rosterInRange';
 
 interface Props {
   dateRange: DateRange | undefined;
@@ -238,6 +239,19 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   // shows up as a row with a 0 goal via `effectiveFor`.
   const activeSet = useMemo(() => new Set(sglTargets.displayRoster), [sglTargets.displayRoster]);
 
+  // Re-admit inactive staff who have data in the selected date range — history
+  // must never vanish when `is_active` flips false. Canonical helper.
+  const dataNames = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of booked.rows) s.add(r.sa);
+    for (const r of sourcedLeads.rows) s.add(r.sa);
+    for (const r of sales.rows) s.add(r.sa);
+    return Array.from(s);
+  }, [booked.rows, sourcedLeads.rows, sales.rows]);
+  const roster = useRosterWithDataInRange(sglTargets.displayRoster, dataNames);
+  const displayNameSet = useMemo(() => new Set(roster.names), [roster.names]);
+  const inactiveNames = roster.inactiveNames;
+
   const sortedRows = useMemo(() => {
     const bookedMap = new Map<string, number>(booked.rows.map(r => [r.sa, r.count] as const));
     const sourcedMap = new Map<string, number>(sourcedLeads.rows.map(r => [r.sa, r.count] as const));
@@ -257,7 +271,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
       ...sales.rows.map(r => r.sa),
     ]);
     return Array.from(allNames)
-      .filter(name => activeSet.has(name))
+      .filter(name => displayNameSet.has(name))
       .map(name => {
         const conv = sglConvMap.get(name);
         const sgl = sourcedMap.get(name) ?? 0;
@@ -278,7 +292,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         b.sales - a.sales ||
         a.name.localeCompare(b.name),
       );
-  }, [booked.rows, sourcedLeads.rows, sales.rows, activeSet]);
+  }, [booked.rows, sourcedLeads.rows, sales.rows, displayNameSet]);
 
   const totals = useMemo(() => ({
     sgl: sortedRows.reduce((s, r) => s + r.sgl, 0),
@@ -586,7 +600,14 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                         onClick={() => navigate(`/sas/${encodeURIComponent(row.name)}`)}
                       >
                         <TableCell className="text-sm text-muted-foreground tabular-nums">{idx + 1}</TableCell>
-                        <TableCell className="text-base font-medium whitespace-nowrap">{row.name}</TableCell>
+                        <TableCell className="text-base font-medium whitespace-nowrap">
+                          {row.name}
+                          {inactiveNames.has(row.name) && (
+                            <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs uppercase tracking-wide text-muted-foreground">
+                              inactive
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-base text-center p-0">
                           <button
                             type="button"

@@ -22,6 +22,7 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
+import { useRosterWithDataInRange } from '@/lib/staff/rosterInRange';
 import { useEffectiveAdmin } from '@/hooks/useViewAsAdmin';
 import { paceToToday, statusColor, statusClasses, formatPace } from '@/lib/wig/pace';
 import { getNowCentral } from '@/lib/dateUtils';
@@ -489,9 +490,16 @@ export function SomlSection() {
   };
 
   const rowMap = useMemo(() => new Map(rows.map(r => [r.sa, r])), [rows]);
-  const leaderboardRows = useMemo(() => displayRoster.map(sa => (
+
+  // Re-admit inactive staff who have SOML data in this window — history must
+  // never vanish when `is_active` flips false. Canonical helper.
+  const dataNames = useMemo(() => rows.map(r => r.sa), [rows]);
+  const roster = useRosterWithDataInRange(displayRoster, dataNames);
+  const inactiveNames = roster.inactiveNames;
+
+  const leaderboardRows = useMemo(() => roster.names.map(sa => (
     rowMap.get(sa) || { sa, referrals: 0, upgrades: 0, sales: 0, pending: 0, referralLeads: 0 }
-  )), [displayRoster, rowMap]);
+  )), [roster.names, rowMap]);
 
   const windowLabel = config
     ? `${format(new Date(config.start_date + 'T12:00:00'), 'MMM d')} – ${format(new Date(config.end_date + 'T12:00:00'), 'MMM d, yyyy')}`
@@ -668,7 +676,14 @@ export function SomlSection() {
             )}
             {leaderboardRows.map(r => (
               <TableRow key={r.sa}>
-                <TableCell className="font-semibold text-sm truncate py-4">{r.sa}</TableCell>
+                <TableCell className="font-semibold text-sm truncate py-4">
+                  {r.sa}
+                  {inactiveNames.has(r.sa) && (
+                    <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                      inactive
+                    </span>
+                  )}
+                </TableCell>
                 {(['referralLeads', 'referrals', 'upgrades', 'sales'] as MetricKey[]).map(k => {
                   const tgt = effectiveTarget(r.sa, k);
                   const pace = paceToToday(tgt || null, paceAnchor);
