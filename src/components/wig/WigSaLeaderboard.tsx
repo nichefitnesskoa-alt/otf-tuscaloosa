@@ -292,7 +292,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         b.sales - a.sales ||
         a.name.localeCompare(b.name),
       );
-  }, [booked.rows, sourcedLeads.rows, sales.rows, activeSet]);
+  }, [booked.rows, sourcedLeads.rows, sales.rows, displayNameSet]);
 
   const totals = useMemo(() => ({
     sgl: sortedRows.reduce((s, r) => s + r.sgl, 0),
