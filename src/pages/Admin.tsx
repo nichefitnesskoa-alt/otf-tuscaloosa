@@ -281,8 +281,6 @@ export default function Admin() {
           <SectionHeader title="Unified Portal Imports" subtitle="Who marked leads and VIP registrants imported into Mindbody" />
           <MindbodyImportsPanel />
 
-          <SectionHeader title="Weekly Contact Averages" />
-          <WeeklyContactAvgCard />
         </TabsContent>
 
         {/* Data */}
