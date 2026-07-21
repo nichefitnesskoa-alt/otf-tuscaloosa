@@ -600,7 +600,14 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                         onClick={() => navigate(`/sas/${encodeURIComponent(row.name)}`)}
                       >
                         <TableCell className="text-sm text-muted-foreground tabular-nums">{idx + 1}</TableCell>
-                        <TableCell className="text-base font-medium whitespace-nowrap">{row.name}</TableCell>
+                        <TableCell className="text-base font-medium whitespace-nowrap">
+                          {row.name}
+                          {inactiveNames.has(row.name) && (
+                            <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs uppercase tracking-wide text-muted-foreground">
+                              inactive
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-base text-center p-0">
                           <button
                             type="button"
