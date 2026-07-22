@@ -1,7 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export type StickyPriority = 'normal' | 'important' | 'urgent';
+
+/** Sentinel `assigned_to` value marking a note as team-wide. Each teammate
+ *  acknowledges individually via `sticky_note_acks`; anyone can mark the whole
+ *  note done. */
+export const TEAM_ASSIGNEE = 'Team';
 
 export interface StickyNote {
   id: string;
@@ -17,26 +22,45 @@ export interface StickyNote {
   created_at: string;
 }
 
-/** A note is "done" once completed_at is set; "acknowledged" once
- *  acknowledged_at is set; otherwise "new". Timestamp-driven state
- *  matches the rest of the schema (mindbody_imported_at, applied_at, etc). */
-export function stickyState(n: Pick<StickyNote, 'acknowledged_at' | 'completed_at'>):
-  'new' | 'acknowledged' | 'done' {
+export interface StickyNoteAck {
+  id: string;
+  note_id: string;
+  user_name: string;
+  acknowledged_at: string;
+}
+
+export function isTeamNote(n: Pick<StickyNote, 'assigned_to'>) {
+  return n.assigned_to === TEAM_ASSIGNEE;
+}
+
+/** State is timestamp-derived. For team notes it's per-viewer: viewer's ack
+ *  row in `acks` upgrades their state to acknowledged. */
+export function stickyState(
+  n: Pick<StickyNote, 'assigned_to' | 'acknowledged_at' | 'completed_at'>,
+  viewerName?: string,
+  acks?: StickyNoteAck[],
+): 'new' | 'acknowledged' | 'done' {
   if (n.completed_at) return 'done';
+  if (isTeamNote(n)) {
+    if (viewerName && acks?.some(a => a.user_name === viewerName)) return 'acknowledged';
+    return 'new';
+  }
   if (n.acknowledged_at) return 'acknowledged';
   return 'new';
 }
 
 export function useStickyNotes() {
   const [notes, setNotes] = useState<StickyNote[]>([]);
+  const [acks, setAcks] = useState<StickyNoteAck[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from('sticky_notes' as any)
-      .select('*')
-      .order('created_at', { ascending: false });
-    setNotes((data as any as StickyNote[]) || []);
+    const [{ data: n }, { data: a }] = await Promise.all([
+      supabase.from('sticky_notes' as any).select('*').order('created_at', { ascending: false }),
+      supabase.from('sticky_note_acks' as any).select('*'),
+    ]);
+    setNotes((n as any as StickyNote[]) || []);
+    setAcks((a as any as StickyNoteAck[]) || []);
     setLoading(false);
   }, []);
 
@@ -45,20 +69,39 @@ export function useStickyNotes() {
     const channel = supabase
       .channel('sticky-notes-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sticky_notes' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sticky_note_acks' }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [load]);
 
-  return { notes, loading, refresh: load };
+  const acksByNote = useMemo(() => {
+    const m = new Map<string, StickyNoteAck[]>();
+    for (const a of acks) {
+      const list = m.get(a.note_id) || [];
+      list.push(a);
+      m.set(a.note_id, list);
+    }
+    return m;
+  }, [acks]);
+
+  const acksFor = useCallback(
+    (noteId: string): StickyNoteAck[] => acksByNote.get(noteId) || [],
+    [acksByNote],
+  );
+
+  return { notes, acks, acksFor, loading, refresh: load };
 }
 
-/** Count of notes assigned to `userName` awaiting their acknowledgment.
- *  Self-notes are auto-acknowledged by DB trigger, so this is exactly
- *  "someone else asked me for something and I haven't seen it yet." */
+/** "For me" open count: individual notes assigned to me that I haven't acked/done,
+ *  plus team notes I haven't acked or seen closed. */
 export function useMyOpenStickyCount(userName: string | undefined) {
-  const { notes } = useStickyNotes();
+  const { notes, acksFor } = useStickyNotes();
   if (!userName) return 0;
-  return notes.filter(
-    n => n.assigned_to === userName && !n.acknowledged_at && !n.completed_at,
-  ).length;
+  return notes.filter(n => {
+    if (n.completed_at) return false;
+    if (isTeamNote(n)) {
+      return !acksFor(n.id).some(a => a.user_name === userName);
+    }
+    return n.assigned_to === userName && !n.acknowledged_at;
+  }).length;
 }
