@@ -109,27 +109,35 @@ export default function StickyNotesPage() {
 }
 
 function BoardTab({ currentName }: { currentName: string }) {
-  const { notes, loading } = useStickyNotes();
+  const { notes, acksFor, loading } = useStickyNotes();
   const { forNote, countFor, send: sendComment } = useStickyNoteComments();
   const { allActive } = useActiveStaff();
   const [filter, setFilter] = useState<FilterKey>('all');
 
   const openForMe = useMemo(
-    () => notes.filter(n => n.assigned_to === currentName && !n.acknowledged_at && !n.completed_at).length,
-    [notes, currentName],
+    () => notes.filter(n => {
+      if (n.completed_at) return false;
+      if (isTeamNote(n)) return !acksFor(n.id).some(a => a.user_name === currentName);
+      return n.assigned_to === currentName && !n.acknowledged_at;
+    }).length,
+    [notes, currentName, acksFor],
   );
 
   const filtered = useMemo(() => {
     const list = notes.filter(n => {
-      const st = stickyState(n);
+      const st = stickyState(n, currentName, acksFor(n.id));
       if (filter === 'mine') return n.created_by === currentName;
-      if (filter === 'assigned') return n.assigned_to === currentName;
+      if (filter === 'assigned') {
+        if (n.completed_at) return false;
+        if (isTeamNote(n)) return !acksFor(n.id).some(a => a.user_name === currentName);
+        return n.assigned_to === currentName;
+      }
       if (filter === 'done') return st === 'done';
       // 'all' hides done by default so the board reflects live work.
       return st !== 'done';
     });
     return [...list].sort(compareNotes);
-  }, [notes, filter, currentName]);
+  }, [notes, filter, currentName, acksFor]);
 
   const filterOpts: { key: FilterKey; label: string; count?: number }[] = [
     { key: 'all', label: 'All' },
@@ -179,6 +187,8 @@ function BoardTab({ currentName }: { currentName: string }) {
               key={n.id}
               note={n}
               currentName={currentName}
+              acks={acksFor(n.id)}
+              teamSize={allActive.length}
               commentCount={countFor(n.id)}
               comments={forNote(n.id)}
               onSendComment={(content) => sendComment(n.id, currentName, content)}
