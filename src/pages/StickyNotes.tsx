@@ -6,7 +6,10 @@ import { useActiveStaff } from '@/hooks/useActiveStaff';
 import {
   useStickyNotes,
   stickyState,
+  isTeamNote,
+  TEAM_ASSIGNEE,
   type StickyNote as Note,
+  type StickyNoteAck,
   type StickyPriority,
 } from '@/hooks/useStickyNotes';
 import { useTeamChat } from '@/hooks/useTeamChat';
