@@ -383,7 +383,7 @@ export default function BookIntro() {
 
         {/* STEP: time */}
         {step === 'time' && (
-          <Card className="bg-neutral-900 border-neutral-800 p-5">
+          <Card className="bg-neutral-900 border-neutral-800 text-white p-5">
             <h2 className="text-xl font-semibold mb-3">Pick a class time</h2>
             <p className="text-sm text-neutral-400 mb-4">Next 14 days — Central Time.</p>
             {slotsQ.isLoading ? (
@@ -431,7 +431,7 @@ export default function BookIntro() {
 
         {/* STEP: info */}
         {step === 'info' && (
-          <Card className="bg-neutral-900 border-neutral-800 p-5">
+          <Card className="bg-neutral-900 border-neutral-800 text-white p-5">
             <h2 className="text-xl font-semibold mb-1">Tell us a little about you</h2>
             {pickedDate && pickedTime && (
               <p className="text-sm text-neutral-400 mb-4">
@@ -496,7 +496,7 @@ export default function BookIntro() {
 
         {/* STEP: calendar */}
         {step === 'calendar' && calendarEvent && (
-          <Card className="bg-neutral-900 border-neutral-800 p-5">
+          <Card className="bg-neutral-900 border-neutral-800 text-white p-5">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-full bg-[#E8540A] flex items-center justify-center">
                 <Check className="w-4 h-4 text-white" />
@@ -549,7 +549,7 @@ export default function BookIntro() {
 
         {/* STEP: friend */}
         {step === 'friend' && (
-          <Card className="bg-neutral-900 border-neutral-800 p-5">
+          <Card className="bg-neutral-900 border-neutral-800 text-white p-5">
             <div className="flex items-center gap-2 mb-2">
               <Users className="w-5 h-5 text-[#E8540A]" />
               <h2 className="text-xl font-semibold">Bring a friend?</h2>
@@ -607,7 +607,7 @@ export default function BookIntro() {
         )}
 
         {step === 'done' && (
-          <Card className="bg-neutral-900 border-neutral-800 p-5">
+          <Card className="bg-neutral-900 border-neutral-800 text-white p-5">
             <h2 className="text-xl font-semibold mb-2">See you soon!</h2>
             <p className="text-neutral-300">We'll text you before class with anything else you need.</p>
           </Card>
