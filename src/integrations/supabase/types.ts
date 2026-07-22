@@ -4079,6 +4079,35 @@ export type Database = {
         }
         Relationships: []
       }
+      sticky_note_acks: {
+        Row: {
+          acknowledged_at: string
+          id: string
+          note_id: string
+          user_name: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          id?: string
+          note_id: string
+          user_name: string
+        }
+        Update: {
+          acknowledged_at?: string
+          id?: string
+          note_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sticky_note_acks_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "sticky_notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sticky_note_comments: {
         Row: {
           author: string

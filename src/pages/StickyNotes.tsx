@@ -6,7 +6,10 @@ import { useActiveStaff } from '@/hooks/useActiveStaff';
 import {
   useStickyNotes,
   stickyState,
+  isTeamNote,
+  TEAM_ASSIGNEE,
   type StickyNote as Note,
+  type StickyNoteAck,
   type StickyPriority,
 } from '@/hooks/useStickyNotes';
 import { useTeamChat } from '@/hooks/useTeamChat';
@@ -106,27 +109,35 @@ export default function StickyNotesPage() {
 }
 
 function BoardTab({ currentName }: { currentName: string }) {
-  const { notes, loading } = useStickyNotes();
+  const { notes, acksFor, loading } = useStickyNotes();
   const { forNote, countFor, send: sendComment } = useStickyNoteComments();
   const { allActive } = useActiveStaff();
   const [filter, setFilter] = useState<FilterKey>('all');
 
   const openForMe = useMemo(
-    () => notes.filter(n => n.assigned_to === currentName && !n.acknowledged_at && !n.completed_at).length,
-    [notes, currentName],
+    () => notes.filter(n => {
+      if (n.completed_at) return false;
+      if (isTeamNote(n)) return !acksFor(n.id).some(a => a.user_name === currentName);
+      return n.assigned_to === currentName && !n.acknowledged_at;
+    }).length,
+    [notes, currentName, acksFor],
   );
 
   const filtered = useMemo(() => {
     const list = notes.filter(n => {
-      const st = stickyState(n);
+      const st = stickyState(n, currentName, acksFor(n.id));
       if (filter === 'mine') return n.created_by === currentName;
-      if (filter === 'assigned') return n.assigned_to === currentName;
+      if (filter === 'assigned') {
+        if (n.completed_at) return false;
+        if (isTeamNote(n)) return !acksFor(n.id).some(a => a.user_name === currentName);
+        return n.assigned_to === currentName;
+      }
       if (filter === 'done') return st === 'done';
       // 'all' hides done by default so the board reflects live work.
       return st !== 'done';
     });
     return [...list].sort(compareNotes);
-  }, [notes, filter, currentName]);
+  }, [notes, filter, currentName, acksFor]);
 
   const filterOpts: { key: FilterKey; label: string; count?: number }[] = [
     { key: 'all', label: 'All' },
@@ -176,6 +187,8 @@ function BoardTab({ currentName }: { currentName: string }) {
               key={n.id}
               note={n}
               currentName={currentName}
+              acks={acksFor(n.id)}
+              teamSize={allActive.length}
               commentCount={countFor(n.id)}
               comments={forNote(n.id)}
               onSendComment={(content) => sendComment(n.id, currentName, content)}
@@ -190,26 +203,32 @@ function BoardTab({ currentName }: { currentName: string }) {
 function NoteCard({
   note,
   currentName,
+  acks,
+  teamSize,
   commentCount,
   comments,
   onSendComment,
 }: {
   note: Note;
   currentName: string;
+  acks: StickyNoteAck[];
+  teamSize: number;
   commentCount: number;
   comments: StickyNoteComment[];
   onSendComment: (content: string) => Promise<void>;
 }) {
-  const state = stickyState(note);
+  const team = isTeamNote(note);
+  const state = stickyState(note, currentName, acks);
   const overdue = isOverdue(note);
   const status = priorityStatus(note.priority, overdue);
   const cls = statusClasses(status);
 
-  const isAssignee = note.assigned_to === currentName;
+  const isAssignee = team || note.assigned_to === currentName;
   const isCreator = note.created_by === currentName;
   const canAck = state === 'new' && isAssignee;
   const canDone = state === 'acknowledged' && (isAssignee || isCreator);
   const canDelete = isCreator;
+  const ackCount = acks.length;
 
   const rotate = useMemo(() => {
     const seed = note.id.charCodeAt(0) + note.id.charCodeAt(1);
@@ -217,6 +236,13 @@ function NoteCard({
   }, [note.id]);
 
   const ack = async () => {
+    if (team) {
+      const { error } = await supabase
+        .from('sticky_note_acks' as any)
+        .insert({ note_id: note.id, user_name: currentName });
+      if (error) toast.error('Could not acknowledge'); else toast.success('Acknowledged');
+      return;
+    }
     const { error } = await supabase
       .from('sticky_notes' as any)
       .update({ acknowledged_at: new Date().toISOString(), acknowledged_by: currentName })
@@ -256,6 +282,11 @@ function NoteCard({
               Overdue
             </span>
           )}
+          {team && teamSize > 0 && (
+            <span className="text-xs px-2 py-0.5 rounded bg-muted text-foreground">
+              {ackCount}/{teamSize} acked
+            </span>
+          )}
           {state === 'new' && !isAssignee && (
             <span className="text-xs px-2 py-0.5 rounded bg-muted text-foreground">Waiting on {note.assigned_to}</span>
           )}
@@ -263,7 +294,9 @@ function NoteCard({
             <span className="text-xs font-semibold px-2 py-0.5 rounded bg-warning text-warning-foreground">Needs your ack</span>
           )}
           {state === 'acknowledged' && (
-            <span className="text-xs px-2 py-0.5 rounded bg-muted text-foreground">Acknowledged</span>
+            <span className="text-xs px-2 py-0.5 rounded bg-muted text-foreground">
+              {team ? 'You acked' : 'Acknowledged'}
+            </span>
           )}
           {state === 'done' && (
             <span className="text-xs px-2 py-0.5 rounded bg-success text-success-foreground">Done</span>
@@ -272,8 +305,12 @@ function NoteCard({
       </div>
       <div className="text-base whitespace-pre-wrap break-words mb-3">{note.content}</div>
       <div className="text-sm space-y-0.5 mb-3">
-        <div><span className="opacity-70">For:</span> <strong>{note.assigned_to}</strong>{note.assigned_to === note.created_by ? ' (self)' : ''}</div>
-        {note.assigned_to !== note.created_by && (
+        <div>
+          <span className="opacity-70">For:</span>{' '}
+          <strong>{team ? 'Team (everyone)' : note.assigned_to}</strong>
+          {!team && note.assigned_to === note.created_by ? ' (self)' : ''}
+        </div>
+        {(team || note.assigned_to !== note.created_by) && (
           <div><span className="opacity-70">From:</span> {note.created_by}</div>
         )}
         {note.due_date && <div><span className="opacity-70">Due:</span> {formatDate(note.due_date)}</div>}
@@ -457,6 +494,7 @@ function NewNoteDialog({ currentName, staffNames }: { currentName: string; staff
             <Select value={assignedTo} onValueChange={setAssignedTo}>
               <SelectTrigger><SelectValue placeholder="Pick a staffer" /></SelectTrigger>
               <SelectContent>
+                <SelectItem value={TEAM_ASSIGNEE}>🟠 Team (everyone)</SelectItem>
                 {staffNames.map(n => <SelectItem key={n} value={n}>{n}{n === currentName ? ' (me)' : ''}</SelectItem>)}
               </SelectContent>
             </Select>
