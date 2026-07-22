@@ -203,26 +203,32 @@ function BoardTab({ currentName }: { currentName: string }) {
 function NoteCard({
   note,
   currentName,
+  acks,
+  teamSize,
   commentCount,
   comments,
   onSendComment,
 }: {
   note: Note;
   currentName: string;
+  acks: StickyNoteAck[];
+  teamSize: number;
   commentCount: number;
   comments: StickyNoteComment[];
   onSendComment: (content: string) => Promise<void>;
 }) {
-  const state = stickyState(note);
+  const team = isTeamNote(note);
+  const state = stickyState(note, currentName, acks);
   const overdue = isOverdue(note);
   const status = priorityStatus(note.priority, overdue);
   const cls = statusClasses(status);
 
-  const isAssignee = note.assigned_to === currentName;
+  const isAssignee = team || note.assigned_to === currentName;
   const isCreator = note.created_by === currentName;
   const canAck = state === 'new' && isAssignee;
   const canDone = state === 'acknowledged' && (isAssignee || isCreator);
   const canDelete = isCreator;
+  const ackCount = acks.length;
 
   const rotate = useMemo(() => {
     const seed = note.id.charCodeAt(0) + note.id.charCodeAt(1);
@@ -230,6 +236,13 @@ function NoteCard({
   }, [note.id]);
 
   const ack = async () => {
+    if (team) {
+      const { error } = await supabase
+        .from('sticky_note_acks' as any)
+        .insert({ note_id: note.id, user_name: currentName });
+      if (error) toast.error('Could not acknowledge'); else toast.success('Acknowledged');
+      return;
+    }
     const { error } = await supabase
       .from('sticky_notes' as any)
       .update({ acknowledged_at: new Date().toISOString(), acknowledged_by: currentName })
@@ -269,6 +282,11 @@ function NoteCard({
               Overdue
             </span>
           )}
+          {team && teamSize > 0 && (
+            <span className="text-xs px-2 py-0.5 rounded bg-muted text-foreground">
+              {ackCount}/{teamSize} acked
+            </span>
+          )}
           {state === 'new' && !isAssignee && (
             <span className="text-xs px-2 py-0.5 rounded bg-muted text-foreground">Waiting on {note.assigned_to}</span>
           )}
@@ -276,7 +294,9 @@ function NoteCard({
             <span className="text-xs font-semibold px-2 py-0.5 rounded bg-warning text-warning-foreground">Needs your ack</span>
           )}
           {state === 'acknowledged' && (
-            <span className="text-xs px-2 py-0.5 rounded bg-muted text-foreground">Acknowledged</span>
+            <span className="text-xs px-2 py-0.5 rounded bg-muted text-foreground">
+              {team ? 'You acked' : 'Acknowledged'}
+            </span>
           )}
           {state === 'done' && (
             <span className="text-xs px-2 py-0.5 rounded bg-success text-success-foreground">Done</span>
@@ -285,8 +305,12 @@ function NoteCard({
       </div>
       <div className="text-base whitespace-pre-wrap break-words mb-3">{note.content}</div>
       <div className="text-sm space-y-0.5 mb-3">
-        <div><span className="opacity-70">For:</span> <strong>{note.assigned_to}</strong>{note.assigned_to === note.created_by ? ' (self)' : ''}</div>
-        {note.assigned_to !== note.created_by && (
+        <div>
+          <span className="opacity-70">For:</span>{' '}
+          <strong>{team ? 'Team (everyone)' : note.assigned_to}</strong>
+          {!team && note.assigned_to === note.created_by ? ' (self)' : ''}
+        </div>
+        {(team || note.assigned_to !== note.created_by) && (
           <div><span className="opacity-70">From:</span> {note.created_by}</div>
         )}
         {note.due_date && <div><span className="opacity-70">Due:</span> {formatDate(note.due_date)}</div>}
