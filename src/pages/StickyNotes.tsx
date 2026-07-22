@@ -494,6 +494,7 @@ function NewNoteDialog({ currentName, staffNames }: { currentName: string; staff
             <Select value={assignedTo} onValueChange={setAssignedTo}>
               <SelectTrigger><SelectValue placeholder="Pick a staffer" /></SelectTrigger>
               <SelectContent>
+                <SelectItem value={TEAM_ASSIGNEE}>🟠 Team (everyone)</SelectItem>
                 {staffNames.map(n => <SelectItem key={n} value={n}>{n}{n === currentName ? ' (me)' : ''}</SelectItem>)}
               </SelectContent>
             </Select>
