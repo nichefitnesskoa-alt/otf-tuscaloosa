@@ -249,88 +249,99 @@ export default function Admin() {
         </TabsList>
 
         {/* Operations */}
-        <TabsContent value="operations" className="space-y-6 mt-4">
-          <SectionHeader title="Success Stories" />
-          <SuccessStoriesPanel />
-
-          <SectionHeader title="Scripts" />
-          <ScriptsPage />
-
-          <SectionHeader title="Giveaways" />
-          <GiveawaysAdminTab />
-
-          <SectionHeader title="Events" />
-          <EventsSection />
-
-          <SectionHeader title="Summer Bingo" />
-          <BingoAdminTab />
-
-          <SectionHeader title="Hiring" />
-          <HiringPipeline />
+        <TabsContent value="operations" className="mt-4">
+          <Accordion type="multiple" className="space-y-2">
+            <Section value="ops-success" title="Success Stories">
+              <SuccessStoriesPanel />
+            </Section>
+            <Section value="ops-scripts" title="Scripts">
+              <ScriptsPage />
+            </Section>
+            <Section value="ops-giveaways" title="Giveaways">
+              <GiveawaysAdminTab />
+            </Section>
+            <Section value="ops-events" title="Events">
+              <EventsSection />
+            </Section>
+            <Section value="ops-bingo" title="Summer Bingo">
+              <BingoAdminTab />
+            </Section>
+            <Section value="ops-hiring" title="Hiring">
+              <HiringPipeline />
+            </Section>
+          </Accordion>
         </TabsContent>
 
         {/* Reporting */}
-        <TabsContent value="reporting" className="space-y-6 mt-4">
-          <SectionHeader title="Overview" subtitle="Business health for the selected date range" />
-          <DateRangeFilter
-            preset={datePreset}
-            customRange={customRange}
-            onPresetChange={setDatePreset}
-            onCustomRangeChange={setCustomRange}
-            dateRange={dateRange || { start: new Date(), end: new Date() }}
-          />
-          <AdminOverviewHealth dateRange={dateRange} />
-
-          <SectionHeader title="Objections" />
-          <ObjectionReport />
-
-          <SectionHeader title="Referrals" />
-          <ReferralTracker />
-          <ReferralTree />
-
-          <SectionHeader title="Unified Portal Imports" subtitle="Who marked leads and VIP registrants imported into Mindbody" />
-          <MindbodyImportsPanel />
-
+        <TabsContent value="reporting" className="mt-4">
+          <Accordion type="multiple" className="space-y-2">
+            <Section value="rep-overview" title="Overview" subtitle="Business health for the selected date range">
+              <DateRangeFilter
+                preset={datePreset}
+                customRange={customRange}
+                onPresetChange={setDatePreset}
+                onCustomRangeChange={setCustomRange}
+                dateRange={dateRange || { start: new Date(), end: new Date() }}
+              />
+              <AdminOverviewHealth dateRange={dateRange} />
+            </Section>
+            <Section value="rep-objections" title="Objections">
+              <ObjectionReport />
+            </Section>
+            <Section value="rep-referrals" title="Referrals">
+              <ReferralTracker />
+              <ReferralTree />
+            </Section>
+            <Section value="rep-mindbody" title="Unified Portal Imports" subtitle="Who marked leads and VIP registrants imported into Mindbody">
+              <MindbodyImportsPanel />
+            </Section>
+          </Accordion>
         </TabsContent>
 
         {/* Data */}
-        <TabsContent value="data" className="space-y-6 mt-4">
-          <SectionHeader title="Lead Sheet Import" />
-          <LeadSheetImport />
-
-          <SectionHeader title="Data Audit" />
-          <DataAuditDashboard />
-
-          <SectionHeader title="Duplicate Detection" />
-          <DuplicateDetectionCard />
-
-          <SectionHeader title="Integrity Dashboard" />
-          <IntegrityDashboard />
-
-          <SectionHeader title="RingCentral Webhook" subtitle="Auto-logs outbound texts as lead contacts. Subscription renews daily." />
-          <RingCentralHealthCard />
-
-          <SectionHeader title="Phone Backfill" subtitle="Ongoing — parses missing phones from email intake" />
-          <PhoneBackfillCard />
-
-          <SectionHeader title="Archive Old DM Leads" subtitle="Ongoing — rolling 30-day archive" />
-          <ArchiveOldDmLeads />
+        <TabsContent value="data" className="mt-4">
+          <Accordion type="multiple" className="space-y-2">
+            <Section value="data-sheet" title="Lead Sheet Import">
+              <LeadSheetImport />
+            </Section>
+            <Section value="data-audit" title="Data Audit">
+              <DataAuditDashboard />
+            </Section>
+            <Section value="data-dup" title="Duplicate Detection">
+              <DuplicateDetectionCard />
+            </Section>
+            <Section value="data-integrity" title="Integrity Dashboard">
+              <IntegrityDashboard />
+            </Section>
+            <Section value="data-rc" title="RingCentral Webhook" subtitle="Auto-logs outbound texts as lead contacts. Subscription renews daily.">
+              <RingCentralHealthCard />
+            </Section>
+            <Section value="data-phone" title="Phone Backfill" subtitle="Ongoing — parses missing phones from email intake">
+              <PhoneBackfillCard />
+            </Section>
+            <Section value="data-archive" title="Archive Old DM Leads" subtitle="Ongoing — rolling 30-day archive">
+              <ArchiveOldDmLeads />
+            </Section>
+          </Accordion>
         </TabsContent>
 
         {/* Settings */}
-        <TabsContent value="settings" className="space-y-6 mt-4">
-          <SectionHeader title="Staff Management" />
-          <StaffManagement />
-
-          <SectionHeader title="Shift Tasks" />
-          <ShiftTasksAdmin />
-
-          <SectionHeader title="Intro Scheduler" />
-          <IntroSchedulerLinkCard />
-          <BookableScheduleAdmin />
-
-          <SectionHeader title="RingCentral" subtitle="Deep-link template for the desktop app's SMS composer" />
-          <RingCentralUriTemplateCard />
+        <TabsContent value="settings" className="mt-4 space-y-4">
+          <Accordion type="multiple" className="space-y-2">
+            <Section value="set-staff" title="Staff Management">
+              <StaffManagement />
+            </Section>
+            <Section value="set-shift" title="Shift Tasks">
+              <ShiftTasksAdmin />
+            </Section>
+            <Section value="set-intro" title="Intro Scheduler">
+              <IntroSchedulerLinkCard />
+              <BookableScheduleAdmin />
+            </Section>
+            <Section value="set-rc" title="RingCentral" subtitle="Deep-link template for the desktop app's SMS composer">
+              <RingCentralUriTemplateCard />
+            </Section>
+          </Accordion>
 
           <div className="flex justify-end">
             <Button
