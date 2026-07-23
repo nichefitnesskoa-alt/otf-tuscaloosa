@@ -179,12 +179,19 @@ function EventsSection() {
   );
 }
 
-function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+function Section({ value, title, subtitle, children }: { value: string; title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div className="border-b pb-2 mt-2">
-      <h2 className="text-base font-semibold">{title}</h2>
-      {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
-    </div>
+    <AccordionItem value={value} className="border rounded-md px-3 bg-card">
+      <AccordionTrigger className="hover:no-underline py-3">
+        <div className="text-left">
+          <div className="text-base font-semibold">{title}</div>
+          {subtitle && <div className="text-xs text-muted-foreground mt-0.5 font-normal">{subtitle}</div>}
+        </div>
+      </AccordionTrigger>
+      <AccordionContent className="pt-2 pb-4 space-y-4">
+        {children}
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 
